@@ -1,0 +1,1574 @@
+import { useEffect, useState, FormEvent } from "react";
+import { SitzungsVorlage } from "../lib/api";
+import {
+  CalendarDays, Plus, ChevronLeft, ChevronUp, ChevronDown, Lock, Unlock, FileCheck, FileText,
+  Trash2, Link, Unlink, X, Loader2, CheckCircle, Clock, XCircle, RotateCcw, Eye,
+  Send, ClipboardList, Download, MessageSquare, Zap, Pencil, RefreshCw, BookmarkPlus, Tag,
+} from "lucide-react";
+import {
+  api, Sitzung, SitzungListItem, SitzungStatus, TOP, TopStatus, Dokument, Kommentar,
+  SITZUNG_STATUS_LABEL, TOP_STATUS_LABEL, KATEGORIE_LABEL, formatDatum,
+} from "../lib/api";
+import SitzungsEditor from "../components/SitzungsEditor";
+import AnwesenheitsListe from "../components/AnwesenheitsListe";
+import BeschlussBlock from "../components/BeschlussBlock";
+import KommentarBlock from "../components/KommentarBlock";
+
+// Extrahiert Plaintext aus TipTap-JSON (für Fallback-Anzeige und PDF)
+function tiptapZuText(json: object | null | undefined): string {
+  if (!json) return "";
+  const node = json as { text?: string; content?: object[] };
+  if (node.text) return node.text;
+  if (!node.content) return "";
+  return node.content.map(tiptapZuText).join(" ").replace(/\s+/g, " ").trim();
+}
+
+// ── Status-Badges ─────────────────────────────────────────────────
+const SITZUNG_BADGE: Record<SitzungStatus, string> = {
+  ENTWURF:              "bg-yellow-100 text-yellow-700 border-yellow-200",
+  TAGESORDNUNG_FIXIERT: "bg-blue-100 text-blue-700 border-blue-200",
+  PROTOKOLL_ENTWURF:    "bg-orange-100 text-orange-700 border-orange-200",
+  PROTOKOLL_FINAL:      "bg-green-100 text-green-700 border-green-200",
+  ABGESAGT:             "bg-gray-100 text-gray-500 border-gray-200",
+};
+
+const TOP_BADGE: Record<TopStatus, string> = {
+  OFFEN:        "bg-gray-100 text-gray-600",
+  BESCHLOSSEN:  "bg-green-100 text-green-700",
+  ABGELEHNT:    "bg-red-100 text-red-700",
+  VERTAGT:      "bg-yellow-100 text-yellow-700",
+  ZUR_KENNTNIS: "bg-blue-100 text-blue-700",
+};
+
+const TOP_STATUS_ICON: Record<TopStatus, React.ReactNode> = {
+  OFFEN:        <Clock size={12} />,
+  BESCHLOSSEN:  <CheckCircle size={12} />,
+  ABGELEHNT:    <XCircle size={12} />,
+  VERTAGT:      <RotateCcw size={12} />,
+  ZUR_KENNTNIS: <Eye size={12} />,
+};
+
+const VERSIONS_TYP_LABEL: Record<string, string> = {
+  TAGESORDNUNG_ENTWURF:  "V1.0 – Tagesordnung (Entwurf)",
+  TAGESORDNUNG_FIXIERT:  "V1.1 – Tagesordnung (Fixiert)",
+  PROTOKOLL_ENTWURF:     "V2.0 – Protokoll (Entwurf)",
+  PROTOKOLL_FINAL:       "V2.1 – Protokoll (Final)",
+};
+
+// ── Hauptkomponente ───────────────────────────────────────────────
+function PdfNeuGenerierenButton({ sitzungId, versionNummer, onFertig }: {
+  sitzungId: string;
+  versionNummer: string;
+  onFertig: () => void;
+}) {
+  const [laden, setLaden] = useState(false);
+
+  async function klick(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!confirm("PDF neu generieren? Das überschreibt die gespeicherte Version.")) return;
+    setLaden(true);
+    try {
+      await api.sitzungen.pdfNeuGenerieren(sitzungId, versionNummer);
+      onFertig();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Fehler beim Generieren");
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={klick}
+      disabled={laden}
+      title="PDF neu generieren (aktuelles Layout übernehmen)"
+      className="text-gray-400 hover:text-[rgb(var(--accent))] disabled:opacity-40"
+    >
+      {laden ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+    </button>
+  );
+}
+
+export default function Sitzungen() {
+  const [liste, setListe]           = useState<SitzungListItem[]>([]);
+  const [laden, setLaden]           = useState(true);
+  const [gewählt, setGewählt]       = useState<Sitzung | null>(null);
+  const [neueModal, setNeueModal]   = useState(false);
+  const [detailLaden, setDetailLaden] = useState(false);
+
+  function listeLaden() {
+    setLaden(true);
+    api.sitzungen.liste()
+      .then(setListe)
+      .catch(console.error)
+      .finally(() => setLaden(false));
+  }
+
+  useEffect(listeLaden, []);
+
+  async function sitzungOeffnen(id: string) {
+    setDetailLaden(true);
+    try {
+      const s = await api.sitzungen.einzel(id);
+      setGewählt(s);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Fehler beim Laden");
+    } finally {
+      setDetailLaden(false);
+    }
+  }
+
+  async function sitzungAktualisieren(id: string) {
+    const s = await api.sitzungen.einzel(id);
+    setGewählt(s);
+    listeLaden();
+  }
+
+  if (gewählt) {
+    return (
+      <SitzungDetail
+        sitzung={gewählt}
+        onZurueck={() => { setGewählt(null); listeLaden(); }}
+        onAktualisieren={() => sitzungAktualisieren(gewählt.id)}
+      />
+    );
+  }
+
+  return (
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Sitzungen</h1>
+        <button
+          onClick={() => setNeueModal(true)}
+          className="flex items-center gap-2 bg-[rgb(var(--accent))] hover:brightness-90 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+        >
+          <Plus size={16} />
+          Neue Sitzung
+        </button>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        {laden ? (
+          <div className="flex items-center justify-center h-48 text-gray-400">
+            <Loader2 className="animate-spin mr-2" size={18} /> Laden…
+          </div>
+        ) : liste.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-48 text-gray-400 text-sm">
+            <CalendarDays size={32} className="mb-2 opacity-30" />
+            Noch keine Sitzungen angelegt
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500 uppercase tracking-wide">
+                <th className="px-4 py-3 font-medium">Sitzung</th>
+                <th className="px-4 py-3 font-medium">Datum</th>
+                <th className="px-4 py-3 font-medium hidden sm:table-cell">Typ</th>
+                <th className="px-4 py-3 font-medium hidden sm:table-cell">Status</th>
+                <th className="px-4 py-3 font-medium hidden md:table-cell">TOPs</th>
+                <th className="px-4 py-3 font-medium hidden md:table-cell">Version</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {liste.map(s => (
+                <tr
+                  key={s.id}
+                  onClick={() => detailLaden ? undefined : sitzungOeffnen(s.id)}
+                  className="hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-gray-900">{s.titel}</p>
+                    {s.ort && <p className="text-xs text-gray-400">{s.ort}</p>}
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {formatDatum(s.sitzungsdatum)}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-gray-500 hidden sm:table-cell">
+                    {s.sitzungstyp === "ORDENTLICH" ? "Ordentlich" : "Außerordentlich"}
+                  </td>
+                  <td className="px-4 py-3 hidden sm:table-cell">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${SITZUNG_BADGE[s.status]}`}>
+                      {SITZUNG_STATUS_LABEL[s.status]}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{s._count.tops}</td>
+                  <td className="px-4 py-3 text-xs text-gray-500 hidden md:table-cell">
+                    {s.versionen[0] ? VERSIONS_TYP_LABEL[s.versionen[0].typ] ?? s.versionen[0].versionNummer : "–"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {neueModal && (
+        <NeueSitzungModal
+          onSchliessen={() => setNeueModal(false)}
+          onErfolg={(id) => { setNeueModal(false); listeLaden(); sitzungOeffnen(id); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Sitzung-Bearbeiten-Modal ──────────────────────────────────────
+function SitzungBearbeitenModal({
+  sitzung, onSchliessen, onErfolg,
+}: { sitzung: Sitzung; onSchliessen: () => void; onErfolg: () => void }) {
+  const [laden, setLaden]     = useState(false);
+  const [fehler, setFehler]   = useState("");
+  const [titel, setTitel]     = useState(sitzung.titel);
+  const [datum, setDatum]     = useState(sitzung.sitzungsdatum.slice(0, 10));
+  const [ort, setOrt]         = useState(sitzung.ort ?? "");
+  const [typ, setTyp]         = useState(sitzung.sitzungstyp ?? "ORDENTLICH");
+  const [notizen, setNotizen] = useState(sitzung.notizen ?? "");
+
+  async function speichern(e: FormEvent) {
+    e.preventDefault();
+    if (!titel || !datum) return;
+    setFehler(""); setLaden(true);
+    try {
+      await api.sitzungen.aktualisieren(sitzung.id, {
+        titel,
+        sitzungsdatum: datum,
+        ort: ort || undefined,
+        sitzungstyp: typ,
+        notizen: notizen || undefined,
+      });
+      onErfolg();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler beim Speichern");
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="font-semibold text-gray-900">Sitzung bearbeiten</h2>
+          <button onClick={onSchliessen} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>
+        <form onSubmit={speichern} className="px-6 py-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Titel *</label>
+            <input value={titel} onChange={e => setTitel(e.target.value)} required
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Datum *</label>
+            <input type="date" value={datum} onChange={e => setDatum(e.target.value)} required
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Ort</label>
+            <input value={ort} onChange={e => setOrt(e.target.value)} placeholder="Optional"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Typ</label>
+            <select value={typ} onChange={e => setTyp(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
+              <option value="ORDENTLICH">Ordentliche Sitzung</option>
+              <option value="AUSSERORDENTLICH">Außerordentliche Sitzung</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notizen</label>
+            <textarea value={notizen} onChange={e => setNotizen(e.target.value)} rows={3} placeholder="Optional"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-none" />
+          </div>
+          {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onSchliessen}
+              className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Abbrechen</button>
+            <button type="submit" disabled={laden || !titel || !datum}
+              className="flex-1 px-4 py-2 text-sm bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white rounded-lg flex items-center justify-center gap-2">
+              {laden && <Loader2 size={14} className="animate-spin" />}
+              Speichern
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Neue-Sitzung-Modal ────────────────────────────────────────────
+function NeueSitzungModal({
+  onSchliessen, onErfolg,
+}: { onSchliessen: () => void; onErfolg: (id: string) => void }) {
+  const [laden, setLaden]           = useState(false);
+  const [fehler, setFehler]         = useState("");
+  const [titel, setTitel]           = useState("");
+  const [datum, setDatum]           = useState("");
+  const [ort, setOrt]               = useState("");
+  const [typ, setTyp]               = useState("ORDENTLICH");
+  const [notizen, setNotizen]       = useState("");
+  const [vorlagen, setVorlagen]     = useState<SitzungsVorlage[]>([]);
+  const [vorlageId, setVorlageId]   = useState<string>("");
+
+  useEffect(() => {
+    api.vorlagen.liste().then(setVorlagen).catch(() => {});
+  }, []);
+
+  async function anlegen(e: FormEvent) {
+    e.preventDefault();
+    if (!titel || !datum) return;
+    setFehler("");
+    setLaden(true);
+    try {
+      const s = await api.sitzungen.erstellen({ titel, sitzungsdatum: datum, ort: ort || undefined, sitzungstyp: typ, notizen: notizen || undefined, vorlageId: vorlageId || undefined });
+      onErfolg(s.id);
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler beim Anlegen");
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="font-semibold text-gray-900">Neue Sitzung anlegen</h2>
+          <button onClick={onSchliessen} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>
+        <form onSubmit={anlegen} className="px-6 py-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Titel *</label>
+            <input value={titel} onChange={e => setTitel(e.target.value)} required
+              placeholder="z.B. BR-Sitzung April 2026"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Datum *</label>
+            <input type="datetime-local" value={datum} onChange={e => setDatum(e.target.value)} required
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ort</label>
+              <input value={ort} onChange={e => setOrt(e.target.value)} placeholder="Optional"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Typ</label>
+              <select value={typ} onChange={e => setTyp(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
+                <option value="ORDENTLICH">Ordentlich</option>
+                <option value="AUSSERORDENTLICH">Außerordentlich</option>
+              </select>
+            </div>
+          </div>
+          {vorlagen.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Vorlage</label>
+              <select value={vorlageId} onChange={e => setVorlageId(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
+                <option value="">Keine Vorlage</option>
+                {vorlagen.map(v => (
+                  <option key={v.id} value={v.id}>{v.name} ({v.tops.length} TOPs)</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notizen</label>
+            <textarea value={notizen} onChange={e => setNotizen(e.target.value)} rows={3} placeholder="Optional"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-none" />
+          </div>
+          {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onSchliessen} className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Abbrechen</button>
+            <button type="submit" disabled={laden}
+              className="flex-1 px-4 py-2 text-sm bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white rounded-lg flex items-center justify-center gap-2">
+              {laden && <Loader2 size={14} className="animate-spin" />}
+              Anlegen
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Sitzungs-Detail ───────────────────────────────────────────────
+function SitzungDetail({
+  sitzung, onZurueck, onAktualisieren,
+}: { sitzung: Sitzung; onZurueck: () => void; onAktualisieren: () => void }) {
+  const [aktion, setAktion]             = useState(false);
+  const [fehler, setFehler]             = useState("");
+  const [topModal, setTopModal]         = useState<{ top?: TOP } | null>(null);
+  const [linkModal, setLinkModal]       = useState<{ topId: string; topTitel: string } | null>(null);
+  const [spontanModal, setSpontanModal] = useState(false);
+  const [bearbeitenModal, setBearbeitenModal] = useState(false);
+
+  const readonly    = sitzung.status === "PROTOKOLL_FINAL" || sitzung.status === "ABGESAGT";
+  const imEntwurf   = sitzung.status === "ENTWURF";
+  const imProtokoll = sitzung.status === "PROTOKOLL_ENTWURF";
+
+  async function topVerschieben(topId: string, richtung: "hoch" | "runter") {
+    const tops = [...sitzung.tops].sort((a, b) => a.nummer - b.nummer);
+    const idx = tops.findIndex(t => t.id === topId);
+    if (idx < 0) return;
+    const tauschIdx = richtung === "hoch" ? idx - 1 : idx + 1;
+    if (tauschIdx < 0 || tauschIdx >= tops.length) return;
+    [tops[idx], tops[tauschIdx]] = [tops[tauschIdx], tops[idx]];
+    try {
+      await api.sitzungen.topReihenfolge(sitzung.id, tops.map(t => t.id));
+      onAktualisieren();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler beim Verschieben");
+    }
+  }
+
+  async function sitzungLoeschen() {
+    if (!confirm(`Sitzung "${sitzung.titel}" wirklich löschen?`)) return;
+    try {
+      await api.sitzungen.absagen(sitzung.id);
+      onZurueck();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler beim Löschen");
+    }
+  }
+
+  async function statusAktion(fn: () => Promise<unknown>) {
+    setFehler("");
+    setAktion(true);
+    try {
+      await fn();
+      onAktualisieren();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setAktion(false);
+    }
+  }
+
+  async function topLoeschen(topId: string) {
+    if (!confirm("TOP wirklich löschen?")) return;
+    try {
+      await api.sitzungen.topLoeschen(sitzung.id, topId);
+      onAktualisieren();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Fehler");
+    }
+  }
+
+  async function dokumentEntknuepfen(topId: string, dokumentId: string) {
+    try {
+      await api.sitzungen.dokumentEntknuepfen(sitzung.id, topId, dokumentId);
+      onAktualisieren();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Fehler");
+    }
+  }
+
+  return (
+    <div className="p-6 max-w-4xl">
+      {/* Header */}
+      <div className="flex items-start gap-4 mb-6">
+        <button onClick={onZurueck} className="mt-1 text-gray-400 hover:text-gray-600 shrink-0">
+          <ChevronLeft size={20} />
+        </button>
+        <div className="flex-1">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-2xl font-bold text-gray-900">{sitzung.titel}</h1>
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${SITZUNG_BADGE[sitzung.status]}`}>
+              {SITZUNG_STATUS_LABEL[sitzung.status]}
+            </span>
+            {imEntwurf && (
+              <>
+                <button
+                  onClick={() => setBearbeitenModal(true)}
+                  title="Metadaten bearbeiten"
+                  className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded transition-colors"
+                >
+                  <Pencil size={15} />
+                </button>
+                <button
+                  onClick={sitzungLoeschen}
+                  title="Sitzung löschen"
+                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </>
+            )}
+          </div>
+          <div className="flex gap-4 mt-1 text-sm text-gray-500 flex-wrap">
+            <span>{formatDatum(sitzung.sitzungsdatum)}</span>
+            {sitzung.ort && <span>{sitzung.ort}</span>}
+            <span>{sitzung.sitzungstyp === "ORDENTLICH" ? "Ordentliche Sitzung" : "Außerordentliche Sitzung"}</span>
+          </div>
+        </div>
+      </div>
+
+      {fehler && (
+        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+          {fehler}
+        </div>
+      )}
+
+      {/* Versions-Timeline */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-5">
+        <h2 className="text-sm font-semibold text-gray-700 mb-3">Versionshistorie</h2>
+        <div className="flex gap-2 flex-wrap">
+          {sitzung.versionen.map(v => (
+            <div key={v.id} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs">
+              {v.readonly ? <Lock size={11} className="text-gray-400" /> : <Unlock size={11} className="text-blue-500" />}
+              <span className="font-medium text-gray-700">{VERSIONS_TYP_LABEL[v.typ] ?? v.versionNummer}</span>
+              {v.einladungVersendetAm && (
+                <span className="text-green-600 ml-1">· Einladung versendet {formatDatum(v.einladungVersendetAm)}</span>
+              )}
+              {v.finalisiertAm && (
+                <span className="text-green-600 ml-1">· Finalisiert {formatDatum(v.finalisiertAm)}</span>
+              )}
+              {(v.typ === "TAGESORDNUNG_FIXIERT" || v.typ === "PROTOKOLL_FINAL") && (
+                <span className="ml-2 inline-flex items-center gap-1">
+                  <a
+                    href={`${import.meta.env.VITE_API_URL ?? "http://localhost:4000"}/api/sitzungen/${sitzung.id}/pdf/${v.versionNummer}`}
+                    download
+                    onClick={e => {
+                      e.stopPropagation();
+                      const token = localStorage.getItem("brdms_token");
+                      e.preventDefault();
+                      fetch(
+                        `${import.meta.env.VITE_API_URL ?? "http://localhost:4000"}/api/sitzungen/${sitzung.id}/pdf/${v.versionNummer}`,
+                        { headers: { Authorization: `Bearer ${token}` } }
+                      ).then(r => r.blob()).then(blob => {
+                        const a = document.createElement("a");
+                        a.href = URL.createObjectURL(blob);
+                        a.download = `sitzung-v${v.versionNummer}.pdf`;
+                        a.click();
+                      });
+                    }}
+                    className="text-[rgb(var(--accent))] hover:brightness-75"
+                    title="PDF herunterladen"
+                  >
+                    <Download size={11} />
+                  </a>
+                  <PdfNeuGenerierenButton sitzungId={sitzung.id} versionNummer={v.versionNummer} onFertig={onAktualisieren} />
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Aktions-Buttons (State Machine) */}
+      {!readonly && (
+        <div className="flex gap-2 flex-wrap mb-5">
+          {imEntwurf && (
+            <button
+              onClick={() => statusAktion(() => api.sitzungen.fixieren(sitzung.id))}
+              disabled={aktion || sitzung.tops.length === 0}
+              className="flex items-center gap-2 bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            >
+              {aktion ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
+              Tagesordnung fixieren (→ V1.1)
+            </button>
+          )}
+          {sitzung.status === "TAGESORDNUNG_FIXIERT" && (
+            <>
+              <button
+                onClick={() => statusAktion(() => api.sitzungen.einladungSenden(sitzung.id))}
+                disabled={aktion}
+                className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+              >
+                <Send size={14} />
+                Einladung als versendet markieren
+              </button>
+              <button
+                onClick={() => statusAktion(() => api.sitzungen.protokollStarten(sitzung.id))}
+                disabled={aktion}
+                className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+              >
+                {aktion ? <Loader2 size={14} className="animate-spin" /> : <ClipboardList size={14} />}
+                Protokoll starten (→ V2.0)
+              </button>
+            </>
+          )}
+          {imProtokoll && (
+            <button
+              onClick={() => statusAktion(() => api.sitzungen.finalisieren(sitzung.id))}
+              disabled={aktion}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            >
+              {aktion ? <Loader2 size={14} className="animate-spin" /> : <FileCheck size={14} />}
+              Protokoll finalisieren (→ V2.1 Final)
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Anwesenheitsliste */}
+      {(sitzung.status === "TAGESORDNUNG_FIXIERT" || sitzung.status === "PROTOKOLL_ENTWURF" || sitzung.status === "PROTOKOLL_FINAL") && (
+        <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5">
+          <div>
+            <p className="text-sm font-medium text-amber-900">Anwesenheitsliste</p>
+            <p className="text-xs text-amber-700">Zum Ausdrucken und Unterschreiben während der Sitzung</p>
+          </div>
+          <a
+            href={api.sitzungen.anwesenheitslisteUrl(sitzung.id)}
+            onClick={e => {
+              e.preventDefault();
+              const token = localStorage.getItem("brdms_token");
+              fetch(api.sitzungen.anwesenheitslisteUrl(sitzung.id), {
+                headers: { Authorization: `Bearer ${token}` },
+              }).then(r => r.blob()).then(blob => {
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = `anwesenheitsliste.pdf`;
+                a.click();
+              });
+            }}
+            className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            <Download size={14} />
+            PDF herunterladen
+          </a>
+        </div>
+      )}
+
+      {/* TOPs */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-5">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <h2 className="font-semibold text-gray-800 text-sm">Tagesordnungspunkte ({sitzung.tops.length})</h2>
+          <div className="flex items-center gap-2">
+            {imEntwurf && (
+              <button
+                onClick={() => setTopModal({})}
+                className="flex items-center gap-1 text-[rgb(var(--accent))] hover:brightness-90 text-sm font-medium"
+              >
+                <Plus size={15} /> TOP hinzufügen
+              </button>
+            )}
+            {imProtokoll && (
+              <button
+                onClick={() => setSpontanModal(true)}
+                className="flex items-center gap-1 text-amber-600 hover:text-amber-700 text-sm font-medium"
+              >
+                <Zap size={15} /> Spontan-TOP
+              </button>
+            )}
+          </div>
+        </div>
+
+        {sitzung.tops.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-24 text-gray-400 text-sm">
+            <FileText size={24} className="mb-1 opacity-30" />
+            Noch keine TOPs angelegt
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {sitzung.tops.map((top, idx) => (
+              <TopZeile
+                key={top.id}
+                top={top}
+                sitzungId={sitzung.id}
+                sitzungStatus={sitzung.status}
+                readonly={readonly}
+                imEntwurf={imEntwurf}
+                imProtokoll={imProtokoll}
+                istErster={idx === 0}
+                istLetzter={idx === sitzung.tops.length - 1}
+                onBearbeiten={() => setTopModal({ top })}
+                onLoeschen={() => topLoeschen(top.id)}
+                onVerschiebenHoch={() => topVerschieben(top.id, "hoch")}
+                onVerschiebenRunter={() => topVerschieben(top.id, "runter")}
+                onDokumentVerknuepfen={() => setLinkModal({ topId: top.id, topTitel: top.titel })}
+                onDokumentEntknuepfen={(dId) => dokumentEntknuepfen(top.id, dId)}
+                onAktualisieren={onAktualisieren}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Notizen */}
+      {sitzung.notizen && (
+        <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 text-sm text-gray-600">
+          <p className="font-medium text-gray-700 mb-1">Notizen</p>
+          <p className="whitespace-pre-wrap">{sitzung.notizen}</p>
+        </div>
+      )}
+
+      {/* Anwesenheitsliste */}
+      <div className="mt-5">
+        <AnwesenheitsListe sitzungId={sitzung.id} readonly={sitzung.status === "PROTOKOLL_FINAL"} />
+      </div>
+
+      {/* Kommentare */}
+      <KommentareSection sitzungId={sitzung.id} />
+
+      {/* Modals */}
+      {bearbeitenModal && (
+        <SitzungBearbeitenModal
+          sitzung={sitzung}
+          onSchliessen={() => setBearbeitenModal(false)}
+          onErfolg={() => { setBearbeitenModal(false); onAktualisieren(); }}
+        />
+      )}
+      {spontanModal && (
+        <SpontanTopModal
+          sitzungId={sitzung.id}
+          onSchliessen={() => setSpontanModal(false)}
+          onErfolg={() => { setSpontanModal(false); onAktualisieren(); }}
+        />
+      )}
+      {topModal !== null && (
+        <TopModal
+          sitzungId={sitzung.id}
+          top={topModal.top}
+          onSchliessen={() => setTopModal(null)}
+          onErfolg={() => { setTopModal(null); onAktualisieren(); }}
+        />
+      )}
+      {linkModal !== null && (
+        <DokumentLinkModal
+          sitzungId={sitzung.id}
+          topId={linkModal.topId}
+          topTitel={linkModal.topTitel}
+          bereitsVerknuepft={sitzung.tops.find(t => t.id === linkModal.topId)?.dokumente.map(d => d.dokument.id) ?? []}
+          onSchliessen={() => setLinkModal(null)}
+          onErfolg={() => { setLinkModal(null); onAktualisieren(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── TOP-Zeile ─────────────────────────────────────────────────────
+function TopZeile({
+  top, sitzungId, sitzungStatus, readonly, imEntwurf, imProtokoll,
+  istErster, istLetzter,
+  onBearbeiten, onLoeschen, onVerschiebenHoch, onVerschiebenRunter,
+  onDokumentVerknuepfen, onDokumentEntknuepfen, onAktualisieren,
+}: {
+  top: TOP;
+  sitzungId: string;
+  sitzungStatus: SitzungStatus;
+  readonly: boolean;
+  imEntwurf: boolean;
+  imProtokoll: boolean;
+  istErster: boolean;
+  istLetzter: boolean;
+  onBearbeiten: () => void;
+  onLoeschen: () => void;
+  onVerschiebenHoch: () => void;
+  onVerschiebenRunter: () => void;
+  onDokumentVerknuepfen: () => void;
+  onDokumentEntknuepfen: (dokumentId: string) => void;
+  onAktualisieren: () => void;
+}) {
+  const [ergebnisOffen, setErgebnisOffen]       = useState(false);
+  const [ergebnis, setErgebnis]                 = useState(top.ergebnis ?? "");
+  const [ergebnisJson, setErgebnisJson]         = useState<object | null>(top.ergebnisJson ?? null);
+  const [topStatus, setTopStatus]               = useState<TopStatus>(top.status);
+  const [speichern, setSpeichern]               = useState(false);
+  const [inhaltJson, setInhaltJson]             = useState<object | null>(top.inhaltsJson ?? null);
+  const [inhaltGeaendert, setInhaltGeaendert]   = useState(false);
+  const [inhaltSpeichern, setInhaltSpeichern]   = useState(false);
+
+  // Sync wenn TOP extern aktualisiert wurde (z.B. nach TopModal-Speichern oder Phasenwechsel)
+  useEffect(() => {
+    if (!inhaltGeaendert) setInhaltJson(top.inhaltsJson ?? null);
+  }, [top.aktualisiertAm]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [kommentareOffen, setKommentareOffen]   = useState(false);
+  const [extraktModal, setExtraktModal]         = useState(false);
+
+  async function ergebnisSpeichern() {
+    setSpeichern(true);
+    try {
+      await api.sitzungen.topAktualisieren(sitzungId, top.id, {
+        ergebnis: tiptapZuText(ergebnisJson) || ergebnis || undefined,
+        ergebnisJson: ergebnisJson ?? undefined,
+        topStatus,
+      });
+      setErgebnisOffen(false);
+      onAktualisieren();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setSpeichern(false);
+    }
+  }
+
+  async function inhaltSpeichernFn() {
+    setInhaltSpeichern(true);
+    try {
+      await api.sitzungen.topAktualisieren(sitzungId, top.id, {
+        inhalt:      tiptapZuText(inhaltJson) || undefined,
+        inhaltsJson: inhaltJson ?? undefined,
+      });
+      setInhaltGeaendert(false);
+      onAktualisieren();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setInhaltSpeichern(false);
+    }
+  }
+
+  return (
+    <div className="px-4 py-3">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 text-xs font-bold text-gray-400 w-6 shrink-0">
+          {top.nummer}.
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-medium text-gray-900 text-sm">{top.titel}</p>
+            {top.spontan && (
+              <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                <Zap size={10} /> Spontan
+              </span>
+            )}
+            <span className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full ${TOP_BADGE[top.status]}`}>
+              {TOP_STATUS_ICON[top.status]}
+              {TOP_STATUS_LABEL[top.status]}
+            </span>
+          </div>
+          {(top.inhaltsJson || top.inhalt) && (
+            imProtokoll ? (
+              <div className="mt-1.5">
+                <SitzungsEditor
+                  content={inhaltJson}
+                  onChange={json => { setInhaltJson(json); setInhaltGeaendert(true); }}
+                  readonly={readonly}
+                  minHeight="auto"
+                />
+                {inhaltGeaendert && (
+                  <button
+                    onClick={inhaltSpeichernFn}
+                    disabled={inhaltSpeichern}
+                    className="mt-1 flex items-center gap-1 text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-2.5 py-1 rounded-lg"
+                  >
+                    {inhaltSpeichern && <Loader2 size={10} className="animate-spin" />}
+                    Inhalt speichern
+                  </button>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                {top.inhaltsJson ? tiptapZuText(top.inhaltsJson as object) : top.inhalt}
+              </p>
+            )
+          )}
+          {top.ergebnis && !ergebnisOffen && (
+            <div className="mt-1.5 bg-green-50 border border-green-100 rounded-lg px-3 py-1.5 text-xs text-green-800">
+              <span className="font-medium">Ergebnis:</span> {top.ergebnis}
+            </div>
+          )}
+
+          {/* Beschlüsse (Abstimmungsmatrix, nur in Protokoll-Phase) */}
+          {imProtokoll && (
+            <BeschlussBlock
+              topId={top.id}
+              sitzungId={sitzungId}
+              readonly={sitzungStatus === "PROTOKOLL_FINAL"}
+            />
+          )}
+
+          {/* Ergebnis-Editor (nur in Protokoll-Phase) */}
+          {imProtokoll && ergebnisOffen && (
+            <div className="mt-2 space-y-2">
+              <select
+                value={topStatus}
+                onChange={e => setTopStatus(e.target.value as TopStatus)}
+                className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              >
+                {(Object.keys(TOP_STATUS_LABEL) as TopStatus[]).map(s => (
+                  <option key={s} value={s}>{TOP_STATUS_LABEL[s]}</option>
+                ))}
+              </select>
+              <SitzungsEditor
+                content={ergebnisJson}
+                onChange={json => { setErgebnisJson(json); setErgebnis(tiptapZuText(json)); }}
+                placeholder="Ergebnis / Beschluss eintragen…"
+                minHeight="80px"
+              />
+              <div className="flex gap-2">
+                <button onClick={ergebnisSpeichern} disabled={speichern}
+                  className="flex items-center gap-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs px-3 py-1.5 rounded-lg">
+                  {speichern && <Loader2 size={11} className="animate-spin" />}
+                  Speichern
+                </button>
+                <button onClick={() => setErgebnisOffen(false)}
+                  className="text-gray-500 hover:text-gray-700 text-xs px-2 py-1.5 rounded-lg border border-gray-200">
+                  Abbrechen
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Verknüpfte Dokumente */}
+          {top.dokumente.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {top.dokumente.map(td => (
+                <div key={td.id} className="flex items-center gap-1 bg-blue-50 border border-blue-100 rounded-lg px-2 py-1 text-xs text-blue-700">
+                  <FileText size={11} />
+                  <span className="max-w-[160px] truncate" title={td.dokument.titel}>
+                    {td.dokument.titel}
+                  </span>
+                  <span className="text-blue-400 ml-0.5">({KATEGORIE_LABEL[td.dokument.kategorie]})</span>
+                  <button
+                    title="Dokument öffnen"
+                    onClick={() => {
+                      const token = localStorage.getItem("brdms_token");
+                      fetch(api.dokumente.downloadUrl(td.dokument.id), {
+                        headers: token ? { Authorization: `Bearer ${token}` } : {},
+                      })
+                        .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.blob(); })
+                        .then(blob => {
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          const isPdf = td.dokument.dateiname.toLowerCase().endsWith(".pdf");
+                          if (isPdf) {
+                            a.target = "_blank";
+                          } else {
+                            a.download = td.dokument.dateiname;
+                          }
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                        })
+                        .catch(err => alert(`Fehler beim Öffnen: ${err}`));
+                    }}
+                    className="ml-1 text-blue-400 hover:text-blue-700"
+                  >
+                    <Eye size={10} />
+                  </button>
+                  {!readonly && (
+                    <button
+                      onClick={() => {
+                        if (confirm(`Verknüpfung mit „${td.dokument.titel}" wirklich trennen?`)) {
+                          onDokumentEntknuepfen(td.dokument.id);
+                        }
+                      }}
+                      title="Verknüpfung trennen"
+                      className="text-blue-200 hover:text-red-500 ml-2"
+                    >
+                      <Unlink size={10} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Aktionen */}
+        <div className="flex items-center gap-1 shrink-0">
+          {imEntwurf && (
+            <>
+              <button
+                onClick={onVerschiebenHoch}
+                disabled={istErster}
+                title="Nach oben"
+                className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded transition-colors disabled:opacity-25 disabled:cursor-default"
+              >
+                <ChevronUp size={15} />
+              </button>
+              <button
+                onClick={onVerschiebenRunter}
+                disabled={istLetzter}
+                title="Nach unten"
+                className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded transition-colors disabled:opacity-25 disabled:cursor-default"
+              >
+                <ChevronDown size={15} />
+              </button>
+            </>
+          )}
+          <button
+            onClick={() => setKommentareOffen(o => !o)}
+            title="Kommentare"
+            className={`p-1.5 rounded transition-colors ${kommentareOffen ? "text-purple-600 bg-purple-50" : "text-gray-400 hover:text-purple-600 hover:bg-purple-50"}`}
+          >
+            <MessageSquare size={15} />
+          </button>
+          <button
+            onClick={() => setExtraktModal(true)}
+            title="Ins Wissensarchiv extrahieren"
+            className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded transition-colors"
+          >
+            <BookmarkPlus size={15} />
+          </button>
+          {imProtokoll && !ergebnisOffen && (
+            <button
+              onClick={() => setErgebnisOffen(true)}
+              title="Ergebnis / Beschluss eintragen"
+              className="p-1.5 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
+            >
+              <ClipboardList size={15} />
+            </button>
+          )}
+          {(imProtokoll || readonly) && (
+            <button
+              onClick={() => {
+                const token = localStorage.getItem("brdms_token");
+                fetch(api.sitzungen.topAuszugUrl(sitzungId, top.id), {
+                  headers: { Authorization: `Bearer ${token}` },
+                }).then(r => r.blob()).then(blob => {
+                  const a = document.createElement("a");
+                  a.href = URL.createObjectURL(blob);
+                  a.download = `auszug-top${top.nummer}.pdf`;
+                  a.click();
+                }).catch(() => alert("PDF konnte nicht erstellt werden"));
+              }}
+              title="Auszug als PDF (ohne Stimmdetails)"
+              className="p-1.5 text-gray-400 hover:text-green-700 hover:bg-green-50 rounded transition-colors"
+            >
+              <Download size={15} />
+            </button>
+          )}
+          {!readonly && (
+            <button
+              onClick={onDokumentVerknuepfen}
+              title="Dokument verknüpfen"
+              className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded transition-colors"
+            >
+              <Link size={15} />
+            </button>
+          )}
+          {imEntwurf && (
+            <>
+              <button
+                onClick={onBearbeiten}
+                title="Bearbeiten"
+                className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded transition-colors"
+              >
+                <FileText size={15} />
+              </button>
+              <button
+                onClick={onLoeschen}
+                title="Löschen"
+                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+              >
+                <Trash2 size={15} />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Kommentare (aufklappbar) */}
+      {kommentareOffen && (
+        <div className="mt-2 ml-9 p-3 bg-purple-50 rounded-lg border border-purple-100">
+          <KommentarBlock
+            compact
+            ladeUrl={`/api/tops/${top.id}/kommentare`}
+            erstellenUrl={`/api/tops/${top.id}/kommentare`}
+            loeschenUrl={kid => `/api/tops/${top.id}/kommentare/${kid}`}
+          />
+        </div>
+      )}
+      <ExtraktModal
+        sitzungId={sitzungId}
+        topId={top.id}
+        titel={top.titel}
+        inhalt={top.inhaltsJson ? tiptapZuText(top.inhaltsJson) : (top.inhalt ?? "")}
+        ergebnis={top.ergebnis ?? ""}
+        offen={extraktModal}
+        onSchliessen={() => setExtraktModal(false)}
+      />
+
+
+    </div>
+  );
+}
+// ── TOP-Modal (Anlegen / Bearbeiten) ──────────────────────────────
+function TopModal({
+  sitzungId, top, onSchliessen, onErfolg,
+}: { sitzungId: string; top?: TOP; onSchliessen: () => void; onErfolg: () => void }) {
+  const [laden, setLaden]       = useState(false);
+  const [fehler, setFehler]     = useState("");
+  const [titel, setTitel]       = useState(top?.titel ?? "");
+  const [inhaltJson, setInhaltJson] = useState<object | null>(top?.inhaltsJson ?? null);
+
+  async function speichern(e: FormEvent) {
+    e.preventDefault();
+    if (!titel) return;
+    setFehler("");
+    setLaden(true);
+    try {
+      const payload = {
+        titel,
+        inhalt: tiptapZuText(inhaltJson) || undefined,
+        inhaltsJson: inhaltJson ?? undefined,
+      };
+      if (top) {
+        await api.sitzungen.topAktualisieren(sitzungId, top.id, payload);
+      } else {
+        await api.sitzungen.topHinzufuegen(sitzungId, payload);
+      }
+      onErfolg();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="font-semibold text-gray-900">{top ? "TOP bearbeiten" : "TOP hinzufügen"}</h2>
+          <button onClick={onSchliessen} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>
+        <form onSubmit={speichern} className="px-6 py-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Titel *</label>
+            <input value={titel} onChange={e => setTitel(e.target.value)} required autoFocus
+              placeholder="z.B. Anhörung gemäß § 99 BetrVG – Einstellung Herr Müller"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Sachverhalt / Beschreibung</label>
+            <SitzungsEditor
+              content={inhaltJson}
+              onChange={setInhaltJson}
+              placeholder="Optional – Sachverhalt, Unterlagen, Hintergrund…"
+              minHeight="140px"
+            />
+          </div>
+          {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onSchliessen} className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Abbrechen</button>
+            <button type="submit" disabled={laden}
+              className="flex-1 px-4 py-2 text-sm bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white rounded-lg flex items-center justify-center gap-2">
+              {laden && <Loader2 size={14} className="animate-spin" />}
+              {top ? "Speichern" : "Hinzufügen"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Ins Wissensarchiv extrahieren ──────────────────────────────────
+function ExtraktModal({
+  sitzungId, topId, titel, inhalt, ergebnis, offen, onSchliessen,
+}: {
+  sitzungId: string; topId: string; titel: string; inhalt: string; ergebnis: string;
+  offen: boolean; onSchliessen: () => void;
+}) {
+  const [formTitel, setFormTitel]       = useState(titel);
+  const [formInhalt, setFormInhalt]     = useState(inhalt);
+  const [formLoesung, setFormLoesung]   = useState(ergebnis);
+  const [formKategorien, setFormKats]   = useState<string[]>([]);
+  const [tagInput, setTagInput]         = useState("");
+  const [laden, setLaden]               = useState(false);
+
+  function tagHinzufuegen() {
+    const t = tagInput.trim();
+    if (t && !formKategorien.includes(t)) setFormKats(k => [...k, t]);
+    setTagInput("");
+  }
+
+  async function speichern(e: FormEvent) {
+    e.preventDefault();
+    if (!formTitel.trim() || !formInhalt.trim()) return;
+    setLaden(true);
+    try {
+      await api.wissen.erstellen({
+        titel: formTitel.trim(),
+        inhalt: formInhalt.trim(),
+        kategorien: formKategorien,
+        loesung: formLoesung.trim() || undefined,
+        herkunft: "PROTOKOLL_EXTRAKT",
+        quelle: { sitzungId, topId },
+      });
+      onSchliessen();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Fehler beim Speichern");
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  if (!offen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <BookmarkPlus size={20} className="text-[rgb(var(--accent))]" />
+            Ins Wissensarchiv extrahieren
+          </h2>
+          <button onClick={onSchliessen} className="text-gray-400 hover:text-gray-600">
+            <X size={20} />
+          </button>
+        </div>
+        <form onSubmit={speichern} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Titel *</label>
+            <input value={formTitel} onChange={e => setFormTitel(e.target.value)} required autoFocus
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Sachverhalt / Situation *</label>
+            <textarea value={formInhalt} onChange={e => setFormInhalt(e.target.value)} required rows={4}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Lösung / Ergebnis</label>
+            <textarea value={formLoesung} onChange={e => setFormLoesung(e.target.value)} rows={3}
+              placeholder="Wie wurde das Problem gelöst?"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Kategorien / Schlagworte</label>
+            <div className="flex gap-2 mb-2">
+              <input value={tagInput} onChange={e => setTagInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); tagHinzufuegen(); } }}
+                placeholder="Schlagwort eingeben…"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+              <button type="button" onClick={tagHinzufuegen}
+                className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm text-gray-600">
+                <Tag size={14} />
+              </button>
+            </div>
+            {formKategorien.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {formKategorien.map(kat => (
+                  <span key={kat} className="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                    {kat}
+                    <button type="button" onClick={() => setFormKats(k => k.filter(t => t !== kat))}>
+                      <X size={11} className="hover:text-red-600" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onSchliessen}
+              className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
+              Abbrechen
+            </button>
+            <button type="submit" disabled={laden}
+              className="flex-1 bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
+              {laden && <Loader2 size={14} className="animate-spin" />}
+              Erstellen
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Kommentare Section ────────────────────────────────────────────
+function KommentareSection({ sitzungId }: { sitzungId: string }) {
+  const [kommentare, setKommentare] = useState<Kommentar[]>([]);
+  const [neuerKommentar, setNeuerKommentar] = useState("");
+  const [laded, setLaded] = useState(true);
+  const [senden, setSenden] = useState(false);
+
+  useEffect(() => {
+    ladeKommentare();
+  }, [sitzungId]);
+
+  async function ladeKommentare() {
+    setLaded(true);
+    try {
+      const data = await api.get<Kommentar[]>(`/api/sitzungen/${sitzungId}/kommentare`);
+      setKommentare(data);
+    } catch (err) {
+      console.error("Fehler beim Laden:", err);
+    } finally {
+      setLaded(false);
+    }
+  }
+
+  async function hinzufügen(e: FormEvent) {
+    e.preventDefault();
+    if (!neuerKommentar.trim()) return;
+    setSenden(true);
+    try {
+      const k = await api.post<Kommentar>(`/api/sitzungen/${sitzungId}/kommentare`, { inhalt: neuerKommentar });
+      setKommentare([...kommentare, k]);
+      setNeuerKommentar("");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setSenden(false);
+    }
+  }
+
+  async function löschen(id: string) {
+    if (!confirm("Kommentar wirklich löschen?")) return;
+    try {
+      await api.delete(`/api/sitzungen/${sitzungId}/kommentare/${id}`);
+      setKommentare(kommentare.filter(k => k.id !== id));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Fehler");
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mt-5">
+      <div className="flex items-center gap-2 mb-3">
+        <MessageSquare size={18} className="text-gray-500" />
+        <h2 className="font-semibold text-gray-800 text-sm">Kommentare ({kommentare.length})</h2>
+      </div>
+
+      {/* Eingabe */}
+      <form onSubmit={hinzufügen} className="mb-4 flex gap-2">
+        <input
+          value={neuerKommentar}
+          onChange={e => setNeuerKommentar(e.target.value)}
+          placeholder="Kommentar hinzufügen..."
+          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+        />
+        <button
+          type="submit"
+          disabled={senden || !neuerKommentar.trim()}
+          className="flex items-center gap-1 bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-50 text-white text-sm px-4 py-2 rounded-lg"
+        >
+          {senden ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+          Senden
+        </button>
+      </form>
+
+      {/* Liste */}
+      {laded ? (
+        <div className="flex items-center justify-center h-20 text-gray-400 text-sm">
+          <Loader2 className="animate-spin mr-2" size={16} /> Laden...
+        </div>
+      ) : kommentare.length === 0 ? (
+        <p className="text-gray-400 text-sm text-center py-4">Noch keine Kommentare</p>
+      ) : (
+        <div className="space-y-2">
+          {kommentare.map(k => (
+            <div key={k.id} className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap">{k.inhalt}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {k.autor.name} · {new Date(k.erstelltAm).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                </div>
+                <button
+                  onClick={() => löschen(k.id)}
+                  className="text-gray-400 hover:text-red-600 p-1"
+                  title="Löschen"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Dokument-Link-Modal ───────────────────────────────────────────
+function DokumentLinkModal({
+  sitzungId, topId, topTitel, bereitsVerknuepft, onSchliessen, onErfolg,
+}: {
+  sitzungId: string;
+  topId: string;
+  topTitel: string;
+  bereitsVerknuepft: string[];
+  onSchliessen: () => void;
+  onErfolg: () => void;
+}) {
+  const [dokumente, setDokumente] = useState<Dokument[]>([]);
+  const [suche, setSuche]         = useState("");
+  const [hinweis, setHinweis]     = useState("");
+  const [gewählt, setGewählt]     = useState<string | null>(null);
+  const [laden, setLaden]         = useState(false);
+  const [ladenListe, setLadenListe] = useState(true);
+  const [fehler, setFehler]       = useState("");
+
+  useEffect(() => {
+    api.dokumente.liste()
+      .then(d => setDokumente(d.filter(x => x.status === "AKTIV")))
+      .catch(console.error)
+      .finally(() => setLadenListe(false));
+  }, []);
+
+  const gefiltert = dokumente.filter(d =>
+    !bereitsVerknuepft.includes(d.id) &&
+    (suche === "" ||
+      d.titel.toLowerCase().includes(suche.toLowerCase()) ||
+      d.aktenzeichen?.toLowerCase().includes(suche.toLowerCase()))
+  );
+
+  async function verknuepfen() {
+    if (!gewählt) return;
+    setFehler("");
+    setLaden(true);
+    try {
+      await api.sitzungen.dokumentVerknuepfen(sitzungId, topId, gewählt, hinweis || undefined);
+      onErfolg();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <h2 className="font-semibold text-gray-900">Dokument verknüpfen</h2>
+            <p className="text-xs text-gray-500 mt-0.5">TOP: {topTitel}</p>
+          </div>
+          <button onClick={onSchliessen} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>
+        <div className="px-6 py-4 space-y-3">
+          <input
+            value={suche}
+            onChange={e => setSuche(e.target.value)}
+            placeholder="Dokument suchen (Titel oder Aktenzeichen)…"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+          />
+
+          <div className="border border-gray-200 rounded-lg overflow-hidden max-h-56 overflow-y-auto">
+            {ladenListe ? (
+              <div className="flex items-center justify-center h-24 text-gray-400">
+                <Loader2 className="animate-spin mr-2" size={16} /> Laden…
+              </div>
+            ) : gefiltert.length === 0 ? (
+              <div className="flex items-center justify-center h-24 text-gray-400 text-sm">
+                Keine Dokumente gefunden
+              </div>
+            ) : (
+              gefiltert.map(d => (
+                <div
+                  key={d.id}
+                  onClick={() => setGewählt(d.id === gewählt ? null : d.id)}
+                  className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer border-b border-gray-50 last:border-0 transition-colors ${
+                    gewählt === d.id ? "bg-[rgb(var(--accent)/0.1)]" : "hover:bg-gray-50"
+                  }`}
+                >
+                  <div className={`w-4 h-4 rounded-full border-2 shrink-0 ${
+                    gewählt === d.id ? "bg-[rgb(var(--accent))] border-[rgb(var(--accent))]" : "border-gray-300"
+                  }`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{d.titel}</p>
+                    <p className="text-xs text-gray-400">
+                      {KATEGORIE_LABEL[d.kategorie]}
+                      {d.aktenzeichen && ` · Az.: ${d.aktenzeichen}`}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Hinweis (optional)</label>
+            <input value={hinweis} onChange={e => setHinweis(e.target.value)}
+              placeholder="z.B. Bewerbungsunterlagen für TOP 3"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+          </div>
+
+          {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
+
+          <div className="flex gap-3 pt-1">
+            <button onClick={onSchliessen} className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Abbrechen</button>
+            <button onClick={verknuepfen} disabled={laden || !gewählt}
+              className="flex-1 px-4 py-2 text-sm bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white rounded-lg flex items-center justify-center gap-2">
+              {laden && <Loader2 size={14} className="animate-spin" />}
+              Verknüpfen
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Spontan-TOP-Modal ─────────────────────────────────────────────
+function SpontanTopModal({
+  sitzungId, onSchliessen, onErfolg,
+}: { sitzungId: string; onSchliessen: () => void; onErfolg: () => void }) {
+  const [laden,  setLaden]  = useState(false);
+  const [fehler, setFehler] = useState("");
+  const [titel,  setTitel]  = useState("");
+
+  async function beantragen(e: FormEvent) {
+    e.preventDefault();
+    if (!titel.trim()) return;
+    setFehler("");
+    setLaden(true);
+    try {
+      await api.sitzungen.spontanTop(sitzungId, titel.trim());
+      onErfolg();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <Zap size={18} className="text-amber-500" />
+            <h2 className="font-semibold text-gray-900">Spontan-TOP beantragen</h2>
+          </div>
+          <button onClick={onSchliessen} className="text-gray-400 hover:text-gray-600">
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={beantragen} className="p-5 space-y-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-800">
+            Der BR muss die Aufnahme <strong>einstimmig</strong> beschließen (§ 29 Abs. 2 BetrVG).
+            Nach dem Anlegen erscheint automatisch ein Aufnahme-Beschluss.
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Titel des beantragten TOPs <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={titel}
+              onChange={e => setTitel(e.target.value)}
+              placeholder="z.B. Antrag AG – Überstundenregelung Abteilung X"
+              autoFocus
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+            />
+          </div>
+
+          {fehler && (
+            <p className="text-red-600 text-sm">{fehler}</p>
+          )}
+
+          <div className="flex gap-3">
+            <button type="button" onClick={onSchliessen}
+              className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">
+              Abbrechen
+            </button>
+            <button type="submit" disabled={laden || !titel.trim()}
+              className="flex-1 px-4 py-2 text-sm bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white rounded-lg flex items-center justify-center gap-2 font-medium">
+              {laden && <Loader2 size={14} className="animate-spin" />}
+              <Zap size={14} /> TOP anlegen
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

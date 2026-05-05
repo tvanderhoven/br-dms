@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --sidebar-bg: 30 58 95;
+    --sidebar-active: 23 48 79;
+    --sidebar-hover: 45 73 110;
+    --sidebar-text: 255 255 255;
+    --sidebar-text-muted: 180 190 210;
+    --accent: 37 99 235;
+    --accent-hover: 29 78 216;
+    --text-primary: 17 24 39;
+    --bg-primary: 249 250 251;
+    --brand-50: 239 246 255;
+    --brand-500: 59 130 246;
+    --brand-600: 37 99 235;
+    --brand-700: 29 78 216;
+
+    font-size: 16px;
+  }
+
+  html.dark {
+    --sidebar-bg: 15 23 42;
+    --sidebar-active: 30 41 59;
+    --sidebar-hover: 40 53 71;
+    --sidebar-text: 243 244 246;
+    --sidebar-text-muted: 148 163 184;
+    --accent: 96 165 250;
+    --accent-hover: 147 197 253;
+    --text-primary: 243 244 246;
+    --bg-primary: 17 24 39;
+    --brand-50: 30 41 59;
+    --brand-500: 59 130 246;
+    --brand-600: 96 165 250;
+    --brand-700: 147 197 253;
+  }
+
+  body {
+    @apply bg-[rgb(var(--bg-primary))] text-[rgb(var(--text-primary))] antialiased;
+  }
+}
