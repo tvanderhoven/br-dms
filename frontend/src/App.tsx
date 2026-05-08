@@ -18,8 +18,23 @@ import Suche from "./pages/Suche";
 import Themensammlung from "./pages/Themensammlung";
 import Layout from "./components/Layout";
 
+function tokenGueltig(): boolean {
+  const t = localStorage.getItem("brdms_token");
+  if (!t) return false;
+  try {
+    const { exp } = JSON.parse(atob(t.split(".")[1]));
+    return exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+}
+
 function geschuetzt(element: React.ReactElement) {
-  return localStorage.getItem("brdms_token") ? element : <Navigate to="/login" replace />;
+  if (!tokenGueltig()) {
+    localStorage.removeItem("brdms_token");
+    return <Navigate to="/login" replace />;
+  }
+  return element;
 }
 
 export default function App() {

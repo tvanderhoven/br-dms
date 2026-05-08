@@ -20,8 +20,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   if (res.status === 401) {
     localStorage.removeItem("brdms_token");
-    window.location.href = "/login";
-    throw new Error("Sitzung abgelaufen");
+    if (window.location.pathname !== "/login") {
+      window.location.href = "/login";
+      throw new Error("Sitzung abgelaufen");
+    }
+    // Auf der Login-Seite: Fehler normal auswerten (z.B. "E-Mail oder Passwort falsch")
   }
 
   const data = await res.json().catch(() => null);
