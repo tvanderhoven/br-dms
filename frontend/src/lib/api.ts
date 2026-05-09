@@ -54,7 +54,7 @@ export const api = {
     einzel: (id: string) => request<Dokument>(`/api/dokumente/${id}`),
     upload: (formData: FormData) =>
       request<Dokument>("/api/dokumente", { method: "POST", body: formData }),
-    aktualisieren: (id: string, data: Partial<Pick<Dokument, "alias" | "tags" | "kategorie" | "aktenzeichen" | "beschreibung" | "vertraulich" | "deleteAt">>) =>
+    aktualisieren: (id: string, data: Partial<Pick<Dokument, "alias" | "tags" | "kategorie" | "aktenzeichen" | "beschreibung" | "vertraulich" | "deleteAt" | "wiedervorlageAm">>) =>
       request<Dokument>(`/api/dokumente/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     loeschen: (id: string) =>
       request<{ nachricht: string }>(`/api/dokumente/${id}`, { method: "DELETE" }),
@@ -200,6 +200,32 @@ export const api = {
       request<{ ok: boolean }>("/api/einstellungen/design", { method: "PUT", body: JSON.stringify(data) }),
   },
 
+  fristen: {
+    liste: (params: { von?: string; bis?: string; status?: string } = {}) => {
+      const q = new URLSearchParams();
+      if (params.von)    q.set("von",    params.von);
+      if (params.bis)    q.set("bis",    params.bis);
+      if (params.status) q.set("status", params.status);
+      return request<FristMitDokument[]>(`/api/fristen?${q}`);
+    },
+  },
+
+  beschluesse: {
+    register: (params: { sitzungId?: string; von?: string; bis?: string } = {}) => {
+      const q = new URLSearchParams();
+      if (params.sitzungId) q.set("sitzungId", params.sitzungId);
+      if (params.von)       q.set("von",       params.von);
+      if (params.bis)       q.set("bis",       params.bis);
+      return request<BeschlussRegisterEintrag[]>(`/api/beschluesse?${q}`);
+    },
+  },
+
+  export: {
+    amtsuebergabeUrl: () => `${BASE}/api/export/amtsuebergabe`,
+    briefvorlageUrl:  (dokumentId: string, typ: "widerspruch_99" | "zustimmungsverweigerung_102") =>
+      `${BASE}/api/export/briefvorlage/${dokumentId}/${typ}`,
+  },
+
   nachrichten: {
     liste:       () => request<Nachricht[]>("/api/nachrichten"),
     gesendet:    () => request<NachrichtGesendet[]>("/api/nachrichten/gesendet"),
@@ -272,10 +298,40 @@ export interface Dokument {
   dateiname: string; dateigroesse: number; mimeTyp: string;
   aktenzeichen?: string; beschreibung?: string; vertraulich: boolean;
   inboxGelesen: boolean; inboxGelesenAm?: string; inboxQuelle?: string;
-  deleteAt?: string; erstelltAm: string;
+  deleteAt?: string; wiedervorlageAm?: string | null; erstelltAm: string;
   textinhalt?: string | null;
   hochgeladenVon?: { name: string };
   fristen?: Frist[];
+}
+
+export interface FristMitDokument {
+  id: string;
+  typ: string;
+  status: string;
+  faelligAm: string;
+  bezeichnung?: string;
+  erledigtAm?: string;
+  erledigtVon?: { name: string } | null;
+  erstelltAm: string;
+  dokument: { id: string; titel: string; alias?: string; kategorie: Kategorie; aktenzeichen?: string };
+}
+
+export interface BeschlussRegisterEintrag {
+  id: string;
+  antragstext: string;
+  rechtsgrundlage: string;
+  jaStimmen: number;
+  neinStimmen: number;
+  enthaltungen: number;
+  anwesend: number;
+  ergebnis: string | null;
+  finalisiertAm?: string;
+  finalisiertVon?: { name: string } | null;
+  top: {
+    nummer: number;
+    titel: string;
+    sitzung: { id: string; titel: string; sitzungsdatum: string };
+  };
 }
 
 export interface DokumentVersion {

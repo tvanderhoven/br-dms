@@ -245,9 +245,10 @@ model Dokument {
   beschreibung   String?
   vertraulich    Boolean       @default(false)
 
-  deleteAt       DateTime?     @map("delete_at")
-  geloeschtAm    DateTime?     @map("geloescht_am")
-  loeschgrund    String?       @map("loeschgrund")
+  deleteAt        DateTime?     @map("delete_at")
+  geloeschtAm     DateTime?     @map("geloescht_am")
+  loeschgrund     String?       @map("loeschgrund")
+  wiedervorlageAm DateTime?     @map("wiedervorlage_am")
 
   hochgeladenVonId String      @map("hochgeladen_von_id")
   hochgeladenVon   Benutzer    @relation("HochgeladenVon", fields: [hochgeladenVonId], references: [id])

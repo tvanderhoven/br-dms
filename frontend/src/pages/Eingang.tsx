@@ -1,12 +1,12 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
-  Inbox, FileText, Clock, Tag, CheckSquare, Eye, X, ChevronRight, Loader2, Check, CheckCheck, History, Search
+  Inbox, FileText, Clock, Tag, CheckSquare, Eye, X, ChevronRight, Loader2, Check, CheckCheck, History, Search, RotateCcw, ScrollText,
 } from "lucide-react";
 import {
   api, Dokument, SitzungListItem, Benutzer, KATEGORIE_LABEL, formatDatum, formatDateigroesse
 } from "../lib/api";
 
-type Aktion = "sitzung-top" | "wissensarchiv" | "aufgabe" | "version" | null;
+type Aktion = "sitzung-top" | "wissensarchiv" | "aufgabe" | "version" | "wiedervorlage" | null;
 
 const QUELLE_LABEL: Record<string, string> = {
   WATCHFOLDER: "Watch-Folder",
@@ -46,6 +46,9 @@ export default function Eingang() {
   const [selMitglied, setSelMitglied]       = useState("");
   const [aufgabePrio, setAufgabePrio]       = useState("MITTEL");
   const [aufgabeFaellig, setAufgabeFaellig] = useState("");
+
+  // Wiedervorlage
+  const [wiedervorlageDatum, setWiedervorlageDatum] = useState("");
 
   // Versions-Felder
   const [versionSuche, setVersionSuche]       = useState("");
@@ -230,6 +233,23 @@ export default function Eingang() {
     }
   }
 
+  async function sendeAktionWiedervorlage() {
+    if (!ausgewaehlt || !wiedervorlageDatum) return;
+    setAktionLaden(true);
+    try {
+      await api.dokumente.aktualisieren(ausgewaehlt.id, { wiedervorlageAm: wiedervorlageDatum });
+      await api.dokumente.aktionErledigt(ausgewaehlt.id);
+      setAktionErfolg(`Wiedervorlage gesetzt für ${new Date(wiedervorlageDatum).toLocaleDateString("de-DE")}`);
+      setDokumente(prev => prev.filter(d => d.id !== ausgewaehlt.id));
+      setAusgewaehlt(null);
+      setAktiveAktion(null);
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setAktionLaden(false);
+    }
+  }
+
   const ungelesen = dokumente.filter(d => !d.inboxGelesen).length;
 
   return (
@@ -355,6 +375,25 @@ export default function Eingang() {
                 >
                   <History className="w-4 h-4" /> Als Version
                 </button>
+                <button
+                  onClick={() => { setWiedervorlageDatum(""); oeffneAktion("wiedervorlage"); }}
+                  className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  <RotateCcw className="w-4 h-4" /> Wiedervorlage
+                </button>
+                {(ausgewaehlt.kategorie === "ANHOERUNG_99" || ausgewaehlt.kategorie === "ANHOERUNG_102") && (
+                  <a
+                    href={api.export.briefvorlageUrl(
+                      ausgewaehlt.id,
+                      ausgewaehlt.kategorie === "ANHOERUNG_99" ? "widerspruch_99" : "zustimmungsverweigerung_102"
+                    )}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 px-3 py-2 bg-rose-600 text-white text-sm rounded-lg hover:bg-rose-700 transition-colors"
+                  >
+                    <ScrollText className="w-4 h-4" /> Briefvorlage
+                  </a>
+                )}
                 <a
                   href={api.dokumente.downloadUrl(ausgewaehlt.id)}
                   target="_blank"
@@ -416,6 +455,34 @@ export default function Eingang() {
                 >
                   {aktionLaden ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
                   Verknüpfen
+                </button>
+              </div>
+            )}
+
+            {aktiveAktion === "wiedervorlage" && (
+              <div className="px-5 py-4 border-b border-gray-200 bg-indigo-50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-medium text-indigo-900 text-sm">Wiedervorlage</h3>
+                  <button onClick={() => setAktiveAktion(null)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
+                </div>
+                <p className="text-xs text-indigo-700">Das Dokument erscheint am gewählten Datum erneut im Eingang.</p>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Wiedervorlage am</label>
+                  <input
+                    type="date"
+                    value={wiedervorlageDatum}
+                    min={new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)}
+                    onChange={e => setWiedervorlageDatum(e.target.value)}
+                    className="text-sm border border-gray-300 rounded-lg px-3 py-2"
+                  />
+                </div>
+                <button
+                  onClick={sendeAktionWiedervorlage}
+                  disabled={aktionLaden || !wiedervorlageDatum}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {aktionLaden ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+                  Wiedervorlage setzen
                 </button>
               </div>
             )}

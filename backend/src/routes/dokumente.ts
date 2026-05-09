@@ -289,6 +289,9 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
       if ("deleteAt" in body) {
         aenderungen["deleteAt"] = body["deleteAt"] ? new Date(body["deleteAt"] as string) : null;
       }
+      if ("wiedervorlageAm" in body) {
+        aenderungen["wiedervorlageAm"] = body["wiedervorlageAm"] ? new Date(body["wiedervorlageAm"] as string) : null;
+      }
 
       if (Object.keys(aenderungen).length === 0) {
         return reply.status(400).send({ fehler: "Keine änderbaren Felder angegeben" });

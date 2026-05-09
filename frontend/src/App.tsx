@@ -16,6 +16,8 @@ import Ressourcen from "./pages/Ressourcen";
 import Auditlog from "./pages/Auditlog";
 import Suche from "./pages/Suche";
 import Themensammlung from "./pages/Themensammlung";
+import Beschluesse from "./pages/Beschluesse";
+import Fristenkalender from "./pages/Fristenkalender";
 import Layout from "./components/Layout";
 
 function tokenGueltig(): boolean {
@@ -56,6 +58,8 @@ export default function App() {
         <Route path="/ressourcen"     element={geschuetzt(<Ressourcen />)} />
         <Route path="/suche"          element={geschuetzt(<Suche />)} />
         <Route path="/themen"         element={geschuetzt(<Themensammlung />)} />
+        <Route path="/beschluesse"    element={geschuetzt(<Beschluesse />)} />
+        <Route path="/fristen"        element={geschuetzt(<Fristenkalender />)} />
         <Route path="/audit"          element={geschuetzt(<Auditlog />)} />
         <Route path="/einstellungen" element={geschuetzt(<Einstellungen />)} />
       </Route>

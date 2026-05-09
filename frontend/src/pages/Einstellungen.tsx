@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Settings, Save, Loader2, RotateCcw, Users, Clock, FileText, Upload, Trash2, Palette } from "lucide-react";
+import { Settings, Save, Loader2, RotateCcw, Users, Clock, FileText, Upload, Trash2, Palette, Download } from "lucide-react";
 import { api, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen } from "../lib/api";
 import BenutzerVerwaltung from "./Benutzer";
 
@@ -717,6 +717,29 @@ export default function Einstellungen() {
 
       {/* Tab: Design */}
       {tab === "design" && <DesignTab />}
+
+      {/* Amtsübergabe-Export */}
+      <div className="mt-6 p-5 bg-amber-50 border border-amber-200 rounded-xl">
+        <div className="flex items-start gap-3">
+          <Download className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+          <div>
+            <h3 className="font-semibold text-amber-900 text-sm">Amtsübergabe-Export</h3>
+            <p className="text-xs text-amber-700 mt-0.5 mb-3">
+              Erstellt eine vollständige PDF-Dokumentation aller aktiven Dokumente,
+              Fristen und finalisierten Beschlüsse — für die Übergabe an einen neuen Betriebsrat.
+            </p>
+            <a
+              href={api.export.amtsuebergabeUrl()}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-700 transition-colors font-medium"
+            >
+              <Download className="w-4 h-4" />
+              PDF herunterladen
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

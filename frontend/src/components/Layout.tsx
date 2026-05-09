@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   FileText, LayoutDashboard, Shield, CalendarDays,
   Mail, CheckSquare, Inbox, Search, X, LayoutTemplate, Settings, UserCircle, BookOpen, Menu, Newspaper, Globe, ClipboardList,
+  Gavel, CalendarRange,
 } from "lucide-react";
 import { api, SuchErgebnis, KATEGORIE_LABEL, SITZUNG_STATUS_LABEL, RESSOURCE_KATEGORIE_LABEL, formatDatum, Rolle } from "../lib/api";
 import { useDesign } from "../lib/useDesign";
@@ -290,6 +291,14 @@ export default function Layout() {
           <NavLink to="/themen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
             <Newspaper size={16} />
             Themensammlung
+          </NavLink>
+          <NavLink to="/beschluesse" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+            <Gavel size={16} />
+            Beschlussregister
+          </NavLink>
+          <NavLink to="/fristen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+            <CalendarRange size={16} />
+            Fristenkalender
           </NavLink>
           {(meineRolle === "ADMIN" || meineRolle === "VORSITZ") && (
             <NavLink to="/audit" className={linkKlasse} onClick={() => setMobileOffen(false)}>
