@@ -56,7 +56,9 @@ tar -czf - \
   frontend/tsconfig.json \
   frontend/vite.config.ts \
   docker-compose.yml \
-| ssh "${ZIEL}" "tar -xzf - -C '${DATA_PATH}'"
+  backup.sh \
+  restore.sh \
+| ssh "${ZIEL}" "tar -xzf - -C '${DATA_PATH}' && chmod +x '${DATA_PATH}/backup.sh' '${DATA_PATH}/restore.sh'"
 
 echo -e "  ${GRN}✓ Übertragung abgeschlossen${NC}"
 
@@ -80,4 +82,14 @@ echo -e "  ${YLW}sudo /usr/local/bin/docker compose -f ${DC} build --no-cache fr
 echo ""
 echo -e "  ${BLD}Logs prüfen:${NC}"
 echo -e "  ${YLW}sudo /usr/local/bin/docker logs brdms_backend --tail 40 -f${NC}"
+echo ""
+echo -e "${BLD}================================================================${NC}"
+echo -e "${BLD}  Backup & Restore (auf dem NAS ausführen):${NC}"
+echo -e "${BLD}================================================================${NC}"
+echo ""
+echo -e "  ${BLD}Manuelles Backup erstellen:${NC}"
+echo -e "  ${YLW}sudo bash ${DATA_PATH}/backup.sh${NC}"
+echo ""
+echo -e "  ${BLD}Backup wiederherstellen (interaktiv):${NC}"
+echo -e "  ${YLW}sudo bash ${DATA_PATH}/restore.sh${NC}"
 echo ""

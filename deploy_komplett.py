@@ -30,6 +30,8 @@ SCAN_DIRS = [
 EINZEL = [
     "docker-compose.yml",
     "start.sh",
+    "backup.sh",
+    "restore.sh",
     ".env.example",
     "backend/Dockerfile",
     "backend/docker-entrypoint.sh",
@@ -107,6 +109,7 @@ def baue_payload(dateien):
             b64_literal = "    b64 = (\n" + "\n".join(
                 f"        {c!r}" for c in chunks) + "\n    )"
 
+        chmod_line = ["    os.chmod(ziel, 0o755)"] if rel.endswith('.sh') else []
         lines += [
             f"# {rel}",
             "try:",
@@ -114,6 +117,7 @@ def baue_payload(dateien):
             "    os.makedirs(os.path.dirname(ziel), exist_ok=True)",
             b64_literal,
             "    open(ziel, 'wb').write(base64.b64decode(b64))",
+        ] + chmod_line + [
             f"    ok.append({rel!r})",
             f"    print('  OK  {rel}')",
             "except Exception as e:",
@@ -157,6 +161,16 @@ def baue_payload(dateien):
         "print()",
         "print('  sudo /usr/local/bin/docker logs brdms_backend --tail 40 -f')",
         "print('  sudo /usr/local/bin/docker logs brdms_frontend --tail 20')",
+        "print()",
+        "print('=' * 62)",
+        "print('  Backup & Restore (auf dem NAS ausfuehren):')",
+        "print('=' * 62)",
+        "print()",
+        "print('  Manuelles Backup:')",
+        f"print('  sudo bash {NAS_BASE}/backup.sh')",
+        "print()",
+        "print('  Backup wiederherstellen (interaktiv):')",
+        f"print('  sudo bash {NAS_BASE}/restore.sh')",
         "print()",
     ]
 

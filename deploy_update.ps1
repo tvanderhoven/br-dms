@@ -50,14 +50,15 @@ $quellen = @(
     "frontend/postcss.config.js",
     "frontend/tailwind.config.js",
     "frontend/tsconfig.json",
-    "frontend/vite.config.ts"
+    "frontend/vite.config.ts",
+    "backup.sh",
+    "restore.sh"
 )
 
 # tar + SSH (benoetigt OpenSSH und tar, beide in Windows 10/11 eingebaut)
 $quellenStr = $quellen -join " "
 $tarCmd = "tar -czf - --exclude='*.env' $quellenStr"
-$sshCmd = "tar -xzf - -C '$DATA_PATH'"
-
+$sshCmd = "tar -xzf - -C '$DATA_PATH' && chmod +x '$DATA_PATH/backup.sh' '$DATA_PATH/restore.sh'"
 $proc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c $tarCmd | ssh $ZIEL `"$sshCmd`"" -WorkingDirectory $DIR -Wait -PassThru -NoNewWindow
 
 if ($proc.ExitCode -eq 0) {
@@ -83,4 +84,14 @@ Write-Host "  sudo sh -c `"cd $DATA_PATH && $DOCKER compose up -d --build`"" -Fo
 Write-Host ""
 Write-Host "  Nur Frontend:" -ForegroundColor White
 Write-Host "  sudo sh -c `"cd $DATA_PATH && $DOCKER compose up -d --force-recreate --build frontend`"" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "================================================================" -ForegroundColor White
+Write-Host "  Backup & Restore (auf dem NAS ausfuehren):" -ForegroundColor White
+Write-Host "================================================================" -ForegroundColor White
+Write-Host ""
+Write-Host "  Manuelles Backup:" -ForegroundColor White
+Write-Host "  sudo bash $DATA_PATH/backup.sh" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "  Backup wiederherstellen (interaktiv):" -ForegroundColor White
+Write-Host "  sudo bash $DATA_PATH/restore.sh" -ForegroundColor Yellow
 Write-Host ""
