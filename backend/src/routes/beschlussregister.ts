@@ -30,7 +30,6 @@ export async function beschlussRegisterRouten(app: FastifyInstance): Promise<voi
               },
             },
           },
-          finalisiertVon: { select: { name: true } },
         },
         orderBy: { finalisiertAm: "desc" },
       });

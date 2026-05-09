@@ -145,10 +145,6 @@ export default function Beschluesse() {
                       <dd className="text-gray-800">{b.rechtsgrundlage || "–"}</dd>
                     </div>
                     <div>
-                      <dt className="text-xs font-medium text-gray-500">Finalisiert von</dt>
-                      <dd className="text-gray-800">{b.finalisiertVon?.name ?? "–"}</dd>
-                    </div>
-                    <div>
                       <dt className="text-xs font-medium text-gray-500">Finalisiert am</dt>
                       <dd className="text-gray-800">{b.finalisiertAm ? formatDatum(b.finalisiertAm) : "–"}</dd>
                     </div>

@@ -326,7 +326,7 @@ export interface BeschlussRegisterEintrag {
   anwesend: number;
   ergebnis: string | null;
   finalisiertAm?: string;
-  finalisiertVon?: { name: string } | null;
+  finalisiertVonId?: string | null;
   top: {
     nummer: number;
     titel: string;
