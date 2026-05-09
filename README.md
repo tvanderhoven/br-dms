@@ -48,14 +48,14 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 
 **1. `.env.deploy` anlegen** (im Projektverzeichnis, nicht committen):
 ```
-NAS_USER=nasuser
-NAS_HOST=192.168.1.100
+NAS_USER=<NAS-Benutzername>
+NAS_HOST=<NAS-IP oder Hostname>
 DATA_PATH=/volume1/docker/br-dms
 ```
 
 **2. `.env` auf der NAS anlegen:**
 ```bash
-ssh user@nas-ip
+ssh <NAS-Benutzername>@<NAS-IP>
 cp /volume1/docker/br-dms/.env.example /volume1/docker/br-dms/.env
 nano /volume1/docker/br-dms/.env   # Alle Werte anpassen
 ```
