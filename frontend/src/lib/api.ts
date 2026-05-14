@@ -283,7 +283,9 @@ export interface Benutzer {
 }
 
 export type Kategorie =
-  | "ANHOERUNG_99" | "ANHOERUNG_102" | "BEWERBUNG_ALTERNATIV"
+  | "ANHOERUNG_99" | "ANHOERUNG_102"
+  | "BEWERBUNG" | "BEWERBUNG_ALTERNATIV"
+  | "ZEITMODELL_87"
   | "PROTOKOLL" | "BETRIEBSVEREINBARUNG" | "SONSTIGES";
 
 export type DokumentStatus = "AKTIV" | "ARCHIVIERT" | "LOESCHVORMERKUNG" | "GELOESCHT";
@@ -691,7 +693,9 @@ export interface WissensEintragErstellen {
 export const KATEGORIE_LABEL: Record<Kategorie, string> = {
   ANHOERUNG_99:         "§ 99 BetrVG – Einstellung/Versetzung",
   ANHOERUNG_102:        "§ 102 BetrVG – Kündigung",
-  BEWERBUNG_ALTERNATIV: "Alternative Bewerbung",
+  BEWERBUNG:            "Bewerbung",
+  BEWERBUNG_ALTERNATIV: "Alternative Bewerbung (§ 99)",
+  ZEITMODELL_87:        "§ 87 BetrVG – Zeitmodelländerung",
   PROTOKOLL:            "Sitzungsprotokoll",
   BETRIEBSVEREINBARUNG: "Betriebsvereinbarung",
   SONSTIGES:            "Sonstiges",

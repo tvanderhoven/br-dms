@@ -16,12 +16,14 @@ const STORAGE = process.env.STORAGE_PATH ?? "/data/storage";
 const MASTER_KEY = process.env.ENCRYPTION_KEY!;
 
 const STANDARD_FRISTEN: Record<Kategorie, number> = {
-  ANHOERUNG_99:         1825,
-  ANHOERUNG_102:        1825,
-  BEWERBUNG_ALTERNATIV: 180,
-  PROTOKOLL:            1460,
-  BETRIEBSVEREINBARUNG: 3650,
-  SONSTIGES:            1825,
+  ANHOERUNG_99:          1825,
+  ANHOERUNG_102:         1825,
+  BEWERBUNG:              90,
+  BEWERBUNG_ALTERNATIV:   30,
+  ZEITMODELL_87:         1825,
+  PROTOKOLL:             1460,
+  BETRIEBSVEREINBARUNG:  3650,
+  SONSTIGES:             1825,
 };
 
 export interface PipelineOptionen {
@@ -165,6 +167,9 @@ async function fristenAnlegen(dokumentId: string, kategorie: Kategorie): Promise
   if (kategorie === Kategorie.ANHOERUNG_102) {
     fristen.push({ typ: "ANHOERUNG_102_ORDENTLICH", tage: 7 });
     fristen.push({ typ: "ANHOERUNG_102_AUSSERORDENTLICH", tage: 3 });
+  }
+  if (kategorie === Kategorie.ZEITMODELL_87) {
+    fristen.push({ typ: "ZEITMODELL_87_WOCHE", tage: 7 });
   }
 
   for (const f of fristen) {

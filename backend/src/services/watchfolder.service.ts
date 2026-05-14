@@ -11,12 +11,14 @@ const SYSTEM_USER = process.env.SYSTEM_USER_ID ?? "";
 const ERLAUBTE_EXTS = new Set([".pdf", ".docx", ".docm", ".xlsx"]);
 
 const ORDNER_KATEGORIE: Record<string, Kategorie> = {
-  anhoerung_99:         Kategorie.ANHOERUNG_99,
-  anhoerung_102:        Kategorie.ANHOERUNG_102,
-  betriebsvereinbarung: Kategorie.BETRIEBSVEREINBARUNG,
-  protokoll:            Kategorie.PROTOKOLL,
-  bewerbung:            Kategorie.BEWERBUNG_ALTERNATIV,
-  sonstiges:            Kategorie.SONSTIGES,
+  anhoerung_99:          Kategorie.ANHOERUNG_99,
+  anhoerung_102:         Kategorie.ANHOERUNG_102,
+  betriebsvereinbarung:  Kategorie.BETRIEBSVEREINBARUNG,
+  protokoll:             Kategorie.PROTOKOLL,
+  bewerbung:             Kategorie.BEWERBUNG,
+  bewerbung_alternativ:  Kategorie.BEWERBUNG_ALTERNATIV,
+  zeitmodell_87:         Kategorie.ZEITMODELL_87,
+  sonstiges:             Kategorie.SONSTIGES,
 };
 
 // Unterordner die nicht importiert werden dürfen

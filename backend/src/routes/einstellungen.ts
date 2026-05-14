@@ -31,12 +31,14 @@ type ProtokollKey = keyof typeof PROTOKOLL_DEFAULTS;
 const PROTOKOLL_KEYS = Object.keys(PROTOKOLL_DEFAULTS) as ProtokollKey[];
 
 const STANDARD_FRISTEN: Record<Kategorie, number> = {
-  ANHOERUNG_99:         1825,
-  ANHOERUNG_102:        1825,
-  BEWERBUNG_ALTERNATIV: 180,
-  PROTOKOLL:            1460,
-  BETRIEBSVEREINBARUNG: 3650,
-  SONSTIGES:            1825,
+  ANHOERUNG_99:          1825,
+  ANHOERUNG_102:         1825,
+  BEWERBUNG:              90,
+  BEWERBUNG_ALTERNATIV:   30,
+  ZEITMODELL_87:         1825,
+  PROTOKOLL:             1460,
+  BETRIEBSVEREINBARUNG:  3650,
+  SONSTIGES:             1825,
 };
 
 const ALLE_KATEGORIEN = Object.values(Kategorie);
