@@ -155,25 +155,84 @@ function GlobaleSuche() {
   );
 }
 
+const POLL_INTERVAL = 60_000;
+
+function browserNotification(titel: string, text: string) {
+  if (Notification.permission === "granted") {
+    new Notification(titel, { body: text, icon: "/favicon.ico" });
+  }
+}
+
 export default function Layout() {
   useDesign();
   const navigate   = useNavigate();
   const [mobileOffen, setMobileOffen]             = useState(false);
-  const [inboxCount, setInboxCount]           = useState(0);
-  const [nachrichtenCount, setNachrichtenCount] = useState(0);
-  const [meineRolle, setMeineRolle]           = useState<Rolle | null>(null);
+  const [inboxCount, setInboxCount]               = useState(0);
+  const [nachrichtenCount, setNachrichtenCount]   = useState(0);
+  const [aufgabenCount, setAufgabenCount]         = useState(0);
+  const [meineRolle, setMeineRolle]               = useState<Rolle | null>(null);
+  const [toast, setToast]                         = useState<string | null>(null);
+  const prevCounts = useRef({ inbox: 0, nachrichten: 0, aufgaben: 0 });
+  const ersterLauf = useRef(true);
+
+  async function pollCounts() {
+    try {
+      const docs = await api.dokumente.inbox();
+      const n = docs.filter(d => !d.inboxGelesen).length;
+      if (!ersterLauf.current && n > prevCounts.current.inbox) {
+        const neu = n - prevCounts.current.inbox;
+        const msg = `${neu} neues Dokument${neu > 1 ? "e" : ""} im Eingang`;
+        setToast(msg);
+        browserNotification("BR-DMS · Eingang", msg);
+      }
+      prevCounts.current.inbox = n;
+      setInboxCount(n);
+    } catch {}
+
+    try {
+      const nachrichten = await api.nachrichten.liste();
+      const n = nachrichten.filter(x => !x.gelesen).length;
+      if (!ersterLauf.current && n > prevCounts.current.nachrichten) {
+        const neu = n - prevCounts.current.nachrichten;
+        const msg = `${neu} neue Nachricht${neu > 1 ? "en" : ""}`;
+        setToast(msg);
+        browserNotification("BR-DMS · Nachrichten", msg);
+      }
+      prevCounts.current.nachrichten = n;
+      setNachrichtenCount(n);
+    } catch {}
+
+    try {
+      const aufgaben = await api.aufgaben.liste();
+      const n = aufgaben.filter(a => !a.erledigt).length;
+      if (!ersterLauf.current && n > prevCounts.current.aufgaben) {
+        const neu = n - prevCounts.current.aufgaben;
+        const msg = `${neu} neue Aufgabe${neu > 1 ? "n" : ""}`;
+        setToast(msg);
+        browserNotification("BR-DMS · Aufgaben", msg);
+      }
+      prevCounts.current.aufgaben = n;
+      setAufgabenCount(n);
+    } catch {}
+
+    ersterLauf.current = false;
+  }
 
   useEffect(() => {
-    api.dokumente.inbox()
-      .then(docs => setInboxCount(docs.filter(d => !d.inboxGelesen).length))
-      .catch(() => {});
-    api.nachrichten.liste()
-      .then(n => setNachrichtenCount(n.filter(x => !x.gelesen).length))
-      .catch(() => {});
-    api.auth.me()
-      .then(b => setMeineRolle(b.rolle))
-      .catch(() => {});
-  }, []);
+    if (Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+    api.auth.me().then(b => setMeineRolle(b.rolle)).catch(() => {});
+    pollCounts();
+    const id = setInterval(pollCounts, POLL_INTERVAL);
+    return () => clearInterval(id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   function abmelden() {
     localStorage.removeItem("brdms_token");
@@ -277,8 +336,17 @@ export default function Layout() {
             )}
           </NavLink>
           <NavLink to="/aufgaben" className={linkKlasse} onClick={() => setMobileOffen(false)}>
-            <CheckSquare size={16} />
-            Aufgaben
+            {({ isActive }) => (
+              <>
+                <CheckSquare size={16} />
+                <span className="flex-1">Aufgaben</span>
+                {aufgabenCount > 0 && (
+                  <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${isActive ? "bg-[rgb(var(--sidebar-text))] text-[rgb(var(--sidebar-bg))]" : "bg-[rgb(var(--accent))] text-white"}`}>
+                    {aufgabenCount}
+                  </span>
+                )}
+              </>
+            )}
           </NavLink>
           <NavLink to="/wissen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
             <BookOpen size={16} />
@@ -316,6 +384,18 @@ export default function Layout() {
       {mobileOffen && (
         <div className="md:hidden fixed inset-0 bg-black/50 z-30"
           onClick={() => setMobileOffen(false)} />
+      )}
+
+      {/* Toast-Benachrichtigung */}
+      {toast && (
+        <div
+          onClick={() => setToast(null)}
+          className="fixed bottom-5 right-5 z-50 flex items-center gap-3 bg-gray-900 text-white text-sm px-4 py-3 rounded-xl shadow-2xl cursor-pointer animate-in slide-in-from-bottom-2 duration-300"
+        >
+          <span className="w-2 h-2 rounded-full bg-[rgb(var(--accent))] shrink-0" />
+          {toast}
+          <X size={14} className="text-gray-400 hover:text-white ml-1" />
+        </div>
       )}
 
       {/* Hauptbereich */}
