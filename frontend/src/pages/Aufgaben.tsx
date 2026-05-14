@@ -1,5 +1,5 @@
 import { useState, useEffect, FormEvent } from "react";
-import { Plus, Trash2, Calendar, User, Flag, X, CheckSquare } from "lucide-react";
+import { Plus, Trash2, Calendar, User, Flag, X, CheckSquare, Pencil } from "lucide-react";
 import { api, Aufgabe, Benutzer, Prioritaet, Sichtbarkeit, formatDatum } from "../lib/api";
 
 const PRIO_STYLE: Record<Prioritaet, string> = {
@@ -32,12 +32,13 @@ interface FormState {
 const LEER: FormState = { titel: "", beschreibung: "", prioritaet: "MITTEL", faelligAm: "", zugewiesenAnId: "", sichtbarkeit: "OEFFENTLICH" };
 
 export default function Aufgaben() {
-  const [aufgaben,  setAufgaben]  = useState<Aufgabe[]>([]);
-  const [benutzer,  setBenutzer]  = useState<Benutzer[]>([]);
-  const [modal,     setModal]     = useState(false);
-  const [form,      setForm]      = useState<FormState>(LEER);
-  const [laden,     setLaden]     = useState(false);
-  const [filter,    setFilter]    = useState<"alle" | "offen" | "erledigt">("alle");
+  const [aufgaben,    setAufgaben]    = useState<Aufgabe[]>([]);
+  const [benutzer,    setBenutzer]    = useState<Benutzer[]>([]);
+  const [modal,       setModal]       = useState(false);
+  const [bearbeiten,  setBearbeiten]  = useState<Aufgabe | null>(null);
+  const [form,        setForm]        = useState<FormState>(LEER);
+  const [laden,       setLaden]       = useState(false);
+  const [filter,      setFilter]      = useState<"alle" | "offen" | "erledigt">("alle");
 
   useEffect(() => { laden_(); }, []);
 
@@ -47,21 +48,56 @@ export default function Aufgaben() {
     setBenutzer(b);
   }
 
-  async function erstellen(e: FormEvent) {
+  function modalOeffnen(aufgabe?: Aufgabe) {
+    if (aufgabe) {
+      setBearbeiten(aufgabe);
+      setForm({
+        titel:          aufgabe.titel,
+        beschreibung:   aufgabe.beschreibung ?? "",
+        prioritaet:     aufgabe.prioritaet,
+        faelligAm:      aufgabe.faelligAm ? aufgabe.faelligAm.slice(0, 10) : "",
+        zugewiesenAnId: aufgabe.zugewiesenAn?.id ?? "",
+        sichtbarkeit:   aufgabe.sichtbarkeit,
+      });
+    } else {
+      setBearbeiten(null);
+      setForm(LEER);
+    }
+    setModal(true);
+  }
+
+  function modalSchliessen() {
+    setModal(false);
+    setBearbeiten(null);
+    setForm(LEER);
+  }
+
+  async function speichern(e: FormEvent) {
     e.preventDefault();
     setLaden(true);
     try {
-      const neu = await api.aufgaben.erstellen({
-        titel:          form.titel,
-        beschreibung:   form.beschreibung || undefined,
-        prioritaet:     form.prioritaet,
-        faelligAm:      form.faelligAm || undefined,
-        zugewiesenAnId: form.zugewiesenAnId || undefined,
-        sichtbarkeit:   form.sichtbarkeit,
-      });
-      setAufgaben(a => [neu, ...a]);
-      setModal(false);
-      setForm(LEER);
+      if (bearbeiten) {
+        const aktualisiert = await api.aufgaben.aktualisieren(bearbeiten.id, {
+          titel:          form.titel,
+          beschreibung:   form.beschreibung || undefined,
+          prioritaet:     form.prioritaet,
+          faelligAm:      form.faelligAm || undefined,
+          zugewiesenAnId: form.zugewiesenAnId || undefined,
+          sichtbarkeit:   form.sichtbarkeit,
+        });
+        setAufgaben(a => a.map(x => x.id === bearbeiten.id ? aktualisiert : x));
+      } else {
+        const neu = await api.aufgaben.erstellen({
+          titel:          form.titel,
+          beschreibung:   form.beschreibung || undefined,
+          prioritaet:     form.prioritaet,
+          faelligAm:      form.faelligAm || undefined,
+          zugewiesenAnId: form.zugewiesenAnId || undefined,
+          sichtbarkeit:   form.sichtbarkeit,
+        });
+        setAufgaben(a => [neu, ...a]);
+      }
+      modalSchliessen();
     } finally {
       setLaden(false);
     }
@@ -100,7 +136,7 @@ export default function Aufgaben() {
           </p>
         </div>
         <button
-          onClick={() => setModal(true)}
+          onClick={() => modalOeffnen()}
           className="flex items-center gap-2 bg-[rgb(var(--accent))] hover:brightness-90 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
         >
           <Plus size={16} /> Neue Aufgabe
@@ -185,13 +221,23 @@ export default function Aufgaben() {
                 </div>
               </div>
 
-              {/* Löschen */}
-              <button
-                onClick={() => loeschen(aufgabe.id)}
-                className="text-gray-300 hover:text-red-500 transition-colors shrink-0"
-              >
-                <Trash2 size={16} />
-              </button>
+              {/* Aktionen */}
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => modalOeffnen(aufgabe)}
+                  title="Bearbeiten"
+                  className="text-gray-300 hover:text-blue-500 transition-colors"
+                >
+                  <Pencil size={15} />
+                </button>
+                <button
+                  onClick={() => loeschen(aufgabe.id)}
+                  title="Löschen"
+                  className="text-gray-300 hover:text-red-500 transition-colors"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -202,13 +248,15 @@ export default function Aufgaben() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-gray-900">Neue Aufgabe</h2>
-              <button onClick={() => { setModal(false); setForm(LEER); }} className="text-gray-400 hover:text-gray-600">
+              <h2 className="text-lg font-bold text-gray-900">
+                {bearbeiten ? "Aufgabe bearbeiten" : "Neue Aufgabe"}
+              </h2>
+              <button onClick={modalSchliessen} className="text-gray-400 hover:text-gray-600">
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={erstellen} className="space-y-4">
+            <form onSubmit={speichern} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Titel *</label>
                 <input
@@ -284,7 +332,7 @@ export default function Aufgaben() {
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => { setModal(false); setForm(LEER); }}
+                  onClick={modalSchliessen}
                   className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"
                 >
                   Abbrechen
