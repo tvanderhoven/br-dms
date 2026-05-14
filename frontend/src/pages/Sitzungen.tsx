@@ -3,7 +3,7 @@ import { SitzungsVorlage } from "../lib/api";
 import {
   CalendarDays, Plus, ChevronLeft, ChevronUp, ChevronDown, Lock, Unlock, FileCheck, FileText,
   Trash2, Link, Unlink, X, Loader2, CheckCircle, Clock, XCircle, RotateCcw, Eye,
-  Send, ClipboardList, Download, MessageSquare, Zap, Pencil, RefreshCw, BookmarkPlus, Tag,
+  Send, ClipboardList, Download, MessageSquare, Zap, Pencil, RefreshCw, BookmarkPlus, Tag, CheckSquare,
 } from "lucide-react";
 import {
   api, Sitzung, SitzungListItem, SitzungStatus, TOP, TopStatus, Dokument, Kommentar,
@@ -742,6 +742,114 @@ function SitzungDetail({
   );
 }
 
+// ── Aufgabe aus TOP anlegen ───────────────────────────────────────
+function TopAufgabeModal({
+  topTitel, topInhalt, onSchliessen, onErfolg,
+}: { topTitel: string; topInhalt: string; onSchliessen: () => void; onErfolg: () => void }) {
+  const [laden, setLaden]         = useState(false);
+  const [fehler, setFehler]       = useState("");
+  const [erfolg, setErfolg]       = useState(false);
+  const [titel, setTitel]         = useState(topTitel);
+  const [beschreibung, setBeschreibung] = useState(topInhalt);
+  const [prioritaet, setPrioritaet] = useState("MITTEL");
+  const [faelligAm, setFaelligAm] = useState("");
+  const [zugewiesenAnId, setZugewiesenAnId] = useState("");
+  const [mitglieder, setMitglieder] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    api.get<{ id: string; name: string }[]>("/api/benutzer").then(setMitglieder).catch(() => {});
+  }, []);
+
+  async function speichern(e: FormEvent) {
+    e.preventDefault();
+    if (!titel) return;
+    setFehler("");
+    setLaden(true);
+    try {
+      await api.aufgaben.erstellen({
+        titel,
+        beschreibung: beschreibung || undefined,
+        prioritaet:     prioritaet as "HOCH" | "MITTEL" | "NIEDRIG",
+        faelligAm:      faelligAm || undefined,
+        zugewiesenAnId: zugewiesenAnId || undefined,
+      });
+      setErfolg(true);
+      setTimeout(onErfolg, 1200);
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="font-semibold text-gray-900">Aufgabe anlegen</h2>
+          <button onClick={onSchliessen} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>
+        {erfolg ? (
+          <div className="px-6 py-8 text-center text-emerald-600 font-medium">
+            <CheckSquare size={32} className="mx-auto mb-2" />
+            Aufgabe wurde erstellt.
+          </div>
+        ) : (
+          <form onSubmit={speichern} className="px-6 py-4 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Titel *</label>
+              <input value={titel} onChange={e => setTitel(e.target.value)} required
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Beschreibung</label>
+              <textarea value={beschreibung} onChange={e => setBeschreibung(e.target.value)} rows={3}
+                placeholder="Optional"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-none" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Priorität</label>
+                <select value={prioritaet} onChange={e => setPrioritaet(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
+                  <option value="HOCH">Hoch</option>
+                  <option value="MITTEL">Mittel</option>
+                  <option value="NIEDRIG">Niedrig</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fällig am</label>
+                <input type="date" value={faelligAm} onChange={e => setFaelligAm(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+              </div>
+            </div>
+            {mitglieder.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Zuweisen an</label>
+                <select value={zugewiesenAnId} onChange={e => setZugewiesenAnId(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
+                  <option value="">Niemanden zuweisen</option>
+                  {mitglieder.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+              </div>
+            )}
+            {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={onSchliessen}
+                className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Abbrechen</button>
+              <button type="submit" disabled={laden}
+                className="flex-1 px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-lg flex items-center justify-center gap-2">
+                {laden && <Loader2 size={14} className="animate-spin" />}
+                Aufgabe erstellen
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── TOP-Zeile ─────────────────────────────────────────────────────
 function TopZeile({
   top, sitzungId, sitzungStatus, readonly, imEntwurf, imProtokoll,
@@ -780,6 +888,7 @@ function TopZeile({
   }, [top.aktualisiertAm]); // eslint-disable-line react-hooks/exhaustive-deps
   const [kommentareOffen, setKommentareOffen]   = useState(false);
   const [extraktModal, setExtraktModal]         = useState(false);
+  const [aufgabeModal, setAufgabeModal]         = useState(false);
 
   async function ergebnisSpeichern() {
     setSpeichern(true);
@@ -993,6 +1102,15 @@ function TopZeile({
           >
             <MessageSquare size={15} />
           </button>
+          {!readonly && (
+            <button
+              onClick={() => setAufgabeModal(true)}
+              title="Als Aufgabe anlegen"
+              className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+            >
+              <CheckSquare size={15} />
+            </button>
+          )}
           <button
             onClick={() => setExtraktModal(true)}
             title="Ins Wissensarchiv extrahieren"
@@ -1078,7 +1196,14 @@ function TopZeile({
         offen={extraktModal}
         onSchliessen={() => setExtraktModal(false)}
       />
-
+      {aufgabeModal && (
+        <TopAufgabeModal
+          topTitel={top.titel}
+          topInhalt={top.inhaltsJson ? tiptapZuText(top.inhaltsJson as object) : (top.inhalt ?? "")}
+          onSchliessen={() => setAufgabeModal(false)}
+          onErfolg={() => setAufgabeModal(false)}
+        />
+      )}
 
     </div>
   );
