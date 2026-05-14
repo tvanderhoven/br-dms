@@ -14,10 +14,12 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 - **Vollverschlüsselte Dokumentenablage** – AES-256, Dokumente nur on-demand entschlüsselt
 - **Rollenbasierte Zugriffskontrolle** – VORSITZ, STELLVERTRETER, MITGLIED, ERSATZMITGLIED, ADMIN
 - **Sitzungsverwaltung mit Protokoll** – Vollständiger Lifecycle: Entwurf → Einladung → Protokoll → Finalisierung
-- **Automatische Fristüberwachung** – §99, §102 BetrVG mit konfigurierbaren Aufbewahrungsfristen
+- **Automatische Fristüberwachung** – §87, §99, §102 BetrVG mit konfigurierbaren Aufbewahrungsfristen
+- **Aufgabenverwaltung** – Aufgaben anlegen, zuweisen, bearbeiten; direkt aus Tagesordnungspunkten erstellbar
+- **Live-Benachrichtigungen** – Badge-Counts aktualisieren sich automatisch, Browser- und In-App-Benachrichtigung bei neuen Dokumenten/Aufgaben
 - **Lückenloser Audit-Trail** – 40+ Aktionen mit IP, Zeitstempel, User-Agent
 - **Dokumentenversionen** – Beliebig viele Versionen mit Änderungsnotiz
-- **Watch Folder** – Automatischer Import aus freigegebenem Netzwerkordner
+- **Watch Folder** – Automatischer Import aus freigegebenem Netzwerkordner (Pfad unabhängig vom Docker-Verzeichnis konfigurierbar)
 - **Wissensarchiv** – Erfahrungen und Beschlüsse strukturiert ablegen
 - **Internes Nachrichtensystem** – Ohne externe Dienste
 
@@ -93,6 +95,48 @@ Pflichtfelder:
 | `APP_URL` | URL für Passwort-Reset-Mails | `http://<NAS-IP>:3000` |
 
 > **Kritisch:** Der `ENCRYPTION_KEY` muss separat gesichert werden. Bei Verlust sind alle Dokumente dauerhaft unlesbar.
+
+### Watch-Folder (optional)
+
+| Variable | Beschreibung | Standard |
+|---|---|---|
+| `WATCH_FOLDER_ENABLED` | Watch-Folder aktivieren | `false` |
+| `SYSTEM_USER_ID` | UUID des Admin-Users für automatische Imports | – |
+| `WATCH_INBOX_PATH` | NAS-Pfad des Eingangsordners (unabhängig vom Docker-Verzeichnis) | `DATA_PATH/watch_inbox` |
+
+Eingangsordner auf separate NAS-Freigabe legen (empfohlen):
+```bash
+WATCH_INBOX_PATH=/volume1/br-dms-eingang
+```
+Einliefernde User erhalten dann per SMB nur Zugriff auf diesen Ordner – nie auf das Docker-Verzeichnis.
+
+**Erwartete Unterordner im Watch-Folder:**
+```
+watch_inbox/
+├── anhoerung_99/
+├── anhoerung_102/
+├── bewerbung/
+├── bewerbung_alternativ/
+├── zeitmodell_87/
+├── protokoll/
+├── betriebsvereinbarung/
+└── sonstiges/
+```
+
+### Aufbewahrungsfristen (Standardwerte)
+
+| Kategorie | Frist |
+|---|---|
+| §99 BetrVG – Einstellung/Versetzung | 5 Jahre |
+| §102 BetrVG – Kündigung | 5 Jahre |
+| §87 BetrVG – Zeitmodelländerung | 5 Jahre |
+| Bewerbung | 3 Monate |
+| Alternative Bewerbung | 1 Monat |
+| Sitzungsprotokoll | 4 Jahre |
+| Betriebsvereinbarung | 10 Jahre |
+| Sonstiges | 5 Jahre |
+
+Alle Fristen sind in den Einstellungen (VORSITZ/ADMIN) individuell anpassbar.
 
 ---
 
