@@ -48,7 +48,7 @@ function RegelZeile({
     return (
       <tr className="hover:bg-gray-50 transition-colors">
         <td className="px-4 py-3">
-          <p className="text-sm font-medium text-gray-900">{KATEGORIE_LABEL[regel.kategorie as keyof typeof KATEGORIE_LABEL]}</p>
+          <p className="text-sm font-medium text-gray-900">{KATEGORIE_LABEL[regel.kategorie as keyof typeof KATEGORIE_LABEL] ?? regel.kategorie}</p>
           {regel.beschreibung && <p className="text-xs text-gray-400 mt-0.5">{regel.beschreibung}</p>}
         </td>
         <td className="px-4 py-3 hidden sm:table-cell">
@@ -79,7 +79,7 @@ function RegelZeile({
     <tr className="bg-[rgb(var(--accent)/0.05)]">
       <td className="px-4 py-3" colSpan={5}>
         <p className="text-sm font-semibold text-gray-800 mb-3">
-          {KATEGORIE_LABEL[regel.kategorie as keyof typeof KATEGORIE_LABEL]}
+          {KATEGORIE_LABEL[regel.kategorie as keyof typeof KATEGORIE_LABEL] ?? regel.kategorie}
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
           <div>
@@ -704,7 +704,7 @@ export default function Einstellungen() {
           )}
 
           <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 text-xs text-gray-400">
-            Standardwerte: § 99/102 = 5 Jahre · Alternative Bewerbung = 6 Monate · Protokoll = 4 Jahre · Betriebsvereinbarung = 10 Jahre · Sonstiges = 5 Jahre
+            Standardwerte: § 99/102 = 5 Jahre · Bewerbung = 3 Monate · Alt. Bewerbung = 1 Monat · § 87 Zeitmodell = 5 Jahre · Protokoll = 4 Jahre · Betriebsvereinbarung = 10 Jahre · Sonstiges = 5 Jahre
           </div>
         </div>
       )}
