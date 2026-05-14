@@ -74,7 +74,7 @@ services:
     volumes:
       - ${DATA_PATH}/storage:/data/storage
       - ${DATA_PATH}/logs:/data/logs
-      - ${DATA_PATH}/watch_inbox:/data/watch_inbox
+      - ${WATCH_INBOX_PATH:-${DATA_PATH}/watch_inbox}:/data/watch_inbox
     depends_on:
       postgres:
         condition: service_healthy
