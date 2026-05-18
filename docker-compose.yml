@@ -1,0 +1,107 @@
+version: "3.9"
+
+# ================================================================
+#  BR-DMS – Synology Container Manager
+#  Intranet-Betrieb, kein Reverse Proxy
+#  Frontend: http://<NAS-IP>:3000
+#  Backend:  http://<NAS-IP>:4000
+# ================================================================
+
+networks:
+  brdms_net:
+    driver: bridge
+    # Kein External-Zugriff auf interne Dienste außer über definierte Ports
+    internal: false
+
+services:
+
+  # ----------------------------------------------------------------
+  #  PostgreSQL 16
+  #  Nur intern erreichbar – kein Port-Mapping nach außen
+  # ----------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: brdms_postgres
+    restart: unless-stopped
+    networks:
+      - brdms_net
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB:       ${POSTGRES_DB}
+      PGDATA:            /var/lib/postgresql/data/pgdata
+    volumes:
+      - ${DATA_PATH}/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    # Absichtlich kein ports:-Block → nur internes Netz
+
+  # ----------------------------------------------------------------
+  #  Backend (Fastify + Prisma)
+  #  Port 4000 direkt erreichbar im Intranet
+  # ----------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: brdms_backend
+    restart: unless-stopped
+    networks:
+      - brdms_net
+    ports:
+      - "${BACKEND_PORT:-4000}:4000"
+    environment:
+      NODE_ENV:        ${NODE_ENV:-production}
+      DATABASE_URL:    postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      JWT_SECRET:      ${JWT_SECRET}
+      ENCRYPTION_KEY:  ${ENCRYPTION_KEY}
+      STORAGE_PATH:    /data/storage
+      PUID:            ${PUID:-1000}
+      PGID:            ${PGID:-100}
+      SMTP_HOST:       ${SMTP_HOST}
+      SMTP_PORT:       ${SMTP_PORT:-587}
+      SMTP_USER:       ${SMTP_USER}
+      SMTP_PASS:       ${SMTP_PASS}
+      SMTP_FROM:       ${SMTP_FROM}
+      APP_URL:         ${APP_URL}
+      WATCH_FOLDER:         ${WATCH_FOLDER:-/data/watch_inbox}
+      WATCH_FOLDER_ENABLED: ${WATCH_FOLDER_ENABLED:-false}
+      WATCH_INBOX_PATH:     ${WATCH_INBOX_PATH:-}
+      SYSTEM_USER_ID:       ${SYSTEM_USER_ID:-}
+    volumes:
+      - ${DATA_PATH}/storage:/data/storage
+      - ${DATA_PATH}/logs:/data/logs
+      - ${WATCH_INBOX_PATH:-${DATA_PATH}/watch_inbox}:/data/watch_inbox
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ----------------------------------------------------------------
+  #  Frontend (React/Vite, via Nginx im Container)
+  #  Port 3000 direkt erreichbar im Intranet
+  # ----------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: "http://${NAS_IP:-localhost}:${BACKEND_PORT:-4000}"
+    container_name: brdms_frontend
+    restart: unless-stopped
+    networks:
+      - brdms_net
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      backend:
+        condition: service_healthy

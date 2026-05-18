@@ -1,0 +1,776 @@
+// ================================================================
+//  BR-DMS – Prisma Schema
+//  DSGVO-konformes Dokumenten-Management für Betriebsräte
+// ================================================================
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ================================================================
+//  ENUMS
+// ================================================================
+
+enum Role {
+  VORSITZ
+  STELLVERTRETER
+  MITGLIED
+  ERSATZMITGLIED
+  ADMIN
+}
+
+enum Prioritaet {
+  HOCH
+  MITTEL
+  NIEDRIG
+}
+
+enum Sichtbarkeit {
+  PRIVAT
+  OEFFENTLICH
+}
+
+enum Kategorie {
+  ANHOERUNG_99
+  ANHOERUNG_102
+  BEWERBUNG
+  BEWERBUNG_ALTERNATIV
+  ZEITMODELL_87
+  PROTOKOLL
+  BETRIEBSVEREINBARUNG
+  SONSTIGES
+}
+
+enum DokumentStatus {
+  AKTIV
+  ARCHIVIERT
+  LOESCHVORMERKUNG
+  GELOESCHT
+}
+
+enum FristTyp {
+  ANHOERUNG_99_WOCHE
+  ANHOERUNG_102_ORDENTLICH
+  ANHOERUNG_102_AUSSERORDENTLICH
+  WIDERSPRUCH
+  ZEITMODELL_87_WOCHE
+  BENUTZERDEFINIERT
+}
+
+enum FristStatus {
+  OFFEN
+  ERLEDIGT
+  ABGELAUFEN
+}
+
+enum SitzungStatus {
+  ENTWURF
+  TAGESORDNUNG_FIXIERT
+  PROTOKOLL_ENTWURF
+  PROTOKOLL_FINAL
+  ABGESAGT
+}
+
+enum TopStatus {
+  OFFEN
+  BESCHLOSSEN
+  ABGELEHNT
+  VERTAGT
+  ZUR_KENNTNIS
+}
+
+enum AnwesenheitsStatus {
+  ANWESEND
+  ABWESEND_ENTSCHULDIGT
+  ABWESEND_UNENTSCHULDIGT
+  ERSATZ_FUER
+}
+
+enum Stimme {
+  JA
+  NEIN
+  ENTHALTUNG
+}
+
+enum NachrichtTyp {
+  NORMAL
+  TAGESORDNUNG
+  PROTOKOLL
+  SYSTEM
+}
+
+enum AuditAktion {
+  LOGIN
+  LOGOUT
+  DOKUMENT_ERSTELLT
+  DOKUMENT_ANGESEHEN
+  DOKUMENT_HERUNTERGELADEN
+  DOKUMENT_AKTUALISIERT
+  DOKUMENT_GELOESCHT
+  DOKUMENT_METADATEN_GEAENDERT
+  DOKUMENT_TAG_GEAENDERT
+  DOKUMENT_ALIAS_GEAENDERT
+  DOKUMENT_TOP_GEAENDERT
+  DOKUMENT_AUFGABE_ERSTELLT
+  INBOX_DOKUMENT_GELESEN
+  WATCHFOLDER_DATEI_EMPFANGEN
+  FRIST_ERSTELLT
+  FRIST_ERLEDIGT
+  BENUTZER_ERSTELLT
+  BENUTZER_DEAKTIVIERT
+  PASSWORT_GEAENDERT
+  ZUGRIFF_VERWEIGERT
+  SITZUNG_ERSTELLT
+  SITZUNG_AKTUALISIERT
+  SITZUNG_FIXIERT
+  SITZUNG_PROTOKOLL_GESTARTET
+  SITZUNG_FINALISIERT
+  SITZUNG_GELOESCHT
+  ABSTIMMUNG_ERSTELLT
+  ABSTIMMUNG_FINALISIERT
+  NACHRICHT_GESENDET
+  WATCHFOLDER_FEHLER
+  WISSEN_ERSTELLT
+  WISSEN_AKTUALISIERT
+  WISSEN_GELOESCHT
+  DOKUMENT_VERSION_ERSTELLT
+}
+
+// ================================================================
+//  BENUTZER
+// ================================================================
+
+model Benutzer {
+  id              String    @id @default(uuid())
+  email           String    @unique
+  name            String
+  passwortHash    String    @map("passwort_hash")
+  rolle           Role
+  aktiv           Boolean   @default(true)
+
+  istVertretungFuer String?                      @map("ist_vertretung_fuer")
+  vertretungErhalten Anwesenheit[]              @relation("VertretungErhalten")
+
+  letzterLogin    DateTime? @map("letzter_login")
+  erstelltAm      DateTime  @default(now()) @map("erstellt_am")
+  aktualisiertAm  DateTime  @updatedAt @map("aktualisiert_am")
+
+  dokumente             Dokument[]            @relation("HochgeladenVon")
+  auditLogs             AuditLog[]
+  erledigtefristen      Frist[]               @relation("ErlegigtVon")
+  sitzungen             Sitzung[]             @relation("SitzungenErstellt")
+  abstimmungsStimmen    AbstimmungsStimme[]   @relation("StimmeAbgegeben")
+  gesendeteNachrichten  Nachricht[]           @relation("NachrichtAbsender")
+  empfangeneNachrichten Nachricht[]           @relation("NachrichtEmpfaenger")
+  kommentare            Kommentar[]           @relation("KommentarAutor")
+  anwesenheiten         Anwesenheit[]
+  passwortResets        PasswortReset[]
+  erstellteAufgaben     Aufgabe[]       @relation("AufgabeErstellt")
+  zugewieseneAufgaben   Aufgabe[]       @relation("AufgabeZugewiesen")
+  wissenEintraege        WissensEintrag[] @relation("WissensErstelltVon")
+  ressourcen             Ressource[]      @relation("RessourceErstellt")
+
+  @@map("benutzer")
+}
+
+model PasswortReset {
+  id          String   @id @default(uuid())
+  benutzerId  String   @map("benutzer_id")
+  token       String   @unique
+  gueltigBis  DateTime @map("gueltig_bis")
+  genutzt     Boolean  @default(false)
+  erstelltAm  DateTime @default(now()) @map("erstellt_am")
+  benutzer    Benutzer @relation(fields: [benutzerId], references: [id], onDelete: Cascade)
+
+  @@map("passwort_resets")
+}
+
+// ================================================================
+//  AUFGABEN
+// ================================================================
+
+model Aufgabe {
+  id              String       @id @default(uuid())
+  titel           String
+  beschreibung    String?
+  prioritaet      Prioritaet   @default(MITTEL)
+  faelligAm       DateTime?    @map("faellig_am")
+  erledigt        Boolean      @default(false)
+  erledigtAm      DateTime?    @map("erledigt_am")
+  sichtbarkeit    Sichtbarkeit @default(OEFFENTLICH)
+
+  erstelltVonId   String       @map("erstellt_von_id")
+  erstelltVon     Benutzer     @relation("AufgabeErstellt", fields: [erstelltVonId], references: [id])
+
+  zugewiesenAnId  String?      @map("zugewiesen_an_id")
+  zugewiesenAn    Benutzer?    @relation("AufgabeZugewiesen", fields: [zugewiesenAnId], references: [id])
+
+  dokumentId      String?      @map("dokument_id")
+  dokument        Dokument?    @relation(fields: [dokumentId], references: [id], onDelete: SetNull)
+
+  erstelltAm      DateTime     @default(now()) @map("erstellt_am")
+  aktualisiertAm  DateTime     @updatedAt @map("aktualisiert_am")
+
+  @@map("aufgaben")
+}
+
+// ================================================================
+//  DOKUMENTE
+// ================================================================
+
+model Dokument {
+  id             String        @id @default(uuid())
+  titel          String
+  kategorie      Kategorie
+  status         DokumentStatus @default(AKTIV)
+
+  dateiname      String
+  speicherpfad   String        @map("speicher_pfad")
+  verschlPfad    String        @map("verschl_pfad")
+  dateigroesse   Int           @map("datei_groesse")
+  mimeTyp        String        @map("mime_typ")
+  pruefsumme     String
+
+  alias          String?
+  tags           String[]
+  textinhalt     String?       @map("textinhalt")
+  inboxGelesen   Boolean       @default(false) @map("inbox_gelesen")
+  inboxGelesenAm DateTime?     @map("inbox_gelesen_am")
+  inboxQuelle    String?       @map("inbox_quelle")
+
+  aktenzeichen   String?       @map("aktenzeichen")
+  beschreibung   String?
+  vertraulich    Boolean       @default(false)
+
+  deleteAt        DateTime?     @map("delete_at")
+  geloeschtAm     DateTime?     @map("geloescht_am")
+  loeschgrund     String?       @map("loeschgrund")
+  wiedervorlageAm DateTime?     @map("wiedervorlage_am")
+
+  hochgeladenVonId String      @map("hochgeladen_von_id")
+  hochgeladenVon   Benutzer    @relation("HochgeladenVon", fields: [hochgeladenVonId], references: [id])
+
+  erstelltAm     DateTime      @default(now()) @map("erstellt_am")
+  aktualisiertAm DateTime      @updatedAt @map("aktualisiert_am")
+
+  versionen         DokumentVersion[]
+  fristen           Frist[]
+  auditLogs         AuditLog[]
+  topVerknuepfungen TopDokument[]
+  kommentare        Kommentar[]
+  aufgaben          Aufgabe[]
+
+  @@index([deleteAt, status])
+  @@index([kategorie, status])
+  @@map("dokumente")
+}
+
+model DokumentVersion {
+  id             String   @id @default(uuid())
+  dokumentId     String   @map("dokument_id")
+  dokument       Dokument @relation(fields: [dokumentId], references: [id], onDelete: Cascade)
+
+  version        Int
+  dateiname      String
+  speicherpfad   String   @map("speicher_pfad")
+  verschlPfad    String   @map("verschl_pfad")
+  dateigroesse   Int      @map("datei_groesse")
+  pruefsumme     String
+  aenderungsnotiz String? @map("aenderungsnotiz")
+
+  erstelltAm     DateTime @default(now()) @map("erstellt_am")
+  erstelltVonId  String   @map("erstellt_von_id")
+
+  @@unique([dokumentId, version])
+  @@map("dokument_versionen")
+}
+
+// ================================================================
+//  FRISTEN (§ 99 & § 102 BetrVG)
+// ================================================================
+
+model Frist {
+  id             String      @id @default(uuid())
+  dokumentId     String      @map("dokument_id")
+  dokument       Dokument    @relation(fields: [dokumentId], references: [id], onDelete: Cascade)
+
+  typ            FristTyp
+  status         FristStatus @default(OFFEN)
+  faelligAm      DateTime    @map("faellig_am")
+  bezeichnung    String?
+
+  erledigtAm     DateTime?   @map("erledigt_am")
+  erledigtVonId  String?     @map("erledigt_von_id")
+  erledigtVon    Benutzer?   @relation("ErlegigtVon", fields: [erledigtVonId], references: [id])
+
+  erstelltAm     DateTime    @default(now()) @map("erstellt_am")
+
+  @@index([faelligAm, status])
+  @@map("fristen")
+}
+
+// ================================================================
+//  SITZUNGSMANAGEMENT
+// ================================================================
+
+model Sitzung {
+  id             String        @id @default(uuid())
+  titel          String
+  sitzungsdatum  DateTime      @map("sitzungsdatum")
+  ort            String?
+  sitzungstyp    String        @default("ORDENTLICH")
+  status         SitzungStatus @default(ENTWURF)
+  notizen        String?
+
+  erstelltVonId  String        @map("erstellt_von_id")
+  erstelltVon    Benutzer      @relation("SitzungenErstellt", fields: [erstelltVonId], references: [id])
+
+  erstelltAm     DateTime      @default(now()) @map("erstellt_am")
+  aktualisiertAm DateTime      @updatedAt @map("aktualisiert_am")
+
+  versionen      SitzungVersion[]
+  tops           TOP[]
+  auditLogs      AuditLog[]
+  nachrichten    Nachricht[]
+  kommentare     Kommentar[]
+  anwesenheiten  Anwesenheit[]
+  protocolBlocks ProtocolBlock[]
+
+  @@index([sitzungsdatum, status])
+  @@map("sitzungen")
+}
+
+model SitzungVersion {
+  id             String   @id @default(uuid())
+  sitzungId      String   @map("sitzung_id")
+  sitzung        Sitzung  @relation(fields: [sitzungId], references: [id], onDelete: Cascade)
+
+  versionNummer  String   @map("version_nummer")
+  // TAGESORDNUNG_ENTWURF | TAGESORDNUNG_FIXIERT | PROTOKOLL_ENTWURF | PROTOKOLL_FINAL
+  typ            String
+  readonly       Boolean  @default(false)
+
+  // TipTap-JSON-Inhalt dieser Version (Gesamtdokument)
+  inhaltsJson    Json?    @map("inhalts_json")
+
+  // PDF (generiert beim Fixieren bzw. Finalisieren)
+  pdfDateiname   String?  @map("pdf_dateiname")
+  pdfPfad        String?  @map("pdf_pfad")
+  pdfErstelltAm  DateTime? @map("pdf_erstellt_am")
+
+  // Digitaler Zeitstempel bei Finalisierung
+  zeitstempel    String?  // SHA-256(inhaltsJson + finalisiertAm) als Integritätsnachweis
+
+  einladungVersendetAm DateTime? @map("einladung_versendet_am")
+  finalisiertAm        DateTime? @map("finalisiert_am")
+  finalisiertVonId     String?   @map("finalisiert_von_id")
+
+  erstelltVonId  String   @map("erstellt_von_id")
+  erstelltAm     DateTime @default(now()) @map("erstellt_am")
+
+  @@unique([sitzungId, versionNummer])
+  @@map("sitzung_versionen")
+}
+
+model ProtocolBlock {
+  id             String        @id @default(uuid())
+  sitzungId      String        @map("sitzung_id")
+  sitzung        Sitzung       @relation(fields: [sitzungId], references: [id], onDelete: Cascade)
+
+  typ            String        // TEXT, VOTE, ATTENDANCE, TOP_REFERENCE
+  topId          String?       @map("top_id")
+  top            TOP?          @relation(fields: [topId], references: [id], onDelete: Cascade)
+
+  inhalt         String?
+  inhaltsJson    Json?         @map("inhalts_json")
+
+  reihenfolge    Int           @default(0)
+
+  erstelltAm     DateTime      @default(now()) @map("erstellt_am")
+  aktualisiertAm DateTime      @updatedAt @map("aktualisiert_am")
+
+  @@index([sitzungId, reihenfolge])
+  @@map("protocol_blocks")
+}
+
+model Anwesenheit {
+  id              String             @id @default(uuid())
+  sitzungId       String             @map("sitzung_id")
+  sitzung         Sitzung            @relation(fields: [sitzungId], references: [id], onDelete: Cascade)
+
+  benutzerId      String             @map("benutzer_id")
+  benutzer        Benutzer           @relation(fields: [benutzerId], references: [id], onDelete: Cascade)
+
+  status          AnwesenheitsStatus
+  vertretungFuerId String?          @map("vertretung_fuer_id")
+  vertretungFuer  Benutzer?         @relation("VertretungErhalten", fields: [vertretungFuerId], references: [id], onDelete: SetNull)
+
+  erstelltAm      DateTime           @default(now()) @map("erstellt_am")
+  aktualisiertAm  DateTime           @updatedAt @map("aktualisiert_am")
+
+  @@unique([sitzungId, benutzerId])
+  @@map("anwesenheiten")
+}
+
+model TOP {
+  id             String    @id @default(uuid())
+  sitzungId      String    @map("sitzung_id")
+  sitzung        Sitzung   @relation(fields: [sitzungId], references: [id], onDelete: Cascade)
+
+  nummer         Int
+  protocolBlocks ProtocolBlock[]
+  titel          String
+
+  // Plaintext-Fallback (bleibt für Kompatibilität)
+  inhalt         String?
+  ergebnis       String?
+
+  // TipTap-JSON (Reich-Text-Editor-Inhalt)
+  inhaltsJson    Json?     @map("inhalts_json")   // Tagesordnungs-Beschreibung
+  ergebnisJson   Json?     @map("ergebnis_json")  // Protokoll-Ergebnis
+
+  status         TopStatus @default(OFFEN)
+
+  // Spontan-TOP: nachträglich in Sitzung aufgenommen
+  spontan        Boolean   @default(false)
+
+  dokumente      TopDokument[]
+  abstimmung     Abstimmung?
+  beschluesse    Beschluss[]
+  kommentare     Kommentar[]
+
+  erstelltAm     DateTime  @default(now()) @map("erstellt_am")
+  aktualisiertAm DateTime  @updatedAt @map("aktualisiert_am")
+
+  @@unique([sitzungId, nummer])
+  @@map("tops")
+}
+
+model TopDokument {
+  id              String   @id @default(uuid())
+  topId           String   @map("top_id")
+  top             TOP      @relation(fields: [topId], references: [id], onDelete: Cascade)
+
+  dokumentId      String   @map("dokument_id")
+  dokument        Dokument @relation(fields: [dokumentId], references: [id], onDelete: Cascade)
+
+  hinweis         String?
+  verknuepftVonId String   @map("verknuepft_von_id")
+  erstelltAm      DateTime @default(now()) @map("erstellt_am")
+
+  @@unique([topId, dokumentId])
+  @@map("top_dokumente")
+}
+
+// ================================================================
+//  BESCHLÜSSE (mehrere pro TOP, revisionssicher)
+// ================================================================
+
+model Beschluss {
+  id              String    @id @default(uuid())
+  topId           String    @map("top_id")
+  top             TOP       @relation(fields: [topId], references: [id], onDelete: Cascade)
+
+  antragstext     String    @map("antragstext")
+  rechtsgrundlage String    @default("Sonstige Beschlussfassung") @map("rechtsgrundlage")
+  reihenfolge     Int       @default(0)
+
+  jaStimmen       Int       @default(0) @map("ja_stimmen")
+  neinStimmen     Int       @default(0) @map("nein_stimmen")
+  enthaltungen    Int       @default(0)
+  anwesend        Int       @default(0)
+  ergebnis        String?
+
+  finalisiert      Boolean   @default(false)
+  finalisiertAm    DateTime? @map("finalisiert_am")
+  finalisiertVonId String?   @map("finalisiert_von_id")
+
+  erstelltVonId   String    @map("erstellt_von_id")
+  erstelltAm      DateTime  @default(now()) @map("erstellt_am")
+  aktualisiertAm  DateTime  @updatedAt @map("aktualisiert_am")
+
+  stimmen         BeschlussStimme[]
+
+  @@index([topId, reihenfolge])
+  @@map("beschluesse")
+}
+
+model BeschlussStimme {
+  id             String    @id @default(uuid())
+  beschlussId    String    @map("beschluss_id")
+  beschluss      Beschluss @relation(fields: [beschlussId], references: [id], onDelete: Cascade)
+
+  benutzerId     String    @map("benutzer_id")
+  stimme         Stimme
+  vertretungFuer String?   @map("vertretung_fuer")
+
+  erstelltAm     DateTime  @default(now()) @map("erstellt_am")
+
+  @@unique([beschlussId, benutzerId])
+  @@map("beschluss_stimmen")
+}
+
+// ================================================================
+//  ABSTIMMUNGEN (Voting)
+// ================================================================
+
+model Abstimmung {
+  id              String    @id @default(uuid())
+  topId           String    @unique @map("top_id")
+  top             TOP       @relation(fields: [topId], references: [id], onDelete: Cascade)
+
+  rechtsgrundlage String    @map("rechtsgrundlage") // "§ 87 BetrVG", "§ 99 BetrVG", etc.
+  fragestellung   String    @map("fragestellung")
+
+  // Berechnete Ergebnisse (denormalisiert für Performance)
+  jaStimmen       Int       @default(0) @map("ja_stimmen")
+  neinStimmen     Int       @default(0) @map("nein_stimmen")
+  enthaltungen    Int       @default(0)
+  anwesend        Int       @default(0)   // stimmberechtigt anwesend
+  // ANGENOMMEN | ABGELEHNT | UNENTSCHIEDEN | null (offen)
+  ergebnis        String?
+
+  finalisiert     Boolean   @default(false)
+  finalisiertAm   DateTime? @map("finalisiert_am")
+  finalisiertVonId String?  @map("finalisiert_von_id")
+
+  erstelltVonId   String    @map("erstellt_von_id")
+  erstelltAm      DateTime  @default(now()) @map("erstellt_am")
+  aktualisiertAm  DateTime  @updatedAt @map("aktualisiert_am")
+
+  stimmen         AbstimmungsStimme[]
+
+  @@map("abstimmungen")
+}
+
+model AbstimmungsStimme {
+  id              String     @id @default(uuid())
+  abstimmungId    String     @map("abstimmung_id")
+  abstimmung      Abstimmung @relation(fields: [abstimmungId], references: [id], onDelete: Cascade)
+
+  benutzerId      String     @map("benutzer_id")
+  benutzer        Benutzer   @relation("StimmeAbgegeben", fields: [benutzerId], references: [id])
+
+  stimme          Stimme
+  // Wird gesetzt wenn ein Ersatzmitglied stellvertretend abstimmt
+  stellvertretungFuer String? @map("stellvertretung_fuer")
+
+  erstelltAm      DateTime   @default(now()) @map("erstellt_am")
+
+  @@unique([abstimmungId, benutzerId])
+  @@map("abstimmungs_stimmen")
+}
+
+// ================================================================
+//  INTERNE NACHICHTEN (Member-Inbox)
+// ================================================================
+
+model Nachricht {
+  id           String       @id @default(uuid())
+  betreff      String
+  inhalt       String
+  typ          NachrichtTyp @default(NORMAL)
+
+  // null = Systemnachricht
+  absenderId   String?      @map("absender_id")
+  absender     Benutzer?    @relation("NachrichtAbsender", fields: [absenderId], references: [id], onDelete: SetNull)
+
+  empfaengerId String       @map("empfaenger_id")
+  empfaenger   Benutzer     @relation("NachrichtEmpfaenger", fields: [empfaengerId], references: [id], onDelete: Cascade)
+
+  sitzungId    String?      @map("sitzung_id")
+  sitzung      Sitzung?     @relation(fields: [sitzungId], references: [id], onDelete: SetNull)
+
+  // Anhang: generiertes PDF (verschlüsselt gespeichert wie Dokumente)
+  pdfDateiname String?      @map("pdf_dateiname")
+  pdfPfad      String?      @map("pdf_pfad")
+
+  gelesen      Boolean      @default(false)
+  gelesenAm    DateTime?    @map("gelesen_am")
+
+  erstelltAm   DateTime     @default(now()) @map("erstellt_am")
+
+  @@index([empfaengerId, gelesen, erstelltAm])
+  @@index([sitzungId])
+  @@map("nachrichten")
+}
+
+// ================================================================
+//  KOMMENTARE (pro Sitzung / TOP / Dokument)
+// ================================================================
+
+model Kommentar {
+  id         String    @id @default(uuid())
+  inhalt     String
+
+  autorId    String    @map("autor_id")
+  autor      Benutzer  @relation("KommentarAutor", fields: [autorId], references: [id], onDelete: Cascade)
+
+  // Genau eines der drei Felder ist gesetzt
+  sitzungId  String?   @map("sitzung_id")
+  sitzung    Sitzung?  @relation(fields: [sitzungId], references: [id], onDelete: Cascade)
+
+  topId      String?   @map("top_id")
+  top        TOP?      @relation(fields: [topId], references: [id], onDelete: Cascade)
+
+  dokumentId String?   @map("dokument_id")
+  dokument   Dokument? @relation(fields: [dokumentId], references: [id], onDelete: Cascade)
+
+  erstelltAm     DateTime @default(now()) @map("erstellt_am")
+  aktualisiertAm DateTime @updatedAt @map("aktualisiert_am")
+
+  @@index([sitzungId, erstelltAm])
+  @@index([topId, erstelltAm])
+  @@index([dokumentId, erstelltAm])
+  @@map("kommentare")
+}
+
+// ================================================================
+//  AUDIT-LOG (revisionssicher, unveränderlich)
+// ================================================================
+
+model AuditLog {
+  id           String      @id @default(uuid())
+
+  benutzerId   String?     @map("benutzer_id")
+  benutzer     Benutzer?   @relation(fields: [benutzerId], references: [id], onDelete: SetNull)
+
+  dokumentId   String?     @map("dokument_id")
+  dokument     Dokument?   @relation(fields: [dokumentId], references: [id], onDelete: SetNull)
+
+  sitzungId    String?     @map("sitzung_id")
+  sitzung      Sitzung?    @relation(fields: [sitzungId], references: [id], onDelete: SetNull)
+
+  wissensEintragId String?       @map("wissen_id")
+  wissensEintrag   WissensEintrag? @relation(fields: [wissensEintragId], references: [id], onDelete: SetNull)
+
+  aktion       AuditAktion
+  ip           String?
+  userAgent    String?     @map("user_agent")
+  details      Json?
+
+  zeitpunkt    DateTime    @default(now())
+
+  @@index([benutzerId, zeitpunkt])
+  @@index([dokumentId, zeitpunkt])
+  @@index([sitzungId, zeitpunkt])
+  @@index([aktion, zeitpunkt])
+  @@index([wissensEintragId, zeitpunkt])
+  @@map("audit_logs")
+}
+
+// ================================================================
+//  SITZUNGSVORLAGEN
+// ================================================================
+
+model SitzungsVorlage {
+  id             String       @id @default(uuid())
+  name           String
+  beschreibung   String?
+  erstelltAm     DateTime     @default(now()) @map("erstellt_am")
+  aktualisiertAm DateTime     @updatedAt @map("aktualisiert_am")
+  tops           VorlageTOP[]
+
+  @@map("sitzungs_vorlagen")
+}
+
+model VorlageTOP {
+  id          String          @id @default(uuid())
+  vorlageId   String          @map("vorlage_id")
+  vorlage     SitzungsVorlage @relation(fields: [vorlageId], references: [id], onDelete: Cascade)
+  titel       String
+  inhalt      String?
+  inhaltsJson Json?           @map("inhalts_json")
+  reihenfolge Int             @default(0)
+  erstelltAm  DateTime        @default(now()) @map("erstellt_am")
+
+  @@index([vorlageId, reihenfolge])
+  @@map("vorlage_tops")
+}
+
+// ================================================================
+//  SYSTEM-EINSTELLUNGEN (Key-Value)
+// ================================================================
+
+model SystemEinstellung {
+  schluessel     String   @id
+  wert           String
+  aktualisiertAm DateTime @updatedAt @map("aktualisiert_am")
+
+  @@map("system_einstellungen")
+}
+
+// ================================================================
+//  AUFBEWAHRUNGSFRISTEN (konfigurierbar)
+// ================================================================
+
+model Aufbewahrungsregel {
+  id           String    @id @default(uuid())
+  kategorie    Kategorie @unique
+  tage         Int
+  rechtsgrundlage String? @map("rechtsgrundlage")
+  beschreibung String?
+
+  erstelltAm   DateTime  @default(now()) @map("erstellt_am")
+  aktualisiertAm DateTime @updatedAt @map("aktualisiert_am")
+
+  @@map("aufbewahrungsregeln")
+}
+
+// ================================================================
+//  RESSOURCEN (externe Links)
+// ================================================================
+
+model Ressource {
+  id            String   @id @default(uuid())
+  titel         String
+  url           String
+  beschreibung  String?
+  // GESETZ | KI_WERKZEUG | BEHOERDE | VORLAGE | SONSTIGES
+  kategorie     String   @default("SONSTIGES")
+  tags          String[] @default([])
+
+  erstelltVonId String   @map("erstellt_von_id")
+  erstelltVon   Benutzer @relation("RessourceErstellt", fields: [erstelltVonId], references: [id])
+
+  erstelltAm    DateTime @default(now()) @map("erstellt_am")
+  aktualisiertAm DateTime @updatedAt @map("aktualisiert_am")
+
+  @@index([kategorie])
+  @@index([erstelltAm])
+  @@map("ressourcen")
+}
+
+// ================================================================
+//  WISSENSDATENBANK
+// ================================================================
+
+model WissensEintrag {
+  id        String   @id @default(uuid())
+  titel     String
+  inhalt    String
+
+  herkunft  String   @default("MANUELL") // MANUELL | PROTOKOLL_EXTRAKT
+  quelle    Json?    // { sitzungId, topId, protocolBlockId }
+
+  kategorien String[] @default([]) // Tags/Schlagworte zur Kategorisierung
+  loesung    String?  // Beschreibung der Lösung / des Ergebnisses
+
+  erstelltVonId String   @map("erstellt_von_id")
+  erstelltVon   Benutzer @relation("WissensErstelltVon", fields: [erstelltVonId], references: [id])
+
+  erstelltAm     DateTime @default(now()) @map("erstellt_am")
+  aktualisiertAm DateTime @updatedAt @map("aktualisiert_am")
+
+  auditLogs      AuditLog[]
+
+  @@index([erstelltAm])
+  @@index([erstelltVonId])
+  @@map("wissen")
+}
