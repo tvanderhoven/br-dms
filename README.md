@@ -1,11 +1,11 @@
 # BR-DMS – Betriebsrats-Dokumentenmanagementsystem
 
-![Self-hosted](https://img.shields.io/badge/Self--hosted-Synology%20NAS-blue)
+![Self-hosted](https://img.shields.io/badge/Self--hosted-NAS%20%2F%20QNAP-blue)
 ![DSGVO](https://img.shields.io/badge/DSGVO-konform-green)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED)
 ![License](https://img.shields.io/badge/Lizenz-Intern-lightgrey)
 
-DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft vollständig im Intranet auf einer Synology NAS – ohne Cloud-Verbindung, ohne externen Zugriff.
+DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft vollständig im Intranet auf einer NAS (QNAP, Synology o.ä.) – ohne Cloud-Verbindung, ohne externen Zugriff.
 
 ---
 
@@ -20,6 +20,8 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 - **Lückenloser Audit-Trail** – 40+ Aktionen mit IP, Zeitstempel, User-Agent
 - **Dokumentenversionen** – Beliebig viele Versionen mit Änderungsnotiz
 - **Watch Folder** – Automatischer Import aus freigegebenem Netzwerkordner (Pfad unabhängig vom Docker-Verzeichnis konfigurierbar)
+- **PDF-Unterschriften mit Ort & Datum** – Tagesordnung, Protokoll und Anwesenheitsliste drucken Ort (Oberhausen/Gladbeck) und Sitzungsdatum direkt auf die Unterschriftszeile
+- **System-Tab in Einstellungen** – Zeigt Watch-Folder Pfad und Aktivierungsstatus im Browser an
 - **Wissensarchiv** – Erfahrungen und Beschlüsse strukturiert ablegen
 - **Internes Nachrichtensystem** – Ohne externe Dienste
 
@@ -42,7 +44,7 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 
 ### Voraussetzungen
 
-- Synology NAS mit DSM 7.0+ und Container Manager (Docker)
+- NAS mit Docker-Unterstützung (QNAP Container Station, Synology Container Manager o.ä.)
 - SSH-Zugriff zur NAS
 - Entwickler-PC mit `bash` oder PowerShell + SSH-Client
 
@@ -52,24 +54,29 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 ```
 NAS_USER=<NAS-Benutzername>
 NAS_HOST=<NAS-IP oder Hostname>
-DATA_PATH=/volume1/docker/br-dms
+DATA_PATH=/share/Container/br-dms        # QNAP
+# DATA_PATH=/volume1/docker/br-dms      # Synology
 ```
 
 **2. `.env` auf der NAS anlegen:**
 ```bash
 ssh <NAS-Benutzername>@<NAS-IP>
-cp /volume1/docker/br-dms/.env.example /volume1/docker/br-dms/.env
-nano /volume1/docker/br-dms/.env   # Alle Werte anpassen
+cp <DATA_PATH>/.env.example <DATA_PATH>/.env
+nano <DATA_PATH>/.env   # Alle Werte anpassen
 ```
 
 **3. Dateien deployen:**
 ```bash
+# Windows:
+python deploy_komplett.py
+
+# Linux / macOS:
 bash deploy_update.sh
 ```
 
 **4. Container starten (auf der NAS per SSH):**
 ```bash
-cd /volume1/docker/br-dms
+cd <DATA_PATH>
 sudo /usr/local/bin/docker compose up -d --build
 ```
 
@@ -106,7 +113,8 @@ Pflichtfelder:
 
 Eingangsordner auf separate NAS-Freigabe legen (empfohlen):
 ```bash
-WATCH_INBOX_PATH=/volume1/br-dms-eingang
+WATCH_INBOX_PATH=/share/kp          # QNAP
+# WATCH_INBOX_PATH=/volume1/br-dms-eingang   # Synology
 ```
 Einliefernde User erhalten dann per SMB nur Zugriff auf diesen Ordner – nie auf das Docker-Verzeichnis.
 
@@ -162,8 +170,8 @@ sudo bash /volume1/docker/br-dms/backup.sh
 sudo bash /volume1/docker/br-dms/restore.sh
 ```
 
-Backups landen in `/volume1/docker/br-dms/backups/` und werden nach 30 Tagen automatisch gelöscht.  
-Empfehlung: Tägliche Ausführung via Synology Task Scheduler.
+Backups landen in `<DATA_PATH>/backups/` und werden nach 30 Tagen automatisch gelöscht.  
+Empfehlung: Tägliche Ausführung via NAS Task Scheduler (QNAP: Aufgabenplaner / Synology: Aufgabenplaner).
 
 ---
 
