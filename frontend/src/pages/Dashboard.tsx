@@ -93,7 +93,7 @@ export default function Dashboard() {
     : null;
 
   const ungelesen      = inboxDoks.filter(d => !d.inboxGelesen).length;
-  const offeneAufgaben = aufgaben.filter(a => !a.erledigt);
+  const offeneAufgaben = aufgaben.filter(a => !a.erledigt && a.typ !== "PROJEKT");
   const kritischGesamt = abgelaufen.length + kritisch.length;
 
   const PRIO_SORT: Record<string, number> = { HOCH: 0, MITTEL: 1, NIEDRIG: 2 };
