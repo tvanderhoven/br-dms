@@ -278,7 +278,7 @@ function SitzungBearbeitenModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Notizen</label>
             <textarea value={notizen} onChange={e => setNotizen(e.target.value)} rows={3} placeholder="Optional"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-none" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
           </div>
           {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
           <div className="flex gap-3 pt-2">
@@ -378,7 +378,7 @@ function NeueSitzungModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Notizen</label>
             <textarea value={notizen} onChange={e => setNotizen(e.target.value)} rows={3} placeholder="Optional"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-none" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
           </div>
           {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
           <div className="flex gap-3 pt-2">
@@ -805,7 +805,7 @@ function TopAufgabeModal({
               <label className="block text-sm font-medium text-gray-700 mb-1">Beschreibung</label>
               <textarea value={beschreibung} onChange={e => setBeschreibung(e.target.value)} rows={3}
                 placeholder="Optional"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-none" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -1343,13 +1343,13 @@ function ExtraktModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Sachverhalt / Situation *</label>
             <textarea value={formInhalt} onChange={e => setFormInhalt(e.target.value)} required rows={4}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-none" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Lösung / Ergebnis</label>
             <textarea value={formLoesung} onChange={e => setFormLoesung(e.target.value)} rows={3}
               placeholder="Wie wurde das Problem gelöst?"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-none" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Kategorien / Schlagworte</label>

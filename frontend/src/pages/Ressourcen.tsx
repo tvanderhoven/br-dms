@@ -328,7 +328,7 @@ export default function Ressourcen() {
                   value={form.beschreibung}
                   onChange={e => setForm(f => ({ ...f, beschreibung: e.target.value }))}
                   placeholder="Wofür wird diese Ressource genutzt?"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-none"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
                 />
               </div>
 

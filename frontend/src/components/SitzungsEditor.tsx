@@ -55,6 +55,7 @@ export default function SitzungsEditor({
         openOnClick: true,
         autolink: true,
         linkOnPaste: true,
+        protocols: ['lbo', 'ftp', 'mailto'],
         HTMLAttributes: {
           target: "_blank",
           rel: "noopener noreferrer",
@@ -148,7 +149,8 @@ export default function SitzungsEditor({
       editor?.chain().focus().unsetLink().run();
     } else {
       let url = linkEingabe.trim();
-      if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+      // Nur https voranstellen wenn überhaupt kein Protokoll angegeben (z.B. nicht lbo://, ftp://, mailto:)
+      if (!/^[a-zA-Z][a-zA-Z0-9+\-.]*:\/?\/?/i.test(url)) url = "https://" + url;
       editor?.chain().focus().setLink({ href: url }).run();
     }
     setLinkEingabe("");

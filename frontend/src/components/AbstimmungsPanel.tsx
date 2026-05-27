@@ -277,7 +277,7 @@ export default function AbstimmungsPanel({ topId, sitzungId, topTitel, readonly,
                 onChange={e => setFragestellung(e.target.value)}
                 rows={3}
                 placeholder={`z.B. „Der Betriebsrat stimmt der Einstellung von Herrn Müller zu."`}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-none"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
               />
             </div>
             <button

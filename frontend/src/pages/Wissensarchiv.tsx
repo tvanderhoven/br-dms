@@ -315,7 +315,7 @@ export default function Wissensarchiv() {
                   value={form.inhalt}
                   onChange={e => setForm(f => ({ ...f, inhalt: e.target.value }))}
                   placeholder="Beschreibe die Situation oder den Fall…"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-none"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
                 />
               </div>
 
@@ -326,7 +326,7 @@ export default function Wissensarchiv() {
                   value={form.loesung}
                   onChange={e => setForm(f => ({ ...f, loesung: e.target.value }))}
                   placeholder="Wie wurde das Problem gelöst? Welches Ergebnis wurde erzielt?"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-none"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
                 />
               </div>
 
