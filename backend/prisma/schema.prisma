@@ -36,6 +36,11 @@ enum Sichtbarkeit {
   OEFFENTLICH
 }
 
+enum AufgabeTyp {
+  PROJEKT
+  AUFGABE
+}
+
 enum Kategorie {
   ANHOERUNG_99
   ANHOERUNG_102
@@ -199,11 +204,20 @@ model Aufgabe {
   id              String       @id @default(uuid())
   titel           String
   beschreibung    String?
+  typ             AufgabeTyp   @default(AUFGABE)
   prioritaet      Prioritaet   @default(MITTEL)
+  startDatum      DateTime?    @map("start_datum")
+  endDatum        DateTime?    @map("end_datum")
   faelligAm       DateTime?    @map("faellig_am")
+  farbe           String?
   erledigt        Boolean      @default(false)
   erledigtAm      DateTime?    @map("erledigt_am")
   sichtbarkeit    Sichtbarkeit @default(OEFFENTLICH)
+
+  // Hierarchie: Ober-/Unterprojekte und Aufgaben unter Projekten
+  oberProjektId   String?      @map("ober_projekt_id")
+  oberProjekt     Aufgabe?     @relation("AufgabeHierarchie", fields: [oberProjektId], references: [id], onDelete: SetNull)
+  unterElemente   Aufgabe[]    @relation("AufgabeHierarchie")
 
   erstelltVonId   String       @map("erstellt_von_id")
   erstelltVon     Benutzer     @relation("AufgabeErstellt", fields: [erstelltVonId], references: [id])

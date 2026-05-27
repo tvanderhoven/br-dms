@@ -253,16 +253,23 @@ export interface ProtokollEinstellungen {
 export type Rolle = "VORSITZ" | "STELLVERTRETER" | "MITGLIED" | "ERSATZMITGLIED" | "ADMIN";
 export type Prioritaet = "HOCH" | "MITTEL" | "NIEDRIG";
 export type Sichtbarkeit = "PRIVAT" | "OEFFENTLICH";
+export type AufgabeTyp = "PROJEKT" | "AUFGABE";
 
 export interface Aufgabe {
   id: string;
   titel: string;
   beschreibung?: string;
+  typ: AufgabeTyp;
   prioritaet: Prioritaet;
+  startDatum?: string;
+  endDatum?: string;
   faelligAm?: string;
+  farbe?: string;
   erledigt: boolean;
   erledigtAm?: string;
   sichtbarkeit: Sichtbarkeit;
+  oberProjektId?: string;
+  oberProjekt?: { id: string; titel: string; farbe?: string };
   erstelltVon: { id: string; name: string; email: string };
   zugewiesenAn?: { id: string; name: string; email: string };
   erstelltAm: string;
@@ -272,10 +279,15 @@ export interface Aufgabe {
 export interface AufgabeErstellen {
   titel: string;
   beschreibung?: string;
+  typ?: AufgabeTyp;
   prioritaet?: Prioritaet;
+  startDatum?: string;
+  endDatum?: string;
   faelligAm?: string;
+  farbe?: string;
   zugewiesenAnId?: string;
   sichtbarkeit?: Sichtbarkeit;
+  oberProjektId?: string;
 }
 
 export interface Benutzer {
