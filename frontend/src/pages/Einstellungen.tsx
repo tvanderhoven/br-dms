@@ -716,7 +716,7 @@ export default function Einstellungen() {
     }`;
 
   return (
-    <div className="p-6 max-w-5xl">
+    <div className="p-6">
       <div className="flex items-center gap-3 mb-6">
         <Settings size={22} className="text-gray-600" />
         <h1 className="text-2xl font-bold text-gray-900">Einstellungen</h1>

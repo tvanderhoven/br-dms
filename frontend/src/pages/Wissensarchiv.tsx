@@ -221,7 +221,7 @@ export default function Wissensarchiv() {
       {/* Rechte Seite – Detail */}
       <div className="flex-1 flex flex-col bg-gray-50 overflow-y-auto">
         {detail ? (
-          <div className="p-6 max-w-3xl">
+          <div className="p-6">
             <div className="flex items-start justify-between mb-6">
               <div>
                 <h1 className="text-xl font-bold text-gray-900">{detail.titel}</h1>

@@ -307,7 +307,7 @@ export default function Vorlagen() {
       {/* Rechte Seite – Vorlage bearbeiten */}
       <div className="flex-1 flex flex-col bg-white overflow-y-auto">
         {gewählt ? (
-          <div className="p-6 max-w-2xl">
+          <div className="p-6">
             {/* Vorlage-Name */}
             <div className="mb-6">
               {nameBearbeiten ? (

@@ -468,7 +468,7 @@ function SitzungDetail({
   }
 
   return (
-    <div className="p-6 max-w-4xl">
+    <div className="p-6">
       {/* Header */}
       <div className="flex items-start gap-4 mb-6">
         <button onClick={onZurueck} className="mt-1 text-gray-400 hover:text-gray-600 shrink-0">

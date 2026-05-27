@@ -206,7 +206,7 @@ export default function Ressourcen() {
       {/* Rechte Seite – Detail */}
       <div className="flex-1 flex flex-col bg-gray-50 overflow-y-auto">
         {detail ? (
-          <div className="p-6 max-w-2xl">
+          <div className="p-6">
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">

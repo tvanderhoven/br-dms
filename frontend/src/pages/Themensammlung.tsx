@@ -226,7 +226,7 @@ export default function Themensammlung() {
     : [];
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto">
+    <div className="p-6">
       {/* Header */}
       <div className="flex items-center gap-2 mb-6">
         <Newspaper className="w-5 h-5 text-[rgb(var(--accent))]" />

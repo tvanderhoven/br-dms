@@ -82,7 +82,7 @@ export default function Suche() {
   const aktuellerBegriff = searchParams.get("q") ?? "";
 
   return (
-    <div className="p-4 md:p-8 max-w-3xl mx-auto">
+    <div className="p-6">
       {/* Suchleiste */}
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-4">
