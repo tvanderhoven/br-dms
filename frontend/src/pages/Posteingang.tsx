@@ -1,5 +1,7 @@
 import { useEffect, useState, FormEvent } from "react";
-import { Mail, Send, Trash2, Loader2, PenSquare, X, Users, User, ChevronRight } from "lucide-react";
+import {
+  Mail, Send, Trash2, Loader2, PenSquare, X, Users, User, ChevronDown, ChevronUp,
+} from "lucide-react";
 import { api, Nachricht, NachrichtGesendet, Benutzer, formatDatum } from "../lib/api";
 
 type Ansicht = "eingang" | "gesendet";
@@ -20,7 +22,7 @@ export default function Posteingang() {
   const [ansicht, setAnsicht]           = useState<Ansicht>("eingang");
   const [nachrichten, setNachrichten]   = useState<Nachricht[]>([]);
   const [gesendet, setGesendet]         = useState<NachrichtGesendet[]>([]);
-  const [ausgewaehlt, setAusgewaehlt]   = useState<Nachricht | NachrichtGesendet | null>(null);
+  const [ausgeklappt, setAusgeklappt]   = useState<string | null>(null);
   const [laden, setLaden]               = useState(true);
   const [composeOffen, setComposeOffen] = useState(false);
 
@@ -35,14 +37,14 @@ export default function Posteingang() {
       ]);
       setNachrichten(inp);
       setGesendet(sent);
-    } catch { /* ignore */ } finally {
-      setLaden(false);
-    }
+    } catch { /* ignore */ }
+    finally { setLaden(false); }
   }
 
-  async function oeffnen(n: Nachricht) {
-    setAusgewaehlt(n);
-    if (!n.gelesen) {
+  async function toggle(n: Nachricht | NachrichtGesendet) {
+    if (ausgeklappt === n.id) { setAusgeklappt(null); return; }
+    setAusgeklappt(n.id);
+    if (ansicht === "eingang" && "gelesen" in n && !n.gelesen) {
       await api.nachrichten.alsGelesen(n.id).catch(() => {});
       setNachrichten(prev => prev.map(x => x.id === n.id ? { ...x, gelesen: true } : x));
     }
@@ -51,167 +53,171 @@ export default function Posteingang() {
   async function loeschen(id: string) {
     await api.nachrichten.loeschen(id).catch(() => {});
     setNachrichten(prev => prev.filter(x => x.id !== id));
-    if (ausgewaehlt?.id === id) setAusgewaehlt(null);
+    if (ausgeklappt === id) setAusgeklappt(null);
   }
 
-  const liste = ansicht === "eingang" ? nachrichten : gesendet;
+  const liste    = ansicht === "eingang" ? nachrichten : gesendet;
   const ungelesen = nachrichten.filter(n => !n.gelesen).length;
 
   return (
-    <div className="flex flex-col md:flex-row h-full">
-      {/* Linke Spalte */}
-      <div className="w-full md:w-80 flex-shrink-0 border-r md:border-b-0 border-b border-gray-200 flex flex-col bg-white">
-        {/* Header */}
-        <div className="px-4 py-4 border-b border-gray-100">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Mail className="w-5 h-5 text-[rgb(var(--accent))]" />
-              <span className="font-semibold text-gray-900">Nachrichten</span>
+    <div className="p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgb(var(--accent) / 0.1)" }}>
+            <Mail className="w-5 h-5" style={{ color: "rgb(var(--accent))" }} />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              Nachrichten
               {ungelesen > 0 && (
                 <span className="bg-[rgb(var(--accent))] text-white text-xs font-bold px-2 py-0.5 rounded-full">
                   {ungelesen}
                 </span>
               )}
-            </div>
-            <button
-              onClick={() => setComposeOffen(true)}
-              className="flex items-center gap-1.5 bg-[rgb(var(--accent))] hover:brightness-90 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
-            >
-              <PenSquare size={13} />
-              Neu
-            </button>
-          </div>
-          {/* Tabs */}
-          <div className="flex rounded-lg bg-gray-100 p-0.5">
-            <button
-              onClick={() => setAnsicht("eingang")}
-              className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-colors ${ansicht === "eingang" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
-            >
-              Eingang
-            </button>
-            <button
-              onClick={() => setAnsicht("gesendet")}
-              className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-colors ${ansicht === "gesendet" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
-            >
-              Gesendet
-            </button>
+            </h1>
+            <p className="text-sm text-gray-500">Interne BR-Kommunikation</p>
           </div>
         </div>
+        <button
+          onClick={() => setComposeOffen(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white hover:brightness-90 transition-colors"
+          style={{ backgroundColor: "rgb(var(--accent))" }}
+        >
+          <PenSquare size={15} /> Neu
+        </button>
+      </div>
 
-        {/* Liste */}
-        <div className="flex-1 overflow-y-auto">
-          {laden ? (
-            <div className="flex items-center justify-center h-32 text-gray-400">
-              <Loader2 className="w-5 h-5 animate-spin mr-2" /> Lade…
-            </div>
-          ) : liste.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-48 text-gray-400 text-sm">
-              <Mail size={32} className="mb-2 opacity-30" />
-              {ansicht === "eingang" ? "Keine Nachrichten" : "Keine gesendeten Nachrichten"}
-            </div>
-          ) : (
-            <ul className="divide-y divide-gray-50">
-              {liste.map(n => {
-                const istGelesen = "gelesen" in n ? n.gelesen : true;
-                const isSelected = ausgewaehlt?.id === n.id;
-                return (
-                  <li
-                    key={n.id}
-                    onClick={() => ansicht === "eingang" ? oeffnen(n as Nachricht) : setAusgewaehlt(n)}
-                    className={`px-4 py-3 cursor-pointer transition-colors ${isSelected ? "bg-[rgb(var(--accent)/0.1)] border-r-2 border-[rgb(var(--accent))]" : "hover:bg-gray-50"}`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                          {!istGelesen && <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />}
-                          <p className={`text-sm truncate ${!istGelesen ? "font-semibold text-gray-900" : "text-gray-700"}`}>
-                            {n.betreff}
-                          </p>
-                        </div>
-                        <p className="text-xs text-gray-400 truncate">
-                          {ansicht === "eingang"
-                            ? (n.absender?.name ?? "System")
-                            : `An: ${"empfaenger" in n ? (n as NachrichtGesendet).empfaenger.name : "–"}`
-                          }
-                        </p>
-                      </div>
-                      <div className="flex flex-col items-end gap-1 shrink-0">
-                        <span className="text-xs text-gray-400">
-                          {new Date(n.erstelltAm).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}
+      {/* Tabs */}
+      <div className="flex rounded-xl bg-gray-100 p-1 mb-5 w-fit">
+        <button
+          onClick={() => { setAnsicht("eingang"); setAusgeklappt(null); }}
+          className={`px-5 py-2 text-sm font-medium rounded-lg transition-colors ${ansicht === "eingang" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+        >
+          Eingang {ungelesen > 0 && <span className="ml-1.5 text-xs bg-[rgb(var(--accent))] text-white px-1.5 py-0.5 rounded-full">{ungelesen}</span>}
+        </button>
+        <button
+          onClick={() => { setAnsicht("gesendet"); setAusgeklappt(null); }}
+          className={`px-5 py-2 text-sm font-medium rounded-lg transition-colors ${ansicht === "gesendet" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+        >
+          Gesendet
+        </button>
+      </div>
+
+      {/* Zähler */}
+      <p className="text-xs text-gray-500 mb-3">
+        {laden ? "Lade…" : `${liste.length} Nachricht${liste.length !== 1 ? "en" : ""}`}
+      </p>
+
+      {/* Liste */}
+      {laden ? (
+        <div className="flex items-center justify-center py-16 text-gray-400 text-sm">
+          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Lade…
+        </div>
+      ) : liste.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">
+          <Mail size={40} className="mx-auto mb-3 opacity-20" />
+          <p className="font-medium">
+            {ansicht === "eingang" ? "Keine Nachrichten" : "Keine gesendeten Nachrichten"}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {liste.map(n => {
+            const istGelesen = "gelesen" in n ? n.gelesen : true;
+            const offen      = ausgeklappt === n.id;
+            const datum      = new Date(n.erstelltAm).toLocaleString("de-DE", {
+              day: "2-digit", month: "2-digit", year: "numeric",
+              hour: "2-digit", minute: "2-digit",
+            });
+
+            return (
+              <div key={n.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => toggle(n)}
+                  className="w-full text-left px-5 py-4 flex items-start gap-3 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                      {!istGelesen && <span className="w-2 h-2 rounded-full bg-[rgb(var(--accent))] flex-shrink-0" />}
+                      {TYP_LABEL[n.typ] && (
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${TYP_BADGE[n.typ]}`}>
+                          {TYP_LABEL[n.typ]}
                         </span>
-                        {TYP_LABEL[n.typ] && (
-                          <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${TYP_BADGE[n.typ]}`}>
-                            {TYP_LABEL[n.typ]}
-                          </span>
+                      )}
+                      <span className="text-xs text-gray-400">
+                        {ansicht === "eingang"
+                          ? (n.absender?.name ?? "System")
+                          : `An: ${"empfaenger" in n ? (n as NachrichtGesendet).empfaenger.name : "–"}`}
+                      </span>
+                      <span className="text-xs text-gray-400 ml-auto">
+                        {new Date(n.erstelltAm).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}
+                      </span>
+                    </div>
+                    <p className={`font-semibold truncate ${!istGelesen ? "text-gray-900" : "text-gray-700"}`}>
+                      {n.betreff}
+                    </p>
+                    {!offen && (
+                      <p className="text-xs text-gray-400 line-clamp-1 mt-0.5">{n.inhalt}</p>
+                    )}
+                  </div>
+                  {offen
+                    ? <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />
+                    : <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />}
+                </button>
+
+                {offen && (
+                  <div className="px-5 pb-5 border-t border-gray-100 bg-gray-50">
+                    {/* Meta */}
+                    <div className="flex items-start justify-between mt-4 mb-3">
+                      <div>
+                        <p className="text-xs text-gray-500">
+                          {ansicht === "eingang"
+                            ? `Von: ${n.absender?.name ?? "System"}`
+                            : `An: ${"empfaenger" in n ? (n as NachrichtGesendet).empfaenger.name : "–"}`}
+                          {" · "}{datum}
+                        </p>
+                        {n.sitzung && (
+                          <p className="text-xs mt-0.5" style={{ color: "rgb(var(--accent))" }}>
+                            Sitzung: {n.sitzung.titel} · {formatDatum(n.sitzung.sitzungsdatum)}
+                          </p>
                         )}
                       </div>
+                      {ansicht === "eingang" && (
+                        <button
+                          onClick={() => loeschen(n.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Löschen"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
                     </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      </div>
 
-      {/* Detail */}
-      <div className="flex-1 flex flex-col bg-white">
-        {ausgewaehlt ? (
-          <>
-            <div className="px-6 py-4 border-b border-gray-100 flex items-start justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">{ausgewaehlt.betreff}</h2>
-                <p className="text-sm text-gray-500 mt-0.5">
-                  {ansicht === "eingang"
-                    ? `Von: ${ausgewaehlt.absender?.name ?? "System"}`
-                    : `An: ${"empfaenger" in ausgewaehlt ? (ausgewaehlt as NachrichtGesendet).empfaenger.name : "–"}`
-                  }
-                  {" · "}
-                  {new Date(ausgewaehlt.erstelltAm).toLocaleString("de-DE", {
-                    day: "2-digit", month: "2-digit", year: "numeric",
-                    hour: "2-digit", minute: "2-digit",
-                  })}
-                </p>
-                {ausgewaehlt.sitzung && (
-                  <p className="text-xs text-[rgb(var(--accent))] mt-0.5">
-                    Sitzung: {ausgewaehlt.sitzung.titel} · {formatDatum(ausgewaehlt.sitzung.sitzungsdatum)}
-                  </p>
+                    {/* Typ-Banner */}
+                    {(n.typ === "TAGESORDNUNG" || n.typ === "PROTOKOLL") && (
+                      <div className={`px-4 py-2 rounded-lg text-sm mb-3 ${TYP_BADGE[n.typ]}`}>
+                        {n.typ === "TAGESORDNUNG" ? "Tagesordnung für die Sitzung" : "Finalisiertes Sitzungsprotokoll"}
+                      </div>
+                    )}
+
+                    {/* Inhalt */}
+                    <div className="bg-white rounded-xl border border-gray-200 p-4">
+                      <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{n.inhalt}</p>
+                    </div>
+
+                    {"gelesen" in n && n.gelesenAm && (
+                      <p className="text-xs text-gray-400 mt-2">
+                        Gelesen am {new Date(n.gelesenAm).toLocaleString("de-DE")}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
-              {ansicht === "eingang" && (
-                <button
-                  onClick={() => loeschen(ausgewaehlt.id)}
-                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Löschen"
-                >
-                  <Trash2 size={16} />
-                </button>
-              )}
-            </div>
-
-            {(ausgewaehlt.typ === "TAGESORDNUNG" || ausgewaehlt.typ === "PROTOKOLL") && (
-              <div className={`mx-6 mt-4 px-4 py-2 rounded-lg text-sm ${TYP_BADGE[ausgewaehlt.typ]}`}>
-                {ausgewaehlt.typ === "TAGESORDNUNG" ? "Tagesordnung für die Sitzung" : "Finalisiertes Sitzungsprotokoll"}
-              </div>
-            )}
-
-            <div className="flex-1 px-6 py-4 overflow-y-auto">
-              <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{ausgewaehlt.inhalt}</p>
-            </div>
-
-            {"gelesen" in ausgewaehlt && ausgewaehlt.gelesenAm && (
-              <div className="px-6 py-3 border-t border-gray-100 text-xs text-gray-400">
-                Gelesen am {new Date(ausgewaehlt.gelesenAm).toLocaleString("de-DE")}
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
-            <Mail size={48} className="mb-3 opacity-20" />
-            <p className="text-sm">Nachricht auswählen</p>
-          </div>
-        )}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Compose-Modal */}
       {composeOffen && (
@@ -281,7 +287,7 @@ function ComposeModal({ onSchliessen, onErfolg }: {
               <select
                 value={empfaengerId}
                 onChange={e => setEmpfaengerId(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white"
+                className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white"
               >
                 <option value="alle">Alle BR-Mitglieder</option>
                 {benutzer.map(b => (
@@ -290,18 +296,15 @@ function ComposeModal({ onSchliessen, onErfolg }: {
               </select>
               {empfaengerId === "alle"
                 ? <Users size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                : <User  size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-              }
+                : <User  size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />}
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Betreff</label>
             <input
-              value={betreff}
-              onChange={e => setBetreff(e.target.value)}
-              required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              value={betreff} onChange={e => setBetreff(e.target.value)} required
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
               placeholder="Betreff eingeben…"
             />
           </div>
@@ -309,11 +312,8 @@ function ComposeModal({ onSchliessen, onErfolg }: {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Nachricht</label>
             <textarea
-              value={inhalt}
-              onChange={e => setInhalt(e.target.value)}
-              required
-              rows={6}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
+              value={inhalt} onChange={e => setInhalt(e.target.value)} required rows={6}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
               placeholder="Nachricht eingeben…"
             />
           </div>
@@ -325,14 +325,13 @@ function ComposeModal({ onSchliessen, onErfolg }: {
           )}
 
           <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onSchliessen} className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">
+            <button type="button" onClick={onSchliessen}
+              className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">
               Abbrechen
             </button>
-            <button
-              type="submit"
-              disabled={laden || !betreff.trim() || !inhalt.trim()}
-              className="flex-1 px-4 py-2 text-sm bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white rounded-lg flex items-center justify-center gap-2"
-            >
+            <button type="submit" disabled={laden || !betreff.trim() || !inhalt.trim()}
+              className="flex-1 px-4 py-2 text-sm hover:brightness-90 disabled:opacity-60 text-white rounded-lg flex items-center justify-center gap-2"
+              style={{ backgroundColor: "rgb(var(--accent))" }}>
               {laden ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
               Senden
             </button>
