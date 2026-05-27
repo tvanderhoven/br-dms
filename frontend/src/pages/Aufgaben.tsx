@@ -65,9 +65,11 @@ function datumFarbe(datum?: string): string {
 // ── Gantt-Ansicht ────────────────────────────────────────────────────
 function GanttAnsicht({
   aufgaben,
+  filter,
   onBearbeiten,
 }: {
   aufgaben: Aufgabe[];
+  filter: FilterTyp;
   onBearbeiten: (a: Aufgabe) => void;
 }) {
   const heute = useMemo(() => {
@@ -87,8 +89,9 @@ function GanttAnsicht({
     const spaetestes = daten.length > 0 ? Math.max(...daten) + 7 * 86_400_000 : heute.getTime();
 
     return {
-      minDate: new Date(Math.min(fruehestes, heute.getTime() - 30 * 86_400_000)),
-      maxDate: new Date(Math.max(spaetestes, heute.getTime() + 90 * 86_400_000)),
+      minDate: new Date(Math.min(fruehestes, heute.getTime() - 60 * 86_400_000)),
+      // Immer mind. 18 Monate in die Zukunft → genug Scroll-Raum
+      maxDate: new Date(Math.max(spaetestes, heute.getTime() + 548 * 86_400_000)),
     };
   }, [aufgaben, heute]);
 
@@ -164,13 +167,19 @@ function GanttAnsicht({
     );
   }
 
-  const topLevel = aufgaben.filter(a => !a.oberProjektId);
+  const topLevel = useMemo(() => {
+    let items = aufgaben.filter(a => !a.oberProjektId);
+    if (filter === "offen")    items = items.filter(a => !a.erledigt);
+    if (filter === "erledigt") items = items.filter(a =>  a.erledigt);
+    if (filter === "projekte") items = items.filter(a => a.typ === "PROJEKT");
+    return items;
+  }, [aufgaben, filter]);
   const hatEintraege = topLevel.length > 0;
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
       <div className="overflow-x-auto">
-        <div style={{ minWidth: "900px" }}>
+        <div style={{ minWidth: "2400px" }}>
           {/* ── Header ── */}
           <div className="flex border-b border-gray-200 bg-gray-50">
             <div
@@ -355,8 +364,13 @@ function ListenAnsicht({
     aufgabe: Aufgabe;
     einrueckung?: number;
   }) {
-    const kinder = aufgaben.filter(a => a.oberProjektId === aufgabe.id);
-    const hatKinder = kinder.length > 0;
+    const alleKinder = aufgaben.filter(a => a.oberProjektId === aufgabe.id);
+    const kinder = alleKinder.filter(a => {
+      if (filter === "offen")    return !a.erledigt;
+      if (filter === "erledigt") return  a.erledigt;
+      return true;
+    });
+    const hatKinder = alleKinder.length > 0;
     const istOffen = expandiert.has(aufgabe.id);
 
     return (
@@ -950,6 +964,7 @@ export default function Aufgaben() {
       ) : (
         <GanttAnsicht
           aufgaben={aufgaben}
+          filter={filter}
           onBearbeiten={a => modalOeffnen(a)}
         />
       )}
