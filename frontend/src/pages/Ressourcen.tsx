@@ -2,6 +2,7 @@ import { useState, useEffect, FormEvent } from "react";
 import {
   Globe, Plus, Trash2, Search, X, ExternalLink, Tag,
   Loader2, Edit3, Scale, Brain, Building2, FileText, Link2,
+  ChevronDown, ChevronUp,
 } from "lucide-react";
 import {
   api, Ressource, RessourceErstellen, RessourceKategorie,
@@ -11,23 +12,23 @@ import {
 const KATEGORIEN: RessourceKategorie[] = ["GESETZ", "KI_WERKZEUG", "BEHOERDE", "VORLAGE", "SONSTIGES"];
 
 const KATEGORIE_ICON: Record<RessourceKategorie, React.ReactNode> = {
-  GESETZ:      <Scale size={15} />,
-  KI_WERKZEUG: <Brain size={15} />,
-  BEHOERDE:    <Building2 size={15} />,
-  VORLAGE:     <FileText size={15} />,
-  SONSTIGES:   <Link2 size={15} />,
+  GESETZ:      <Scale size={14} />,
+  KI_WERKZEUG: <Brain size={14} />,
+  BEHOERDE:    <Building2 size={14} />,
+  VORLAGE:     <FileText size={14} />,
+  SONSTIGES:   <Link2 size={14} />,
 };
 
 export default function Ressourcen() {
-  const [liste, setListe]           = useState<Ressource[]>([]);
-  const [laden, setLaden]           = useState(true);
-  const [suche, setSuche]           = useState("");
-  const [aktivKat, setAktivKat]     = useState<RessourceKategorie | null>(null);
-  const [detail, setDetail]         = useState<Ressource | null>(null);
-  const [modal, setModal]           = useState(false);
-  const [bearbeitet, setBearbeitet] = useState(false);
-  const [tagInput, setTagInput]     = useState("");
-  const [form, setForm]             = useState<RessourceErstellen & { id?: string }>({
+  const [liste, setListe]             = useState<Ressource[]>([]);
+  const [laden, setLaden]             = useState(true);
+  const [suche, setSuche]             = useState("");
+  const [aktivKat, setAktivKat]       = useState<RessourceKategorie | null>(null);
+  const [ausgeklappt, setAusgeklappt] = useState<string | null>(null);
+  const [modal, setModal]             = useState(false);
+  const [bearbeitet, setBearbeitet]   = useState(false);
+  const [tagInput, setTagInput]       = useState("");
+  const [form, setForm]               = useState<RessourceErstellen & { id?: string }>({
     titel: "", url: "", beschreibung: "", kategorie: "SONSTIGES", tags: [],
   });
 
@@ -47,7 +48,6 @@ export default function Ressourcen() {
       setForm({ titel: "", url: "", beschreibung: "", kategorie: "SONSTIGES", tags: [] });
       setBearbeitet(false);
     }
-    setDetail(null);
     setModal(true);
   }
 
@@ -65,7 +65,6 @@ export default function Ressourcen() {
       if (bearbeitet && form.id) {
         const r = await api.ressourcen.aktualisieren(form.id, payload);
         setListe(prev => prev.map(x => x.id === r.id ? r : x));
-        if (detail?.id === r.id) setDetail(r);
       } else {
         const r = await api.ressourcen.erstellen(payload);
         setListe(prev => [r, ...prev]);
@@ -78,7 +77,7 @@ export default function Ressourcen() {
     if (!confirm("Ressource wirklich löschen?")) return;
     await api.ressourcen.loeschen(id);
     setListe(prev => prev.filter(x => x.id !== id));
-    if (detail?.id === id) setDetail(null);
+    if (ausgeklappt === id) setAusgeklappt(null);
   }
 
   function tagHinzufuegen() {
@@ -99,50 +98,48 @@ export default function Ressourcen() {
   });
 
   return (
-    <div className="flex flex-col md:flex-row h-full">
-
-      {/* Linke Spalte – Liste */}
-      <div className="w-full md:w-96 flex-shrink-0 border-r md:border-b-0 border-b border-gray-200 flex flex-col bg-white">
-        <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-between">
+    <div className="p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgb(var(--accent) / 0.1)" }}>
+            <Globe className="w-5 h-5" style={{ color: "rgb(var(--accent))" }} />
+          </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <Globe className="text-[rgb(var(--accent))]" size={20} />
-              Ressourcen
-            </h2>
-            <p className="text-xs text-gray-400 mt-0.5">{liste.length} Links</p>
-          </div>
-          <button
-            onClick={() => oeffneModal()}
-            className="flex items-center gap-1.5 bg-[rgb(var(--accent))] hover:brightness-90 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-          >
-            <Plus size={15} /> Neu
-          </button>
-        </div>
-
-        {/* Suche */}
-        <div className="px-4 py-2 border-b border-gray-100">
-          <div className="flex items-center bg-gray-100 rounded-lg px-2.5 py-1.5">
-            <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-            <input
-              type="text"
-              value={suche}
-              onChange={e => setSuche(e.target.value)}
-              placeholder="Suchen…"
-              className="bg-transparent text-sm w-full outline-none ml-2 text-gray-700 placeholder-gray-400"
-            />
-            {suche && (
-              <button onClick={() => setSuche("")} className="text-gray-400 hover:text-gray-600">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
+            <h1 className="text-xl font-bold text-gray-900">Ressourcen</h1>
+            <p className="text-sm text-gray-500">Links, Werkzeuge &amp; Referenzen</p>
           </div>
         </div>
+        <button
+          onClick={() => oeffneModal()}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white hover:brightness-90 transition-colors"
+          style={{ backgroundColor: "rgb(var(--accent))" }}
+        >
+          <Plus size={16} /> Neu
+        </button>
+      </div>
 
-        {/* Kategorie-Filter */}
-        <div className="px-4 py-2 border-b border-gray-100 flex flex-wrap gap-1.5">
+      {/* Filter */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-5 flex flex-wrap gap-3 items-center">
+        <div className="flex items-center bg-gray-100 rounded-lg px-2.5 py-1.5 flex-1 min-w-[180px]">
+          <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+          <input
+            type="text"
+            value={suche}
+            onChange={e => setSuche(e.target.value)}
+            placeholder="Suchen…"
+            className="bg-transparent text-sm w-full outline-none ml-2 text-gray-700 placeholder-gray-400"
+          />
+          {suche && (
+            <button onClick={() => setSuche("")} className="text-gray-400 hover:text-gray-600">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-1.5">
           <button
             onClick={() => setAktivKat(null)}
-            className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${!aktivKat ? "bg-[rgb(var(--accent))] text-white border-[rgb(var(--accent))]" : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"}`}
+            className={`text-xs px-2 py-1 rounded-full border transition-colors ${!aktivKat ? "bg-[rgb(var(--accent))] text-white border-[rgb(var(--accent))]" : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"}`}
           >
             Alle
           </button>
@@ -150,127 +147,102 @@ export default function Ressourcen() {
             <button
               key={kat}
               onClick={() => setAktivKat(kat === aktivKat ? null : kat)}
-              className={`text-xs px-2 py-0.5 rounded-full border transition-colors flex items-center gap-1 ${aktivKat === kat ? "bg-[rgb(var(--accent))] text-white border-[rgb(var(--accent))]" : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"}`}
+              className={`text-xs px-2 py-1 rounded-full border transition-colors flex items-center gap-1 ${aktivKat === kat ? "bg-[rgb(var(--accent))] text-white border-[rgb(var(--accent))]" : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"}`}
             >
               {RESSOURCE_KATEGORIE_LABEL[kat]}
             </button>
           ))}
         </div>
+      </div>
 
-        {/* Liste */}
-        <div className="flex-1 overflow-y-auto">
-          {laden ? (
-            <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
-              <Loader2 className="w-4 h-4 animate-spin mr-2" /> Lade…
-            </div>
-          ) : gefiltert.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-48 text-gray-400 text-sm text-center px-4">
-              <Globe size={32} className="mb-2 opacity-30" />
-              {suche || aktivKat ? "Keine Treffer" : "Noch keine Ressourcen"}
-            </div>
-          ) : (
-            <ul className="divide-y divide-gray-50">
-              {gefiltert.map(r => (
-                <li
-                  key={r.id}
-                  onClick={() => setDetail(detail?.id === r.id ? null : r)}
-                  className={`px-4 py-3 cursor-pointer transition-colors group ${detail?.id === r.id ? "bg-[rgb(var(--accent)/0.1)] border-r-2 border-[rgb(var(--accent))]" : "hover:bg-gray-50"}`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${RESSOURCE_KATEGORIE_FARBE[r.kategorie]}`}>
-                          {RESSOURCE_KATEGORIE_LABEL[r.kategorie]}
+      {/* Zähler */}
+      <p className="text-xs text-gray-500 mb-3">
+        {laden ? "Lade…" : `${gefiltert.length} Eintrag${gefiltert.length !== 1 ? "ige" : ""} gefunden`}
+      </p>
+
+      {/* Liste */}
+      {laden ? (
+        <div className="flex items-center justify-center py-16 text-gray-400 text-sm">
+          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Lade…
+        </div>
+      ) : gefiltert.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">
+          <Globe size={40} className="mx-auto mb-3 opacity-20" />
+          <p className="font-medium">{suche || aktivKat ? "Keine Treffer" : "Noch keine Ressourcen"}</p>
+          {!suche && !aktivKat && <p className="text-sm mt-1">Klicke auf „Neu" um eine Ressource anzulegen.</p>}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {gefiltert.map(r => (
+            <div key={r.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <button
+                onClick={() => setAusgeklappt(p => p === r.id ? null : r.id)}
+                className="w-full text-left px-5 py-4 flex items-start gap-3 hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${RESSOURCE_KATEGORIE_FARBE[r.kategorie]}`}>
+                      {KATEGORIE_ICON[r.kategorie]}
+                      {RESSOURCE_KATEGORIE_LABEL[r.kategorie]}
+                    </span>
+                    <span className="text-xs text-gray-400">{r.erstelltVon.name} · {formatDatum(r.erstelltAm)}</span>
+                  </div>
+                  <p className="font-semibold text-gray-900">{r.titel}</p>
+                  <p className="text-xs text-blue-500 truncate mt-0.5">{r.url}</p>
+                  {r.beschreibung && (
+                    <p className="text-xs text-gray-400 line-clamp-1 mt-0.5">{r.beschreibung}</p>
+                  )}
+                </div>
+                {ausgeklappt === r.id
+                  ? <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />
+                  : <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />}
+              </button>
+
+              {ausgeklappt === r.id && (
+                <div className="px-5 pb-5 border-t border-gray-100 bg-gray-50">
+                  <a
+                    href={r.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 mt-4 mb-4 px-4 py-2.5 text-white rounded-xl text-sm font-medium hover:brightness-90 transition-colors group"
+                    style={{ backgroundColor: "rgb(var(--accent))" }}
+                  >
+                    <ExternalLink size={14} />
+                    <span className="flex-1 truncate">{r.url}</span>
+                    <span className="text-xs opacity-70 group-hover:opacity-100">Öffnen →</span>
+                  </a>
+                  {r.beschreibung && (
+                    <p className="text-sm text-gray-700 mb-3 whitespace-pre-wrap leading-relaxed">{r.beschreibung}</p>
+                  )}
+                  {r.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {r.tags.map(tag => (
+                        <span key={tag} className="flex items-center gap-1 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                          <Tag size={10} /> {tag}
                         </span>
-                      </div>
-                      <p className="text-sm font-medium text-gray-900 truncate">{r.titel}</p>
-                      <p className="text-xs text-blue-500 truncate">{r.url}</p>
-                      {r.beschreibung && (
-                        <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">{r.beschreibung}</p>
-                      )}
+                      ))}
                     </div>
+                  )}
+                  <div className="flex gap-2">
                     <button
-                      onClick={e => { e.stopPropagation(); loeschen(r.id); }}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-600 transition-all rounded shrink-0"
+                      onClick={() => { setAusgeklappt(null); oeffneModal(r); }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors text-gray-700"
                     >
-                      <Trash2 size={14} />
+                      <Edit3 size={14} /> Bearbeiten
+                    </button>
+                    <button
+                      onClick={() => loeschen(r.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-red-200 rounded-lg hover:bg-red-50 transition-colors text-red-600"
+                    >
+                      <Trash2 size={14} /> Löschen
                     </button>
                   </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-
-      {/* Rechte Seite – Detail */}
-      <div className="flex-1 flex flex-col bg-gray-50 overflow-y-auto">
-        {detail ? (
-          <div className="p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${RESSOURCE_KATEGORIE_FARBE[detail.kategorie]}`}>
-                    {KATEGORIE_ICON[detail.kategorie]}
-                    {RESSOURCE_KATEGORIE_LABEL[detail.kategorie]}
-                  </span>
                 </div>
-                <h1 className="text-xl font-bold text-gray-900">{detail.titel}</h1>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  {detail.erstelltVon.name} · {formatDatum(detail.erstelltAm)}
-                </p>
-              </div>
-              <div className="flex gap-2 ml-4 flex-shrink-0">
-                <button
-                  onClick={() => oeffneModal(detail)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors text-gray-700"
-                >
-                  <Edit3 size={14} /> Bearbeiten
-                </button>
-                <button
-                  onClick={() => loeschen(detail.id)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-red-200 rounded-lg hover:bg-red-50 transition-colors text-red-600"
-                >
-                  <Trash2 size={14} /> Löschen
-                </button>
-              </div>
+              )}
             </div>
-
-            {/* Öffnen-Button */}
-            <a
-              href={detail.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 w-full px-4 py-3 bg-[rgb(var(--accent))] hover:brightness-90 text-white rounded-xl font-medium transition-colors mb-5 group"
-            >
-              <ExternalLink size={18} />
-              <span className="flex-1 truncate text-sm">{detail.url}</span>
-              <span className="text-xs opacity-70 group-hover:opacity-100">Öffnen →</span>
-            </a>
-
-            {detail.beschreibung && (
-              <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
-                <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{detail.beschreibung}</p>
-              </div>
-            )}
-
-            {detail.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {detail.tags.map(tag => (
-                  <span key={tag} className="flex items-center gap-1 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                    <Tag size={10} /> {tag}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
-            <Globe size={48} className="mb-3 opacity-20" />
-            <p className="text-sm">Ressource auswählen oder neue anlegen</p>
-          </div>
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Modal – Neu / Bearbeiten */}
       {modal && (
@@ -370,7 +342,8 @@ export default function Ressourcen() {
                   Abbrechen
                 </button>
                 <button type="submit"
-                  className="flex-1 bg-[rgb(var(--accent))] hover:brightness-90 text-white py-2 rounded-lg text-sm font-medium transition-colors">
+                  className="flex-1 hover:brightness-90 text-white py-2 rounded-lg text-sm font-medium transition-colors"
+                  style={{ backgroundColor: "rgb(var(--accent))" }}>
                   {bearbeitet ? "Speichern" : "Erstellen"}
                 </button>
               </div>

@@ -256,10 +256,10 @@ export default function Layout() {
 
         {/* Logo */}
         <div className="px-4 pt-5 pb-3 border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-          <div className="flex items-center gap-2 text-[rgb(var(--sidebar-text))] font-bold text-lg">
+          <NavLink to="/" onClick={() => setMobileOffen(false)} className="flex items-center gap-2 text-[rgb(var(--sidebar-text))] font-bold text-lg hover:opacity-80 transition-opacity">
             <Shield size={20} />
             BR-DMS
-          </div>
+          </NavLink>
           <p className="text-[rgb(var(--sidebar-text-muted))] text-xs mt-0.5">Betriebsrats-Cloud</p>
         </div>
 
