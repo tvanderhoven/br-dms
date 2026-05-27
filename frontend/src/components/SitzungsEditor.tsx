@@ -55,7 +55,7 @@ export default function SitzungsEditor({
         openOnClick: true,
         autolink: true,
         linkOnPaste: true,
-        protocols: ['lbo', 'lboffice', 'ftp', 'mailto'],
+        protocols: ['lbo', 'lboffice', 'lbofficem', 'ftp', 'mailto'],
         HTMLAttributes: {
           target: "_blank",
           rel: "noopener noreferrer",
