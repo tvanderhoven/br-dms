@@ -45,7 +45,7 @@ await app.register(cors, { origin: true, credentials: true });
 
 await app.register(jwt, {
   secret: process.env.JWT_SECRET!,
-  sign: { expiresIn: process.env.JWT_EXPIRES_IN ?? "8h" },
+  sign: { expiresIn: process.env.JWT_EXPIRES_IN ?? "24h" },
 });
 
 await app.register(multipart, {

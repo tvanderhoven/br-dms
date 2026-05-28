@@ -8,6 +8,9 @@ function token(): string | null {
   return localStorage.getItem("brdms_token");
 }
 
+// Verhindert mehrfache gleichzeitige Redirects bei parallelen 401-Antworten
+let redirectingToLogin = false;
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     ...(init.body && !(init.body instanceof FormData)
@@ -20,11 +23,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   if (res.status === 401) {
     localStorage.removeItem("brdms_token");
-    if (window.location.pathname !== "/login") {
+    if (window.location.pathname !== "/login" && !redirectingToLogin) {
+      redirectingToLogin = true;
       window.location.href = "/login";
-      throw new Error("Sitzung abgelaufen");
     }
-    // Auf der Login-Seite: Fehler normal auswerten (z.B. "E-Mail oder Passwort falsch")
+    throw new Error("Sitzung abgelaufen");
   }
 
   const data = await res.json().catch(() => null);

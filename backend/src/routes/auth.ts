@@ -61,7 +61,7 @@ export async function authRouten(app: FastifyInstance): Promise<void> {
 
       const token = await reply.jwtSign(
         { sub: benutzer.id, email: benutzer.email, rolle: benutzer.rolle },
-        { expiresIn: process.env.JWT_EXPIRES_IN ?? "8h" }
+        { expiresIn: process.env.JWT_EXPIRES_IN ?? "24h" }
       );
 
       // Letzten Login aktualisieren
