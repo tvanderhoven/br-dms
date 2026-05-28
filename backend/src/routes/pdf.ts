@@ -63,6 +63,14 @@ async function sitzungFuerPdf(id: string) {
               finalisiert:     true,
             },
           },
+          kommentare: {
+            orderBy: { erstelltAm: "asc" as const },
+            select: {
+              inhalt:     true,
+              erstelltAm: true,
+              autor:      { select: { name: true } },
+            },
+          },
           abstimmung: {
             select: {
               rechtsgrundlage: true,

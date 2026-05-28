@@ -3,7 +3,7 @@ import { SitzungsVorlage } from "../lib/api";
 import {
   CalendarDays, Plus, ChevronLeft, ChevronUp, ChevronDown, Lock, Unlock, FileCheck, FileText,
   Trash2, Link, Unlink, X, Loader2, CheckCircle, Clock, XCircle, RotateCcw, Eye,
-  Send, ClipboardList, Download, MessageSquare, Zap, Pencil, RefreshCw, BookmarkPlus, Tag, CheckSquare,
+  Send, ClipboardList, Download, MessageSquare, Zap, Pencil, RefreshCw, BookmarkPlus, Tag, CheckSquare, Folder,
 } from "lucide-react";
 import {
   api, Sitzung, SitzungListItem, SitzungStatus, TOP, TopStatus, Dokument, Kommentar,
@@ -21,6 +21,32 @@ function tiptapZuText(json: object | null | undefined): string {
   if (node.text) return node.text;
   if (!node.content) return "";
   return node.content.map(tiptapZuText).join(" ").replace(/\s+/g, " ").trim();
+}
+
+function tiptapZuHtml(json: object | null | undefined): string {
+  if (!json) return "";
+  type N = { type?: string; text?: string; marks?: { type: string }[]; content?: N[]; attrs?: Record<string, unknown> };
+  function r(node: N): string {
+    if (node.type === "text") {
+      let t = (node.text ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      if (node.marks?.some(m => m.type === "bold"))      t = `<strong>${t}</strong>`;
+      if (node.marks?.some(m => m.type === "italic"))    t = `<em>${t}</em>`;
+      if (node.marks?.some(m => m.type === "underline")) t = `<u>${t}</u>`;
+      return t;
+    }
+    if (node.type === "hardBreak") return "<br>";
+    const ch = (node.content ?? []).map(r).join("");
+    switch (node.type) {
+      case "paragraph":   return `<p>${ch}</p>`;
+      case "heading":     return `<h${node.attrs?.level ?? 1}>${ch}</h${node.attrs?.level ?? 1}>`;
+      case "bulletList":  return `<ul>${ch}</ul>`;
+      case "orderedList": return `<ol>${ch}</ol>`;
+      case "listItem":    return `<li>${ch}</li>`;
+      case "blockquote":  return `<blockquote>${ch}</blockquote>`;
+      default:            return ch;
+    }
+  }
+  return r(json as N);
 }
 
 // ── Status-Badges ─────────────────────────────────────────────────
@@ -749,16 +775,24 @@ function TopAufgabeModal({
   const [laden, setLaden]         = useState(false);
   const [fehler, setFehler]       = useState("");
   const [erfolg, setErfolg]       = useState(false);
+  const [typ, setTyp]             = useState<"AUFGABE" | "PROJEKT">("AUFGABE");
   const [titel, setTitel]         = useState(topTitel);
   const [beschreibung, setBeschreibung] = useState(topInhalt);
   const [prioritaet, setPrioritaet] = useState("MITTEL");
   const [faelligAm, setFaelligAm] = useState("");
+  const [startDatum, setStartDatum] = useState("");
+  const [endDatum, setEndDatum]   = useState("");
   const [zugewiesenAnId, setZugewiesenAnId] = useState("");
-  const [mitglieder, setMitglieder] = useState<{ id: string; name: string }[]>([]);
+  const [oberProjektId, setOberProjektId]   = useState("");
+  const [mitglieder, setMitglieder]         = useState<{ id: string; name: string }[]>([]);
+  const [zeitraeume, setZeitraeume]         = useState<{ id: string; titel: string }[]>([]);
 
   useEffect(() => {
     api.get<{ id: string; name: string }[]>("/api/benutzer").then(setMitglieder).catch(() => {});
+    api.aufgaben.liste().then(a => setZeitraeume(a.filter(x => x.typ === "PROJEKT" && !x.oberProjektId))).catch(() => {});
   }, []);
+
+  const istZeitraum = typ === "PROJEKT";
 
   async function speichern(e: FormEvent) {
     e.preventDefault();
@@ -768,10 +802,20 @@ function TopAufgabeModal({
     try {
       await api.aufgaben.erstellen({
         titel,
-        beschreibung: beschreibung || undefined,
-        prioritaet:     prioritaet as "HOCH" | "MITTEL" | "NIEDRIG",
-        faelligAm:      faelligAm || undefined,
-        zugewiesenAnId: zugewiesenAnId || undefined,
+        typ,
+        beschreibung:  beschreibung  || undefined,
+        oberProjektId: oberProjektId || undefined,
+        ...(istZeitraum
+          ? {
+              startDatum: startDatum || undefined,
+              endDatum:   endDatum   || undefined,
+            }
+          : {
+              prioritaet:     prioritaet as "HOCH" | "MITTEL" | "NIEDRIG",
+              faelligAm:      faelligAm || undefined,
+              zugewiesenAnId: zugewiesenAnId || undefined,
+            }
+        ),
       });
       setErfolg(true);
       setTimeout(onErfolg, 1200);
@@ -786,16 +830,42 @@ function TopAufgabeModal({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900">Aufgabe anlegen</h2>
+          <h2 className="font-semibold text-gray-900">Aus TOP übernehmen</h2>
           <button onClick={onSchliessen} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
         </div>
         {erfolg ? (
           <div className="px-6 py-8 text-center text-emerald-600 font-medium">
             <CheckSquare size={32} className="mx-auto mb-2" />
-            Aufgabe wurde erstellt.
+            {istZeitraum ? "Zeitraum wurde erstellt." : "Aufgabe wurde erstellt."}
           </div>
         ) : (
           <form onSubmit={speichern} className="px-6 py-4 space-y-4">
+            {/* Typ-Toggle */}
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setTyp("AUFGABE")}
+                className={`flex-1 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
+                  typ === "AUFGABE"
+                    ? "bg-[rgb(var(--accent))] text-white"
+                    : "bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                <CheckSquare size={14} /> Aufgabe
+              </button>
+              <button
+                type="button"
+                onClick={() => setTyp("PROJEKT")}
+                className={`flex-1 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
+                  typ === "PROJEKT"
+                    ? "bg-[rgb(var(--accent))] text-white"
+                    : "bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                <Folder size={14} /> Zeitraum
+              </button>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Titel *</label>
               <input value={titel} onChange={e => setTitel(e.target.value)} required
@@ -807,32 +877,66 @@ function TopAufgabeModal({
                 placeholder="Optional"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+
+            {/* Übergeordneter Zeitraum */}
+            {zeitraeume.length > 0 && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Priorität</label>
-                <select value={prioritaet} onChange={e => setPrioritaet(e.target.value)}
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {istZeitraum ? "Übergeordneter Zeitraum" : "Gehört zu Zeitraum"}
+                </label>
+                <select value={oberProjektId} onChange={e => setOberProjektId(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
-                  <option value="HOCH">Hoch</option>
-                  <option value="MITTEL">Mittel</option>
-                  <option value="NIEDRIG">Niedrig</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Fällig am</label>
-                <input type="date" value={faelligAm} onChange={e => setFaelligAm(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
-              </div>
-            </div>
-            {mitglieder.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Zuweisen an</label>
-                <select value={zugewiesenAnId} onChange={e => setZugewiesenAnId(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
-                  <option value="">Niemanden zuweisen</option>
-                  {mitglieder.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                  <option value="">– keiner –</option>
+                  {zeitraeume.map(z => <option key={z.id} value={z.id}>{z.titel}</option>)}
                 </select>
               </div>
             )}
+
+            {/* Felder je nach Typ */}
+            {istZeitraum ? (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Von</label>
+                  <input type="date" value={startDatum} onChange={e => setStartDatum(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bis</label>
+                  <input type="date" value={endDatum} onChange={e => setEndDatum(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Priorität</label>
+                    <select value={prioritaet} onChange={e => setPrioritaet(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
+                      <option value="HOCH">Hoch</option>
+                      <option value="MITTEL">Mittel</option>
+                      <option value="NIEDRIG">Niedrig</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Fällig am</label>
+                    <input type="date" value={faelligAm} onChange={e => setFaelligAm(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+                  </div>
+                </div>
+                {mitglieder.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Zuweisen an</label>
+                    <select value={zugewiesenAnId} onChange={e => setZugewiesenAnId(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
+                      <option value="">Niemanden zuweisen</option>
+                      {mitglieder.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    </select>
+                  </div>
+                )}
+              </>
+            )}
+
             {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={onSchliessen}
@@ -840,7 +944,7 @@ function TopAufgabeModal({
               <button type="submit" disabled={laden}
                 className="flex-1 px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-lg flex items-center justify-center gap-2">
                 {laden && <Loader2 size={14} className="animate-spin" />}
-                Aufgabe erstellen
+                {istZeitraum ? "Zeitraum erstellen" : "Aufgabe erstellen"}
               </button>
             </div>
           </form>
@@ -963,9 +1067,10 @@ function TopZeile({
                 )}
               </div>
             ) : (
-              <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
-                {top.inhaltsJson ? tiptapZuText(top.inhaltsJson as object) : top.inhalt}
-              </p>
+              <div
+                className="text-xs text-gray-600 mt-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-0.5 [&_p]:my-0.5 [&_strong]:font-semibold [&_em]:italic [&_blockquote]:border-l-2 [&_blockquote]:border-gray-300 [&_blockquote]:pl-2 [&_blockquote]:text-gray-400"
+                dangerouslySetInnerHTML={{ __html: top.inhaltsJson ? tiptapZuHtml(top.inhaltsJson as object) : (top.inhalt ?? "") }}
+              />
             )
           )}
           {top.ergebnis && !ergebnisOffen && (

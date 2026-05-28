@@ -22,7 +22,7 @@ const FARB_PALETTE = [
 ];
 
 type Ansicht = "liste" | "gantt";
-type FilterTyp = "alle" | "offen" | "erledigt" | "projekte";
+type FilterTyp = "alle" | "aufgaben" | "erledigt" | "projekte";
 
 interface FormState {
   typ: AufgabeTyp;
@@ -169,7 +169,7 @@ function GanttAnsicht({
 
   const topLevel = useMemo(() => {
     let items = aufgaben.filter(a => !a.oberProjektId);
-    if (filter === "offen")    items = items.filter(a => !a.erledigt);
+    if (filter === "aufgaben") items = items.filter(a => a.typ === "AUFGABE" && !a.erledigt);
     if (filter === "erledigt") items = items.filter(a =>  a.erledigt);
     if (filter === "projekte") items = items.filter(a => a.typ === "PROJEKT");
     return items;
@@ -325,7 +325,7 @@ function ListenAnsicht({
   // Top-Level Einträge (kein Oberprojekt)
   const topLevel = aufgaben.filter(a => {
     if (a.oberProjektId) return false;
-    if (filter === "offen")    return !a.erledigt;
+    if (filter === "aufgaben") return a.typ === "AUFGABE" && !a.erledigt;
     if (filter === "erledigt") return  a.erledigt;
     if (filter === "projekte") return  a.typ === "PROJEKT";
     return true;
@@ -366,7 +366,7 @@ function ListenAnsicht({
   }) {
     const alleKinder = aufgaben.filter(a => a.oberProjektId === aufgabe.id);
     const kinder = alleKinder.filter(a => {
-      if (filter === "offen")    return !a.erledigt;
+      if (filter === "aufgaben") return a.typ === "AUFGABE" && !a.erledigt;
       if (filter === "erledigt") return  a.erledigt;
       return true;
     });
@@ -443,7 +443,7 @@ function ListenAnsicht({
               {aufgabe.typ === "PROJEKT" ? (
                 <span className="text-xs px-2 py-0.5 rounded-full border font-medium bg-blue-50 text-blue-700 border-blue-200">
                   <FolderOpen size={10} className="inline mr-1" />
-                  Projekt
+                  Zeitraum
                 </span>
               ) : (
                 <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${PRIO_STYLE[aufgabe.prioritaet]}`}>
@@ -556,8 +556,8 @@ function EintragModal({
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-gray-900">
             {bearbeiten
-              ? (bearbeiten.typ === "PROJEKT" ? "Projekt bearbeiten" : "Aufgabe bearbeiten")
-              : (istProjekt ? "Neues Projekt" : "Neue Aufgabe")}
+              ? (bearbeiten.typ === "PROJEKT" ? "Zeitraum bearbeiten" : "Aufgabe bearbeiten")
+              : (istProjekt ? "Neuer Zeitraum" : "Neue Aufgabe")}
           </h2>
           <button onClick={onSchliessen} className="text-gray-400 hover:text-gray-600">
             <X size={20} />
@@ -587,7 +587,7 @@ function EintragModal({
                   }`}
                 >
                   {t === "PROJEKT"
-                    ? <><Folder size={14} /> Projekt</>
+                    ? <><Folder size={14} /> Zeitraum</>
                     : <><CheckSquare size={14} /> Aufgabe</>}
                 </button>
               ))}
@@ -597,7 +597,7 @@ function EintragModal({
           {/* Titel */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              {istProjekt ? "Projektname" : "Titel"} *
+              {istProjekt ? "Name des Zeitraums" : "Titel"} *
             </label>
             <input
               type="text"
@@ -623,7 +623,7 @@ function EintragModal({
           {/* Farbe (nur Projekte) */}
           {istProjekt && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Projektfarbe</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Farbe</label>
               <div className="flex items-center gap-2 flex-wrap">
                 {FARB_PALETTE.map(f => (
                   <button
@@ -651,7 +651,7 @@ function EintragModal({
           {projekte.length > 0 && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                {istProjekt ? "Übergeordnetes Projekt" : "Gehört zu Projekt"}
+                {istProjekt ? "Übergeordneter Zeitraum" : "Gehört zu Zeitraum"}
               </label>
               <select
                 value={form.oberProjektId}
@@ -794,7 +794,7 @@ export default function Aufgaben() {
   }
 
   const projekte = useMemo(
-    () => aufgaben.filter(a => a.typ === "PROJEKT"),
+    () => aufgaben.filter(a => a.typ === "PROJEKT" && !a.oberProjektId),
     [aufgaben],
   );
 
@@ -867,9 +867,9 @@ export default function Aufgaben() {
 
   const FILTER_TABS: { key: FilterTyp; label: string }[] = [
     { key: "alle",     label: "Alle" },
-    { key: "offen",    label: `Offen (${offen})` },
+    { key: "aufgaben", label: `Aufgaben (${offen})` },
     { key: "erledigt", label: "Erledigt" },
-    { key: "projekte", label: `Projekte (${offeneProjekte})` },
+    { key: "projekte", label: `Zeiträume (${offeneProjekte})` },
   ];
 
   return (
@@ -879,10 +879,10 @@ export default function Aufgaben() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <FolderOpen className="text-[rgb(var(--accent))]" size={26} />
-            Projekte & Aufgaben
+            Zeiträume & Aufgaben
           </h1>
           <p className="text-gray-500 text-sm mt-0.5">
-            {offeneProjekte} {offeneProjekte === 1 ? "Projekt" : "Projekte"} · {offen} offene Aufgaben · {erledigt} erledigt
+            {offeneProjekte} {offeneProjekte === 1 ? "Zeitraum" : "Zeiträume"} · {offen} offene Aufgaben · {erledigt} erledigt
           </p>
         </div>
 
@@ -920,7 +920,7 @@ export default function Aufgaben() {
               className="flex items-center gap-1.5 border border-[rgb(var(--accent))] text-[rgb(var(--accent))] hover:bg-[rgb(var(--accent))] hover:text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
             >
               <Plus size={15} />
-              Projekt
+              Zeitraum
             </button>
             <button
               onClick={() => modalOeffnen(undefined, "AUFGABE")}

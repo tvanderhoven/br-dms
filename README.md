@@ -15,12 +15,14 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 - **Rollenbasierte Zugriffskontrolle** – VORSITZ, STELLVERTRETER, MITGLIED, ERSATZMITGLIED, ADMIN
 - **Sitzungsverwaltung mit Protokoll** – Vollständiger Lifecycle: Entwurf → Einladung → Protokoll → Finalisierung
 - **Automatische Fristüberwachung** – §87, §99, §102 BetrVG mit konfigurierbaren Aufbewahrungsfristen
-- **Projektplanung & Aufgabenverwaltung** – Aufgaben und Projekte mit Hierarchie (Oberprojekt/Unterprojekt), Gantt-Diagramm und Listenansicht; Zuweisung, Farbcodierung, Prioritäten und Datumsbereich
+- **Zeiträume & Aufgabenverwaltung** – Aufgaben und Zeiträume (z.B. Überstundenvereinbarungen) mit Hierarchie (Ober-/Unterzeitraum), Gantt-Diagramm und Listenansicht; Zuweisung, Farbcodierung, Prioritäten und Datumsbereich; Aufgaben und Zeiträume direkt aus Tagesordnungspunkten erstellen
 - **Live-Benachrichtigungen** – Badge-Counts aktualisieren sich automatisch, Browser- und In-App-Benachrichtigung bei neuen Dokumenten/Aufgaben
 - **Lückenloser Audit-Trail** – 40+ Aktionen mit IP, Zeitstempel, User-Agent
 - **Dokumentenversionen** – Beliebig viele Versionen mit Änderungsnotiz
 - **Watch Folder** – Automatischer Import aus freigegebenem Netzwerkordner (Pfad unabhängig vom Docker-Verzeichnis konfigurierbar)
 - **PDF-Unterschriften mit Ort & Datum** – Tagesordnung, Protokoll und Anwesenheitsliste drucken Ort (Oberhausen/Gladbeck) und Sitzungsdatum direkt auf die Unterschriftszeile
+- **Kommentare im Protokoll-PDF** – TOP-Kommentare erscheinen im PDF-Ausdruck mit Autor und Zeitstempel
+- **Formatierte TOP-Inhalte** – Aufzählungen, Fettschrift und weitere Formatierungen bleiben in der Tagesordnungsansicht und im Protokoll erhalten (TipTap Rich-Text)
 - **System-Tab in Einstellungen** – Zeigt Watch-Folder Pfad und Aktivierungsstatus im Browser an
 - **Wissensarchiv** – Erfahrungen und Beschlüsse strukturiert ablegen
 - **Internes Nachrichtensystem** – Ohne externe Dienste

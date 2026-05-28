@@ -23,6 +23,12 @@ interface PdfBeschluss {
   finalisiert:    boolean;
 }
 
+interface PdfKommentar {
+  inhalt:     string;
+  erstelltAm: Date;
+  autor:      { name: string };
+}
+
 interface PdfTop {
   nummer:       number;
   titel:        string;
@@ -32,6 +38,7 @@ interface PdfTop {
   ergebnisJson?: unknown;
   status:       string;
   beschluesse?: PdfBeschluss[];
+  kommentare?:  PdfKommentar[];
   dokumente: { dokument: { titel: string; kategorie: string; aktenzeichen?: string | null } }[];
   abstimmung?: {
     rechtsgrundlage: string;
@@ -558,6 +565,28 @@ function topAbschnitt(
         doc.moveDown(0.5);
       });
     }
+  }
+
+  // Kommentare (nur Protokoll)
+  if (mitProtokoll && top.kommentare && top.kommentare.length > 0) {
+    if (doc.y > 620) doc.addPage();
+    doc.moveDown(0.3);
+    doc.fontSize(8).font("Helvetica-Bold").fillColor(FARBE_GRAU)
+       .text(`Kommentare (${top.kommentare.length}):`, RAND_LINKS + 16, doc.y);
+    doc.moveDown(0.2);
+    top.kommentare.forEach(k => {
+      if (doc.y > 680) doc.addPage();
+      const datum = new Date(k.erstelltAm).toLocaleString("de-DE", {
+        day: "2-digit", month: "2-digit", year: "2-digit",
+        hour: "2-digit", minute: "2-digit",
+      });
+      doc.fontSize(7.5).font("Helvetica-Bold").fillColor(FARBE_GRAU)
+         .text(`${k.autor.name}  ·  ${datum}`, RAND_LINKS + 20, doc.y, { width: BREITE - 20 });
+      doc.moveDown(0.1);
+      doc.fontSize(9).font("Helvetica").fillColor("#374151")
+         .text(k.inhalt, RAND_LINKS + 20, doc.y, { width: BREITE - 20 });
+      doc.moveDown(0.3);
+    });
   }
 
   // Trennlinie zwischen TOPs (außer letztem)
