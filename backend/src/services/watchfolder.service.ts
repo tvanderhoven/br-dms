@@ -10,15 +10,23 @@ const WATCH_PATH  = process.env.WATCH_FOLDER   ?? "/uploads/watch_inbox";
 const SYSTEM_USER = process.env.SYSTEM_USER_ID ?? "";
 const ERLAUBTE_EXTS = new Set([".pdf", ".docx", ".docm", ".xlsx"]);
 
-const ORDNER_KATEGORIE: Record<string, Kategorie> = {
-  anhoerung_99:          Kategorie.ANHOERUNG_99,
-  anhoerung_102:         Kategorie.ANHOERUNG_102,
-  betriebsvereinbarung:  Kategorie.BETRIEBSVEREINBARUNG,
-  protokoll:             Kategorie.PROTOKOLL,
-  bewerbung:             Kategorie.BEWERBUNG,
-  bewerbung_alternativ:  Kategorie.BEWERBUNG_ALTERNATIV,
-  zeitmodell_87:         Kategorie.ZEITMODELL_87,
-  sonstiges:             Kategorie.SONSTIGES,
+interface OrdnerEinstufung {
+  kategorie: Kategorie;
+  // Nur relevant bei ANHOERUNG_102 – ohne Angabe werden sicherheitshalber
+  // beide Fristen (7 + 3 Tage) angelegt, siehe dokument-pipeline.service.ts
+  kuendigungsArt?: "ORDENTLICH" | "AUSSERORDENTLICH";
+}
+
+const ORDNER_KATEGORIE: Record<string, OrdnerEinstufung> = {
+  anhoerung_99:                   { kategorie: Kategorie.ANHOERUNG_99 },
+  anhoerung_102:                  { kategorie: Kategorie.ANHOERUNG_102, kuendigungsArt: "ORDENTLICH" },
+  anhoerung_102_ausserordentlich: { kategorie: Kategorie.ANHOERUNG_102, kuendigungsArt: "AUSSERORDENTLICH" },
+  betriebsvereinbarung:           { kategorie: Kategorie.BETRIEBSVEREINBARUNG },
+  protokoll:                      { kategorie: Kategorie.PROTOKOLL },
+  bewerbung:                      { kategorie: Kategorie.BEWERBUNG },
+  bewerbung_alternativ:           { kategorie: Kategorie.BEWERBUNG_ALTERNATIV },
+  zeitmodell_87:                  { kategorie: Kategorie.ZEITMODELL_87 },
+  sonstiges:                      { kategorie: Kategorie.SONSTIGES },
 };
 
 // Unterordner die nicht importiert werden dürfen
@@ -72,10 +80,10 @@ export function starteWatchFolder(): void {
       if (IGNORIERTE_ORDNER.has(unterordner)) return;
       if (!ERLAUBTE_EXTS.has(ext)) return;
 
-      const kategorie = ORDNER_KATEGORIE[unterordner] ?? Kategorie.SONSTIGES;
-      const mimetype  = MIME[ext]!;
+      const einstufung = ORDNER_KATEGORIE[unterordner] ?? { kategorie: Kategorie.SONSTIGES };
+      const mimetype   = MIME[ext]!;
 
-      console.log(`[watchfolder] Verarbeite: ${dateiname} (${kategorie})`);
+      console.log(`[watchfolder] Verarbeite: ${dateiname} (${einstufung.kategorie}${einstufung.kuendigungsArt ? `/${einstufung.kuendigungsArt}` : ""})`);
 
       try {
         await verarbeiteDokument({
@@ -83,7 +91,11 @@ export function starteWatchFolder(): void {
           originalDateiname: dateiname,
           mimetype,
           userId:            SYSTEM_USER,
-          metadata:          { kategorie, inboxQuelle: "WATCHFOLDER" },
+          metadata:          {
+            kategorie:      einstufung.kategorie,
+            kuendigungsArt: einstufung.kuendigungsArt,
+            inboxQuelle:    "WATCHFOLDER",
+          },
         });
 
         await fs.unlink(filePath);

@@ -5,6 +5,11 @@
  *             Sitzungen  (Titel, Notizen, TOPs Titel/Inhalt/Ergebnis)
  *             Aufgaben   (Titel, Beschreibung)
  *             Wissenseinträge (Titel, Inhalt, Kategorien, Lösung)
+ *             Ressourcen (Titel, URL, Beschreibung, Tags)
+ *             Betriebsvereinbarungen (Titel, Geltungsbereich, Bemerkung, verknüpftes Dokument)
+ *             Schulungen (Titel, Ort, Anbieter, Bemerkung, Qualifikationsname)
+ *             Mitarbeiter (Vorname, Nachname, PNR)
+ *             Gesetzestexte (§, Titel, Volltext – z.B. BetrVG, KSchG)
  */
 
 import { FastifyInstance, FastifyRequest } from "fastify";
@@ -22,7 +27,7 @@ export async function sucheRouten(app: FastifyInstance): Promise<void> {
       const { rolle, sub } = (request as any).benutzer;
 
       if (!q || q.trim().length < 2) {
-        return reply.send({ dokumente: [], sitzungen: [], aufgaben: [], wissen: [] });
+        return reply.send({ dokumente: [], sitzungen: [], aufgaben: [], wissen: [], gesetze: [] });
       }
 
       const suchbegriff = q.trim();
@@ -104,11 +109,14 @@ export async function sucheRouten(app: FastifyInstance): Promise<void> {
           ],
         },
         select: {
-          id:          true,
-          titel:       true,
-          prioritaet:  true,
-          erledigt:    true,
-          faelligAm:   true,
+          id:            true,
+          titel:         true,
+          prioritaet:    true,
+          erledigt:      true,
+          faelligAm:     true,
+          typ:           true,
+          oberProjektId: true,
+          kanbanStatus:  true,
         },
         take: 8,
         orderBy: { erstelltAm: "desc" },
@@ -155,7 +163,106 @@ export async function sucheRouten(app: FastifyInstance): Promise<void> {
         orderBy: { erstelltAm: "desc" },
       });
 
-      return reply.send({ dokumente, sitzungen, aufgaben, wissen, ressourcen });
+      // ── Betriebsvereinbarungen ───────────────────────────────────
+      const betriebsvereinbarungen = await prisma.betriebsvereinbarung.findMany({
+        where: {
+          OR: [
+            { titel:           { contains: suchbegriff, mode: "insensitive" } },
+            { geltungsbereich: { contains: suchbegriff, mode: "insensitive" } },
+            { bemerkung:       { contains: suchbegriff, mode: "insensitive" } },
+            { dokument: { textinhalt: { contains: suchbegriff, mode: "insensitive" } } },
+          ],
+        },
+        select: { id: true, titel: true, status: true, abschlussdatum: true },
+        take: 5,
+        orderBy: { abschlussdatum: "desc" },
+      });
+
+      // ── Schulungen ────────────────────────────────────────────
+      const schulungen = await prisma.schulungstermin.findMany({
+        where: {
+          OR: [
+            { titel:     { contains: suchbegriff, mode: "insensitive" } },
+            { ort:       { contains: suchbegriff, mode: "insensitive" } },
+            { anbieter:  { contains: suchbegriff, mode: "insensitive" } },
+            { bemerkung: { contains: suchbegriff, mode: "insensitive" } },
+            { qualifikation: { name: { contains: suchbegriff, mode: "insensitive" } } },
+          ],
+        },
+        select: {
+          id: true, titel: true, datum: true, status: true,
+          qualifikation: { select: { name: true } },
+        },
+        take: 5,
+        orderBy: { datum: "desc" },
+      });
+
+      // ── Gesetzestexte ──────────────────────────────────────────
+      // Mehrwort-Suche: jedes eingegebene Wort muss irgendwo vorkommen (§-Nummer,
+      // Gesetzeskürzel, Titel oder Text – auch in unterschiedlichen Feldern), z.B.
+      // "87 betrvg Arbeitszeit" → § 87 BetrVG, wenn "Arbeitszeit" im Text steht.
+      const suchWoerter = suchbegriff.split(/\s+/).filter(Boolean);
+      const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+      // Größerer Kandidatenpool aus der DB, danach Relevanz-Ranking in JS –
+      // sonst fallen bei häufigen Wörtern (z.B. "Arbeitszeit") die eigentlich
+      // passenden Treffer aus den (nur alphabetisch sortierten) Top-Ergebnissen.
+      const gesetzeKandidaten = await prisma.gesetzParagraph.findMany({
+        where: {
+          AND: suchWoerter.map(wort => ({
+            OR: [
+              { paragraph: { contains: wort, mode: "insensitive" as const } },
+              { gesetz:    { contains: wort, mode: "insensitive" as const } },
+              { titel:     { contains: wort, mode: "insensitive" as const } },
+              { text:      { contains: wort, mode: "insensitive" as const } },
+            ],
+          })),
+        },
+        select: { id: true, gesetz: true, paragraph: true, titel: true, text: true },
+        take: 500, // großzügiger Kandidatenpool – Tabelle ist klein (wenige tausend Paragraphen), Ranking passiert danach in JS
+      });
+
+      function gesetzRelevanz(g: typeof gesetzeKandidaten[number]): number {
+        let punkte = 0;
+        for (const wort of suchWoerter) {
+          const wortLower = wort.toLowerCase();
+          const wortGrenze = new RegExp(`\\b${escapeRegex(wort)}\\b`, "i");
+          if (g.paragraph.toLowerCase().includes(wortLower)) punkte += 5;
+          if (g.gesetz.toLowerCase().includes(wortLower))    punkte += 5;
+          if (g.titel?.toLowerCase().includes(wortLower))    punkte += 4;
+          if (wortGrenze.test(g.text))                       punkte += 2; // ganzes Wort im Text
+          if (g.text.toLowerCase().includes(wortLower))      punkte += 1; // Teilstring im Text
+        }
+        return punkte;
+      }
+
+      const gesetze = gesetzeKandidaten
+        .map(g => ({ ...g, relevanz: gesetzRelevanz(g) }))
+        .sort((a, b) => b.relevanz - a.relevanz || a.text.length - b.text.length)
+        .slice(0, 8)
+        .map(({ relevanz: _relevanz, ...g }) => g);
+
+      // ── Mitarbeiter (Gehaltstabelle) ──────────────────────────
+      const mitarbeiter = await prisma.mitarbeiter.findMany({
+        where: {
+          OR: [
+            { vorname:  { contains: suchbegriff, mode: "insensitive" } },
+            { nachname: { contains: suchbegriff, mode: "insensitive" } },
+            { pnr:      { contains: suchbegriff, mode: "insensitive" } },
+          ],
+        },
+        select: {
+          id: true, vorname: true, nachname: true, pnr: true,
+          abteilung: { select: { name: true } },
+        },
+        take: 5,
+        orderBy: [{ nachname: "asc" }, { vorname: "asc" }],
+      });
+
+      return reply.send({
+        dokumente, sitzungen, aufgaben, wissen, ressourcen,
+        betriebsvereinbarungen, schulungen, mitarbeiter, gesetze,
+      });
     }
   );
 }

@@ -11,6 +11,7 @@ interface Beschluss {
   jaStimmen: number;
   neinStimmen: number;
   enthaltungen: number;
+  nichtTeilgenommen: number;
   anwesend: number;
   ergebnis: string | null;
   finalisiert: boolean;
@@ -141,6 +142,7 @@ function EinzelBeschluss({
   const [ja,              setJa]              = useState(beschluss.jaStimmen);
   const [nein,            setNein]            = useState(beschluss.neinStimmen);
   const [enthal,          setEnthal]          = useState(beschluss.enthaltungen);
+  const [nichtTeilg,      setNichtTeilg]      = useState(beschluss.nichtTeilgenommen ?? 0);
   const [speichern,       setSpeichern]       = useState(false);
   const [loeschen,        setLoeschen]        = useState(false);
   const [fehler,          setFehler]          = useState("");
@@ -155,7 +157,7 @@ function EinzelBeschluss({
     try {
       await api.patch(
         `/api/sitzungen/${sitzungId}/tops/${topId}/beschluesse/${beschluss.id}`,
-        { antragstext: antragstext.trim(), rechtsgrundlage, jaStimmen: ja, neinStimmen: nein, enthaltungen: enthal, finalisieren }
+        { antragstext: antragstext.trim(), rechtsgrundlage, jaStimmen: ja, neinStimmen: nein, enthaltungen: enthal, nichtTeilgenommen: nichtTeilg, finalisieren }
       );
       onAktualisieren();
     } catch (err) {
@@ -247,10 +249,10 @@ function EinzelBeschluss({
           )}
         </div>
 
-        {/* Stimmergebnis – 3 Zahleneingaben */}
+        {/* Stimmergebnis – Zahleneingaben */}
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-2">Abstimmungsergebnis</label>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             <StimmenFeld
               label="Ja"
               wert={istFinalisiert ? beschluss.jaStimmen : ja}
@@ -270,6 +272,14 @@ function EinzelBeschluss({
               wert={istFinalisiert ? beschluss.enthaltungen : enthal}
               onChange={setEnthal}
               farbe="gray"
+              readonly={readonly || istFinalisiert}
+            />
+            <StimmenFeld
+              label="Nicht teilg."
+              titel="Anwesend, aber nicht stimmberechtigt (z.B. JAV)"
+              wert={istFinalisiert ? (beschluss.nichtTeilgenommen ?? 0) : nichtTeilg}
+              onChange={setNichtTeilg}
+              farbe="amber"
               readonly={readonly || istFinalisiert}
             />
           </div>
@@ -339,23 +349,25 @@ function EinzelBeschluss({
 
 // ── Stimmen-Zähler-Feld ───────────────────────────────────────────
 function StimmenFeld({
-  label, wert, onChange, farbe, readonly,
+  label, titel, wert, onChange, farbe, readonly,
 }: {
   label:    string;
+  titel?:   string;
   wert:     number;
   onChange: (v: number) => void;
-  farbe:    "green" | "red" | "gray";
+  farbe:    "green" | "red" | "gray" | "amber";
   readonly: boolean;
 }) {
   const farben = {
     green: { num: "text-green-700", bg: "bg-green-50 border-green-200", label: "text-green-600" },
     red:   { num: "text-red-700",   bg: "bg-red-50 border-red-200",     label: "text-red-600"   },
     gray:  { num: "text-gray-600",  bg: "bg-gray-50 border-gray-200",   label: "text-gray-500"  },
+    amber: { num: "text-amber-700", bg: "bg-amber-50 border-amber-200", label: "text-amber-600" },
   }[farbe];
 
   if (readonly) {
     return (
-      <div className={`rounded-lg border ${farben.bg} px-3 py-2 text-center`}>
+      <div className={`rounded-lg border ${farben.bg} px-3 py-2 text-center`} title={titel}>
         <p className={`text-2xl font-bold ${farben.num}`}>{wert}</p>
         <p className={`text-xs ${farben.label}`}>{label}</p>
       </div>
@@ -363,7 +375,7 @@ function StimmenFeld({
   }
 
   return (
-    <div className={`rounded-lg border ${farben.bg} px-3 py-2 text-center`}>
+    <div className={`rounded-lg border ${farben.bg} px-3 py-2 text-center`} title={titel}>
       <input
         type="number"
         min={0}

@@ -43,13 +43,31 @@ export const api = {
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
   suche: (q: string) => request<SuchErgebnis>(`/api/suche?q=${encodeURIComponent(q)}`),
 
+  gesetze: {
+    status:        () => request<GesetzStatus[]>("/api/gesetze/status"),
+    aktualisieren: () => request<{ ergebnisse: GesetzAktualisierenErgebnis[] }>(
+      "/api/gesetze/aktualisieren", { method: "POST" },
+    ),
+    workerTesten: () => request<{
+      ergebnisse: GesetzAktualisierenErgebnis[];
+      relevanteAenderungen: { gesetz: string; paragraphen: string[] }[];
+      benachrichtigt: string[];
+    }>("/api/gesetze/worker-testen", { method: "POST" }),
+    einzel: (id: string) => request<GesetzParagraph>(`/api/gesetze/${id}`),
+  },
+
   auth: {
-    login: (email: string, passwort: string) =>
+    login: (email: string, passwort: string, eingeloggtBleiben = true) =>
       request<{ token: string; benutzer: Benutzer }>("/api/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email, passwort }),
+        body: JSON.stringify({ email, passwort, eingeloggtBleiben }),
       }),
     me: () => request<Benutzer>("/api/auth/me"),
+    passwortAendern: (aktuellesPasswort: string, neuesPasswort: string) =>
+      request<{ nachricht: string }>("/api/auth/passwort", {
+        method: "PATCH",
+        body: JSON.stringify({ aktuellesPasswort, neuesPasswort }),
+      }),
   },
 
   dokumente: {
@@ -90,7 +108,7 @@ export const api = {
   aufgaben: {
     liste:       () => request<Aufgabe[]>("/api/aufgaben"),
     erstellen:   (data: AufgabeErstellen) => request<Aufgabe>("/api/aufgaben", { method: "POST", body: JSON.stringify(data) }),
-    aktualisieren: (id: string, data: Partial<AufgabeErstellen & { erledigt: boolean }>) =>
+    aktualisieren: (id: string, data: Partial<Omit<AufgabeErstellen, "topId" | "kanbanStatus"> & { erledigt: boolean; topId: string | null; kanbanStatus: KanbanStatus | null }>) =>
       request<Aufgabe>(`/api/aufgaben/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     loeschen:    (id: string) => request<{ nachricht: string }>(`/api/aufgaben/${id}`, { method: "DELETE" }),
   },
@@ -112,9 +130,9 @@ export const api = {
       request<Sitzung>(`/api/sitzungen/${id}/protokoll`, { method: "POST" }),
     finalisieren: (id: string) =>
       request<Sitzung>(`/api/sitzungen/${id}/finalisieren`, { method: "POST" }),
-    topHinzufuegen: (id: string, data: { titel: string; inhalt?: string; inhaltsJson?: object }) =>
+    topHinzufuegen: (id: string, data: { titel: string; inhalt?: string; inhaltsJson?: object; vertraulich?: boolean }) =>
       request<TOP>(`/api/sitzungen/${id}/tops`, { method: "POST", body: JSON.stringify(data) }),
-    topAktualisieren: (id: string, topId: string, data: Partial<{ titel: string; inhalt: string; inhaltsJson: object; ergebnis: string; ergebnisJson: object; topStatus: TopStatus }>) =>
+    topAktualisieren: (id: string, topId: string, data: Partial<{ titel: string; inhalt: string; inhaltsJson: object; ergebnis: string; ergebnisJson: object; topStatus: TopStatus; vertraulich: boolean }>) =>
       request<TOP>(`/api/sitzungen/${id}/tops/${topId}`, { method: "PATCH", body: JSON.stringify(data) }),
     topLoeschen: (id: string, topId: string) =>
       request<{ nachricht: string }>(`/api/sitzungen/${id}/tops/${topId}`, { method: "DELETE" }),
@@ -156,6 +174,109 @@ export const api = {
     erstellen:     (data: RessourceErstellen) => request<Ressource>("/api/ressourcen", { method: "POST", body: JSON.stringify(data) }),
     aktualisieren: (id: string, data: Partial<RessourceErstellen>) => request<Ressource>(`/api/ressourcen/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     loeschen:      (id: string) => request<{ ok: boolean }>(`/api/ressourcen/${id}`, { method: "DELETE" }),
+  },
+
+  mitarbeiter: {
+    liste:         () => request<Mitarbeiter[]>("/api/mitarbeiter"),
+    erstellen:     (data: { vorname: string; nachname: string; abteilungId?: string; pnr?: string; eintritt?: string; austritt?: string; standort?: string; beschaeftigungsart?: Beschaeftigungsart }) =>
+      request<Mitarbeiter>("/api/mitarbeiter", { method: "POST", body: JSON.stringify(data) }),
+    aktualisieren: (id: string, data: Partial<{ vorname: string; nachname: string; abteilungId: string | null; pnr: string; eintritt: string; austritt: string; standort: string | null; gehaltIgnorieren: boolean; beschaeftigungsart: Beschaeftigungsart }>) =>
+      request<Mitarbeiter>(`/api/mitarbeiter/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    loeschen:      (id: string) => request<{ ok: boolean }>(`/api/mitarbeiter/${id}`, { method: "DELETE" }),
+    standortBatch: (ids: string[], standort: string | null) =>
+      request<{ aktualisiert: number }>("/api/mitarbeiter/standort-batch", { method: "PATCH", body: JSON.stringify({ ids, standort }) }),
+    importieren: (datei: File, dryRun: boolean) => {
+      const formData = new FormData();
+      formData.append("file", datei);
+      return request<MitarbeiterImportZusammenfassung>(
+        `/api/mitarbeiter/import?dryRun=${dryRun ? "true" : "false"}`,
+        { method: "POST", body: formData }
+      );
+    },
+  },
+
+  abteilungen: {
+    liste:     () => request<Abteilung[]>("/api/abteilungen"),
+    erstellen: (name: string) => request<Abteilung>("/api/abteilungen", { method: "POST", body: JSON.stringify({ name }) }),
+  },
+
+  gehaltstabelle: {
+    liste: (params: { abteilungId?: string; mitarbeiterId?: string; von?: string; bis?: string } = {}) => {
+      const q = new URLSearchParams();
+      if (params.abteilungId)   q.set("abteilungId",   params.abteilungId);
+      if (params.mitarbeiterId) q.set("mitarbeiterId", params.mitarbeiterId);
+      if (params.von)           q.set("von",           params.von);
+      if (params.bis)           q.set("bis",           params.bis);
+      return request<GehaltsstufenEintrag[]>(`/api/gehaltstabelle?${q.toString()}`);
+    },
+    erstellen: (data: GehaltsstufenEintragErstellen) =>
+      request<GehaltsstufenEintrag>("/api/gehaltstabelle", { method: "POST", body: JSON.stringify(data) }),
+    aktualisieren: (id: string, data: Partial<Pick<GehaltsstufenEintragErstellen, "stufe" | "gueltigAb" | "bemerkung">>) =>
+      request<GehaltsstufenEintrag>(`/api/gehaltstabelle/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    loeschen: (id: string) => request<{ ok: boolean }>(`/api/gehaltstabelle/${id}`, { method: "DELETE" }),
+    // Bewusst kein Daten-Export – nur die leere Kopfzeile fürs CSV-Import-Format
+    vorlageUrl: () => `${BASE}/api/gehaltstabelle/vorlage`,
+    import: (datei: File, dryRun: boolean) => {
+      const formData = new FormData();
+      formData.append("file", datei);
+      return request<GehaltstabelleImportZusammenfassung>(
+        `/api/gehaltstabelle/import?dryRun=${dryRun ? "true" : "false"}`,
+        { method: "POST", body: formData }
+      );
+    },
+    alleLoeschen: () =>
+      request<{ ok: boolean; geloescht: { eintraege: number; mitarbeiter: number; abteilungen: number } }>(
+        "/api/gehaltstabelle/alle", { method: "DELETE" }
+      ),
+    eintraegeLoeschen: () =>
+      request<{ ok: boolean; geloescht: { eintraege: number } }>(
+        "/api/gehaltstabelle/eintraege", { method: "DELETE" }
+      ),
+  },
+
+  betriebsvereinbarungen: {
+    liste: (params: { status?: string; von?: string; bis?: string; q?: string } = {}) => {
+      const q = new URLSearchParams();
+      if (params.status) q.set("status", params.status);
+      if (params.von)    q.set("von",    params.von);
+      if (params.bis)    q.set("bis",    params.bis);
+      if (params.q)      q.set("q",      params.q);
+      return request<Betriebsvereinbarung[]>(`/api/betriebsvereinbarungen?${q.toString()}`);
+    },
+    erstellen: (data: BetriebsvereinbarungErstellen) =>
+      request<Betriebsvereinbarung>("/api/betriebsvereinbarungen", { method: "POST", body: JSON.stringify(data) }),
+    aktualisieren: (id: string, data: Partial<BetriebsvereinbarungErstellen>) =>
+      request<Betriebsvereinbarung>(`/api/betriebsvereinbarungen/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    loeschen: (id: string) => request<{ ok: boolean }>(`/api/betriebsvereinbarungen/${id}`, { method: "DELETE" }),
+  },
+
+  qualifikationen: {
+    liste: () => request<Qualifikation[]>("/api/qualifikationen"),
+    erstellen: (data: { name: string; beschreibung?: string; gueltigkeitsdauerMonate?: number | null }) =>
+      request<Qualifikation>("/api/qualifikationen", { method: "POST", body: JSON.stringify(data) }),
+  },
+
+  schulungen: {
+    liste: (params: { qualifikationId?: string; status?: string; von?: string; bis?: string } = {}) => {
+      const q = new URLSearchParams();
+      if (params.qualifikationId) q.set("qualifikationId", params.qualifikationId);
+      if (params.status)          q.set("status",          params.status);
+      if (params.von)             q.set("von",             params.von);
+      if (params.bis)             q.set("bis",             params.bis);
+      return request<Schulungstermin[]>(`/api/schulungen?${q.toString()}`);
+    },
+    matrix: () => request<QualifikationsMatrix>("/api/schulungen/matrix"),
+    erstellen: (data: SchulungsterminErstellen) =>
+      request<Schulungstermin>("/api/schulungen", { method: "POST", body: JSON.stringify(data) }),
+    aktualisieren: (id: string, data: Partial<Omit<SchulungsterminErstellen, "teilnehmerIds">>) =>
+      request<Schulungstermin>(`/api/schulungen/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    loeschen: (id: string) => request<{ ok: boolean }>(`/api/schulungen/${id}`, { method: "DELETE" }),
+    teilnehmerHinzufuegen: (id: string, mitarbeiterId: string, teilgenommen?: boolean) =>
+      request<Schulungstermin>(`/api/schulungen/${id}/teilnehmer`, { method: "POST", body: JSON.stringify({ mitarbeiterId, teilgenommen }) }),
+    teilnahmeAendern: (id: string, mitarbeiterId: string, teilgenommen: boolean) =>
+      request<Schulungstermin>(`/api/schulungen/${id}/teilnehmer/${mitarbeiterId}`, { method: "PATCH", body: JSON.stringify({ teilgenommen }) }),
+    teilnehmerEntfernen: (id: string, mitarbeiterId: string) =>
+      request<Schulungstermin>(`/api/schulungen/${id}/teilnehmer/${mitarbeiterId}`, { method: "DELETE" }),
   },
 
   wissen: {
@@ -202,6 +323,17 @@ export const api = {
     designSpeichern: (data: Partial<DesignEinstellungen>) =>
       request<{ ok: boolean }>("/api/einstellungen/design", { method: "PUT", body: JSON.stringify(data) }),
     system: () => request<{ watchFolderPfad: string; watchFolderAktiv: boolean }>("/api/einstellungen/system"),
+    module: () => request<Record<ModuleKey, boolean>>("/api/einstellungen/module"),
+    moduleSpeichern: (data: Partial<Record<ModuleKey, boolean>>) =>
+      request<{ ok: boolean }>("/api/einstellungen/module", { method: "PUT", body: JSON.stringify(data) }),
+    sicherheit: () => request<{ inaktivitaetMinuten: number }>("/api/einstellungen/sicherheit"),
+    sicherheitSpeichern: (inaktivitaetMinuten: number) =>
+      request<{ ok: boolean; inaktivitaetMinuten: number }>("/api/einstellungen/sicherheit", { method: "PUT", body: JSON.stringify({ inaktivitaetMinuten }) }),
+    backups: () => request<{
+      pfadLesbar: boolean;
+      anzahl: number;
+      saetze: { zeitpunkt: string; groesseBytes: number; vollstaendig: boolean }[];
+    }>("/api/einstellungen/backups"),
   },
 
   fristen: {
@@ -212,6 +344,23 @@ export const api = {
       if (params.status) q.set("status", params.status);
       return request<FristMitDokument[]>(`/api/fristen?${q}`);
     },
+    erinnerungTesten: () => request<{
+      fristenAnzahl: number;
+      empfaengerAnzahl: number;
+      gesendetAn: string[];
+      fehlgeschlagenAn: { email: string; fehler: string }[];
+    }>("/api/fristen/erinnerung-testen", { method: "POST" }),
+    loeschen: (id: string) => request<{ ok: boolean }>(`/api/fristen/${id}`, { method: "DELETE" }),
+  },
+
+  kummerkasten: {
+    // Öffentlich, kein Login nötig – wird von der Public-Seite genutzt
+    einreichen: (data: { nachricht: string; absenderName?: string; webseite?: string }) =>
+      request<{ ok: boolean }>("/api/kummerkasten", { method: "POST", body: JSON.stringify(data) }),
+    liste: () => request<KummerkastenEintrag[]>("/api/kummerkasten"),
+    aktualisieren: (id: string, data: Partial<{ status: KummerkastenStatus; notiz: string | null }>) =>
+      request<KummerkastenEintrag>(`/api/kummerkasten/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    loeschen: (id: string) => request<{ ok: boolean }>(`/api/kummerkasten/${id}`, { method: "DELETE" }),
   },
 
   beschluesse: {
@@ -253,15 +402,30 @@ export interface ProtokollEinstellungen {
   hat_logo:             string; // "true" | "false"
 }
 
-export type Rolle = "VORSITZ" | "STELLVERTRETER" | "MITGLIED" | "ERSATZMITGLIED" | "ADMIN";
+export type Rolle = "VORSITZ" | "STELLVERTRETER" | "MITGLIED" | "ERSATZMITGLIED" | "ADMIN" | "JAV";
 export type Prioritaet = "HOCH" | "MITTEL" | "NIEDRIG";
 export type Sichtbarkeit = "PRIVAT" | "OEFFENTLICH";
 export type AufgabeTyp = "PROJEKT" | "AUFGABE";
+export type KanbanStatus = "BACKLOG" | "IN_BEARBEITUNG" | "ERLEDIGT";
+export type AufgabenStatus = "NEU" | "IN_BEARBEITUNG" | "AUF_HOLD" | "ERLEDIGT";
+export type KummerkastenStatus = "NEU" | "IN_BEARBEITUNG" | "ERLEDIGT";
+
+export interface KummerkastenEintrag {
+  id: string;
+  nachricht: string;
+  absenderName?: string | null;
+  status: KummerkastenStatus;
+  notiz?: string | null;
+  bearbeitetVon?: { id: string; name: string } | null;
+  bearbeitetAm?: string | null;
+  erstelltAm: string;
+}
 
 export interface Aufgabe {
   id: string;
   titel: string;
   beschreibung?: string;
+  beschreibungJson?: object | null;
   typ: AufgabeTyp;
   prioritaet: Prioritaet;
   startDatum?: string;
@@ -275,6 +439,10 @@ export interface Aufgabe {
   oberProjekt?: { id: string; titel: string; farbe?: string };
   erstelltVon: { id: string; name: string; email: string };
   zugewiesenAn?: { id: string; name: string; email: string };
+  kanbanStatus?: KanbanStatus | null;
+  aufgabenStatus?: AufgabenStatus;
+  topId?: string | null;
+  top?: { id: string; nummer: number; titel: string; sitzung: { id: string; titel: string } } | null;
   erstelltAm: string;
   aktualisiertAm: string;
 }
@@ -282,6 +450,7 @@ export interface Aufgabe {
 export interface AufgabeErstellen {
   titel: string;
   beschreibung?: string;
+  beschreibungJson?: object | null;
   typ?: AufgabeTyp;
   prioritaet?: Prioritaet;
   startDatum?: string;
@@ -291,6 +460,9 @@ export interface AufgabeErstellen {
   zugewiesenAnId?: string;
   sichtbarkeit?: Sichtbarkeit;
   oberProjektId?: string;
+  aufgabenStatus?: AufgabenStatus;
+  kanbanStatus?: KanbanStatus;
+  topId?: string;
 }
 
 export interface Benutzer {
@@ -384,7 +556,7 @@ export type TopStatus =
 export interface TopDokumentInfo {
   id: string;
   hinweis?: string;
-  dokument: { id: string; titel: string; kategorie: Kategorie; dateiname: string; aktenzeichen?: string };
+  dokument: { id: string; titel: string; alias?: string; kategorie: Kategorie; dateiname: string; aktenzeichen?: string };
 }
 
 export interface TOP {
@@ -398,7 +570,9 @@ export interface TOP {
   ergebnisJson?: object;
   status: TopStatus;
   spontan: boolean;
+  vertraulich: boolean;
   dokumente: TopDokumentInfo[];
+  _count?: { kommentare: number };
   erstelltAm: string;
   aktualisiertAm: string;
 }
@@ -467,6 +641,7 @@ export interface Beschluss {
 export interface Kommentar {
   id: string;
   inhalt: string;
+  inhaltJson?: object | null;
   erstelltAm: string;
   aktualisiertAm: string;
   autor: { id: string; name: string; email: string };
@@ -483,9 +658,41 @@ export interface Aufbewahrungsregel {
 export interface SuchErgebnis {
   dokumente:  { id: string; titel: string; alias?: string; kategorie: Kategorie; status: DokumentStatus; tags: string[]; dateiname: string; erstelltAm: string }[];
   sitzungen:  { id: string; titel: string; sitzungsdatum: string; status: SitzungStatus }[];
-  aufgaben?:  { id: string; titel: string; prioritaet: Prioritaet; erledigt: boolean; faelligAm?: string }[];
+  aufgaben?:  { id: string; titel: string; prioritaet: Prioritaet; erledigt: boolean; faelligAm?: string; typ: AufgabeTyp; oberProjektId?: string; kanbanStatus?: KanbanStatus | null }[];
   wissen?:    { id: string; titel: string; kategorien: string[]; erstelltAm: string }[];
   ressourcen?: { id: string; titel: string; url: string; kategorie: RessourceKategorie; erstelltAm: string }[];
+  betriebsvereinbarungen?: { id: string; titel: string; status: BVStatus; abschlussdatum: string }[];
+  schulungen?: { id: string; titel?: string | null; datum: string; status: SchulungsStatus; qualifikation: { name: string } }[];
+  mitarbeiter?: { id: string; vorname: string; nachname: string; pnr?: string | null; abteilung?: { name: string } | null }[];
+  gesetze?:    { id: string; gesetz: string; paragraph: string; titel?: string | null; text: string }[];
+}
+
+export interface GesetzParagraph {
+  id: string;
+  gesetzSlug: string;
+  gesetz: string;
+  paragraph: string;
+  titel?: string | null;
+  text: string;
+  quelleUrl: string;
+  aktualisiertAm: string;
+}
+
+export interface GesetzStatus {
+  slug: string;
+  name: string;
+  anzahl: number;
+  aktualisiertAm: string | null;
+}
+
+export interface GesetzAktualisierenErgebnis {
+  slug: string;
+  name: string;
+  anzahl: number;
+  neu: string[];
+  geaendert: string[];
+  istErstimport: boolean;
+  fehler?: string;
 }
 
 export const SITZUNG_STATUS_LABEL: Record<SitzungStatus, string> = {
@@ -597,7 +804,7 @@ export type AuditAktion =
   | "DOKUMENT_TAG_GEAENDERT" | "DOKUMENT_ALIAS_GEAENDERT" | "DOKUMENT_TOP_GEAENDERT"
   | "DOKUMENT_AUFGABE_ERSTELLT" | "INBOX_DOKUMENT_GELESEN" | "WATCHFOLDER_DATEI_EMPFANGEN"
   | "FRIST_ERSTELLT" | "FRIST_ERLEDIGT"
-  | "BENUTZER_ERSTELLT" | "BENUTZER_DEAKTIVIERT"
+  | "BENUTZER_ERSTELLT" | "BENUTZER_DEAKTIVIERT" | "BENUTZER_GELOESCHT"
   | "SITZUNG_ERSTELLT" | "SITZUNG_AKTUALISIERT" | "SITZUNG_FIXIERT"
   | "SITZUNG_PROTOKOLL_GESTARTET" | "SITZUNG_FINALISIERT" | "SITZUNG_GELOESCHT"
   | "ABSTIMMUNG_ERSTELLT" | "ABSTIMMUNG_FINALISIERT"
@@ -643,6 +850,7 @@ export const AUDIT_AKTION_LABEL: Record<AuditAktion, string> = {
   FRIST_ERLEDIGT:              "Frist erledigt",
   BENUTZER_ERSTELLT:           "Benutzer angelegt",
   BENUTZER_DEAKTIVIERT:        "Benutzer deaktiviert",
+  BENUTZER_GELOESCHT:          "Benutzer endgültig gelöscht",
   SITZUNG_ERSTELLT:            "Sitzung erstellt",
   SITZUNG_AKTUALISIERT:        "Sitzung aktualisiert",
   SITZUNG_FIXIERT:             "Sitzung fixiert",
@@ -696,6 +904,192 @@ export const RESSOURCE_KATEGORIE_FARBE: Record<RessourceKategorie, string> = {
   SONSTIGES:   "bg-gray-100 text-gray-600",
 };
 
+export interface Abteilung {
+  id: string;
+  name: string;
+  erstelltAm: string;
+  aktualisiertAm: string;
+}
+
+export type Beschaeftigungsart = "MITARBEITER" | "AZUBI" | "STUDENT" | "ZEITARBEITER";
+
+export const BESCHAEFTIGUNGSART_LABEL: Record<Beschaeftigungsart, string> = {
+  MITARBEITER: "Mitarbeiter",
+  AZUBI:       "Azubi",
+  STUDENT:     "Student",
+  ZEITARBEITER: "Zeitarbeiter",
+};
+
+// Kurzform fürs Badge (Mitarbeiter bekommt bewusst keins, siehe Anzeige-Stellen)
+export const BESCHAEFTIGUNGSART_KUERZEL: Record<Beschaeftigungsart, string> = {
+  MITARBEITER: "",
+  AZUBI:       "AZUBI",
+  STUDENT:     "STUD.",
+  ZEITARBEITER: "ZA",
+};
+
+// Feste kategoriale Reihenfolge/Farben – konsistent über Badge, Stat-Karten und Standort-Diagramm.
+// MITARBEITER als Basisfarbe grau (häufigste/Standard-Kategorie), danach fest zugeordnet, nicht rotierend.
+export const BESCHAEFTIGUNGSART_FARBE: Record<Beschaeftigungsart, { badge: string; balken: string }> = {
+  MITARBEITER:  { badge: "bg-gray-100 text-gray-600",   balken: "bg-gray-400" },
+  AZUBI:        { badge: "bg-blue-100 text-blue-700",   balken: "bg-blue-500" },
+  STUDENT:      { badge: "bg-violet-100 text-violet-700", balken: "bg-violet-500" },
+  ZEITARBEITER: { badge: "bg-amber-100 text-amber-700", balken: "bg-amber-500" },
+};
+
+export const ALLE_BESCHAEFTIGUNGSARTEN: Beschaeftigungsart[] = ["MITARBEITER", "AZUBI", "STUDENT", "ZEITARBEITER"];
+
+export interface Mitarbeiter {
+  id: string;
+  vorname: string;
+  nachname: string;
+  pnr?: string | null;
+  eintritt?: string | null;
+  austritt?: string | null;
+  standort?: string | null;
+  abteilungId?: string | null;
+  abteilung?: { id: string; name: string } | null;
+  gehaltIgnorieren?: boolean;
+  beschaeftigungsart?: Beschaeftigungsart;
+  erstelltAm: string;
+  aktualisiertAm: string;
+}
+
+export interface MitarbeiterImportZusammenfassung {
+  neueAbteilungen: string[];
+  neueMitarbeiter: { pnr: string | null; name: string }[];
+  bereitsVorhanden: { pnr: string | null; name: string }[];
+  geaendert: { zeile: number; grund: string }[];
+  uebersprungen: { zeile: number; grund: string }[];
+  fehler: { zeile: number; grund: string }[];
+}
+
+export interface GehaltstabelleImportZusammenfassung {
+  neueAbteilungen: string[];
+  neueMitarbeiter: { pnr: string | null; name: string }[];
+  neueEintraege: number;
+  geaendert: { zeile: number; grund: string }[];
+  uebersprungen: { zeile: number; grund: string }[];
+  fehler: { zeile: number; grund: string }[];
+}
+
+export interface GehaltsstufenEintrag {
+  id: string;
+  mitarbeiterId: string;
+  stufe: string;
+  gueltigAb: string;
+  bemerkung?: string | null;
+  sitzungId?: string | null;
+  mitarbeiter: {
+    id: string;
+    vorname: string;
+    nachname: string;
+    pnr?: string | null;
+    eintritt?: string | null;
+    austritt?: string | null;
+    standort?: string | null;
+    abteilung?: { id: string; name: string } | null;
+    beschaeftigungsart?: Beschaeftigungsart;
+  };
+  erstelltAm: string;
+  aktualisiertAm: string;
+}
+
+export interface GehaltsstufenEintragErstellen {
+  mitarbeiterId: string;
+  stufe: string;
+  gueltigAb: string;
+  bemerkung?: string;
+  sitzungId?: string;
+}
+
+export type BVStatus = "AKTIV" | "GEKUENDIGT" | "ABGELOEST" | "BEFRISTET_AUSGELAUFEN";
+
+export interface Betriebsvereinbarung {
+  id: string;
+  titel: string;
+  abschlussdatum: string;
+  geltungsbereich?: string | null;
+  status: BVStatus;
+  laufzeitEnde?: string | null;
+  bemerkung?: string | null;
+  dokumentId?: string | null;
+  dokument?: { id: string; titel: string; dateiname: string } | null;
+  erstelltAm: string;
+  aktualisiertAm: string;
+}
+
+export interface BetriebsvereinbarungErstellen {
+  titel: string;
+  abschlussdatum: string;
+  geltungsbereich?: string;
+  status?: BVStatus;
+  laufzeitEnde?: string | null;
+  bemerkung?: string;
+  dokumentId?: string | null;
+}
+
+export type SchulungsStatus = "GEPLANT" | "ABSOLVIERT" | "ABGESAGT";
+
+export interface Qualifikation {
+  id: string;
+  name: string;
+  beschreibung?: string | null;
+  gueltigkeitsdauerMonate?: number | null;
+  erstelltAm: string;
+  aktualisiertAm: string;
+}
+
+export interface SchulungsTeilnahme {
+  id: string;
+  mitarbeiterId: string;
+  teilgenommen: boolean;
+  mitarbeiter: Mitarbeiter;
+}
+
+export interface Schulungstermin {
+  id: string;
+  qualifikationId: string;
+  qualifikation: Qualifikation;
+  titel?: string | null;
+  datum: string;
+  ort?: string | null;
+  anbieter?: string | null;
+  kosten?: number | null;
+  status: SchulungsStatus;
+  bemerkung?: string | null;
+  teilnehmer: SchulungsTeilnahme[];
+  erstelltAm: string;
+  aktualisiertAm: string;
+}
+
+export interface SchulungsterminErstellen {
+  qualifikationId: string;
+  titel?: string;
+  datum: string;
+  ort?: string;
+  anbieter?: string;
+  kosten?: number;
+  status?: SchulungsStatus;
+  bemerkung?: string;
+  teilnehmerIds?: string[];
+}
+
+export interface QualifikationsMatrixZelle {
+  qualifikationId: string;
+  absolviertAm: string | null;
+  gueltigBis: string | null;
+  status: "NIE" | "GUELTIG" | "ABGELAUFEN";
+}
+
+export interface QualifikationsMatrix {
+  qualifikationen: Qualifikation[];
+  zeilen: {
+    mitarbeiter: { id: string; vorname: string; nachname: string };
+    zellen: QualifikationsMatrixZelle[];
+  }[];
+}
+
 export interface WissensEintragErstellen {
   titel: string;
   inhalt: string;
@@ -704,6 +1098,21 @@ export interface WissensEintragErstellen {
   herkunft?: string;
   quelle?: { sitzungId?: string; topId?: string; protocolBlockId?: string };
 }
+
+// ── Module (Admin-Ein/Ausschalter) ──────────────────────────────────
+export type ModuleKey = "personalverwaltung" | "betriebsvereinbarungen" | "wissensarchiv" | "ressourcen" | "themensammlung";
+
+export const MODULE_KEYS: ModuleKey[] = [
+  "personalverwaltung", "betriebsvereinbarungen", "wissensarchiv", "ressourcen", "themensammlung",
+];
+
+export const MODULE_LABEL: Record<ModuleKey, { name: string; beschreibung: string }> = {
+  personalverwaltung:     { name: "Personalverwaltung",     beschreibung: "Gehaltstabelle, Mitarbeiter-Stammdaten und Schulungsverwaltung/Qualifikationsmatrix" },
+  betriebsvereinbarungen: { name: "Betriebsvereinbarungen", beschreibung: "Register aller Betriebsvereinbarungen mit Status und Laufzeit" },
+  wissensarchiv:          { name: "Wissensarchiv",          beschreibung: "Interne Problem-Lösungs-Sammlung, teils aus Protokollen extrahiert" },
+  ressourcen:             { name: "Ressourcen",              beschreibung: "Externe Links zu Gesetzen, KI-Werkzeugen, Behörden, Vorlagen" },
+  themensammlung:         { name: "Themensammlung",          beschreibung: "Auszug aus Protokollen für Öffentlichkeitsarbeit/Mitgliederinfo" },
+};
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────
 export const KATEGORIE_LABEL: Record<Kategorie, string> = {

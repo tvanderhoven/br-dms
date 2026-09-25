@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import jwt from "@fastify/jwt";
+import rateLimit from "@fastify/rate-limit";
 import { authRouten } from "./routes/auth.js";
 import { dokumentRouten } from "./routes/dokumente.js";
 import { benutzerRouten } from "./routes/benutzer.js";
@@ -25,10 +26,17 @@ import { auditRouten } from "./routes/audit.js";
 import { startDeletionWorker } from "./workers/deletion.worker.js";
 import { startFristenWorker } from "./workers/fristen.worker.js";
 import { startWiedervorlageWorker } from "./workers/wiedervorlage.worker.js";
+import { startGesetzeWorker } from "./workers/gesetze.worker.js";
 import { starteWatchFolder } from "./services/watchfolder.service.js";
 import { beschlussRegisterRouten } from "./routes/beschlussregister.js";
 import { fristenRouten } from "./routes/fristen.js";
 import { exportRouten } from "./routes/export.js";
+import { mitarbeiterRouten, abteilungenRouten } from "./routes/mitarbeiter.js";
+import { gehaltstabelleRouten } from "./routes/gehaltstabelle.js";
+import { betriebsvereinbarungenRouten } from "./routes/betriebsvereinbarungen.js";
+import { qualifikationenRouten, schulungenRouten } from "./routes/schulungen.js";
+import { gesetzeRouten } from "./routes/gesetze.js";
+import { kummerkastenRouten } from "./routes/kummerkasten.js";
 
 process.on("uncaughtException", (err) => {
   console.error("[process] uncaughtException – Backend bleibt am Laufen:", err);
@@ -52,6 +60,10 @@ await app.register(multipart, {
   limits: { fileSize: 50 * 1024 * 1024 },
   attachFieldsToBody: false,
 });
+
+// global: false → gilt nur für Routen, die explizit config.rateLimit setzen
+// (aktuell nur der öffentliche Kummerkasten-Endpunkt, siehe routes/kummerkasten.ts)
+await app.register(rateLimit, { global: false });
 
 // ── Routen ────────────────────────────────────────────────────────
 app.get("/health", async () => ({ status: "ok", zeit: new Date().toISOString() }));
@@ -78,11 +90,20 @@ await app.register(auditRouten,              { prefix: "/api/audit" });
 await app.register(beschlussRegisterRouten,  { prefix: "/api/beschluesse" });
 await app.register(fristenRouten,            { prefix: "/api/fristen" });
 await app.register(exportRouten,             { prefix: "/api/export" });
+await app.register(mitarbeiterRouten,        { prefix: "/api/mitarbeiter" });
+await app.register(abteilungenRouten,        { prefix: "/api/abteilungen" });
+await app.register(gehaltstabelleRouten,     { prefix: "/api/gehaltstabelle" });
+await app.register(betriebsvereinbarungenRouten, { prefix: "/api/betriebsvereinbarungen" });
+await app.register(qualifikationenRouten,    { prefix: "/api/qualifikationen" });
+await app.register(schulungenRouten,         { prefix: "/api/schulungen" });
+await app.register(gesetzeRouten,            { prefix: "/api/gesetze" });
+await app.register(kummerkastenRouten,       { prefix: "/api/kummerkasten" });
 
 // ── Worker & Services ─────────────────────────────────────────────
 startDeletionWorker(process.env.NODE_ENV !== "production");
 startFristenWorker();
 startWiedervorlageWorker();
+startGesetzeWorker();
 
 if (process.env.WATCH_FOLDER_ENABLED === "true") {
   starteWatchFolder();

@@ -1,5 +1,3 @@
-version: "3.9"
-
 # ================================================================
 #  BR-DMS – Synology Container Manager
 #  Intranet-Betrieb, kein Reverse Proxy
@@ -60,6 +58,7 @@ services:
       JWT_SECRET:      ${JWT_SECRET}
       ENCRYPTION_KEY:  ${ENCRYPTION_KEY}
       STORAGE_PATH:    /data/storage
+      BACKUP_PATH:     /data/backups
       PUID:            ${PUID:-1000}
       PGID:            ${PGID:-100}
       SMTP_HOST:       ${SMTP_HOST}
@@ -76,6 +75,7 @@ services:
       - ${DATA_PATH}/storage:/data/storage
       - ${DATA_PATH}/logs:/data/logs
       - ${WATCH_INBOX_PATH:-${DATA_PATH}/watch_inbox}:/data/watch_inbox
+      - ${DATA_PATH}/backups:/data/backups:ro
     depends_on:
       postgres:
         condition: service_healthy

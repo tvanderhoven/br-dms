@@ -40,9 +40,10 @@ export async function anwesenheitRouten(app: FastifyInstance): Promise<void> {
         orderBy: { benutzer: { name: "asc" } },
       });
 
-      // Alle BR-Mitglieder laden (für vollständige Liste)
+      // Alle BR-Mitglieder laden (für vollständige Liste) – ADMIN ist ein rein
+      // funktionaler Zugang, kein echtes Sitzungsmitglied, taucht hier nicht auf.
       const alleMitglieder = await prisma.benutzer.findMany({
-        where: { aktiv: true },
+        where: { aktiv: true, rolle: { not: Role.ADMIN } },
         select: { id: true, name: true, rolle: true, istVertretungFuer: true },
         orderBy: { name: "asc" },
       });

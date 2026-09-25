@@ -1,12 +1,12 @@
 #!/bin/bash
 # BR-DMS Backup: PostgreSQL-Dump + Storage-Dateien
 # Aufruf: ./backup.sh
-# Empfehlung: täglich per Synology Task Scheduler
+# Empfehlung: täglich per QNAP Task Scheduler
 
 set -euo pipefail
 
-BACKUP_DIR="/volume1/docker/br-dms/backups"
-DATA_PATH="/volume1/docker/br-dms"
+BACKUP_DIR="/share/Container/br-dms/backups"
+DATA_PATH="/share/Container/br-dms"
 CONTAINER="brdms_postgres"
 KEEP_DAYS=30
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
@@ -35,7 +35,7 @@ tar -czf "$BACKUP_DIR/storage_${TIMESTAMP}.tar.gz" \
 
 echo "     ✓ $BACKUP_DIR/storage_${TIMESTAMP}.tar.gz"
 
-# --- 3. Alte Backups aufräumen ---
+# --- 3. Rollierendes System: nur die letzten $KEEP Backups behalten ---
 echo "  → Backups älter als ${KEEP_DAYS} Tage löschen..."
 find "$BACKUP_DIR" -name "db_*.sql.gz"      -mtime +$KEEP_DAYS -delete
 find "$BACKUP_DIR" -name "storage_*.tar.gz" -mtime +$KEEP_DAYS -delete

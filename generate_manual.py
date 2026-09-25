@@ -5,7 +5,29 @@ from fpdf.enums import XPos, YPos
 from datetime import datetime
 import os
 
-FONT_PATH = "/usr/share/fonts/truetype/liberation/"
+def _font_path():
+    """Liberation-Schriften bevorzugt (Linux/Docker); auf Windows-Dev-PCs ohne
+    Liberation-Fonts wird automatisch auf die metrisch kompatiblen Windows-Fonts
+    (Arial/Courier New) zurueckgefallen, damit das Skript ueberall laeuft."""
+    linux_path = "/usr/share/fonts/truetype/liberation/"
+    if os.path.isdir(linux_path):
+        return linux_path, {
+            "regular": "LiberationSans-Regular.ttf", "bold": "LiberationSans-Bold.ttf",
+            "italic": "LiberationSans-Italic.ttf", "mono": "LiberationMono-Regular.ttf",
+        }
+    win_path = "C:/Windows/Fonts/"
+    if os.path.isdir(win_path):
+        return win_path, {
+            "regular": "arial.ttf", "bold": "arialbd.ttf",
+            "italic": "ariali.ttf", "mono": "cour.ttf",
+        }
+    raise FileNotFoundError(
+        "Keine passenden Schriftarten gefunden (weder Liberation unter "
+        f"{linux_path} noch Windows-Fonts unter {win_path})."
+    )
+
+
+FONT_PATH, FONT_FILES = _font_path()
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "BR-DMS_Handbuch.pdf")
 
 # Farben
@@ -23,10 +45,10 @@ C_ORANGE     = (200, 120,  0)
 class Manual(FPDF):
     def __init__(self):
         super().__init__("P", "mm", "A4")
-        self.add_font("S",  "",  FONT_PATH + "LiberationSans-Regular.ttf")
-        self.add_font("S",  "B", FONT_PATH + "LiberationSans-Bold.ttf")
-        self.add_font("S",  "I", FONT_PATH + "LiberationSans-Italic.ttf")
-        self.add_font("SM", "",  FONT_PATH + "LiberationMono-Regular.ttf")
+        self.add_font("S",  "",  FONT_PATH + FONT_FILES["regular"])
+        self.add_font("S",  "B", FONT_PATH + FONT_FILES["bold"])
+        self.add_font("S",  "I", FONT_PATH + FONT_FILES["italic"])
+        self.add_font("SM", "",  FONT_PATH + FONT_FILES["mono"])
         self.set_auto_page_break(True, margin=22)
         self.set_margins(20, 25, 20)
 
@@ -37,7 +59,7 @@ class Manual(FPDF):
         self.set_font("S", "B", 8)
         self.set_text_color(*C_GRAY_TEXT)
         self.cell(120, 7, "BR-DMS – Benutzer- und Administratorhandbuch", align="L")
-        self.cell(0,   7, f"Version 1.0  |  {datetime.now().strftime('%B %Y')}", align="R",
+        self.cell(0,   7, f"Version 1.1  |  {datetime.now().strftime('%B %Y')}", align="R",
                   new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         self.set_draw_color(*C_BLUE_MID)
         self.set_line_width(0.4)
@@ -225,9 +247,9 @@ def build():
     pdf.set_text_color(*C_BLACK)
     pdf.set_font("S", "", 10)
     meta = [
-        ("Version",  "1.0"),
+        ("Version",  "1.1"),
         ("Stand",    datetime.now().strftime("%d. %B %Y")),
-        ("Betrieb",  "Intranet (Synology NAS)"),
+        ("Betrieb",  "Intranet (NAS - QNAP / Synology)"),
         ("Lizenz",   "Intern / Vertraulich"),
     ]
     for k, v in meta:
@@ -280,6 +302,11 @@ def build():
         ("",  "4.10 Benutzerverwaltung", ""),
         ("",  "4.11 Audit-Log", ""),
         ("",  "4.12 Einstellungen", ""),
+        ("",  "4.13 Gehaltstabelle", ""),
+        ("",  "4.14 Betriebsvereinbarungen", ""),
+        ("",  "4.15 Schulungsverwaltung & Qualifikationsmatrix", ""),
+        ("",  "4.16 Globale Suche", ""),
+        ("",  "4.17 Module (Admin-Ein/Ausschalter)", ""),
         ("5", "Prozess: Dokument bis Protokoll", ""),
         ("",  "5.1  Dokument hochladen", ""),
         ("",  "5.2  Kategorisierung & Fristen", ""),
@@ -322,7 +349,7 @@ def build():
         "BR-DMS (Betriebsrats-Dokumentenmanagementsystem) ist eine speziell fur "
         "Betriebsrate entwickelte Software zur sicheren, DSGVO-konformen Verwaltung "
         "von Betriebsratsdokumenten. Das System lauft vollstandig im Intranet auf "
-        "einer Synology NAS und benotigt keine Cloud-Verbindung."
+        "einer NAS (QNAP, Synology o.ae.) und benotigt keine Cloud-Verbindung."
     )
     pdf.body(
         "Das System unterstuzt den gesamten Lebenszyklus eines Betriebsratsdokuments: "
@@ -337,6 +364,8 @@ def build():
         "Integrierte Sitzungs- und Protokollverwaltung",
         "Automatische Fristuberwachung (§ 99, § 102 BetrVG)",
         "Wissensarchiv und Themensammlung",
+        "Gehaltstabelle, Betriebsvereinbarungs-Register und Schulungsverwaltung",
+        "Optionale Module pro Installation ein-/ausschaltbar",
         "Kein Internet erforderlich – 100 % Self-hosted",
     ])
 
@@ -416,7 +445,7 @@ def build():
     pdf.table(
         ["Komponente", "Mindestanforderung", "Empfehlung"],
         [
-            ["Synology NAS",     "DSM 7.0+",          "DSM 7.2+"],
+            ["NAS (QNAP / Synology)", "Docker-faehiges NAS-Betriebssystem", "aktuelle Version"],
             ["Docker",          "20.10+",             "24.x"],
             ["Docker Compose",  "V2 (Plugin)",        "V2.20+"],
             ["RAM",             "2 GB",               "4 GB"],
@@ -439,13 +468,14 @@ def build():
         "Sie das Release-Archiv in ein lokales Verzeichnis.")
     pdf.step_box(2, ".env.deploy anlegen",
         "Erstellen Sie eine Datei .env.deploy im Release-Verzeichnis mit folgendem Inhalt:\n"
-        "NAS_USER=nasuser\n"
-        "NAS_HOST=192.168.1.100\n"
-        "DATA_PATH=/volume1/docker/br-dms")
+        "NAS_USER=<NAS-Benutzername>\n"
+        "NAS_HOST=<NAS-IP oder Hostname>\n"
+        "DATA_PATH=/share/Container/br-dms        # QNAP\n"
+        "# DATA_PATH=/volume1/docker/br-dms       # Synology")
     pdf.step_box(3, ".env auf der NAS anlegen",
         "Verbinden Sie sich per SSH mit der NAS und legen Sie die Hauptkonfiguration an:\n"
-        "ssh nasuser@192.168.1.100\n"
-        "nano /volume1/docker/br-dms/.env\n\n"
+        "ssh <NAS-Benutzername>@<NAS-IP>\n"
+        "nano <DATA_PATH>/.env\n\n"
         "Fullen Sie alle Pflichtfelder aus (siehe Abschnitt 3.3).")
     pdf.step_box(4, "Deployment ausfuhren",
         "Fuhren Sie auf dem Entwickler-PC aus:\n"
@@ -454,16 +484,19 @@ def build():
         "python3 deploy_komplett.py")
     pdf.step_box(5, "Container starten",
         "Auf der NAS per SSH:\n"
-        "cd /volume1/docker/br-dms\n"
-        "sudo /usr/local/bin/docker compose up -d --build\n\n"
+        "cd <DATA_PATH>\n"
+        "sudo /usr/local/bin/docker compose up -d --build   # Synology\n"
+        "# sudo /share/CACHEDEV1_DATA/.qpkg/container-station/bin/docker compose up -d --build   # QNAP\n\n"
         "Beim ersten Start lauft prisma db push automatisch und legt alle "
-        "Tabellen an.")
+        "Tabellen an. Der Docker-Binary-Pfad haengt vom NAS-Hersteller und der "
+        "Container-Station/Docker-Installation ab - im Zweifel 'which docker' auf "
+        "der NAS pruefen.")
     pdf.step_box(6, "Erstes Login",
         "Offnen Sie http://<NAS-IP>:3000 im Browser. Erstellen Sie den ersten "
         "Admin-Benutzer uber die Benutzerverwaltung oder nutzen Sie das Setup-Wizard-Skript.")
 
     pdf.h2("3.3  Umgebungsvariablen")
-    pdf.body("Die .env-Datei liegt NUR auf der NAS unter /volume1/docker/br-dms/.env")
+    pdf.body("Die .env-Datei liegt NUR auf der NAS unter <DATA_PATH>/.env (siehe 3.2)")
     pdf.table(
         ["Variable", "Pflicht", "Beschreibung", "Beispielwert"],
         [
@@ -475,8 +508,8 @@ def build():
             ["NODE_ENV",          "Ja",  "Betriebsmodus",                  "production"],
             ["BACKEND_PORT",      "Nein","Backend-Port",                   "4000"],
             ["FRONTEND_PORT",     "Nein","Frontend-Port",                  "3000"],
-            ["NAS_IP",            "Ja",  "IP-Adresse der NAS",             "192.168.1.100"],
-            ["APP_URL",           "Ja",  "URL fur Passwort-Reset-Emails",  "http://192.168.1.100:3000"],
+            ["NAS_IP",            "Ja",  "IP-Adresse der NAS",             "192.168.1.10"],
+            ["APP_URL",           "Ja",  "URL fur Passwort-Reset-Emails",  "http://192.168.1.10:3000"],
             ["SMTP_HOST",         "Nein","SMTP-Server fur E-Mails",        "smtp.ionos.de"],
             ["SMTP_PORT",         "Nein","SMTP-Port",                      "587"],
             ["SMTP_USER",         "Nein","SMTP-Benutzername",              "user@domain.de"],
@@ -497,14 +530,19 @@ def build():
     )
     pdf.code(
         "# Auf der NAS ausfuhren:\n"
-        "cd /volume1/docker/br-dms\n"
-        "sudo /usr/local/bin/docker exec brdms_backend \\\n"
+        "cd <DATA_PATH>\n"
+        "sudo docker exec brdms_backend \\\n"
         "  node -e \"require('./dist/scripts/create-admin').run()\""
     )
     pdf.body(
         "Alternativ kann uber den setup_wizard.py auf dem Entwickler-PC ein "
         "initialer Benutzer angelegt werden. Nach dem ersten Login sollte sofort "
         "das Passwort geandert werden."
+    )
+    pdf.body(
+        "Am Login-Bildschirm kann statt der vollstaendigen E-Mail-Adresse auch nur "
+        "der Teil vor dem '@' eingegeben werden (sofern eindeutig) - erleichtert das "
+        "taegliche Anmelden."
     )
 
     # ════════════════════════════════════════════════════════════════
@@ -680,6 +718,103 @@ def build():
         [60, 45, 65],
     )
 
+    pdf.h2("4.13  Gehaltstabelle")
+    pdf.body(
+        "Verwaltet die Gehaltsstufen-Historie der gesamten Belegschaft (nicht nur "
+        "Betriebsratsmitglieder) getrennt von den Login-Benutzerkonten. Mitarbeiter "
+        "werden unabhaengig von einem System-Zugang als eigene Stammdaten gefuehrt."
+    )
+    pdf.bullets([
+        "Mitarbeiter-Stammdaten: Name, Personalnummer (PNR), Abteilung, Ein-/Austrittsdatum",
+        "Gehaltsstufen-Historie je Mitarbeiter mit Datum 'gueltig ab' und Bemerkung",
+        "Direkte Uebernahme aus einem Sitzungsbeschluss ('In Gehaltstabelle uebertragen')",
+        "CSV-Import mit Vorschau (Dry-Run) vor dem eigentlichen Import; Duplikate werden erkannt",
+        "CSV-Export der gefilterten Liste",
+        "Admin-Funktion: Gehaltstabelle komplett zuruecksetzen (Einstellungen -> System, mit Bestaetigung)",
+    ])
+    pdf.info_box(
+        "Mitarbeiter-Stammdaten sind bewusst von den Login-Benutzerkonten (Benutzer) "
+        "getrennt: Die Gehaltstabelle bildet die gesamte Belegschaft ab, waehrend nur "
+        "Betriebsratsmitglieder einen System-Zugang (Benutzer) besitzen.",
+        C_BLUE_LIGHT
+    )
+
+    pdf.h2("4.14  Betriebsvereinbarungen")
+    pdf.body(
+        "Eigenstaendiges Register aller Betriebsvereinbarungen mit Status und "
+        "Laufzeitueberwachung - unabhaengig von der allgemeinen Dokumentenablage, "
+        "aber optional mit dem hinterlegten PDF verknuepft."
+    )
+    pdf.table(
+        ["Feld", "Beschreibung"],
+        [
+            ["Status",            "AKTIV | GEKUENDIGT | ABGELOEST | BEFRISTET_AUSGELAUFEN"],
+            ["Laufzeitende",      "Kuendigungsfrist bzw. befristetes Enddatum; Warnhinweis < 90 Tage"],
+            ["Geltungsbereich",   "Freitext, z. B. Standort oder Personenkreis"],
+            ["Verknuepftes Dokument", "Optional: Link zum PDF in der Dokumentenablage"],
+            ["Volltextsuche",     "Durchsucht Titel, Geltungsbereich, Bemerkung und PDF-Textinhalt"],
+        ],
+        [45, 125],
+    )
+    pdf.body("Anlegen, Bearbeiten und Loeschen ist auf die Rolle VORSITZ beschraenkt.")
+
+    pdf.h2("4.15  Schulungsverwaltung & Qualifikationsmatrix")
+    pdf.body(
+        "Erfasst Schulungstermine mit Teilnehmern und leitet daraus automatisch eine "
+        "Qualifikationsmatrix ab - es gibt keine separat zu pflegende Matrix, sie wird "
+        "immer live aus den erfassten Terminen berechnet."
+    )
+    pdf.bullets([
+        "Qualifikationskatalog mit optionaler Gueltigkeitsdauer (z. B. Ersthelfer alle 24 Monate)",
+        "Schulungstermine: Datum, Ort, Anbieter, Kosten, Status (GEPLANT / ABSOLVIERT / ABGESAGT)",
+        "Teilnehmerverwaltung je Termin (aus den Mitarbeiter-Stammdaten der Gehaltstabelle)",
+        "Qualifikationsmatrix: Mitarbeiter x Qualifikation, Status NIE / GUELTIG / ABGELAUFEN",
+    ])
+    pdf.info_box(
+        "Die Matrix wird bei jedem Aufruf neu berechnet (juengster absolvierter Termin je "
+        "Mitarbeiter und Qualifikation, ggf. plus Gueltigkeitsdauer). Es gibt keinen "
+        "separat gespeicherten Matrix-Stand, der veralten koennte.",
+        C_BLUE_LIGHT
+    )
+
+    pdf.h2("4.16  Globale Suche")
+    pdf.body(
+        "Eigene Suchseite (uber die Sidebar erreichbar) durchsucht alle Bereiche "
+        "gleichzeitig und gruppiert die Treffer nach Kategorie - Klick auf einen "
+        "Treffer springt direkt in den passenden Bereich."
+    )
+    pdf.bullets([
+        "Dokumente (Titel, Alias, Aktenzeichen, Beschreibung, Tags, PDF-Volltext)",
+        "Sitzungen & Protokolle (Titel, Notizen, TOP-Inhalte, Beschluss-Ergebnisse)",
+        "Aufgaben, Wissensarchiv, Ressourcen",
+        "Betriebsvereinbarungen (inkl. PDF-Volltext), Schulungen, Mitarbeiter",
+    ])
+
+    pdf.h2("4.17  Module (Admin-Ein/Ausschalter)")
+    pdf.body(
+        "Optionale Module lassen sich zentral ein- und ausblenden - gedacht fuer "
+        "Installationen bei anderen Betriebsraeten, die nicht den vollen "
+        "Funktionsumfang benoetigen. Zu finden unter Einstellungen -> Module "
+        "(nur fuer die Rolle ADMIN sichtbar)."
+    )
+    pdf.table(
+        ["Modul", "Umfasst"],
+        [
+            ["Personalverwaltung",     "Gehaltstabelle und Schulungsverwaltung (teilen sich die Mitarbeiter-Stammdaten)"],
+            ["Betriebsvereinbarungen", "Das BV-Register (Kapitel 4.14)"],
+            ["Wissensarchiv",          "Kapitel 4.7"],
+            ["Ressourcen",             "Kapitel 4.8"],
+            ["Themensammlung",         "Kapitel 4.9"],
+        ],
+        [50, 120],
+    )
+    pdf.body(
+        "Kernfunktionen (Dokumente, Sitzungen, Aufgaben, Nachrichten, Fristen, "
+        "Beschlussregister, Benutzerverwaltung, Audit-Log) lassen sich bewusst nicht "
+        "abschalten. Ein deaktiviertes Modul verschwindet aus der Seitenleiste; "
+        "ein Direktaufruf der zugehoerigen Seite leitet automatisch zum Dashboard um."
+    )
+
     # ════════════════════════════════════════════════════════════════
     # 5. PROZESS
     # ════════════════════════════════════════════════════════════════
@@ -801,7 +936,7 @@ def build():
         [
             ["Aktivierung",          "WATCH_FOLDER_ENABLED=true in .env"],
             ["Uberwachter Ordner",   "/data/watch_inbox (im Container)"],
-            ["NAS-Pfad",             "/volume1/docker/br-dms/watch_inbox"],
+            ["NAS-Pfad",             "WATCH_INBOX_PATH in .env, z.B. eigene Freigabe getrennt von <DATA_PATH>"],
             ["Importbenutzer",       "SYSTEM_USER_ID=<UUID des Admin-Users>"],
             ["Unterstuzte Formate",  "PDF, DOCX, DOCM, XLSX"],
             ["Protokollierung",      "Audit-Log: WATCHFOLDER_DATEI_EMPFANGEN / WATCHFOLDER_FEHLER"],
@@ -841,6 +976,10 @@ def build():
             ["Aufbewahrungsfristen setzen", "Nein","Nein","Nein","Nein", "Ja"],
             ["Abstimmung erfassen",         "Ja", "Ja",  "Ja",  "Nein", "Nein"],
             ["Wissensarchiv bearbeiten",    "Ja", "Ja",  "Ja",  "Ja",   "Nein"],
+            ["Gehaltstabelle/Schulungen bearbeiten", "Ja", "Ja", "Ja", "Ja", "Ja"],
+            ["Gehaltstabelle komplett loeschen", "Nein","Nein","Nein","Nein", "Ja"],
+            ["Betriebsvereinbarung anlegen/bearbeiten", "Ja", "Ja", "Nein","Nein", "Nein"],
+            ["Module ein-/ausschalten",     "Nein","Nein","Nein","Nein", "Ja"],
         ],
         [70, 18, 22, 18, 16, 16],
     )
@@ -886,6 +1025,20 @@ def build():
              "id, titel, url, kategorie, tags"],
             ["Aufbewahrungsregel","Aufbewahrungsfristen",
              "kategorie, tage, rechtsgrundlage"],
+            ["Mitarbeiter",     "Personal-Stammdaten (Belegschaft)",
+             "id, vorname, nachname, pnr, abteilungId, eintritt, austritt"],
+            ["Abteilung",       "Abteilungen der Mitarbeiter",
+             "id, name"],
+            ["GehaltsstufenEintrag","Gehaltsstufen-Historie je Mitarbeiter",
+             "id, mitarbeiterId, stufe, gueltigAb, sitzungId"],
+            ["Betriebsvereinbarung","BV-Register",
+             "id, titel, status, abschlussdatum, laufzeitEnde, dokumentId"],
+            ["Qualifikation",   "Schulungs-/Qualifikationskatalog",
+             "id, name, gueltigkeitsdauerMonate"],
+            ["Schulungstermin", "Schulungstermine",
+             "id, qualifikationId, datum, ort, anbieter, kosten, status"],
+            ["SchulungsTeilnahme","Teilnahme je Termin und Mitarbeiter",
+             "id, schulungsterminId, mitarbeiterId, teilgenommen"],
         ],
         [38, 40, 92],
     )
@@ -905,6 +1058,8 @@ def build():
             ["Stimme",           "JA | NEIN | ENTHALTUNG"],
             ["NachrichtTyp",     "NORMAL | TAGESORDNUNG | PROTOKOLL | SYSTEM"],
             ["AnwesenheitsStatus","ANWESEND | ABWESEND_ENTSCHULDIGT | ABWESEND_UNENTSCHULDIGT | ERSATZ_FUER"],
+            ["BVStatus",         "AKTIV | GEKUENDIGT | ABGELOEST | BEFRISTET_AUSGELAUFEN"],
+            ["SchulungsStatus",  "GEPLANT | ABSOLVIERT | ABGESAGT"],
         ],
         [45, 125],
     )
@@ -922,8 +1077,8 @@ def build():
     )
     pdf.code(
         "# Manuelles Backup auf der NAS:\n"
-        "sudo bash /volume1/docker/br-dms/backup.sh\n\n"
-        "# Ergebnis in /volume1/docker/br-dms/backups/:\n"
+        "sudo bash <DATA_PATH>/backup.sh\n\n"
+        "# Ergebnis in <DATA_PATH>/backups/:\n"
         "#   db_20260509_143000.sql.gz       (Datenbankdump)\n"
         "#   storage_20260509_143000.tar.gz  (Dokumente)"
     )
@@ -937,7 +1092,7 @@ def build():
     )
     pdf.code(
         "# Interaktive Wiederherstellung:\n"
-        "sudo bash /volume1/docker/br-dms/restore.sh\n\n"
+        "sudo bash <DATA_PATH>/restore.sh\n\n"
         "# Das Skript:\n"
         "# 1. Listet verfugbare Backups zur Auswahl\n"
         "# 2. Fragt ob Storage-Backup auch eingespielt werden soll\n"
@@ -951,24 +1106,21 @@ def build():
         C_ORANGE, "Achtung:"
     )
 
-    pdf.h2("9.3  Automatisierung (Synology Task Scheduler)")
+    pdf.h2("9.3  Automatisierung (NAS-Aufgabenplaner)")
     pdf.body(
-        "Fur tagliche automatische Backups den Synology Task Scheduler einrichten:"
+        "Fur tagliche automatische Backups den Aufgabenplaner der NAS einrichten "
+        "(QNAP: Control Panel -> Task Scheduler; Synology: Systemsteuerung -> Aufgabenplaner):"
     )
     pdf.table(
         ["Einstellung", "Wert"],
         [
-            ["Aufgabentyp",    "Geplante Aufgabe → Benutzerdefiniertes Skript"],
-            ["Benutzer",       "root"],
+            ["Aufgabentyp",    "Geplante Aufgabe -> Benutzerdefiniertes Skript"],
+            ["Benutzer",       "root / admin"],
             ["Zeitplan",       "Taglich, z. B. 02:00 Uhr"],
-            ["Skript",         "bash /volume1/docker/br-dms/backup.sh"],
+            ["Skript",         "bash <DATA_PATH>/backup.sh"],
             ["Benachrichtigung","E-Mail bei Fehler (optional)"],
         ],
         [40, 130],
-    )
-    pdf.body(
-        "Der Synology Task Scheduler findet sich unter: Systemsteuerung → "
-        "Aufgabenplaner."
     )
     pdf.info_box(
         "Sichern Sie den ENCRYPTION_KEY zusatzlich extern (z. B. Passwortmanager, "

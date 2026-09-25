@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, FormEvent, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import {
-  Upload, Download, Trash2, FileText, Lock, X, Loader2, Search, ChevronDown, Pencil, MessageSquare, Eye, History,
+  Upload, Download, Trash2, FileText, Lock, X, Loader2, Search, ChevronDown, Pencil, MessageSquare, Eye, History, ExternalLink,
 } from "lucide-react";
 import {
   api, Dokument, DokumentVersion, Kategorie, KATEGORIE_LABEL, formatDatum, formatDateigroesse, fristFarbe,
@@ -113,6 +113,27 @@ export default function Dokumente() {
     }
   }
 
+  // Öffnet das Dokument in einem eigenen Browser-Tab (PDF inline, sonst Download) —
+  // gleiches Muster wie bei den Protokoll-Dokumentlinks/Betriebsvereinbarungen: Tab
+  // synchron öffnen (Popup-Blocker), dann authentifiziert laden und als Blob anzeigen.
+  function dokumentInNeuemFensterOeffnen(d: Dokument) {
+    const tab = window.open("", "_blank");
+    const token = localStorage.getItem("brdms_token");
+    const url = d.mimeTyp === "application/pdf" ? api.dokumente.vorschauUrl(d.id) : api.dokumente.downloadUrl(d.id);
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.blob(); })
+      .then(blob => {
+        const objUrl = URL.createObjectURL(blob);
+        if (tab) tab.location.href = objUrl;
+        else window.location.href = objUrl;
+        setTimeout(() => URL.revokeObjectURL(objUrl), 60_000);
+      })
+      .catch(err => {
+        if (tab) tab.close();
+        alert(err instanceof Error ? err.message : "Dokument konnte nicht geöffnet werden");
+      });
+  }
+
   function herunterladen(d: Dokument) {
     const url = api.dokumente.downloadUrl(d.id);
     const token = localStorage.getItem("brdms_token");
@@ -218,6 +239,8 @@ export default function Dokumente() {
                       key={d.id}
                       ref={el => { rowRefs.current[d.id] = el; }}
                       onClick={() => oeffneVorschau(d)}
+                      onDoubleClick={() => dokumentInNeuemFensterOeffnen(d)}
+                      title="Klick: Vorschau · Doppelklick: in neuem Fenster öffnen"
                       className={`cursor-pointer transition-colors ${
                         istMarkiert  ? "bg-yellow-100 animate-pulse" :
                         istGewählt   ? "bg-[rgb(var(--accent)/0.1)] border-l-4 border-l-[rgb(var(--accent))]" :
@@ -277,6 +300,13 @@ export default function Dokumente() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                          <button
+                            onClick={() => dokumentInNeuemFensterOeffnen(d)}
+                            title="In neuem Fenster öffnen"
+                            className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded transition-colors"
+                          >
+                            <ExternalLink size={15} />
+                          </button>
                           <button
                             onClick={() => herunterladen(d)}
                             title="Herunterladen"
@@ -343,8 +373,12 @@ export default function Dokumente() {
       </div>
 
       {/* ── Rechte Spalte: Vorschau ──────────────────────────────── */}
+      {/* md:sticky + md:h-screen + md:self-start: Panel bleibt beim Scrollen der Liste
+          im Viewport stehen, statt mit der Seite mitzuwandern (unabhängig vom
+          Höhen-Verhalten des restlichen Layouts, da vh-Einheiten nicht von
+          Eltern-Elementen abhängen). */}
       {vorschau && (
-        <div className="w-full md:w-96 flex-shrink-0 border-l md:border-t-0 border-t border-gray-200 flex flex-col bg-white">
+        <div className="w-full md:w-96 flex-shrink-0 border-l md:border-t-0 border-t border-gray-200 flex flex-col bg-white md:sticky md:top-0 md:h-screen md:self-start">
           {/* Header */}
           <div className="px-4 py-3 border-b border-gray-100 flex items-start justify-between gap-2">
             <div className="min-w-0">
@@ -361,6 +395,12 @@ export default function Dokumente() {
 
           {/* Aktionen */}
           <div className="px-4 py-2 border-b border-gray-100 flex gap-2">
+            <button
+              onClick={() => dokumentInNeuemFensterOeffnen(vorschau)}
+              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-[rgb(var(--accent))] px-2 py-1.5 rounded hover:bg-blue-50 transition-colors"
+            >
+              <ExternalLink size={13} /> Neues Fenster
+            </button>
             <button
               onClick={() => herunterladen(vorschau)}
               className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-[rgb(var(--accent))] px-2 py-1.5 rounded hover:bg-blue-50 transition-colors"
@@ -454,6 +494,7 @@ function UploadModal({ onSchliessen, onErfolg }: { onSchliessen: () => void; onE
   const [datei, setDatei]                 = useState<File | null>(null);
   const [titel, setTitel]                 = useState("");
   const [kategorie, setKategorie]         = useState<Kategorie>("SONSTIGES");
+  const [kuendigungsArt, setKuendigungsArt] = useState<"ORDENTLICH" | "AUSSERORDENTLICH">("ORDENTLICH");
   const [aktenzeichen, setAktenzeichen]   = useState("");
   const [vertraulich, setVertraulich]     = useState(false);
   const [istVersion, setIstVersion]       = useState(false);
@@ -507,6 +548,7 @@ function UploadModal({ onSchliessen, onErfolg }: { onSchliessen: () => void; onE
       } else {
         form.append("titel", titel);
         form.append("kategorie", kategorie);
+        if (kategorie === "ANHOERUNG_102") form.append("kuendigungsArt", kuendigungsArt);
         if (aktenzeichen) form.append("aktenzeichen", aktenzeichen);
         form.append("vertraulich", String(vertraulich));
         await api.dokumente.upload(form);
@@ -650,6 +692,20 @@ function UploadModal({ onSchliessen, onErfolg }: { onSchliessen: () => void; onE
                   ))}
                 </select>
               </div>
+
+              {kategorie === "ANHOERUNG_102" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Art der Kündigung *</label>
+                  <select
+                    value={kuendigungsArt}
+                    onChange={e => setKuendigungsArt(e.target.value as "ORDENTLICH" | "AUSSERORDENTLICH")}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white"
+                  >
+                    <option value="ORDENTLICH">Ordentliche Kündigung (Anhörungsfrist 7 Tage)</option>
+                    <option value="AUSSERORDENTLICH">Außerordentliche Kündigung (Anhörungsfrist 3 Tage)</option>
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Aktenzeichen</label>

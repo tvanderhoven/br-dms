@@ -1,12 +1,13 @@
 import { useState, FormEvent } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { Shield, Loader2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { api } from "../lib/api";
+import BrandLogo from "../components/BrandLogo";
 
 export default function Login() {
-  const navigate = useNavigate();
   const [email, setEmail]       = useState("");
   const [passwort, setPasswort] = useState("");
+  const [eingeloggtBleiben, setEingeloggtBleiben] = useState(true);
   const [fehler, setFehler]     = useState("");
   const [laden, setLaden]       = useState(false);
 
@@ -15,9 +16,12 @@ export default function Login() {
     setFehler("");
     setLaden(true);
     try {
-      const { token } = await api.auth.login(email, passwort);
+      const { token } = await api.auth.login(email, passwort, eingeloggtBleiben);
       localStorage.setItem("brdms_token", token);
-      navigate("/");
+      const next = new URLSearchParams(window.location.search).get("next");
+      // Nur relative Pfade zulassen (Schutz gegen offene Weiterleitungen z.B. "//evil.com")
+      const ziel = next && next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
+      window.location.href = ziel;
     } catch (err) {
       setFehler(err instanceof Error ? err.message : "Anmeldung fehlgeschlagen");
     } finally {
@@ -29,29 +33,28 @@ export default function Login() {
     <div className="min-h-screen bg-gradient-to-br from-blue-800 to-blue-950 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8">
         <div className="flex flex-col items-center mb-8">
-          <div className="bg-blue-100 p-3 rounded-full mb-3">
-            <Shield className="text-blue-700" size={28} />
+          <div className="mb-3">
+            <BrandLogo size={40} textClassName="text-2xl text-gray-900" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">BR-DMS</h1>
-          <p className="text-gray-500 text-sm mt-1">Betriebsrats-Dokumentensystem</p>
+          <p className="text-gray-500 text-sm">Betriebsrats-Cloud</p>
         </div>
 
         <form onSubmit={anmelden} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              E-Mail
+              E-Mail oder Benutzername
             </label>
             <input
               id="email"
               name="email"
-              type="email"
+              type="text"
               autoComplete="username"
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
               autoFocus
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
-              placeholder="name@beispiel.de"
+              placeholder="name oder name@beispiel.de"
             />
           </div>
 
@@ -70,6 +73,16 @@ export default function Login() {
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
             />
           </div>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={eingeloggtBleiben}
+              onChange={e => setEingeloggtBleiben(e.target.checked)}
+              className="rounded border-gray-300 text-[rgb(var(--accent))]"
+            />
+            <span className="text-sm text-gray-600">Eingeloggt bleiben</span>
+          </label>
 
           {fehler && (
             <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">

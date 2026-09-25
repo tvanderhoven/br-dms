@@ -2,6 +2,9 @@
  * Einstellungen – Aufbewahrungsregeln
  * GET  /api/einstellungen/aufbewahrung  – alle Regeln (mit Standardwerten als Fallback)
  * PUT  /api/einstellungen/aufbewahrung/:kategorie – anlegen oder aktualisieren
+ * GET  /api/einstellungen/sicherheit    – Inaktivitäts-Timeout in Minuten (0 = aus)
+ * PUT  /api/einstellungen/sicherheit    – Inaktivitäts-Timeout setzen (nur ADMIN)
+ * GET  /api/einstellungen/backups       – Übersicht der backup.sh-Sicherungen (Anzahl, Alter, Größe)
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
@@ -290,6 +293,90 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
     }
   );
 
+  // ── Sicherheit: automatisches Abmelden bei Inaktivität ─────────────
+  // 0 = deaktiviert. GET ist für alle eingeloggten Benutzer (der Client
+  // braucht den Wert, um den Inaktivitäts-Timer zu stellen), PUT nur ADMIN.
+  const SICHERHEIT_DEFAULT_MINUTEN = 30;
+
+  app.get(
+    "/sicherheit",
+    { preHandler: [authenticate] },
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      const einstellung = await prisma.systemEinstellung.findUnique({
+        where: { schluessel: "sicherheit.inaktivitaet_minuten" },
+      });
+      const inaktivitaetMinuten = einstellung ? parseInt(einstellung.wert, 10) : SICHERHEIT_DEFAULT_MINUTEN;
+      return reply.send({ inaktivitaetMinuten });
+    }
+  );
+
+  app.put<{ Body: { inaktivitaetMinuten: number } }>(
+    "/sicherheit",
+    { preHandler: [authenticate, erfordert(Role.ADMIN)] },
+    async (request, reply) => {
+      const { inaktivitaetMinuten } = request.body;
+      if (!Number.isInteger(inaktivitaetMinuten) || inaktivitaetMinuten < 0 || inaktivitaetMinuten > 480) {
+        return reply.status(400).send({ fehler: "inaktivitaetMinuten muss zwischen 0 (deaktiviert) und 480 liegen" });
+      }
+
+      await prisma.systemEinstellung.upsert({
+        where:  { schluessel: "sicherheit.inaktivitaet_minuten" },
+        update: { wert: String(inaktivitaetMinuten) },
+        create: { schluessel: "sicherheit.inaktivitaet_minuten", wert: String(inaktivitaetMinuten) },
+      });
+
+      return reply.send({ ok: true, inaktivitaetMinuten });
+    }
+  );
+
+  // ── GET /backups – Übersicht der backup.sh-Sicherungen (nur lesend) ─
+  // BACKUP_PATH wird read-only in den Container gemountet (siehe docker-compose.yml).
+  // backup.sh legt je Lauf ein Paar db_<ts>.sql.gz + storage_<ts>.tar.gz an.
+  const BACKUP_PATH = process.env.BACKUP_PATH ?? "/data/backups";
+  const BACKUP_DATEI_REGEX = /^(db|storage)_(\d{8}_\d{6})\.(?:sql\.gz|tar\.gz)$/;
+
+  app.get(
+    "/backups",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      try {
+        const dateinamen = await fs.readdir(BACKUP_PATH);
+        const saetze = new Map<string, { zeitpunkt: Date; groesseBytes: number; hatDb: boolean; hatStorage: boolean }>();
+
+        for (const name of dateinamen) {
+          const treffer = name.match(BACKUP_DATEI_REGEX);
+          if (!treffer) continue;
+          const [, art, ts] = treffer;
+          const zeitpunkt = new Date(
+            `${ts.slice(0, 4)}-${ts.slice(4, 6)}-${ts.slice(6, 8)}T${ts.slice(9, 11)}:${ts.slice(11, 13)}:${ts.slice(13, 15)}`
+          );
+          const { size } = await fs.stat(path.join(BACKUP_PATH, name));
+
+          const eintrag = saetze.get(ts) ?? { zeitpunkt, groesseBytes: 0, hatDb: false, hatStorage: false };
+          eintrag.groesseBytes += size;
+          if (art === "db") eintrag.hatDb = true;
+          if (art === "storage") eintrag.hatStorage = true;
+          saetze.set(ts, eintrag);
+        }
+
+        const liste = [...saetze.values()].sort((a, b) => b.zeitpunkt.getTime() - a.zeitpunkt.getTime());
+
+        return reply.send({
+          pfadLesbar: true,
+          anzahl:     liste.length,
+          saetze:     liste.map(s => ({
+            zeitpunkt:    s.zeitpunkt.toISOString(),
+            groesseBytes: s.groesseBytes,
+            vollstaendig: s.hatDb && s.hatStorage,
+          })),
+        });
+      } catch {
+        // Ordner nicht gemountet/lesbar (z.B. vor dem ersten Deploy mit dem neuen Volume) – kein harter Fehler
+        return reply.send({ pfadLesbar: false, anzahl: 0, saetze: [] });
+      }
+    }
+  );
+
   // ── GET /system ───────────────────────────────────────────────────
   app.get(
     "/system",
@@ -299,6 +386,60 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
         watchFolderPfad:  process.env.WATCH_INBOX_PATH || process.env.WATCH_FOLDER || "/data/watch_inbox",
         watchFolderAktiv: process.env.WATCH_FOLDER_ENABLED === "true",
       });
+    }
+  );
+
+  // ── Module (Admin-Ein/Ausschalter) ─────────────────────────────────
+  // Steuert, ob optionale Module (Personalverwaltung, Betriebsvereinbarungen,
+  // Wissensarchiv, Ressourcen, Themensammlung) in der Oberfläche sichtbar sind.
+  // Gedacht für Installationen bei anderen Betriebsräten, die nicht alle Module wollen.
+  const MODULE_DEFAULTS = {
+    personalverwaltung:     "true",
+    betriebsvereinbarungen: "true",
+    wissensarchiv:          "true",
+    ressourcen:             "true",
+    themensammlung:         "true",
+  } as const;
+
+  type ModuleKey = keyof typeof MODULE_DEFAULTS;
+  const MODULE_KEYS = Object.keys(MODULE_DEFAULTS) as ModuleKey[];
+
+  // GET ist bewusst nur "authenticate" (nicht VORSITZ+), da jeder eingeloggte
+  // Benutzer wissen muss, welche Module in der Sidebar erscheinen sollen.
+  app.get(
+    "/module",
+    { preHandler: [authenticate] },
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      const einstellungen = await prisma.systemEinstellung.findMany({
+        where: { schluessel: { startsWith: "module." } },
+      });
+      const map = new Map(einstellungen.map(e => [e.schluessel.replace("module.", ""), e.wert]));
+
+      const result: Record<string, boolean> = {};
+      for (const key of MODULE_KEYS) {
+        result[key] = (map.get(key) ?? MODULE_DEFAULTS[key]) === "true";
+      }
+      return reply.send(result);
+    }
+  );
+
+  app.put<{ Body: Partial<Record<ModuleKey, boolean>> }>(
+    "/module",
+    { preHandler: [authenticate, erfordert(Role.ADMIN)] },
+    async (request, reply) => {
+      const body = request.body;
+
+      for (const key of MODULE_KEYS) {
+        if (body[key] !== undefined) {
+          await prisma.systemEinstellung.upsert({
+            where:  { schluessel: `module.${key}` },
+            update: { wert: body[key] ? "true" : "false" },
+            create: { schluessel: `module.${key}`, wert: body[key] ? "true" : "false" },
+          });
+        }
+      }
+
+      return reply.send({ ok: true });
     }
   );
 }

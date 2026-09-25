@@ -18,6 +18,17 @@ declare module "fastify" {
   }
 }
 
+// JAV: stark eingeschränkte Rolle, darf nur Sitzungen/Protokolle LESEN.
+// Zentral hier durchgesetzt (statt in jeder einzelnen Route), damit kein
+// Modul versehentlich offen bleibt, wenn später neue Routen dazukommen.
+const JAV_ERLAUBTE_GET_PFADE = [/^\/api\/sitzungen(\/|$)/];
+
+function javDarfZugreifen(request: FastifyRequest): boolean {
+  const pfad = request.url.split("?")[0];
+  if (pfad === "/api/auth/me") return true; // Rolle/Name fürs eigene Profil laden
+  return request.method === "GET" && JAV_ERLAUBTE_GET_PFADE.some(r => r.test(pfad));
+}
+
 /** Hook: JWT verifizieren und Benutzer an Request anhängen */
 export async function authenticate(
   request: FastifyRequest,
@@ -37,6 +48,10 @@ export async function authenticate(
     }
 
     request.benutzer = { sub: benutzer.id, email: benutzer.email, rolle: benutzer.rolle };
+
+    if (benutzer.rolle === Role.JAV && !javDarfZugreifen(request)) {
+      return reply.status(403).send({ fehler: "Kein Zugriff für diese Rolle" });
+    }
   } catch {
     return reply.status(401).send({ fehler: "Nicht authentifiziert" });
   }

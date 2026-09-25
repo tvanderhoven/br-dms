@@ -9,6 +9,7 @@ import PDFDocument from "pdfkit";
 import { createHash } from "node:crypto";
 import { Readable } from "node:stream";
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import prisma from "../lib/prisma.js";
 
 // ── Typen (Subset aus Prisma) ─────────────────────────────────────
@@ -18,6 +19,7 @@ interface PdfBeschluss {
   jaStimmen?:     number;
   neinStimmen?:   number;
   enthaltungen?:  number;
+  nichtTeilgenommen?: number;
   anwesend?:      number;
   ergebnis:       string | null;
   finalisiert:    boolean;
@@ -81,6 +83,64 @@ const FARBE_GRAU   = "#6b7280";
 const FARBE_HELL   = "#f3f4f6";
 const FARBE_ERFOLG = "#15803d";
 const FARBE_FEHLER = "#b91c1c";
+
+// ── Text-Sanitizer für PDFKit ─────────────────────────────────────
+// Die eingebauten Standardschriften (Helvetica etc.) können nur WinAnsi/
+// Latin-1 darstellen (Codepunkte 0x20–0x7E und 0xA0–0xFF – deckt alle
+// deutschen Umlaute ab). Zeichen außerhalb (z.B. unsichtbare Formatierungs-
+// reste aus Copy&Paste aus einem anderen System) rendert PDFKit sonst als
+// Zufalls-Glyphen statt sie einfach zu ignorieren. Deshalb vor jeder
+// Textausgabe rausfiltern, statt kaputte Zeichen "geraten" darzustellen.
+function pdfText(s: string | null | undefined): string {
+  if (!s) return "";
+  return s
+    // Windows/Mac-Zeilenenden (\r\n bzw. einzelnes \r – z.B. aus Copy&Paste
+    // aus dem alten lbofficem-System) zu \n vereinheitlichen. Ein rohes \r
+    // bringt PDFKits automatischen Zeilenumbruch durcheinander und erzeugt
+    // direkt danach Zufalls-Glyphen statt eines sauberen Umbruchs.
+    .replace(/\r\n?/g, "\n")
+    // Tabs & Form-Feeds (typische Copy&Paste-Reste aus dem alten lbofficem-
+    // System, z.B. "-\tBR-Seminar ...") zu einem normalen Leerzeichen
+    // zusammenfassen. Weder Helvetica noch DejaVu haben dafür eine Glyphe –
+    // PDFKit rendert an der Stelle sonst Zufalls-Zeichen statt einfach
+    // nichts darzustellen (Browser kollabieren Tabs automatisch zu einem
+    // Leerzeichen, PDFKit tut das nicht).
+    .replace(/[\t\f\v]+/g, " ")
+    .replace(/[^\n\x20-\x7E\xA0-\xFF]/g, "");
+}
+
+// ── Eingebettete Unicode-Schrift ───────────────────────────────────
+// PDFKits eingebaute Standardschriften (Helvetica etc.) basieren auf AFM-
+// Metrik-Tabellen + WinAnsiEncoding und erzeugen bei bestimmten Zeichen-
+// folgen fehlerhafte Glyphen (z.B. "Über" → "•Æ&W" im fertigen PDF). Eine
+// echte TTF-Schrift mit eigenem Unicode-Cmap umgeht dieses Problem
+// grundsätzlich. Wir registrieren DejaVu Sans (im Docker-Image via
+// `apk add font-dejavu` installiert) unter denselben vier Namen, die im
+// gesamten Code bereits per .font("Helvetica"...) verwendet werden – so
+// muss keine der bestehenden Aufrufstellen angepasst werden. Ist die
+// Schriftdatei (z.B. lokal ohne Alpine/font-dejavu) nicht vorhanden, wird
+// stillschweigend auf die eingebaute Helvetica zurückgefallen.
+const DEJAVU_DIR = "/usr/share/fonts/dejavu";
+const DEJAVU_FONTS: Record<string, string> = {
+  "Helvetica":             `${DEJAVU_DIR}/DejaVuSans.ttf`,
+  "Helvetica-Bold":        `${DEJAVU_DIR}/DejaVuSans-Bold.ttf`,
+  "Helvetica-Oblique":     `${DEJAVU_DIR}/DejaVuSans-Oblique.ttf`,
+  "Helvetica-BoldOblique": `${DEJAVU_DIR}/DejaVuSans-BoldOblique.ttf`,
+};
+let dejaVuVerfuegbar: boolean | null = null;
+
+function registriereSchriften(doc: InstanceType<typeof PDFDocument>) {
+  if (dejaVuVerfuegbar === null) {
+    dejaVuVerfuegbar = Object.values(DEJAVU_FONTS).every(p => fsSync.existsSync(p));
+    if (!dejaVuVerfuegbar) {
+      console.warn("[pdf.service] DejaVu-Schriftdateien nicht gefunden – falle auf eingebaute Helvetica zurück.");
+    }
+  }
+  if (!dejaVuVerfuegbar) return;
+  for (const [name, pfad] of Object.entries(DEJAVU_FONTS)) {
+    doc.registerFont(name, pfad);
+  }
+}
 
 // ── Protokoll-Layout (aus DB) ─────────────────────────────────────
 interface ProtokollLayout {
@@ -170,6 +230,7 @@ export async function pdfGenerieren(
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "A4", margin: 60, bufferPages: true });
+    registriereSchriften(doc);
     const chunks: Buffer[] = [];
 
     doc.on("data",  c  => chunks.push(c));
@@ -211,7 +272,7 @@ export async function pdfGenerieren(
       if (doc.y > 600) doc.addPage();
       doc.moveDown(0.5);
       abschnittUeberschrift(doc, "Anmerkungen", layout);
-      doc.fontSize(10).fillColor("#374151").text(sitzung.notizen, RAND_LINKS, doc.y, { width: BREITE });
+      doc.fontSize(10).fillColor("#374151").text(pdfText(sitzung.notizen), RAND_LINKS, doc.y, { width: BREITE });
     }
 
     // ── Finaler Zeitstempel & Siegel ─────────────────────────────
@@ -252,7 +313,7 @@ function briefkopf(
 
   const textBreite = logoBuffer ? 350 : BREITE;
   doc.fontSize(14).font("Helvetica-Bold").fillColor("#111827")
-     .text(s.titel, RAND_LINKS, y, { width: textBreite });
+     .text(pdfText(s.titel), RAND_LINKS, y, { width: textBreite });
   doc.fontSize(9).font("Helvetica").fillColor(FARBE_GRAU)
      .text(datumZeit, RAND_LINKS, y + 18, { width: textBreite });
 
@@ -288,7 +349,7 @@ interface TipTapNode {
 
 function inlineText(nodes: TipTapNode[] = []): string {
   return nodes.flatMap(n => {
-    if (n.type === "text")      return [n.text ?? ""];
+    if (n.type === "text")      return [pdfText(n.text)];
     if (n.type === "hardBreak") return ["\n"];
     if (n.content)              return [inlineText(n.content)];
     return [];
@@ -310,7 +371,7 @@ function renderInline(
         const bold   = n.marks?.some(m => m.type === "bold")   ?? false;
         const italic = n.marks?.some(m => m.type === "italic") ?? false;
         segs.push({
-          text: n.text,
+          text: pdfText(n.text),
           font: bold && italic ? "Helvetica-BoldOblique"
               : bold           ? "Helvetica-Bold"
               : italic         ? "Helvetica-Oblique"
@@ -423,8 +484,15 @@ function topAbschnitt(
 
   // Nummer + Titel
   doc.fontSize(11).font("Helvetica-Bold").fillColor("#111827");
-  const titelText = `${top.nummer}.  ${top.titel}`;
+  const titelText = `${top.nummer}.  ${pdfText(top.titel)}`;
   doc.text(titelText, RAND_LINKS, yStart, { width: BREITE - 80 });
+
+  // Bei langen Titeln bricht der Text auf mehrere Zeilen um – doc.y zeigt danach
+  // korrekt auf die Zeile darunter. Das muss gesichert werden, BEVOR das Badge
+  // gezeichnet wird: das Badge nutzt eine feste y-Position (Höhe der ersten
+  // Titelzeile) und würde doc.y sonst wieder nach oben reißen, sodass der nächste
+  // Absatz über die unteren Titelzeilen drübergemalt wird ("Zeichensalat"-Optik).
+  const yNachTitel = doc.y;
 
   // Status-Badge (rechts) nur im Protokoll
   if (mitProtokoll) {
@@ -432,6 +500,7 @@ function topAbschnitt(
                     VERTAGT: "#d97706", ZUR_KENNTNIS: layout.farbe }[top.status] ?? FARBE_GRAU;
     doc.fontSize(8).font("Helvetica-Bold").fillColor(farbe)
        .text(`[${topStatusLabel(top.status)}]`, 450, yStart, { width: 85, align: "right" });
+    doc.y = yNachTitel;
   }
 
   doc.moveDown(0.3);
@@ -441,7 +510,7 @@ function topAbschnitt(
     tiptapZuPdf(doc, top.inhaltsJson, RAND_LINKS + 16, BREITE - 16);
   } else if (top.inhalt) {
     doc.fontSize(9).font("Helvetica").fillColor("#374151")
-       .text(top.inhalt, RAND_LINKS + 16, doc.y, { width: BREITE - 16 });
+       .text(pdfText(top.inhalt), RAND_LINKS + 16, doc.y, { width: BREITE - 16 });
     doc.moveDown(0.3);
   }
 
@@ -452,8 +521,8 @@ function topAbschnitt(
     top.dokumente.forEach(td => {
       doc.fontSize(8).font("Helvetica").fillColor(layout.farbe)
          .text(
-           `  📎 ${td.dokument.titel} (${kategorieLabel(td.dokument.kategorie)}` +
-           (td.dokument.aktenzeichen ? `, Az.: ${td.dokument.aktenzeichen}` : "") + ")",
+           `  •  ${pdfText(td.dokument.titel)} (${kategorieLabel(td.dokument.kategorie)}` +
+           (td.dokument.aktenzeichen ? `, Az.: ${pdfText(td.dokument.aktenzeichen)}` : "") + ")",
            RAND_LINKS + 16, doc.y, { width: BREITE - 16 }
          );
     });
@@ -476,9 +545,9 @@ function topAbschnitt(
     doc.moveDown(0.2);
 
     doc.fontSize(8).font("Helvetica").fillColor("#374151")
-       .text(`Rechtsgrundlage: ${a.rechtsgrundlage}`, RAND_LINKS + 20, doc.y, { width: BREITE - 20 });
+       .text(`Rechtsgrundlage: ${pdfText(a.rechtsgrundlage)}`, RAND_LINKS + 20, doc.y, { width: BREITE - 20 });
     doc.fontSize(9).font("Helvetica-Bold").fillColor("#111827")
-       .text(`„${a.fragestellung}"`, RAND_LINKS + 20, doc.y, { width: BREITE - 20 });
+       .text(`„${pdfText(a.fragestellung)}"`, RAND_LINKS + 20, doc.y, { width: BREITE - 20 });
     doc.moveDown(0.3);
 
     // Ergebnis-Zeile
@@ -490,11 +559,15 @@ function topAbschnitt(
     const ergebnisFarbe = a.ergebnis === "ANGENOMMEN" ? FARBE_ERFOLG
       : a.ergebnis === "ABGELEHNT" ? FARBE_FEHLER : FARBE_GRAU;
 
+    const nichtTeilgenommenCount = a.stimmen.filter(s => s.stimme === "NICHT_TEILGENOMMEN").length;
+
     doc.fontSize(10).font("Helvetica-Bold").fillColor(ergebnisFarbe)
        .text(ergebnisText, RAND_LINKS + 20, doc.y, { continued: true });
     doc.fontSize(8).font("Helvetica").fillColor(FARBE_GRAU)
        .text(
-         `   (Ja: ${a.jaStimmen}  |  Nein: ${a.neinStimmen}  |  Enthaltungen: ${a.enthaltungen}  |  Anwesend: ${a.anwesend})`,
+         `   (Ja: ${a.jaStimmen}  |  Nein: ${a.neinStimmen}  |  Enthaltungen: ${a.enthaltungen}` +
+         (nichtTeilgenommenCount > 0 ? `  |  Nicht teilgenommen: ${nichtTeilgenommenCount}` : "") +
+         `  |  Anwesend: ${a.anwesend})`,
          { continued: false }
        );
 
@@ -502,8 +575,10 @@ function topAbschnitt(
     if (a.stimmen.length > 0) {
       doc.moveDown(0.2);
       doc.fontSize(7.5).font("Helvetica").fillColor(FARBE_GRAU);
+      const stimmeText = (s: string) =>
+        s === "JA" ? "Ja" : s === "NEIN" ? "Nein" : s === "NICHT_TEILGENOMMEN" ? "Nicht teilgen." : "Enthal.";
       const stimmenText = a.stimmen
-        .map(s => `${s.benutzer.name}: ${s.stimme === "JA" ? "Ja" : s.stimme === "NEIN" ? "Nein" : "Enthal."}`)
+        .map(s => `${pdfText(s.benutzer.name)}: ${stimmeText(s.stimme)}`)
         .join("  ·  ");
       doc.text(stimmenText, RAND_LINKS + 20, doc.y, { width: BREITE - 20 });
     }
@@ -519,7 +594,7 @@ function topAbschnitt(
       tiptapZuPdf(doc, top.ergebnisJson, RAND_LINKS + 16, BREITE - 16, 9, "#374151");
     } else if (top.ergebnis) {
       doc.fontSize(9).font("Helvetica-Oblique").fillColor("#374151")
-         .text(top.ergebnis, RAND_LINKS + 16, doc.y, { width: BREITE - 16 });
+         .text(pdfText(top.ergebnis), RAND_LINKS + 16, doc.y, { width: BREITE - 16 });
       doc.moveDown(0.3);
     }
   }
@@ -546,13 +621,15 @@ function topAbschnitt(
            .text(`BESCHLUSS  ·  ${ergebnisLabel.toUpperCase()}`, RAND_LINKS + 22, doc.y, { width: BREITE - 22 });
         doc.moveDown(0.15);
         doc.fontSize(9).font("Helvetica").fillColor("#111827")
-           .text(b.antragstext, RAND_LINKS + 22, doc.y, { width: BREITE - 30 });
+           .text(pdfText(b.antragstext), RAND_LINKS + 22, doc.y, { width: BREITE - 30 });
 
         if (b.jaStimmen !== undefined) {
           doc.moveDown(0.2);
           doc.fontSize(7.5).font("Helvetica").fillColor(FARBE_GRAU)
              .text(
-               `Abstimmung:  Ja ${b.jaStimmen}  ·  Nein ${b.neinStimmen}  ·  Enthaltungen ${b.enthaltungen}  ·  Anwesend ${b.anwesend}`,
+               `Abstimmung:  Ja ${b.jaStimmen}  ·  Nein ${b.neinStimmen}  ·  Enthaltungen ${b.enthaltungen}` +
+               (b.nichtTeilgenommen ? `  ·  Nicht teilgenommen ${b.nichtTeilgenommen}` : "") +
+               `  ·  Anwesend ${b.anwesend}`,
                RAND_LINKS + 22, doc.y, { width: BREITE - 30 }
              );
         }
@@ -581,10 +658,10 @@ function topAbschnitt(
         hour: "2-digit", minute: "2-digit",
       });
       doc.fontSize(7.5).font("Helvetica-Bold").fillColor(FARBE_GRAU)
-         .text(`${k.autor.name}  ·  ${datum}`, RAND_LINKS + 20, doc.y, { width: BREITE - 20 });
+         .text(`${pdfText(k.autor.name)}  ·  ${datum}`, RAND_LINKS + 20, doc.y, { width: BREITE - 20 });
       doc.moveDown(0.1);
       doc.fontSize(9).font("Helvetica").fillColor("#374151")
-         .text(k.inhalt, RAND_LINKS + 20, doc.y, { width: BREITE - 20 });
+         .text(pdfText(k.inhalt), RAND_LINKS + 20, doc.y, { width: BREITE - 20 });
       doc.moveDown(0.3);
     });
   }
@@ -638,15 +715,15 @@ function anwesenheitAbschnitt(doc: InstanceType<typeof PDFDocument>, anwesenheit
   );
 
   const rolleLabel = (r: string) =>
-    ({ VORSITZ: "Vorsitz", STELLVERTRETER: "Stellv. Vorsitz", MITGLIED: "Mitglied", ERSATZMITGLIED: "Ersatzmitglied", ADMIN: "" }[r] ?? r);
+    ({ VORSITZ: "Vorsitz", STELLVERTRETER: "Stellv. Vorsitz", MITGLIED: "Mitglied", ERSATZMITGLIED: "Ersatzmitglied", ADMIN: "", JAV: "JAV" }[r] ?? r);
 
   if (anwesend.length > 0) {
     doc.fontSize(8).font("Helvetica-Bold").fillColor(FARBE_GRAU)
        .text(`Anwesend (${anwesend.length}):`, RAND_LINKS, doc.y);
     doc.moveDown(0.2);
     const namen = anwesend.map(a => {
-      let n = a.benutzer.name;
-      if (a.status === "ERSATZ_FUER" && a.vertretungFuer) n += ` (Vtg. f. ${a.vertretungFuer.name})`;
+      let n = pdfText(a.benutzer.name);
+      if (a.status === "ERSATZ_FUER" && a.vertretungFuer) n += ` (Vtg. f. ${pdfText(a.vertretungFuer.name)})`;
       const rolle = rolleLabel(a.benutzer.rolle);
       return rolle ? `${n} (${rolle})` : n;
     });
@@ -659,7 +736,7 @@ function anwesenheitAbschnitt(doc: InstanceType<typeof PDFDocument>, anwesenheit
     doc.fontSize(8).font("Helvetica-Bold").fillColor(FARBE_GRAU)
        .text("Entschuldigt / Abwesend:", RAND_LINKS, doc.y);
     doc.moveDown(0.2);
-    const namen = entschuldigt.map(a => a.benutzer.name);
+    const namen = entschuldigt.map(a => pdfText(a.benutzer.name));
     doc.fontSize(9).font("Helvetica").fillColor(FARBE_GRAU)
        .text(namen.join(", "), RAND_LINKS + 12, doc.y, { width: BREITE - 12 });
     doc.moveDown(0.4);
@@ -668,7 +745,9 @@ function anwesenheitAbschnitt(doc: InstanceType<typeof PDFDocument>, anwesenheit
 
 // ── Unterschriften Tagesordnung ───────────────────────────────────
 function unterschriftenTagesordnung(doc: InstanceType<typeof PDFDocument>, layout: ProtokollLayout, sitzungsdatum: Date) {
-  if (doc.y > 560) doc.addPage();
+  // Der Block braucht ~135pt bis zur Fußzeile (y≈745) – Umbruch erst, wenn er wirklich nicht mehr passt.
+  // War vorher bei 560, das hat fast immer unnötig eine neue Seite erzwungen (→ große Lücke am Seitenende).
+  if (doc.y > 600) doc.addPage();
   doc.moveDown(2);
 
   abschnittUeberschrift(doc, "Unterschrift", layout);
@@ -687,7 +766,8 @@ function unterschriftenTagesordnung(doc: InstanceType<typeof PDFDocument>, layou
 
 // ── Unterschriften Protokoll ──────────────────────────────────────
 function unterschriftenProtokoll(doc: InstanceType<typeof PDFDocument>, layout: ProtokollLayout, sitzungsdatum: Date) {
-  if (doc.y > 560) doc.addPage();
+  // Gleicher Fix wie bei der Tagesordnung – siehe Kommentar dort.
+  if (doc.y > 600) doc.addPage();
   doc.moveDown(2);
 
   abschnittUeberschrift(doc, "Unterschriften", layout);
@@ -780,6 +860,7 @@ export async function anwesenheitslistePdfGenerieren(
 
   return new Promise((resolve, reject) => {
     const doc    = new PDFDocument({ size: "A4", margin: 60, bufferPages: true });
+    registriereSchriften(doc);
     const chunks: Buffer[] = [];
 
     doc.on("data",  c  => chunks.push(c));
@@ -787,7 +868,7 @@ export async function anwesenheitslistePdfGenerieren(
     doc.on("end",   () => resolve(Buffer.concat(chunks)));
 
     const rolleLabel = (r: string) =>
-      ({ VORSITZ: "Vorsitz", STELLVERTRETER: "Stellv. Vorsitz", MITGLIED: "Mitglied", ERSATZMITGLIED: "Ersatzmitglied", ADMIN: "" }[r] ?? r);
+      ({ VORSITZ: "Vorsitz", STELLVERTRETER: "Stellv. Vorsitz", MITGLIED: "Mitglied", ERSATZMITGLIED: "Ersatzmitglied", ADMIN: "", JAV: "JAV" }[r] ?? r);
 
     // Briefkopf
     const y0 = doc.y;
@@ -795,7 +876,7 @@ export async function anwesenheitslistePdfGenerieren(
 
     const textBreite = logoBuffer ? 350 : BREITE;
     doc.fontSize(14).font("Helvetica-Bold").fillColor("#111827")
-       .text(sitzung.titel, RAND_LINKS, y0, { width: textBreite });
+       .text(pdfText(sitzung.titel), RAND_LINKS, y0, { width: textBreite });
     doc.fontSize(9).font("Helvetica").fillColor(FARBE_GRAU)
        .text(datumZeit, RAND_LINKS, y0 + 18, { width: textBreite });
 
@@ -836,7 +917,7 @@ export async function anwesenheitslistePdfGenerieren(
     doc.text("Name",         COL_NAME,   doc.y - doc.currentLineHeight(), { width: 175 });
     doc.text("Funktion",     COL_ROLLE,  doc.y - doc.currentLineHeight(), { width: 95 });
     doc.text("Anw. / Entsch.", COL_STATUS, doc.y - doc.currentLineHeight(), { width: 75 });
-    doc.text("Unterschrift", COL_UNTER,  doc.y - doc.currentLineHeight(), { width: 155 });
+    doc.text("Unterschrift", COL_UNTER,  doc.y - doc.currentLineHeight(), { width: RAND_RECHTS - COL_UNTER });
     doc.moveDown(0.3);
     doc.moveTo(RAND_LINKS, doc.y).lineTo(RAND_RECHTS, doc.y).strokeColor("#d1d5db").lineWidth(0.5).stroke();
     doc.moveDown(0.4);
@@ -858,12 +939,12 @@ export async function anwesenheitslistePdfGenerieren(
          .text(`${i + 1}.`, COL_NR, rowY + 4, { width: 18 });
 
       doc.fontSize(9).font("Helvetica-Bold").fillColor("#111827")
-         .text(m.name, COL_NAME, rowY + 4, { width: 175 });
+         .text(pdfText(m.name), COL_NAME, rowY + 4, { width: 175 });
 
       // Rolle + ggf. "Vertretung für X"
       let rollenText = rolleLabel(m.rolle);
       if (m.status === "ERSATZ_FUER" && m.vertretungFuerName) {
-        rollenText += ` (Vtg. f. ${m.vertretungFuerName})`;
+        rollenText += ` (Vtg. f. ${pdfText(m.vertretungFuerName)})`;
       }
       doc.fontSize(7.5).font("Helvetica").fillColor(FARBE_GRAU)
          .text(rollenText, COL_ROLLE, rowY + 4, { width: 95 });
@@ -891,8 +972,8 @@ export async function anwesenheitslistePdfGenerieren(
       doc.fontSize(7).font("Helvetica").fillColor("#374151")
          .text("Entsch.", COL_STATUS + 52, cbY + 1, { width: 30 });
 
-      // Unterschriftslinie
-      doc.moveTo(COL_UNTER, rowY + 22).lineTo(COL_UNTER + 150, rowY + 22)
+      // Unterschriftslinie – bis zum rechten Rand, nicht darüber hinaus (war vorher +150pt = bis x=590, Rand liegt bei 535)
+      doc.moveTo(COL_UNTER, rowY + 22).lineTo(RAND_RECHTS, rowY + 22)
          .strokeColor("#9ca3af").lineWidth(0.5).stroke();
 
       doc.y = rowY + 30;
@@ -928,8 +1009,8 @@ export async function anwesenheitslistePdfGenerieren(
          .text("Anw.", COL_STATUS + 12, cbY + 1, { width: 24 })
          .text("Entsch.", COL_STATUS + 52, cbY + 1, { width: 30 });
 
-      // Unterschriftslinie
-      doc.moveTo(COL_UNTER, rowY + 22).lineTo(COL_UNTER + 150, rowY + 22)
+      // Unterschriftslinie – bis zum rechten Rand, nicht darüber hinaus (war vorher +150pt = bis x=590, Rand liegt bei 535)
+      doc.moveTo(COL_UNTER, rowY + 22).lineTo(RAND_RECHTS, rowY + 22)
          .strokeColor("#9ca3af").lineWidth(0.5).stroke();
 
       doc.y = rowY + 30;
@@ -998,6 +1079,7 @@ export async function topAuszugPdfGenerieren(
 
   return new Promise((resolve, reject) => {
     const doc    = new PDFDocument({ size: "A4", margin: 60, bufferPages: true });
+    registriereSchriften(doc);
     const chunks: Buffer[] = [];
 
     doc.on("data",  c  => chunks.push(c));
@@ -1022,7 +1104,7 @@ export async function topAuszugPdfGenerieren(
 
     // ── TOP-Titel ─────────────────────────────────────────────────
     doc.fontSize(12).font("Helvetica-Bold").fillColor("#111827")
-       .text(`${top.nummer}.  ${top.titel}`, RAND_LINKS, doc.y, { width: BREITE });
+       .text(`${top.nummer}.  ${pdfText(top.titel)}`, RAND_LINKS, doc.y, { width: BREITE });
     doc.moveDown(0.5);
 
     // ── TOP-Inhalt ────────────────────────────────────────────────
@@ -1030,7 +1112,7 @@ export async function topAuszugPdfGenerieren(
       tiptapZuPdf(doc, top.inhaltsJson, RAND_LINKS, BREITE);
     } else if (top.inhalt) {
       doc.fontSize(9).font("Helvetica").fillColor("#374151")
-         .text(top.inhalt, RAND_LINKS, doc.y, { width: BREITE });
+         .text(pdfText(top.inhalt), RAND_LINKS, doc.y, { width: BREITE });
       doc.moveDown(0.3);
     }
 
@@ -1044,7 +1126,7 @@ export async function topAuszugPdfGenerieren(
     } else if (top.ergebnis) {
       doc.moveDown(0.3);
       doc.fontSize(9).font("Helvetica-Oblique").fillColor("#374151")
-         .text(`Ergebnis: ${top.ergebnis}`, RAND_LINKS, doc.y, { width: BREITE });
+         .text(`Ergebnis: ${pdfText(top.ergebnis)}`, RAND_LINKS, doc.y, { width: BREITE });
       doc.moveDown(0.3);
     }
 
@@ -1071,7 +1153,7 @@ export async function topAuszugPdfGenerieren(
            .text(`BESCHLUSS  ·  ${ergebnisLabel.toUpperCase()}`, RAND_LINKS + 10, doc.y, { width: BREITE - 10 });
         doc.moveDown(0.15);
         doc.fontSize(9).font("Helvetica").fillColor("#111827")
-           .text(b.antragstext, RAND_LINKS + 10, doc.y, { width: BREITE - 18 });
+           .text(pdfText(b.antragstext), RAND_LINKS + 10, doc.y, { width: BREITE - 18 });
 
         doc.moveTo(RAND_LINKS + 5, startY - 1)
            .lineTo(RAND_LINKS + 5, doc.y + 4)
@@ -1089,7 +1171,7 @@ export async function topAuszugPdfGenerieren(
       doc.moveTo(RAND_LINKS, fy).lineTo(RAND_RECHTS, fy)
          .strokeColor("#e5e7eb").lineWidth(0.5).stroke();
       doc.fontSize(7.5).font("Helvetica").fillColor(FARBE_GRAU)
-         .text(`Auszug  ·  ${sitzung.titel}  ·  Seite ${i + 1} von ${seiten}`, RAND_LINKS, fy + 5, { width: BREITE });
+         .text(`Auszug  ·  ${pdfText(sitzung.titel)}  ·  Seite ${i + 1} von ${seiten}`, RAND_LINKS, fy + 5, { width: BREITE });
     }
 
     doc.end();

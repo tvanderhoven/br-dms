@@ -28,10 +28,11 @@ const MASTER_KEY = process.env.ENCRYPTION_KEY!;
 
 export async function dokumentRouten(app: FastifyInstance): Promise<void> {
 
-  // ── GET /inbox ────────────────────────────────────────────────
+  // ── GET /inbox – nur Vorsitz/Stellvertreter (erstellen die Tagesordnung
+  //               und ordnen dafür eingehende Dokumente zu) ────────────
   app.get(
     "/inbox",
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { rolle, sub } = request.benutzer;
 
@@ -127,6 +128,7 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
         select: {
           id:            true,
           titel:         true,
+          alias:         true,
           kategorie:     true,
           status:        true,
           dateiname:     true,
@@ -168,11 +170,14 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
         return reply.status(400).send({ fehler: "Nur PDF, DOCX, DOCM und XLSX erlaubt" });
       }
 
-      const fields       = data.fields as Record<string, { value: string }>;
-      const titel        = fields.titel?.value?.trim();
-      const kategorieStr = fields.kategorie?.value as Kategorie;
-      const aktenzeichen = fields.aktenzeichen?.value?.trim() ?? undefined;
-      const vertraulich  = fields.vertraulich?.value === "true";
+      const fields         = data.fields as Record<string, { value: string }>;
+      const titel          = fields.titel?.value?.trim();
+      const kategorieStr   = fields.kategorie?.value as Kategorie;
+      const aktenzeichen   = fields.aktenzeichen?.value?.trim() ?? undefined;
+      const vertraulich    = fields.vertraulich?.value === "true";
+      const kuendigungsArtStr = fields.kuendigungsArt?.value;
+      const kuendigungsArt = kuendigungsArtStr === "ORDENTLICH" || kuendigungsArtStr === "AUSSERORDENTLICH"
+        ? kuendigungsArtStr : undefined;
 
       if (!titel || !kategorieStr || !Object.values(Kategorie).includes(kategorieStr)) {
         return reply.status(400).send({ fehler: "titel und kategorie sind Pflichtfelder" });
@@ -185,7 +190,7 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
         userId:            request.benutzer.sub,
         ip:                request.ip,
         userAgent:         request.headers["user-agent"],
-        metadata:          { titel, kategorie: kategorieStr, aktenzeichen, vertraulich, inboxQuelle: "UPLOAD" },
+        metadata:          { titel, kategorie: kategorieStr, aktenzeichen, vertraulich, inboxQuelle: "UPLOAD", kuendigungsArt },
       });
 
       return reply.status(201).send(dokument);
@@ -422,7 +427,7 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
   // ── POST /:id/aktionen/sitzung-top ────────────────────────────
   app.post<{ Params: { id: string }; Body: { sitzungId: string; topTitel: string; topId?: string; fristDatum?: string } }>(
     "/:id/aktionen/sitzung-top",
-    { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request, reply) => {
       const { id } = request.params;
       const { sitzungId, topTitel, topId, fristDatum } = request.body;
@@ -486,7 +491,7 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
   // ── POST /:id/aktionen/wissensarchiv ──────────────────────────
   app.post<{ Params: { id: string }; Body: { tags?: string[]; kategorie?: Kategorie } }>(
     "/:id/aktionen/wissensarchiv",
-    { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request, reply) => {
       const { id } = request.params;
       const { tags, kategorie } = request.body;
@@ -518,7 +523,7 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
   // ── POST /:id/aktionen/aufgabe ────────────────────────────────
   app.post<{ Params: { id: string }; Body: { titel: string; zugewiesenAnId?: string; prioritaet?: string; faelligAm?: string; sichtbarkeit?: string } }>(
     "/:id/aktionen/aufgabe",
-    { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request, reply) => {
       const { id } = request.params;
       const { titel, zugewiesenAnId, prioritaet, faelligAm, sichtbarkeit } = request.body;
@@ -556,7 +561,7 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
   // ── POST /:id/aktionen/erledigt ───────────────────────────────
   app.post<{ Params: { id: string } }>(
     "/:id/aktionen/erledigt",
-    { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request, reply) => {
       const { id } = request.params;
 

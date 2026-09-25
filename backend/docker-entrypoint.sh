@@ -22,6 +22,13 @@ until nc -z postgres 5432 2>/dev/null; do
 done
 echo "[entrypoint] PostgreSQL bereit."
 
+echo "[entrypoint] Daten-Migration (ist_zeitarbeiter -> beschaeftigungsart, falls nötig)..."
+for datei in prisma/data-migrations/*.sql; do
+  [ -f "$datei" ] || continue
+  echo "[entrypoint]   -> $datei"
+  su-exec ${PUID}:${PGID} npx prisma db execute --file "$datei" --schema prisma/schema.prisma
+done
+
 echo "[entrypoint] Schema-Sync (prisma db push)..."
 su-exec ${PUID}:${PGID} npx prisma db push --skip-generate
 

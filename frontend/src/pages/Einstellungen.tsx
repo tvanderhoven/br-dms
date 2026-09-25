@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Settings, Save, Loader2, RotateCcw, Users, Clock, FileText, Upload, Trash2, Palette, Download, FolderOpen, CheckCircle2, XCircle } from "lucide-react";
-import { api, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen } from "../lib/api";
+import { Settings, Save, Loader2, RotateCcw, Users, Clock, FileText, Upload, Trash2, Palette, Download, FolderOpen, CheckCircle2, XCircle, Puzzle, Scale, RefreshCw, AlertTriangle } from "lucide-react";
+import { api, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen, Rolle, ModuleKey, MODULE_KEYS, MODULE_LABEL, GesetzStatus } from "../lib/api";
 import BenutzerVerwaltung from "./Benutzer";
 
-type Tab = "fristen" | "benutzer" | "protokoll" | "design" | "system";
+type Tab = "fristen" | "benutzer" | "protokoll" | "design" | "system" | "module" | "gesetze" | "amtsuebergabe";
 
 function tageZuText(tage: number): string {
   if (tage % 365 === 0) return `${tage / 365} Jahr${tage / 365 !== 1 ? "e" : ""}`;
@@ -623,19 +623,201 @@ function DesignTab() {
   );
 }
 
+// ── Gefahrenzone: eine Löschaktion mit "LÖSCHEN"-Eintipp-Bestätigung ─
+function GefahrenzonenAktion({
+  titel, beschreibung, buttonText, ausfuehren, erfolgText,
+}: {
+  titel: string;
+  beschreibung: string;
+  buttonText: string;
+  ausfuehren: () => Promise<{ [k: string]: unknown }>;
+  erfolgText: (ergebnis: { [k: string]: unknown }) => string;
+}) {
+  const [bestaetigung, setBestaetigung] = useState("");
+  const [laden, setLaden]               = useState(false);
+  const [fehler, setFehler]             = useState("");
+  const [erfolg, setErfolg]             = useState("");
+
+  const freigeschaltet = bestaetigung.trim().toUpperCase() === "LÖSCHEN";
+
+  async function starten() {
+    if (!freigeschaltet) return;
+    setLaden(true);
+    setFehler("");
+    setErfolg("");
+    try {
+      const ergebnis = await ausfuehren();
+      setErfolg(erfolgText(ergebnis));
+      setBestaetigung("");
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Löschen fehlgeschlagen");
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  return (
+    <div className="border border-red-200 rounded-lg px-4 py-3 space-y-2">
+      <p className="font-medium text-red-800">{titel}</p>
+      <p className="text-red-700 text-sm">{beschreibung}</p>
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        <input
+          type="text"
+          value={bestaetigung}
+          onChange={e => setBestaetigung(e.target.value)}
+          placeholder='"LÖSCHEN" eintippen zum Freischalten'
+          className="border border-red-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 w-64"
+        />
+        <button
+          onClick={starten}
+          disabled={!freigeschaltet || laden}
+          className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+        >
+          {laden && <Loader2 size={14} className="animate-spin" />}
+          <Trash2 size={14} />
+          {buttonText}
+        </button>
+      </div>
+      {erfolg && <p className="text-green-700 text-sm">{erfolg}</p>}
+      {fehler && <p className="text-red-700 text-sm">{fehler}</p>}
+    </div>
+  );
+}
+
+// ── Gefahrenzone: Gehaltstabelle löschen (nur ADMIN) ────────────────
+function GehaltstabelleGefahrenzone() {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+      <div className="flex items-center gap-2 mb-1">
+        <AlertTriangle size={16} className="text-red-500" />
+        <h2 className="font-semibold text-gray-800">Gefahrenzone – Gehaltstabelle</h2>
+      </div>
+      <p className="text-sm text-gray-500 mb-4">
+        Nur für Admins. Beide Aktionen können nicht rückgängig gemacht werden. Es gibt bewusst keinen Daten-Export aus der App
+        (siehe unten) – vorher ggf. ein reguläres Datenbank-Backup ziehen (<code className="font-mono text-xs bg-gray-50 border border-gray-200 rounded px-1 py-0.5">./backup.sh</code>, siehe oben).
+      </p>
+      <div className="space-y-3">
+        <GefahrenzonenAktion
+          titel="Nur Gehaltsstufen-Einträge löschen"
+          beschreibung="Löscht alle Gehaltsstufen-Einträge (z.B. um nach einem fehlerhaften Import mit inkonsistenter Stufen-Schreibweise neu zu importieren). Mitarbeiter und Abteilungen bleiben erhalten."
+          buttonText="Nur Einträge löschen"
+          ausfuehren={() => api.gehaltstabelle.eintraegeLoeschen()}
+          erfolgText={r => `${r.geloescht && typeof r.geloescht === "object" && "eintraege" in r.geloescht ? (r.geloescht as { eintraege: number }).eintraege : "?"} Einträge gelöscht.`}
+        />
+        <GefahrenzonenAktion
+          titel="Gehaltstabelle komplett löschen"
+          beschreibung="Löscht alle Gehaltsstufen-Einträge, Mitarbeiter UND Abteilungen unwiderruflich. Für einen kompletten Neustart, z.B. nach Testdaten."
+          buttonText="Alles löschen"
+          ausfuehren={() => api.gehaltstabelle.alleLoeschen()}
+          erfolgText={r => {
+            const g = r.geloescht as { eintraege: number; mitarbeiter: number; abteilungen: number } | undefined;
+            return g ? `${g.eintraege} Einträge, ${g.mitarbeiter} Mitarbeiter, ${g.abteilungen} Abteilungen gelöscht.` : "Gelöscht.";
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── Sicherheit: Inaktivitäts-Timeout (nur ADMIN) ────────────────────
+function SicherheitEinstellung() {
+  const [minuten, setMinuten] = useState("30");
+  const [laden, setLaden]     = useState(true);
+  const [speichern, setSpeichern] = useState(false);
+  const [gespeichert, setGespeichert] = useState(false);
+  const [fehler, setFehler]   = useState("");
+
+  useEffect(() => {
+    api.einstellungen.sicherheit()
+      .then(s => setMinuten(String(s.inaktivitaetMinuten)))
+      .catch(() => {})
+      .finally(() => setLaden(false));
+  }, []);
+
+  async function speichernKlick() {
+    const wert = parseInt(minuten, 10);
+    if (!Number.isInteger(wert) || wert < 0 || wert > 480) {
+      setFehler("Bitte eine Zahl zwischen 0 (deaktiviert) und 480 eingeben");
+      return;
+    }
+    setFehler("");
+    setSpeichern(true);
+    setGespeichert(false);
+    try {
+      await api.einstellungen.sicherheitSpeichern(wert);
+      setGespeichert(true);
+      setTimeout(() => setGespeichert(false), 3000);
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Speichern fehlgeschlagen");
+    } finally {
+      setSpeichern(false);
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+      <h2 className="font-semibold text-gray-800 mb-1">Sicherheit</h2>
+      <p className="text-sm text-gray-500 mb-4">
+        Meldet inaktive Benutzer automatisch ab (kein Klick/Tastendruck/Scrollen). 0 = deaktiviert.
+      </p>
+      {laden ? (
+        <div className="flex items-center text-gray-400 text-sm"><Loader2 size={16} className="animate-spin mr-2" /> Laden…</div>
+      ) : (
+        <div className="flex items-center gap-2 flex-wrap">
+          <label className="text-sm text-gray-600">Automatisch abmelden nach</label>
+          <input
+            type="number" min={0} max={480} value={minuten}
+            onChange={e => setMinuten(e.target.value)}
+            className="w-20 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+          />
+          <span className="text-sm text-gray-600">Minuten Inaktivität</span>
+          <button
+            onClick={speichernKlick}
+            disabled={speichern}
+            className="flex items-center gap-1.5 bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ml-2"
+          >
+            {speichern && <Loader2 size={14} className="animate-spin" />}
+            Speichern
+          </button>
+          {gespeichert && <span className="text-green-700 text-sm">Gespeichert.</span>}
+        </div>
+      )}
+      {fehler && <p className="text-red-700 text-sm mt-2">{fehler}</p>}
+    </div>
+  );
+}
+
+function backupAlter(zeitpunkt: string): string {
+  const ms = Date.now() - new Date(zeitpunkt).getTime();
+  const stunden = Math.floor(ms / (1000 * 60 * 60));
+  if (stunden < 1)  return "vor wenigen Minuten";
+  if (stunden < 24) return `vor ${stunden} Stunde${stunden !== 1 ? "n" : ""}`;
+  const tage = Math.floor(stunden / 24);
+  return `vor ${tage} Tag${tage !== 1 ? "en" : ""}`;
+}
+
+function formatGroesse(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function SystemTab() {
-  const [info, setInfo]   = useState<{ watchFolderPfad: string; watchFolderAktiv: boolean } | null>(null);
-  const [laden, setLaden] = useState(true);
+  const [info, setInfo]         = useState<{ watchFolderPfad: string; watchFolderAktiv: boolean } | null>(null);
+  const [laden, setLaden]       = useState(true);
+  const [meineRolle, setMeineRolle] = useState<Rolle | null>(null);
+  const [backups, setBackups]   = useState<{ pfadLesbar: boolean; anzahl: number; saetze: { zeitpunkt: string; groesseBytes: number; vollstaendig: boolean }[] } | null>(null);
 
   useEffect(() => {
     api.einstellungen.system()
       .then(setInfo)
       .catch(console.error)
       .finally(() => setLaden(false));
+    api.auth.me().then(b => setMeineRolle(b.rolle)).catch(() => {});
+    api.einstellungen.backups().then(setBackups).catch(() => {});
   }, []);
 
   const UNTERORDNER = [
-    "anhoerung_99", "anhoerung_102", "betriebsvereinbarung",
+    "anhoerung_99", "anhoerung_102", "anhoerung_102_ausserordentlich", "betriebsvereinbarung",
     "protokoll", "bewerbung", "bewerbung_alternativ", "zeitmodell_87", "sonstiges",
   ];
 
@@ -688,6 +870,78 @@ function SystemTab() {
           </div>
         )}
       </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        <h2 className="font-semibold text-gray-800 mb-1">Backup & Restore</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Läuft bewusst außerhalb der App als Skript auf dem NAS — nicht über diese Oberfläche.
+        </p>
+
+        <div className="space-y-4 text-sm text-gray-600">
+          <div>
+            <p className="font-medium text-gray-800 mb-1">Backup erstellen</p>
+            <p>
+              <code className="bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5 font-mono text-xs">./backup.sh</code> im
+              Projektordner auf dem NAS ausführen. Am besten täglich automatisch über den{" "}
+              <b>QNAP Task Scheduler</b> einrichten, statt es manuell zu machen.
+            </p>
+            <ul className="list-disc list-inside mt-1.5 space-y-0.5">
+              <li>Sichert die komplette Datenbank (alle Sitzungen, Dokument-Metadaten, Beschlüsse, Aufgaben, Gehaltstabelle, Benutzer, Audit-Log, …)</li>
+              <li>Sichert zusätzlich den <code className="font-mono">storage/</code>-Ordner mit den eigentlichen (verschlüsselten) Dokument-Dateien</li>
+              <li>Behält automatisch nur die letzten 30 Tage, ältere Backups werden gelöscht</li>
+            </ul>
+
+            {backups && (
+              backups.pfadLesbar ? (
+                backups.anzahl > 0 ? (
+                  <div className="mt-2.5 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-600">
+                    <CheckCircle2 size={14} className={backups.saetze[0].vollstaendig ? "text-green-500 shrink-0" : "text-amber-500 shrink-0"} />
+                    <span>
+                      <b>{backups.anzahl}</b> Backup{backups.anzahl !== 1 ? "s" : ""} im Ordner · letztes {backupAlter(backups.saetze[0].zeitpunkt)}
+                      {" "}({formatGroesse(backups.saetze[0].groesseBytes)}){!backups.saetze[0].vollstaendig && " · unvollständig (DB oder Storage fehlt)"}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="mt-2.5 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700">
+                    <XCircle size={14} className="shrink-0" />
+                    Ordner ist erreichbar, aber es liegt noch kein Backup darin.
+                  </div>
+                )
+              ) : (
+                <div className="mt-2.5 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-500">
+                  <XCircle size={14} className="shrink-0" />
+                  Backup-Ordner im Container nicht lesbar (Mount fehlt evtl. noch nach diesem Deploy).
+                </div>
+              )
+            )}
+          </div>
+
+          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+            <p className="font-medium text-red-800 mb-1">Wichtig: Verschlüsselungs-Schlüssel separat sichern</p>
+            <p className="text-red-700">
+              Die Dokument-Dateien sind verschlüsselt gespeichert. Der Schlüssel dafür (<code className="font-mono">ENCRYPTION_KEY</code>)
+              steht nur in der <code className="font-mono">.env</code>-Datei auf dem NAS — <b>nicht</b> im Backup selbst. Geht diese Zeile
+              verloren, sind auch alle gesicherten Dokumente unwiderruflich unlesbar. Diese eine Zeile daher separat an einem sicheren Ort
+              aufbewahren (z.B. Passwort-Manager), nicht nur auf dem NAS.
+            </p>
+          </div>
+
+          <div>
+            <p className="font-medium text-gray-800 mb-1">Wiederherstellen</p>
+            <p>
+              <code className="bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5 font-mono text-xs">./restore.sh</code> im
+              Projektordner ausführen — fragt interaktiv, welches Backup eingespielt werden soll, stoppt dafür kurz das Backend,
+              spielt Datenbank (und optional den Storage-Ordner) ein und startet das Backend neu.
+            </p>
+            <p className="mt-1.5 text-amber-700">
+              Ersetzt dabei die komplette aktuelle Datenbank — vorher sicherstellen, dass das wirklich gewollt ist.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {meineRolle === "ADMIN" && <SicherheitEinstellung />}
+      {meineRolle === "ADMIN" && <GehaltstabelleGefahrenzone />}
     </div>
   );
 }
@@ -696,12 +950,14 @@ export default function Einstellungen() {
   const [tab, setTab]       = useState<Tab>("fristen");
   const [regeln, setRegeln] = useState<Aufbewahrungsregel[]>([]);
   const [laden, setLaden]   = useState(true);
+  const [meineRolle, setMeineRolle] = useState<Rolle | null>(null);
 
   useEffect(() => {
     api.einstellungen.aufbewahrung()
       .then(setRegeln)
       .catch(console.error)
       .finally(() => setLaden(false));
+    api.auth.me().then(b => setMeineRolle(b.rolle)).catch(() => {});
   }, []);
 
   function regelAktualisieren(neu: Aufbewahrungsregel) {
@@ -739,6 +995,21 @@ export default function Einstellungen() {
         <button className={tabKlasse("system")} onClick={() => setTab("system")}>
           <FolderOpen size={15} /> System
         </button>
+        {meineRolle === "ADMIN" && (
+          <button className={tabKlasse("module")} onClick={() => setTab("module")}>
+            <Puzzle size={15} /> Module
+          </button>
+        )}
+        {meineRolle === "ADMIN" && (
+          <button className={tabKlasse("gesetze")} onClick={() => setTab("gesetze")}>
+            <Scale size={15} /> Gesetzestexte
+          </button>
+        )}
+        {meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && (
+          <button className={tabKlasse("amtsuebergabe")} onClick={() => setTab("amtsuebergabe")}>
+            <Download size={15} /> Amtsübergabe
+          </button>
+        )}
       </div>
 
       {/* Tab: Löschfristen */}
@@ -781,6 +1052,11 @@ export default function Einstellungen() {
         </div>
       )}
 
+      {/* Fristen-Erinnerungsmail testen (nur VORSITZ/STELLVERTRETER/ADMIN) */}
+      {tab === "fristen" && meineRolle && ["ADMIN", "VORSITZ", "STELLVERTRETER"].includes(meineRolle) && (
+        <FristenErinnerungTestBox />
+      )}
+
       {/* Tab: Protokoll-Layout */}
       {tab === "protokoll" && <ProtokollTab />}
 
@@ -793,27 +1069,431 @@ export default function Einstellungen() {
       {/* Tab: System */}
       {tab === "system" && <SystemTab />}
 
-      {/* Amtsübergabe-Export */}
-      <div className="mt-6 p-5 bg-amber-50 border border-amber-200 rounded-xl">
+      {/* Tab: Module (nur ADMIN) */}
+      {tab === "module" && meineRolle === "ADMIN" && <ModuleTab />}
+
+      {/* Tab: Gesetzestexte (nur ADMIN) */}
+      {tab === "gesetze" && meineRolle === "ADMIN" && <GesetzeTab />}
+
+      {/* Tab: Amtsübergabe (nur VORSITZ/STELLVERTRETER/ADMIN) */}
+      {tab === "amtsuebergabe" && meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && <AmtsuebergabeTab />}
+    </div>
+  );
+}
+
+// ── Tab: Amtsübergabe (nur VORSITZ/STELLVERTRETER/ADMIN) ────────────
+function AmtsuebergabeTab() {
+  const [laden, setLaden] = useState(false);
+
+  // Geschützter Endpoint (Login nötig) – ein einfacher <a href> würde den
+  // Auth-Token nicht mitschicken und nur eine 401-Fehlerseite liefern.
+  async function pdfOeffnen() {
+    setLaden(true);
+    const tab = window.open("", "_blank");
+    try {
+      const token = localStorage.getItem("brdms_token");
+      const res = await fetch(api.export.amtsuebergabeUrl(), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (tab) tab.location.href = url; else window.location.href = url;
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      if (tab) tab.close();
+      alert("PDF konnte nicht erstellt werden");
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
         <div className="flex items-start gap-3">
           <Download className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
           <div>
-            <h3 className="font-semibold text-amber-900 text-sm">Amtsübergabe-Export</h3>
-            <p className="text-xs text-amber-700 mt-0.5 mb-3">
-              Erstellt eine vollständige PDF-Dokumentation aller aktiven Dokumente,
-              Fristen und finalisierten Beschlüsse — für die Übergabe an einen neuen Betriebsrat.
+            <h2 className="font-semibold text-gray-800">Amtsübergabe-Export</h2>
+            <p className="text-sm text-gray-500 mt-0.5 mb-3">
+              Erstellt eine lesbare PDF-Übersicht — gedacht als Grundlage für ein
+              Übergabegespräch, nicht als vollständiger Datenexport.
             </p>
-            <a
-              href={api.export.amtsuebergabeUrl()}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-700 transition-colors font-medium"
+            <button
+              onClick={pdfOeffnen}
+              disabled={laden}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-700 disabled:opacity-60 transition-colors font-medium"
             >
-              <Download className="w-4 h-4" />
-              PDF herunterladen
-            </a>
+              {laden ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              PDF öffnen
+            </button>
           </div>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <h3 className="font-semibold text-gray-800 text-sm mb-3">Im PDF enthalten</h3>
+          <ul className="text-sm text-gray-600 space-y-1.5 list-disc list-inside">
+            <li>Aktive BR-Mitglieder (Name, E-Mail, Rolle)</li>
+            <li>Alle aktiven Dokumente nach Kategorie — Titel, Aktenzeichen, offene Fristen, Status</li>
+            <li>Beschlussregister — alle finalisierten Beschlüsse mit Sitzung/TOP, Antragstext, Ergebnis, Rechtsgrundlage</li>
+          </ul>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <h3 className="font-semibold text-gray-800 text-sm mb-3">Bleibt im System (nicht im PDF)</h3>
+          <ul className="text-sm text-gray-600 space-y-1.5 list-disc list-inside">
+            <li>Die Dokument-Dateien selbst (nur Titel/Metadaten werden gelistet)</li>
+            <li>Sitzungsprotokolle im Volltext</li>
+            <li>Aufgaben, Zeiträume, Themen-Backlog</li>
+            <li>Gehaltstabelle, Schulungsverwaltung/Qualifikationsmatrix</li>
+            <li>Betriebsvereinbarungs-Register, Wissensarchiv, Ressourcen</li>
+            <li>Audit-Log, Kommentare, Kummerkasten-Einträge</li>
+            <li>Benutzerkonten selbst (keine Zugangsdaten im Export)</li>
+          </ul>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <h3 className="font-semibold text-gray-800 text-sm mb-3">So übergebt ihr das System an einen neuen Kopf</h3>
+        <ol className="text-sm text-gray-600 space-y-2.5 list-decimal list-inside">
+          <li>Neue/n Vorsitzende/n bzw. Stellvertretung unter <b>Benutzerverwaltung</b> mit passender Rolle anlegen.</li>
+          <li>Dieses PDF exportieren und im Übergabegespräch gemeinsam durchgehen.</li>
+          <li>Alte, ausscheidende Zugänge in der <b>Benutzerverwaltung</b> <em>deaktivieren</em> (nicht löschen) — die Historie (wer hat was erstellt/entschieden) bleibt so nachvollziehbar. Löschen ist nur für nie genutzte Test-Accounts gedacht.</li>
+          <li>
+            Die eigentliche System-Administration (NAS-Zugang, Docker, Datenbank-Zugangsdaten) läuft
+            komplett <em>außerhalb</em> dieser App und wird hier nicht exportiert — das muss separat
+            und sicher weitergegeben werden (z.B. Passwort-Manager statt E-Mail/Chat).
+          </li>
+          <li>Für eine vollständige technische Sicherung inkl. aller Dateien und Datenbank-Inhalte: Datenbank-Backup erstellen (siehe Backup/Restore).</li>
+        </ol>
+      </div>
+    </div>
+  );
+}
+
+// ── Tab: Module (nur ADMIN) ─────────────────────────────────────────
+function ModuleTab() {
+  const [module, setModule] = useState<Record<ModuleKey, boolean> | null>(null);
+  const [laden, setLaden]   = useState(true);
+  const [speichertKey, setSpeichertKey] = useState<ModuleKey | null>(null);
+  const [fehler, setFehler] = useState("");
+
+  useEffect(() => {
+    api.einstellungen.module()
+      .then(setModule)
+      .catch(() => setFehler("Konnte Modul-Status nicht laden"))
+      .finally(() => setLaden(false));
+  }, []);
+
+  async function umschalten(key: ModuleKey) {
+    if (!module) return;
+    const neuerWert = !module[key];
+    setSpeichertKey(key);
+    setFehler("");
+    try {
+      await api.einstellungen.moduleSpeichern({ [key]: neuerWert });
+      setModule(prev => prev ? { ...prev, [key]: neuerWert } : prev);
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler beim Speichern");
+    } finally {
+      setSpeichertKey(null);
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-100">
+        <h2 className="font-semibold text-gray-800">Module</h2>
+        <p className="text-sm text-gray-500 mt-0.5">
+          Optionale Module ein-/ausblenden — praktisch bei Installationen für andere Betriebsräte,
+          die nicht alle Funktionen brauchen. Deaktivierte Module verschwinden aus der Seitenleiste.
+        </p>
+      </div>
+
+      {laden ? (
+        <div className="flex items-center justify-center h-32 text-gray-400">
+          <Loader2 className="animate-spin mr-2" size={18} /> Laden…
+        </div>
+      ) : (
+        <div className="divide-y divide-gray-50">
+          {MODULE_KEYS.map(key => {
+            const aktiv = module?.[key] ?? true;
+            return (
+              <div key={key} className="px-6 py-4 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-800">{MODULE_LABEL[key].name}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{MODULE_LABEL[key].beschreibung}</p>
+                </div>
+                <button
+                  onClick={() => umschalten(key)}
+                  disabled={speichertKey === key}
+                  role="switch"
+                  aria-checked={aktiv}
+                  title={aktiv ? "Aktiv – klicken zum Deaktivieren" : "Deaktiviert – klicken zum Aktivieren"}
+                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-60 ${
+                    aktiv ? "bg-[rgb(var(--accent))]" : "bg-gray-300"
+                  }`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${aktiv ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {fehler && (
+        <div className="px-6 py-3 bg-red-50 border-t border-red-100 text-red-700 text-sm">{fehler}</div>
+      )}
+    </div>
+  );
+}
+
+// ── Fristen-Erinnerungsmail testen ───────────────────────────────────
+// Läuft normalerweise täglich 07:00 Uhr automatisch (nur an VORSITZ/STELLVERTRETER,
+// nur wenn Fristen in den nächsten 7 Tagen fällig sind) – zum Nachprüfen, ob das
+// wirklich funktioniert, hier direkt auslösbar statt bis morgen früh zu warten.
+function FristenErinnerungTestBox() {
+  const [laeuft, setLaeuft]     = useState(false);
+  const [ergebnis, setErgebnis] = useState<Awaited<ReturnType<typeof api.fristen.erinnerungTesten>> | null>(null);
+  const [fehler, setFehler]     = useState("");
+
+  async function testen() {
+    setLaeuft(true);
+    setFehler("");
+    setErgebnis(null);
+    try {
+      setErgebnis(await api.fristen.erinnerungTesten());
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler beim Testen");
+    } finally {
+      setLaeuft(false);
+    }
+  }
+
+  return (
+    <div className="mt-6 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-100 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="font-semibold text-gray-800">Fristen-Erinnerungsmail</h2>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Läuft automatisch täglich um 07:00 Uhr – schickt eine Zusammenfassung an VORSITZ/STELLVERTRETER,
+            aber nur wenn in den nächsten 7 Tagen tatsächlich Fristen fällig werden. Hier direkt testen,
+            statt bis morgen zu warten.
+          </p>
+        </div>
+        <button
+          onClick={testen}
+          disabled={laeuft}
+          className="flex items-center gap-1.5 shrink-0 bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+        >
+          {laeuft ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+          Jetzt testen
+        </button>
+      </div>
+
+      {ergebnis && (
+        <div className="px-6 py-4 text-sm space-y-1">
+          <p className="text-gray-700">
+            {ergebnis.fristenAnzahl === 0
+              ? "Keine Fristen in den nächsten 7 Tagen fällig – deshalb wurde nichts verschickt (kein Fehler)."
+              : ergebnis.empfaengerAnzahl === 0
+              ? `${ergebnis.fristenAnzahl} fällige Frist(en) gefunden, aber keine aktiven Benutzer mit Rolle VORSITZ/STELLVERTRETER.`
+              : `${ergebnis.fristenAnzahl} fällige Frist(en) · ${ergebnis.gesendetAn.length}/${ergebnis.empfaengerAnzahl} Mail(s) erfolgreich versendet.`}
+          </p>
+          {ergebnis.gesendetAn.length > 0 && (
+            <p className="text-green-700 text-xs">✓ Gesendet an: {ergebnis.gesendetAn.join(", ")}</p>
+          )}
+          {ergebnis.fehlgeschlagenAn.length > 0 && (
+            <div className="text-red-700 text-xs">
+              {ergebnis.fehlgeschlagenAn.map(f => (
+                <p key={f.email}>✗ {f.email}: {f.fehler}</p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {fehler && (
+        <div className="px-6 py-3 bg-red-50 border-t border-red-100 text-red-700 text-sm">{fehler}</div>
+      )}
+    </div>
+  );
+}
+
+// ── Tab: Gesetzestexte (nur ADMIN) ───────────────────────────────────
+function GesetzeTab() {
+  const [status, setStatus]   = useState<GesetzStatus[] | null>(null);
+  const [laden, setLaden]     = useState(true);
+  const [aktualisiert, setAktualisiert] = useState(false);
+  const [letzteAenderungen, setLetzteAenderungen] = useState<Record<string, { neu: string[]; geaendert: string[]; istErstimport: boolean }>>({});
+  const [fehlerZeilen, setFehlerZeilen] = useState<Record<string, string>>({});
+  const [fehler, setFehler]   = useState("");
+
+  const [workerLaeuft, setWorkerLaeuft] = useState(false);
+  const [workerErgebnis, setWorkerErgebnis] = useState<Awaited<ReturnType<typeof api.gesetze.workerTesten>> | null>(null);
+
+  useEffect(() => { laden_(); }, []);
+
+  async function laden_() {
+    setLaden(true);
+    try {
+      setStatus(await api.gesetze.status());
+    } catch {
+      setFehler("Konnte Status nicht laden");
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  async function jetztAktualisieren() {
+    setAktualisiert(true);
+    setFehler("");
+    setFehlerZeilen({});
+    try {
+      const { ergebnisse } = await api.gesetze.aktualisieren();
+      const zeilenFehler: Record<string, string> = {};
+      const aenderungen: Record<string, { neu: string[]; geaendert: string[]; istErstimport: boolean }> = {};
+      for (const e of ergebnisse) {
+        if (e.fehler) zeilenFehler[e.slug] = e.fehler;
+        aenderungen[e.slug] = { neu: e.neu, geaendert: e.geaendert, istErstimport: e.istErstimport };
+      }
+      setFehlerZeilen(zeilenFehler);
+      setLetzteAenderungen(aenderungen);
+      await laden_();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler beim Aktualisieren");
+    } finally {
+      setAktualisiert(false);
+    }
+  }
+
+  async function workerTesten() {
+    setWorkerLaeuft(true);
+    setFehler("");
+    setWorkerErgebnis(null);
+    try {
+      const ergebnis = await api.gesetze.workerTesten();
+      setWorkerErgebnis(ergebnis);
+      await laden_();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler beim Testen");
+    } finally {
+      setWorkerLaeuft(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="font-semibold text-gray-800">Gesetzestexte</h2>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Statischer Import von gesetze-im-internet.de – macht die Paragraphen offline
+              und volltextdurchsuchbar (über die Suche oben in der Seitenleiste).
+              Läuft automatisch monatlich am 1. um 03:00 Uhr, hier auch manuell auslösbar.
+            </p>
+          </div>
+          <button
+            onClick={jetztAktualisieren}
+            disabled={aktualisiert}
+            className="flex items-center gap-1.5 shrink-0 bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+          >
+            {aktualisiert ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+            Jetzt aktualisieren
+          </button>
+        </div>
+
+        {laden ? (
+          <div className="flex items-center justify-center h-32 text-gray-400">
+            <Loader2 className="animate-spin mr-2" size={18} /> Laden…
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500 uppercase tracking-wide">
+                <th className="px-6 py-3 font-medium">Gesetz</th>
+                <th className="px-4 py-3 font-medium">Paragraphen</th>
+                <th className="px-4 py-3 font-medium">Stand</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {status?.map(s => {
+                const aenderung = letzteAenderungen[s.slug];
+                return (
+                  <tr key={s.slug}>
+                    <td className="px-6 py-3 font-medium text-gray-800">{s.name}</td>
+                    <td className="px-4 py-3 text-gray-600">
+                      {s.anzahl > 0 ? s.anzahl : <span className="text-gray-400">noch nicht importiert</span>}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500">
+                      {s.aktualisiertAm
+                        ? new Date(s.aktualisiertAm).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                        : "–"}
+                      {fehlerZeilen[s.slug] && (
+                        <span className="block text-red-600 text-xs mt-0.5">Fehler: {fehlerZeilen[s.slug]}</span>
+                      )}
+                      {aenderung && !aenderung.istErstimport && aenderung.geaendert.length > 0 && (
+                        <span className="block text-amber-700 text-xs mt-0.5">Geändert: {aenderung.geaendert.join(", ")}</span>
+                      )}
+                      {aenderung && !aenderung.istErstimport && aenderung.neu.length > 0 && (
+                        <span className="block text-green-700 text-xs mt-0.5">Neu: {aenderung.neu.join(", ")}</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+
+        {fehler && (
+          <div className="px-6 py-3 bg-red-50 border-t border-red-100 text-red-700 text-sm">{fehler}</div>
+        )}
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="font-semibold text-gray-800">Automatischen Ablauf testen</h2>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Führt genau das aus, was auch nachts um 3 Uhr automatisch passiert – inklusive
+              Nachricht an VORSITZ/STELLVERTRETER, falls sich an einem bereits bekannten
+              Paragraphen wirklich etwas geändert hat (der allererste Import zählt nicht als Änderung).
+            </p>
+          </div>
+          <button
+            onClick={workerTesten}
+            disabled={workerLaeuft}
+            className="flex items-center gap-1.5 shrink-0 border border-[rgb(var(--accent))] text-[rgb(var(--accent))] hover:bg-[rgb(var(--accent))] hover:text-white disabled:opacity-60 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+          >
+            {workerLaeuft ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+            Jetzt testen
+          </button>
+        </div>
+
+        {workerErgebnis && (
+          <div className="px-6 py-4 text-sm space-y-1">
+            {workerErgebnis.relevanteAenderungen.length === 0 ? (
+              <p className="text-gray-700">Keine relevanten Änderungen gefunden – deshalb wurde keine Nachricht verschickt.</p>
+            ) : (
+              <>
+                <p className="text-gray-700">
+                  Änderungen gefunden, {workerErgebnis.benachrichtigt.length} Benutzer benachrichtigt:
+                </p>
+                {workerErgebnis.relevanteAenderungen.map(a => (
+                  <p key={a.gesetz} className="text-amber-700 text-xs">{a.gesetz}: {a.paragraphen.join(", ")}</p>
+                ))}
+                {workerErgebnis.benachrichtigt.length > 0 && (
+                  <p className="text-green-700 text-xs">✓ Nachricht an: {workerErgebnis.benachrichtigt.join(", ")}</p>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

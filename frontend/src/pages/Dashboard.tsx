@@ -50,11 +50,12 @@ export default function Dashboard() {
   const [aufgaben, setAufgaben]   = useState<Aufgabe[]>([]);
   const [watchLog, setWatchLog]   = useState<WatchfolderLogEintrag[]>([]);
   const [laden, setLaden]         = useState(true);
+  const [meinVorname, setMeinVorname] = useState("");
 
   useEffect(() => {
     Promise.all([
       api.dokumente.liste(),
-      api.dokumente.inbox(),
+      api.dokumente.inbox().catch(() => [] as Dokument[]), // nur Vorsitz/Stellvertreter/Admin dürfen das
       api.sitzungen.liste(),
       api.aufgaben.liste().catch(() => [] as Aufgabe[]),
       api.watchfolder.log().catch(() => [] as WatchfolderLogEintrag[]),
@@ -65,6 +66,7 @@ export default function Dashboard() {
       setAufgaben(aufg);
       setWatchLog(wlog);
     }).catch(console.error).finally(() => setLaden(false));
+    api.auth.me().then(b => setMeinVorname(b.name.split(" ")[0])).catch(() => {});
   }, []);
 
   const alleFristen: FristMitDokument[] = dokumente.flatMap(d =>
@@ -93,7 +95,9 @@ export default function Dashboard() {
     : null;
 
   const ungelesen      = inboxDoks.filter(d => !d.inboxGelesen).length;
-  const offeneAufgaben = aufgaben.filter(a => !a.erledigt && a.typ !== "PROJEKT");
+  // Themen aus dem Kanban-Backlog zählen hier nicht mit – das sind Ideen, keine ToDos
+  // Nur eigenständige ToDos (wie auf der "Aufgaben"-Seite) – keine Zeitraum-Einträge/-Kinder
+  const offeneAufgaben = aufgaben.filter(a => !a.erledigt && a.typ === "AUFGABE" && !a.oberProjektId && a.kanbanStatus == null);
   const kritischGesamt = abgelaufen.length + kritisch.length;
 
   const PRIO_SORT: Record<string, number> = { HOCH: 0, MITTEL: 1, NIEDRIG: 2 };
@@ -117,7 +121,9 @@ export default function Dashboard() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm text-gray-400">{wochentag}, {datumText}</p>
-          <h1 className="text-xl font-bold text-gray-900 mt-0.5">Dashboard</h1>
+          <h1 className="text-xl font-bold text-gray-900 mt-0.5">
+            {meinVorname ? `Hallo, ${meinVorname}` : "Dashboard"}
+          </h1>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link to="/eingang" className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 transition-colors rounded-lg px-3 py-1.5 text-sm">

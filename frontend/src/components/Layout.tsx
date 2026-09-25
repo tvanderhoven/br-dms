@@ -1,11 +1,26 @@
-import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { Outlet, NavLink, useNavigate, useLocation, Navigate } from "react-router-dom";
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  FileText, LayoutDashboard, Shield, CalendarDays,
+  FileText, LayoutDashboard, CalendarDays,
   Mail, CheckSquare, Inbox, Search, X, LayoutTemplate, Settings, UserCircle, BookOpen, Menu, Newspaper, Globe, ClipboardList,
-  Gavel, CalendarRange,
+  Gavel, CalendarRange, Wallet, Scale, GraduationCap, Users, Kanban, ChevronDown, MailPlus,
 } from "lucide-react";
-import { api, SuchErgebnis, KATEGORIE_LABEL, SITZUNG_STATUS_LABEL, RESSOURCE_KATEGORIE_LABEL, formatDatum, Rolle } from "../lib/api";
+import { api, SuchErgebnis, KATEGORIE_LABEL, SITZUNG_STATUS_LABEL, RESSOURCE_KATEGORIE_LABEL, formatDatum, Rolle, ModuleKey, GesetzParagraph } from "../lib/api";
+import GesetzModal from "./GesetzModal";
+import BrandLogo from "./BrandLogo";
+import PasswortAendernModal from "./PasswortAendernModal";
+
+// Ordnet Routen-Präfixe den abschaltbaren Modulen zu (siehe Einstellungen → Module).
+// Bei einem deaktivierten Modul: Sidebar-Eintrag ausgeblendet + Direktaufruf der URL wird auf "/" umgeleitet.
+const MODUL_PFADE: Record<string, ModuleKey> = {
+  "/gehaltstabelle":         "personalverwaltung",
+  "/mitarbeiter":            "personalverwaltung",
+  "/schulungen":             "personalverwaltung",
+  "/betriebsvereinbarungen": "betriebsvereinbarungen",
+  "/wissen":                 "wissensarchiv",
+  "/ressourcen":             "ressourcen",
+  "/themen":                 "themensammlung",
+};
 import { useDesign } from "../lib/useDesign";
 
 function GlobaleSuche() {
@@ -15,6 +30,14 @@ function GlobaleSuche() {
   const [laden, setLaden]           = useState(false);
   const timerRef                    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigate                    = useNavigate();
+  const [gesetzModal, setGesetzModal] = useState<GesetzParagraph | null>(null);
+  const [gesetzLaden, setGesetzLaden] = useState(false);
+
+  function gesetzOeffnen(id: string) {
+    reset();
+    setGesetzLaden(true);
+    api.gesetze.einzel(id).then(setGesetzModal).finally(() => setGesetzLaden(false));
+  }
 
   const suche = useCallback((q: string) => {
     if (q.trim().length < 2) { setErgebnisse({ dokumente: [], sitzungen: [] }); setOffen(false); return; }
@@ -47,7 +70,11 @@ function GlobaleSuche() {
 
   function reset() { setQuery(""); setErgebnisse({ dokumente: [], sitzungen: [] }); setOffen(false); }
 
-  const hatErgebnisse = ergebnisse.dokumente.length > 0 || ergebnisse.sitzungen.length > 0 || (ergebnisse.wissen ?? []).length > 0 || (ergebnisse.ressourcen ?? []).length > 0;
+  const hatErgebnisse =
+    ergebnisse.dokumente.length > 0 || ergebnisse.sitzungen.length > 0 ||
+    (ergebnisse.wissen ?? []).length > 0 || (ergebnisse.ressourcen ?? []).length > 0 ||
+    (ergebnisse.betriebsvereinbarungen ?? []).length > 0 || (ergebnisse.schulungen ?? []).length > 0 ||
+    (ergebnisse.mitarbeiter ?? []).length > 0 || (ergebnisse.gesetze ?? []).length > 0;
 
   return (
     <div className="relative flex-1">
@@ -141,6 +168,66 @@ function GlobaleSuche() {
                   ))}
                 </>
               )}
+              {ergebnisse.betriebsvereinbarungen && ergebnisse.betriebsvereinbarungen.length > 0 && (
+                <>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-3 pt-2 pb-1">Betriebsvereinbarungen</p>
+                  {ergebnisse.betriebsvereinbarungen.map(bv => (
+                    <button
+                      key={bv.id}
+                      onClick={() => { navigate("/betriebsvereinbarungen"); reset(); }}
+                      className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-0"
+                    >
+                      <p className="text-xs font-medium text-gray-800 truncate">{bv.titel}</p>
+                    </button>
+                  ))}
+                </>
+              )}
+              {ergebnisse.schulungen && ergebnisse.schulungen.length > 0 && (
+                <>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-3 pt-2 pb-1">Schulungen</p>
+                  {ergebnisse.schulungen.map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => { navigate("/schulungen"); reset(); }}
+                      className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-0"
+                    >
+                      <p className="text-xs font-medium text-gray-800 truncate">{s.qualifikation.name}{s.titel ? ` – ${s.titel}` : ""}</p>
+                      <p className="text-xs text-gray-400">{formatDatum(s.datum)}</p>
+                    </button>
+                  ))}
+                </>
+              )}
+              {ergebnisse.mitarbeiter && ergebnisse.mitarbeiter.length > 0 && (
+                <>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-3 pt-2 pb-1">Mitarbeiter</p>
+                  {ergebnisse.mitarbeiter.map(m => (
+                    <button
+                      key={m.id}
+                      onClick={() => { navigate("/gehaltstabelle"); reset(); }}
+                      className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-0"
+                    >
+                      <p className="text-xs font-medium text-gray-800 truncate">{m.nachname}, {m.vorname}</p>
+                    </button>
+                  ))}
+                </>
+              )}
+              {ergebnisse.gesetze && ergebnisse.gesetze.length > 0 && (
+                <>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-3 pt-2 pb-1">Gesetzestexte</p>
+                  {ergebnisse.gesetze.map(g => (
+                    <button
+                      key={g.id}
+                      onClick={() => gesetzOeffnen(g.id)}
+                      className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-0"
+                    >
+                      <p className="text-xs font-medium text-gray-800 truncate">
+                        {g.gesetz} {g.paragraph}{g.titel ? ` – ${g.titel}` : ""}
+                      </p>
+                      <p className="text-xs text-gray-400 truncate">{g.text}</p>
+                    </button>
+                  ))}
+                </>
+              )}
               <button
                 onClick={alleAnzeigen}
                 className="w-full text-center text-xs text-blue-600 hover:text-blue-800 py-2 border-t border-gray-100 hover:bg-blue-50 transition-colors"
@@ -151,6 +238,10 @@ function GlobaleSuche() {
           )}
         </div>
       )}
+
+      {(gesetzModal || gesetzLaden) && (
+        <GesetzModal paragraph={gesetzModal} laden={gesetzLaden} onSchliessen={() => setGesetzModal(null)} />
+      )}
     </div>
   );
 }
@@ -159,35 +250,88 @@ const POLL_INTERVAL = 60_000;
 
 function browserNotification(titel: string, text: string) {
   if (Notification.permission === "granted") {
-    new Notification(titel, { body: text, icon: "/favicon.ico" });
+    new Notification(titel, { body: text });
   }
+}
+
+// ── Einklappbare Menü-Gruppe (Oberthema in der Sidebar) ────────────
+function NavGruppe({
+  titel, gruppenKey, sichtbar = true, zu, onToggle, children,
+}: {
+  titel: string;
+  gruppenKey: string;
+  sichtbar?: boolean;
+  zu: boolean;
+  onToggle: (key: string) => void;
+  children: React.ReactNode;
+}) {
+  if (!sichtbar) return null;
+  return (
+    <div className="mt-3 first:mt-0">
+      <button
+        onClick={() => onToggle(gruppenKey)}
+        className="w-full flex items-center justify-between px-3 py-1 text-[11px] font-bold uppercase tracking-wider opacity-75 hover:opacity-100 transition-opacity"
+        style={{ color: "rgb(var(--sidebar-text-muted))" }}
+      >
+        <span>{titel}</span>
+        <ChevronDown size={12} className={`transition-transform ${zu ? "-rotate-90" : ""}`} />
+      </button>
+      {!zu && <div className="space-y-0.5 mt-0.5">{children}</div>}
+    </div>
+  );
 }
 
 export default function Layout() {
   useDesign();
   const navigate   = useNavigate();
+  const location   = useLocation();
   const [mobileOffen, setMobileOffen]             = useState(false);
   const [inboxCount, setInboxCount]               = useState(0);
   const [nachrichtenCount, setNachrichtenCount]   = useState(0);
   const [aufgabenCount, setAufgabenCount]         = useState(0);
   const [meineRolle, setMeineRolle]               = useState<Rolle | null>(null);
+  const [meinName, setMeinName]                   = useState("");
+  const [module, setModule]                       = useState<Record<ModuleKey, boolean> | null>(null);
   const [toast, setToast]                         = useState<string | null>(null);
+  const [pwModalOffen, setPwModalOffen]           = useState(false);
+  const [inaktivitaetMinuten, setInaktivitaetMinuten] = useState(0);
   const prevCounts = useRef({ inbox: 0, nachrichten: 0, aufgaben: 0 });
   const ersterLauf = useRef(true);
+  const letzteAktivitaet = useRef(Date.now());
+
+  // Auf-/zugeklappte Menü-Gruppen – pro Gerät gemerkt (Standard: alle offen)
+  const [navGruppenZu, setNavGruppenZu] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("brdms_nav_gruppen_zu") ?? "{}");
+    } catch {
+      return {};
+    }
+  });
+  function navGruppeUmschalten(key: string) {
+    setNavGruppenZu(prev => {
+      const next = { ...prev, [key]: !prev[key] };
+      localStorage.setItem("brdms_nav_gruppen_zu", JSON.stringify(next));
+      return next;
+    });
+  }
 
   async function pollCounts() {
-    try {
-      const docs = await api.dokumente.inbox();
-      const n = docs.filter(d => !d.inboxGelesen).length;
-      if (!ersterLauf.current && n > prevCounts.current.inbox) {
-        const neu = n - prevCounts.current.inbox;
-        const msg = `${neu} neues Dokument${neu > 1 ? "e" : ""} im Eingang`;
-        setToast(msg);
-        browserNotification("BR-DMS · Eingang", msg);
-      }
-      prevCounts.current.inbox = n;
-      setInboxCount(n);
-    } catch {}
+    // Eingang ist nur für Vorsitz/Stellvertreter/Admin – für alle anderen Rollen
+    // gar nicht erst abfragen (sonst nur unnötige 403-Fehler im Netzwerk-Log)
+    if (meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle)) {
+      try {
+        const docs = await api.dokumente.inbox();
+        const n = docs.filter(d => !d.inboxGelesen).length;
+        if (!ersterLauf.current && n > prevCounts.current.inbox) {
+          const neu = n - prevCounts.current.inbox;
+          const msg = `${neu} neues Dokument${neu > 1 ? "e" : ""} im Eingang`;
+          setToast(msg);
+          browserNotification("BR-DMS · Eingang", msg);
+        }
+        prevCounts.current.inbox = n;
+        setInboxCount(n);
+      } catch {}
+    }
 
     try {
       const nachrichten = await api.nachrichten.liste();
@@ -204,7 +348,9 @@ export default function Layout() {
 
     try {
       const aufgaben = await api.aufgaben.liste();
-      const n = aufgaben.filter(a => !a.erledigt).length;
+      // Nur eigenständige ToDos zählen (wie auf der "Aufgaben"-Seite) – keine
+      // Zeitraum-Einträge/-Kinder und keine Themen-Backlog-Einträge.
+      const n = aufgaben.filter(a => !a.erledigt && a.typ === "AUFGABE" && !a.oberProjektId && a.kanbanStatus == null).length;
       if (!ersterLauf.current && n > prevCounts.current.aufgaben) {
         const neu = n - prevCounts.current.aufgaben;
         const msg = `${neu} neue Aufgabe${neu > 1 ? "n" : ""}`;
@@ -222,7 +368,9 @@ export default function Layout() {
     if (Notification.permission === "default") {
       Notification.requestPermission().catch(() => {});
     }
-    api.auth.me().then(b => setMeineRolle(b.rolle)).catch(() => {});
+    api.auth.me().then(b => { setMeineRolle(b.rolle); setMeinName(b.name); }).catch(() => {});
+    api.einstellungen.module().then(setModule).catch(() => {});
+    api.einstellungen.sicherheit().then(s => setInaktivitaetMinuten(s.inaktivitaetMinuten)).catch(() => {});
     pollCounts();
     const id = setInterval(pollCounts, POLL_INTERVAL);
     return () => clearInterval(id);
@@ -238,6 +386,69 @@ export default function Layout() {
     localStorage.removeItem("brdms_token");
     navigate("/login");
   }
+
+  // Automatisches Abmelden bei Inaktivität (0 = deaktiviert, siehe Einstellungen → System).
+  // Prüft per Intervall statt bei jedem Event neu zu timern, damit mousemove nicht dauernd feuert.
+  useEffect(() => {
+    if (!inaktivitaetMinuten) return;
+
+    const aktivitaetErfassen = () => { letzteAktivitaet.current = Date.now(); };
+    const events: (keyof WindowEventMap)[] = ["mousemove", "mousedown", "keydown", "scroll", "touchstart"];
+    events.forEach(ev => window.addEventListener(ev, aktivitaetErfassen, { passive: true }));
+
+    letzteAktivitaet.current = Date.now();
+    const grenzeMs = inaktivitaetMinuten * 60 * 1000;
+    const pruefung = setInterval(() => {
+      if (Date.now() - letzteAktivitaet.current >= grenzeMs) {
+        localStorage.removeItem("brdms_token");
+        window.location.href = "/login";
+      }
+    }, 10000);
+
+    return () => {
+      events.forEach(ev => window.removeEventListener(ev, aktivitaetErfassen));
+      clearInterval(pruefung);
+    };
+  }, [inaktivitaetMinuten]);
+
+  // Direktaufruf einer URL eines deaktivierten Moduls → zurück zum Dashboard.
+  // Erst NACH allen Hooks geprüft (Rules of Hooks), daher hier statt weiter oben.
+  const aktivesModulPfad = Object.keys(MODUL_PFADE).find(p => location.pathname.startsWith(p));
+  if (aktivesModulPfad && module && module[MODUL_PFADE[aktivesModulPfad]] === false) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // JAV: stark eingeschränkte Rolle, darf im Frontend nur /sitzungen sehen
+  // (Backend erzwingt das ohnehin zusätzlich auf API-Ebene, siehe middleware/auth.ts)
+  if (meineRolle === "JAV" && !location.pathname.startsWith("/sitzungen")) {
+    return <Navigate to="/sitzungen" replace />;
+  }
+
+  // Gehaltstabelle: nur Mitglied/Vorsitz/Stellvertreter/Admin (Backend erzwingt
+  // das zusätzlich, siehe erfordert(Role.MITGLIED) in routes/gehaltstabelle.ts)
+  if (
+    location.pathname.startsWith("/gehaltstabelle") &&
+    meineRolle && !["MITGLIED", "VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle)
+  ) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // Einstellungen braucht ein Ersatzmitglied nicht – Passwort ändern geht
+  // unabhängig davon über den Klick auf den eigenen Namen unten in der Sidebar.
+  if (location.pathname.startsWith("/einstellungen") && meineRolle === "ERSATZMITGLIED") {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // Eingang (Dokumente der Tagesordnung zuordnen) nur Vorsitz/Stellvertreter/Admin
+  if (
+    location.pathname.startsWith("/eingang") &&
+    meineRolle && !["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle)
+  ) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // Solange module noch lädt (null), Eintrag anzeigen statt kurz aufblitzend auszublenden
+  const modulAktiv = (k: ModuleKey) => module === null || module[k] !== false;
 
   const linkKlasse = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-150 ${
@@ -256,17 +467,36 @@ export default function Layout() {
 
         {/* Logo */}
         <div className="px-4 pt-5 pb-3 border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-          <NavLink to="/" onClick={() => setMobileOffen(false)} className="flex items-center gap-2 text-[rgb(var(--sidebar-text))] font-bold text-lg hover:opacity-80 transition-opacity">
-            <Shield size={20} />
-            BR-DMS
+          <NavLink to="/dashboard" onClick={() => setMobileOffen(false)} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <BrandLogo
+              size={38}
+              textClassName="text-lg text-[rgb(var(--sidebar-text))]"
+            />
           </NavLink>
           <p className="text-[rgb(var(--sidebar-text-muted))] text-xs mt-0.5">Betriebsrats-Cloud</p>
         </div>
 
+        {/* Eingeloggter Benutzer – bewusst weit oben, damit man bei langer
+            Navigation nicht bis ganz unten scrollen muss, um dranzukommen */}
+        {meinName && (
+          <button
+            onClick={() => setPwModalOffen(true)}
+            title="Passwort ändern"
+            className="px-4 py-2 flex items-center gap-2 border-b hover:brightness-125 transition-[filter] text-left shrink-0"
+            style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.18)" }}
+          >
+            <UserCircle size={15} className="shrink-0" style={{ color: "rgb(var(--sidebar-text-muted))" }} />
+            <span className="truncate text-xs font-medium" style={{ color: "rgb(var(--sidebar-text))" }} title={meinName}>
+              {meinName}
+            </span>
+          </button>
+        )}
+
         {/* Suche + Einstellungen + Abmelden */}
         <div className="px-3 py-2 border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
           <div className="flex items-center gap-1.5">
-            <GlobaleSuche />
+            {meineRolle !== "JAV" && <GlobaleSuche />}
+            {meineRolle !== "JAV" && meineRolle !== "ERSATZMITGLIED" && (
             <NavLink
               to="/einstellungen"
               title="Einstellungen"
@@ -281,6 +511,7 @@ export default function Layout() {
             >
               <Settings size={15} />
             </NavLink>
+            )}
             <button
               onClick={abmelden}
               title="Abmelden"
@@ -292,93 +523,184 @@ export default function Layout() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto pb-16">
-          <NavLink to="/" end className={linkKlasse} onClick={() => setMobileOffen(false)}>
+        <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
+          {meineRolle === "JAV" ? (
+            // JAV: stark eingeschränkte Rolle, sieht nur Sitzungen/Protokolle
+            <NavLink to="/sitzungen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+              <CalendarDays size={16} />
+              Sitzungen
+            </NavLink>
+          ) : (
+          <>
+          <NavLink to="/dashboard" end className={linkKlasse} onClick={() => setMobileOffen(false)}>
             <LayoutDashboard size={16} />
             Dashboard
           </NavLink>
-          <NavLink to="/eingang" className={linkKlasse} onClick={() => setMobileOffen(false)}>
-            {({ isActive }) => (
-              <>
-                <Inbox size={16} />
-                <span className="flex-1">Eingang</span>
-                {inboxCount > 0 && (
-                  <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${isActive ? "bg-[rgb(var(--sidebar-text))] text-[rgb(var(--sidebar-bg))]" : "bg-[rgb(var(--accent))] text-white"}`}>
-                    {inboxCount}
-                  </span>
+          <NavLink to="/suche" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+            <Search size={16} />
+            Suche
+          </NavLink>
+
+          <NavGruppe titel="Postfach" gruppenKey="postfach" zu={!!navGruppenZu.postfach} onToggle={navGruppeUmschalten}>
+            {meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && (
+              <NavLink to="/eingang" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+                {({ isActive }) => (
+                  <>
+                    <Inbox size={16} />
+                    <span className="flex-1">Eingang</span>
+                    {inboxCount > 0 && (
+                      <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${isActive ? "bg-[rgb(var(--sidebar-text))] text-[rgb(var(--sidebar-bg))]" : "bg-[rgb(var(--accent))] text-white"}`}>
+                        {inboxCount}
+                      </span>
+                    )}
+                  </>
                 )}
-              </>
+              </NavLink>
             )}
-          </NavLink>
-          <NavLink to="/dokumente" className={linkKlasse} onClick={() => setMobileOffen(false)}>
-            <FileText size={16} />
-            Dokumente
-          </NavLink>
-          <NavLink to="/sitzungen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
-            <CalendarDays size={16} />
-            Sitzungen
-          </NavLink>
-          <NavLink to="/vorlagen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
-            <LayoutTemplate size={16} />
-            Vorlagen
-          </NavLink>
-          <NavLink to="/posteingang" className={linkKlasse} onClick={() => setMobileOffen(false)}>
-            {({ isActive }) => (
-              <>
-                <Mail size={16} />
-                <span className="flex-1">Nachrichten</span>
-                {nachrichtenCount > 0 && (
-                  <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${isActive ? "bg-[rgb(var(--sidebar-text))] text-[rgb(var(--sidebar-bg))]" : "bg-[rgb(var(--accent))] text-white"}`}>
-                    {nachrichtenCount}
-                  </span>
-                )}
-              </>
+            <NavLink to="/posteingang" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+              {({ isActive }) => (
+                <>
+                  <Mail size={16} />
+                  <span className="flex-1">Nachrichten</span>
+                  {nachrichtenCount > 0 && (
+                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${isActive ? "bg-[rgb(var(--sidebar-text))] text-[rgb(var(--sidebar-bg))]" : "bg-[rgb(var(--accent))] text-white"}`}>
+                      {nachrichtenCount}
+                    </span>
+                  )}
+                </>
+              )}
+            </NavLink>
+            <NavLink to="/kummerkasten-verwaltung" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+              <MailPlus size={16} />
+              Kummerkasten
+            </NavLink>
+          </NavGruppe>
+
+          <NavGruppe titel="Sitzungen" gruppenKey="sitzungen" zu={!!navGruppenZu.sitzungen} onToggle={navGruppeUmschalten}>
+            <NavLink to="/sitzungen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+              <CalendarDays size={16} />
+              Sitzungen
+            </NavLink>
+            {(meineRolle === "ADMIN" || meineRolle === "VORSITZ" || meineRolle === "STELLVERTRETER") && (
+              <NavLink to="/vorlagen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+                <LayoutTemplate size={16} />
+                Vorlagen
+              </NavLink>
             )}
-          </NavLink>
-          <NavLink to="/aufgaben" className={linkKlasse} onClick={() => setMobileOffen(false)}>
-            {({ isActive }) => (
-              <>
-                <CheckSquare size={16} />
-                <span className="flex-1">Aufgaben</span>
-                {aufgabenCount > 0 && (
-                  <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${isActive ? "bg-[rgb(var(--sidebar-text))] text-[rgb(var(--sidebar-bg))]" : "bg-[rgb(var(--accent))] text-white"}`}>
-                    {aufgabenCount}
-                  </span>
-                )}
-              </>
+            <NavLink to="/beschluesse" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+              <Gavel size={16} />
+              Beschlussregister
+            </NavLink>
+            <NavLink to="/fristen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+              <CalendarRange size={16} />
+              Fristenkalender
+            </NavLink>
+          </NavGruppe>
+
+          <NavGruppe titel="Dokumente & Wissen" gruppenKey="dokumente" zu={!!navGruppenZu.dokumente} onToggle={navGruppeUmschalten}>
+            <NavLink to="/dokumente" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+              <FileText size={16} />
+              Dokumente
+            </NavLink>
+            {modulAktiv("wissensarchiv") && (
+              <NavLink to="/wissen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+                <BookOpen size={16} />
+                Wissensarchiv
+              </NavLink>
             )}
-          </NavLink>
-          <NavLink to="/wissen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
-            <BookOpen size={16} />
-            Wissensarchiv
-          </NavLink>
-          <NavLink to="/ressourcen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
-            <Globe size={16} />
-            Ressourcen
-          </NavLink>
-          <NavLink to="/themen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
-            <Newspaper size={16} />
-            Themensammlung
-          </NavLink>
-          <NavLink to="/beschluesse" className={linkKlasse} onClick={() => setMobileOffen(false)}>
-            <Gavel size={16} />
-            Beschlussregister
-          </NavLink>
-          <NavLink to="/fristen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
-            <CalendarRange size={16} />
-            Fristenkalender
-          </NavLink>
-          {(meineRolle === "ADMIN" || meineRolle === "VORSITZ") && (
+            {modulAktiv("ressourcen") && (
+              <NavLink to="/ressourcen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+                <Globe size={16} />
+                Ressourcen
+              </NavLink>
+            )}
+            {modulAktiv("themensammlung") && (
+              <NavLink to="/themen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+                <Newspaper size={16} />
+                Themensammlung
+              </NavLink>
+            )}
+          </NavGruppe>
+
+          <NavGruppe titel="Planung" gruppenKey="planung" zu={!!navGruppenZu.planung} onToggle={navGruppeUmschalten}>
+            <NavLink to="/aufgaben" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+              {({ isActive }) => (
+                <>
+                  <CheckSquare size={16} />
+                  <span className="flex-1">Aufgaben</span>
+                  {aufgabenCount > 0 && (
+                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${isActive ? "bg-[rgb(var(--sidebar-text))] text-[rgb(var(--sidebar-bg))]" : "bg-[rgb(var(--accent))] text-white"}`}>
+                      {aufgabenCount}
+                    </span>
+                  )}
+                </>
+              )}
+            </NavLink>
+            <NavLink to="/zeitraeume" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+              <CalendarRange size={16} />
+              Zeiträume
+            </NavLink>
+            <NavLink to="/themen-backlog" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+              <Kanban size={16} />
+              Themen-Backlog
+            </NavLink>
+          </NavGruppe>
+
+          <NavGruppe
+            titel="Personal"
+            gruppenKey="personal"
+            sichtbar={modulAktiv("personalverwaltung") || modulAktiv("betriebsvereinbarungen")}
+            zu={!!navGruppenZu.personal}
+            onToggle={navGruppeUmschalten}
+          >
+            {modulAktiv("personalverwaltung") &&
+              meineRolle && ["MITGLIED", "VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && (
+              <NavLink to="/gehaltstabelle" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+                <Wallet size={16} />
+                Gehaltstabelle
+              </NavLink>
+            )}
+            {modulAktiv("personalverwaltung") && (
+              <NavLink to="/mitarbeiter" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+                <Users size={16} />
+                Mitarbeiter
+              </NavLink>
+            )}
+            {modulAktiv("betriebsvereinbarungen") && (
+              <NavLink to="/betriebsvereinbarungen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+                <Scale size={16} />
+                Betriebsvereinbarungen
+              </NavLink>
+            )}
+            {modulAktiv("personalverwaltung") && (
+              <NavLink to="/schulungen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+                <GraduationCap size={16} />
+                Schulungen
+              </NavLink>
+            )}
+          </NavGruppe>
+
+          <NavGruppe
+            titel="Verwaltung"
+            gruppenKey="verwaltung"
+            sichtbar={meineRolle === "ADMIN" || meineRolle === "VORSITZ"}
+            zu={!!navGruppenZu.verwaltung}
+            onToggle={navGruppeUmschalten}
+          >
             <NavLink to="/audit" className={linkKlasse} onClick={() => setMobileOffen(false)}>
               <ClipboardList size={16} />
               Audit-Log
             </NavLink>
+          </NavGruppe>
+          </>
           )}
         </nav>
 
-        {/* Dekorativer Gradient unten */}
-        <div className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.25), transparent)" }} />
       </aside>
+
+      {pwModalOffen && (
+        <PasswortAendernModal onSchliessen={() => setPwModalOffen(false)} />
+      )}
 
       {/* Mobile Overlay */}
       {mobileOffen && (

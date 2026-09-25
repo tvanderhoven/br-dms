@@ -1,8 +1,8 @@
 import { useEffect, useState, FormEvent } from "react";
-import { UserPlus, KeyRound, Power, Loader2, X, Shield, Users } from "lucide-react";
+import { UserPlus, KeyRound, Power, Trash2, Loader2, X, Shield, Users } from "lucide-react";
 import { api, Benutzer, Rolle } from "../lib/api";
 
-const ROLLEN: Rolle[] = ["VORSITZ", "STELLVERTRETER", "MITGLIED", "ERSATZMITGLIED"];
+const ROLLEN: Rolle[] = ["VORSITZ", "STELLVERTRETER", "MITGLIED", "ERSATZMITGLIED", "JAV"];
 
 export const ROLLEN_LABEL: Record<Rolle, string> = {
   VORSITZ:         "Vorsitz",
@@ -10,6 +10,7 @@ export const ROLLEN_LABEL: Record<Rolle, string> = {
   MITGLIED:        "Mitglied",
   ERSATZMITGLIED:  "Ersatzmitglied",
   ADMIN:           "Administrator",
+  JAV:             "JAV (nur Sitzungen/Protokolle)",
 };
 
 export const ROLLEN_FARBE: Record<Rolle, string> = {
@@ -18,6 +19,7 @@ export const ROLLEN_FARBE: Record<Rolle, string> = {
   MITGLIED:        "bg-green-100 text-green-700",
   ERSATZMITGLIED:  "bg-amber-100 text-amber-700",
   ADMIN:           "bg-purple-100 text-purple-700",
+  JAV:             "bg-teal-100 text-teal-700",
 };
 
 export default function BenutzerVerwaltung({ eingebettet = false }: { eingebettet?: boolean }) {
@@ -59,13 +61,26 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
     }
   }
 
-  const meinId = (() => {
+  async function benutzerLoeschen(b: Benutzer) {
+    if (!confirm(`"${b.name}" wirklich endgültig löschen? Das geht nur, wenn der Benutzer noch keine Daten im System hinterlassen hat, und kann nicht rückgängig gemacht werden.`)) return;
+    setFehler("");
+    try {
+      await apiFetch(`/api/benutzer/${b.id}`, "DELETE");
+      laden_();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler");
+    }
+  }
+
+  const tokenPayload = (() => {
     try {
       const token = localStorage.getItem("brdms_token");
       if (!token) return null;
-      return JSON.parse(atob(token.split(".")[1])).sub as string;
+      return JSON.parse(atob(token.split(".")[1]));
     } catch { return null; }
   })();
+  const meinId    = tokenPayload?.sub as string | null;
+  const meinRolle = tokenPayload?.rolle as Rolle | null;
 
   return (
     <div className={eingebettet ? "" : "p-6"}>
@@ -179,6 +194,17 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
                         >
                           <Power size={13} />
                           {b.aktiv ? "Sperren" : "Aktivieren"}
+                        </button>
+                      )}
+
+                      {b.id !== meinId && meinRolle === "ADMIN" && (
+                        <button
+                          onClick={() => benutzerLoeschen(b)}
+                          title="Endgültig löschen (nur möglich ohne vorhandene Daten im System)"
+                          className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        >
+                          <Trash2 size={13} />
+                          Löschen
                         </button>
                       )}
                     </div>

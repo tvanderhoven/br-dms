@@ -22,6 +22,7 @@ const BESCHLUSS_SELECT = {
   jaStimmen:       true,
   neinStimmen:     true,
   enthaltungen:    true,
+  nichtTeilgenommen: true,
   anwesend:        true,
   ergebnis:        true,
   finalisiert:     true,
@@ -127,13 +128,14 @@ export async function beschlussRouten(app: FastifyInstance): Promise<void> {
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { sitzungId, topId, beschlussId } =
         request.params as { sitzungId: string; topId: string; beschlussId: string };
-      const { antragstext, rechtsgrundlage, jaStimmen, neinStimmen, enthaltungen, finalisieren } =
+      const { antragstext, rechtsgrundlage, jaStimmen, neinStimmen, enthaltungen, nichtTeilgenommen, finalisieren } =
         request.body as {
           antragstext?:    string;
           rechtsgrundlage?: string;
           jaStimmen?:      number;
           neinStimmen?:    number;
           enthaltungen?:   number;
+          nichtTeilgenommen?: number;
           finalisieren?:   boolean;
         };
 
@@ -146,12 +148,13 @@ export async function beschlussRouten(app: FastifyInstance): Promise<void> {
         return reply.status(409).send({ fehler: "Finalisierte Beschlüsse sind unveränderlich" });
       }
 
-      const ja      = Math.max(0, jaStimmen      ?? 0);
-      const nein    = Math.max(0, neinStimmen    ?? 0);
-      const enthal  = Math.max(0, enthaltungen   ?? 0);
+      const ja        = Math.max(0, jaStimmen          ?? 0);
+      const nein      = Math.max(0, neinStimmen        ?? 0);
+      const enthal    = Math.max(0, enthaltungen       ?? 0);
+      const nichtTeilg = Math.max(0, nichtTeilgenommen  ?? 0);
       const ergebnis = berechneErgebnis(ja, nein);
 
-      const hatStimmen = jaStimmen !== undefined || neinStimmen !== undefined || enthaltungen !== undefined;
+      const hatStimmen = jaStimmen !== undefined || neinStimmen !== undefined || enthaltungen !== undefined || nichtTeilgenommen !== undefined;
 
       const aktualisiert = await prisma.beschluss.update({
         where: { id: beschluss.id },
@@ -162,6 +165,8 @@ export async function beschlussRouten(app: FastifyInstance): Promise<void> {
             jaStimmen:    ja,
             neinStimmen:  nein,
             enthaltungen: enthal,
+            nichtTeilgenommen: nichtTeilg,
+            // "anwesend" = stimmberechtigt anwesend (ohne Nicht-Teilgenommen, z.B. JAV)
             anwesend:     ja + nein + enthal,
             ergebnis,
           }),
@@ -189,7 +194,7 @@ export async function beschlussRouten(app: FastifyInstance): Promise<void> {
             aktion:     AuditAktion.ABSTIMMUNG_FINALISIERT,
             ip:         request.ip,
             userAgent:  request.headers["user-agent"] ?? null,
-            details:    JSON.parse(JSON.stringify({ topId, beschlussId, ergebnis, ja, nein, enthal })),
+            details:    JSON.parse(JSON.stringify({ topId, beschlussId, ergebnis, ja, nein, enthal, nichtTeilg })),
           },
         }).catch(() => {});
       }

@@ -5,10 +5,10 @@
 
 set -euo pipefail
 
-BACKUP_DIR="/volume1/docker/br-dms/backups"
-DATA_PATH="/volume1/docker/br-dms"
+BACKUP_DIR="/share/Container/br-dms/backups"
+DATA_PATH="/share/Container/br-dms"
 CONTAINER="brdms_postgres"
-COMPOSE_DIR="/volume1/docker/br-dms"
+COMPOSE_DIR="/share/Container/br-dms"
 
 # --- Verfügbare DB-Backups anzeigen ---
 echo ""

@@ -13,6 +13,7 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 
 - **Vollverschlüsselte Dokumentenablage** – AES-256, Dokumente nur on-demand entschlüsselt
 - **Rollenbasierte Zugriffskontrolle** – VORSITZ, STELLVERTRETER, MITGLIED, ERSATZMITGLIED, ADMIN
+- **Login mit E-Mail oder Benutzername** – Anmeldung wahlweise mit der vollständigen E-Mail-Adresse oder nur dem Teil vor dem `@`
 - **Sitzungsverwaltung mit Protokoll** – Vollständiger Lifecycle: Entwurf → Einladung → Protokoll → Finalisierung
 - **Automatische Fristüberwachung** – §87, §99, §102 BetrVG mit konfigurierbaren Aufbewahrungsfristen
 - **Zeiträume & Aufgabenverwaltung** – Aufgaben und Zeiträume (z.B. Überstundenvereinbarungen) mit Hierarchie (Ober-/Unterzeitraum), Gantt-Diagramm und Listenansicht; Zuweisung, Farbcodierung, Prioritäten und Datumsbereich; Aufgaben und Zeiträume direkt aus Tagesordnungspunkten erstellen
@@ -28,6 +29,11 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 - **Internes Nachrichtensystem** – Ohne externe Dienste
 - **DMS-Protokoll-Links** – Links mit `lbo://`, `lboffice://` und `lbofficem://` direkt im Protokoll-Editor verankern (internes DMS-System)
 - **Einheitliches Vollbreiten-Layout** – Alle Seiten responsiv und konsistent; alle Textfelder vertikal skalierbar
+- **Gehaltstabelle** – Gehaltsstufen-Historie je Mitarbeiter mit Abteilungszuordnung, CSV-Import (mit Vorschau/Dry-Run) und -Export, direkte Übernahme aus Sitzungsbeschlüssen, Mitarbeiter-Stammdaten (Name, PNR, Ein-/Austritt) editierbar
+- **Betriebsvereinbarungs-Register** – Status (Aktiv/Gekündigt/Abgelöst/Befristet ausgelaufen), Laufzeitüberwachung mit Warnhinweis vor Ablauf, Verknüpfung zum hinterlegten PDF, Volltextsuche im Dokumenttext
+- **Schulungsverwaltung & Qualifikationsmatrix** – Schulungstermine mit Teilnehmerverwaltung (Ort, Anbieter, Kosten, Status); Qualifikationsmatrix (Mitarbeiter × Qualifikation) wird automatisch aus den Terminen abgeleitet, inkl. Ablaufüberwachung bei zeitlich befristeten Qualifikationen (z.B. Ersthelfer)
+- **Globale Suche** – Eigene Suchseite (Sidebar), durchsucht Dokumente, Sitzungen, Aufgaben, Wissensarchiv, Ressourcen, Betriebsvereinbarungen, Schulungen und Mitarbeiter; Ergebnisse nach Bereich gruppiert mit Sprung zur passenden Seite
+- **Abschaltbare Module** – Personalverwaltung (Gehaltstabelle/Schulungen), Betriebsvereinbarungen, Wissensarchiv, Ressourcen und Themensammlung lassen sich im Admin-Bereich (Einstellungen → Module) pro Installation ein-/ausblenden – praktisch bei Installation für andere Betriebsräte mit abweichendem Funktionsumfang
 
 ---
 

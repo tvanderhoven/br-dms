@@ -19,6 +19,7 @@ import { authenticate } from "../middleware/auth.js";
 const KOMMENTAR_SELECT = {
   id: true,
   inhalt: true,
+  inhaltJson: true,
   erstelltAm: true,
   aktualisiertAm: true,
   autor: {
@@ -51,7 +52,7 @@ export async function kommentarRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
-      const { inhalt } = request.body as { inhalt: string };
+      const { inhalt, inhaltJson } = request.body as { inhalt: string; inhaltJson?: object };
 
       if (!inhalt || inhalt.trim().length === 0) {
         return reply.status(400).send({ fehler: "inhalt ist erforderlich" });
@@ -69,6 +70,7 @@ export async function kommentarRouten(app: FastifyInstance): Promise<void> {
       const kommentar = await prisma.kommentar.create({
         data: {
           inhalt,
+          inhaltJson: inhaltJson ?? undefined,
           sitzungId: id,
           autorId: request.benutzer.sub,
         },
@@ -130,7 +132,7 @@ export async function kommentarRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { topId } = request.params as { topId: string };
-      const { inhalt } = request.body as { inhalt: string };
+      const { inhalt, inhaltJson } = request.body as { inhalt: string; inhaltJson?: object };
 
       if (!inhalt || inhalt.trim().length === 0) {
         return reply.status(400).send({ fehler: "inhalt ist erforderlich" });
@@ -148,6 +150,7 @@ export async function kommentarRouten(app: FastifyInstance): Promise<void> {
       const kommentar = await prisma.kommentar.create({
         data: {
           inhalt,
+          inhaltJson: inhaltJson ?? undefined,
           topId,
           autorId: request.benutzer.sub,
         },
@@ -208,7 +211,7 @@ export async function kommentarRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { dokumentId } = request.params as { dokumentId: string };
-      const { inhalt } = request.body as { inhalt: string };
+      const { inhalt, inhaltJson } = request.body as { inhalt: string; inhaltJson?: object };
 
       if (!inhalt || inhalt.trim().length === 0) {
         return reply.status(400).send({ fehler: "inhalt ist erforderlich" });
@@ -226,6 +229,7 @@ export async function kommentarRouten(app: FastifyInstance): Promise<void> {
       const kommentar = await prisma.kommentar.create({
         data: {
           inhalt,
+          inhaltJson: inhaltJson ?? undefined,
           dokumentId,
           autorId: request.benutzer.sub,
         },

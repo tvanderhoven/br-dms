@@ -2,6 +2,8 @@ import { FastifyInstance } from "fastify";
 import { FristStatus, Role } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
+import { erfordert } from "../middleware/rbac.js";
+import { FristenWorker } from "../workers/fristen.worker.js";
 
 export async function fristenRouten(app: FastifyInstance): Promise<void> {
   app.get<{ Querystring: { von?: string; bis?: string; status?: string } }>(
@@ -38,6 +40,29 @@ export async function fristenRouten(app: FastifyInstance): Promise<void> {
       });
 
       return reply.send(fristen);
+    }
+  );
+
+  // ── DELETE /:id – einzelne Frist löschen (z.B. versehentlich falsche
+  //                 Kündigungsart beim Upload gewählt) ─────────────────
+  app.delete<{ Params: { id: string } }>(
+    "/:id",
+    { preHandler: [authenticate] },
+    async (request, reply) => {
+      const frist = await prisma.frist.findUnique({ where: { id: request.params.id } });
+      if (!frist) return reply.status(404).send({ fehler: "Frist nicht gefunden" });
+      await prisma.frist.delete({ where: { id: request.params.id } });
+      return reply.send({ ok: true });
+    }
+  );
+
+  // ── POST /erinnerung-testen – Fristen-E-Mail sofort auslösen (Diagnose) ──
+  app.post(
+    "/erinnerung-testen",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (_request, reply) => {
+      const ergebnis = await new FristenWorker().run();
+      return reply.send(ergebnis);
     }
   );
 }

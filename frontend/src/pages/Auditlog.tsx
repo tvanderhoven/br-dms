@@ -27,7 +27,7 @@ const KATEGORIEN: { label: string; aktionen: AuditAktion[] }[] = [
   },
   {
     label: "Benutzer",
-    aktionen: ["BENUTZER_ERSTELLT", "BENUTZER_DEAKTIVIERT"],
+    aktionen: ["BENUTZER_ERSTELLT", "BENUTZER_DEAKTIVIERT", "BENUTZER_GELOESCHT"],
   },
   {
     label: "Sitzungen",
@@ -45,7 +45,7 @@ const KATEGORIEN: { label: string; aktionen: AuditAktion[] }[] = [
 
 // ── Farben pro Aktion ─────────────────────────────────────────────
 function aktionFarbe(a: AuditAktion): string {
-  if (["DOKUMENT_GELOESCHT", "BENUTZER_DEAKTIVIERT", "SITZUNG_GELOESCHT", "WISSEN_GELOESCHT"].includes(a))
+  if (["DOKUMENT_GELOESCHT", "BENUTZER_DEAKTIVIERT", "BENUTZER_GELOESCHT", "SITZUNG_GELOESCHT", "WISSEN_GELOESCHT"].includes(a))
     return "bg-red-100 text-red-700";
   if (["ZUGRIFF_VERWEIGERT", "WATCHFOLDER_FEHLER"].includes(a))
     return "bg-orange-100 text-orange-700";

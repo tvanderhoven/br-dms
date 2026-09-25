@@ -134,6 +134,11 @@ export async function abstimmungRouten(app: FastifyInstance): Promise<void> {
       const jaCount      = gueltigeStimmen.filter(s => s.stimme === Stimme.JA).length;
       const neinCount    = gueltigeStimmen.filter(s => s.stimme === Stimme.NEIN).length;
       const enthaltCount = gueltigeStimmen.filter(s => s.stimme === Stimme.ENTHALTUNG).length;
+      // Anwesend im Sinne von "stimmberechtigt anwesend" – Personen, die im Raum sind
+      // aber nicht abstimmen dürfen (z.B. JAV), zählen bewusst nicht mit rein.
+      const stimmberechtigtAnwesend = gueltigeStimmen.filter(
+        s => s.stimme !== Stimme.NICHT_TEILGENOMMEN
+      ).length;
       const ergebnis     = berechneErgebnis(jaCount, neinCount);
 
       const aktualisiert = await prisma.$transaction(async (tx) => {
@@ -157,7 +162,7 @@ export async function abstimmungRouten(app: FastifyInstance): Promise<void> {
             jaStimmen:        jaCount,
             neinStimmen:      neinCount,
             enthaltungen:     enthaltCount,
-            anwesend:         gueltigeStimmen.length,
+            anwesend:         stimmberechtigtAnwesend,
             ergebnis,
             finalisiert:      finalisieren ?? false,
             finalisiertAm:    finalisieren ? new Date() : null,

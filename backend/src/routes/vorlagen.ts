@@ -18,8 +18,9 @@ const VORLAGE_SELECT = {
 
 export async function vorlagenRouten(app: FastifyInstance): Promise<void> {
 
-  // ── GET / – Alle Vorlagen ──────────────────────────────────────
-  app.get("/", { preHandler: [authenticate] },
+  // ── GET / – Alle Vorlagen (nur VORSITZ/STELLVERTRETER – die einzigen,
+  //           die Sitzungen anlegen und damit Vorlagen überhaupt nutzen können) ──
+  app.get("/", { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (_req: FastifyRequest, reply: FastifyReply) => {
       return reply.send(await prisma.sitzungsVorlage.findMany({
         select: VORLAGE_SELECT,

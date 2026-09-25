@@ -1,52 +1,41 @@
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useState, useRef, FormEvent } from "react";
+import { useLocation } from "react-router-dom";
 import { SitzungsVorlage } from "../lib/api";
 import {
   CalendarDays, Plus, ChevronLeft, ChevronUp, ChevronDown, Lock, Unlock, FileCheck, FileText,
   Trash2, Link, Unlink, X, Loader2, CheckCircle, Clock, XCircle, RotateCcw, Eye,
-  Send, ClipboardList, Download, MessageSquare, Zap, Pencil, RefreshCw, BookmarkPlus, Tag, CheckSquare, Folder,
+  Send, ClipboardList, Download, MessageSquare, Zap, Pencil, RefreshCw, BookmarkPlus, Tag, CheckSquare, Folder, Wallet, MoreHorizontal, Copy,
 } from "lucide-react";
 import {
-  api, Sitzung, SitzungListItem, SitzungStatus, TOP, TopStatus, Dokument, Kommentar,
+  api, Sitzung, SitzungListItem, SitzungStatus, TOP, TopStatus, Dokument, Mitarbeiter, Abteilung,
   SITZUNG_STATUS_LABEL, TOP_STATUS_LABEL, KATEGORIE_LABEL, formatDatum,
 } from "../lib/api";
 import SitzungsEditor from "../components/SitzungsEditor";
 import AnwesenheitsListe from "../components/AnwesenheitsListe";
 import BeschlussBlock from "../components/BeschlussBlock";
 import KommentarBlock from "../components/KommentarBlock";
+import AufgabeUebernehmenModal from "../components/AufgabeUebernehmenModal";
+import { tiptapZuText, tiptapZuHtml } from "../lib/tiptap";
 
-// Extrahiert Plaintext aus TipTap-JSON (für Fallback-Anzeige und PDF)
-function tiptapZuText(json: object | null | undefined): string {
-  if (!json) return "";
-  const node = json as { text?: string; content?: object[] };
-  if (node.text) return node.text;
-  if (!node.content) return "";
-  return node.content.map(tiptapZuText).join(" ").replace(/\s+/g, " ").trim();
-}
-
-function tiptapZuHtml(json: object | null | undefined): string {
-  if (!json) return "";
-  type N = { type?: string; text?: string; marks?: { type: string }[]; content?: N[]; attrs?: Record<string, unknown> };
-  function r(node: N): string {
-    if (node.type === "text") {
-      let t = (node.text ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      if (node.marks?.some(m => m.type === "bold"))      t = `<strong>${t}</strong>`;
-      if (node.marks?.some(m => m.type === "italic"))    t = `<em>${t}</em>`;
-      if (node.marks?.some(m => m.type === "underline")) t = `<u>${t}</u>`;
-      return t;
-    }
-    if (node.type === "hardBreak") return "<br>";
-    const ch = (node.content ?? []).map(r).join("");
-    switch (node.type) {
-      case "paragraph":   return `<p>${ch}</p>`;
-      case "heading":     return `<h${node.attrs?.level ?? 1}>${ch}</h${node.attrs?.level ?? 1}>`;
-      case "bulletList":  return `<ul>${ch}</ul>`;
-      case "orderedList": return `<ol>${ch}</ol>`;
-      case "listItem":    return `<li>${ch}</li>`;
-      case "blockquote":  return `<blockquote>${ch}</blockquote>`;
-      default:            return ch;
-    }
-  }
-  return r(json as N);
+// PDF direkt im Browser-eigenen Viewer als neuen Tab öffnen statt als Datei
+// zu erzwingen – vermeidet Chromes "nicht sicher"-Downloadwarnung bei HTTP-
+// only-Intranet-Betrieb (kein erzwungener Download = keine Warnung). Der Tab
+// wird synchron geöffnet (noch im User-Klick-Kontext), sonst greift der
+// Popup-Blocker.
+function pdfInTabOeffnen(url: string) {
+  const tab = window.open("", "_blank");
+  const token = localStorage.getItem("brdms_token");
+  fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.blob(); })
+    .then(blob => {
+      const objectUrl = URL.createObjectURL(blob);
+      if (tab) tab.location.href = objectUrl; else window.location.href = objectUrl;
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    })
+    .catch(() => {
+      if (tab) tab.close();
+      alert("PDF konnte nicht geöffnet werden");
+    });
 }
 
 // ── Status-Badges ─────────────────────────────────────────────────
@@ -121,6 +110,15 @@ export default function Sitzungen() {
   const [gewählt, setGewählt]       = useState<Sitzung | null>(null);
   const [neueModal, setNeueModal]   = useState(false);
   const [detailLaden, setDetailLaden] = useState(false);
+  const location = useLocation();
+
+  // Erneuter Klick auf "Sitzungen" in der Sidebar navigiert zur selben Route
+  // (/sitzungen) – React Router vergibt dabei trotzdem einen neuen location.key.
+  // Das nutzen wir, um aus der Detailansicht zurück zur Übersicht zu springen,
+  // statt dass der Klick wirkungslos verpufft.
+  useEffect(() => {
+    setGewählt(null);
+  }, [location.key]);
 
   function listeLaden() {
     setLaden(true);
@@ -143,6 +141,14 @@ export default function Sitzungen() {
       setDetailLaden(false);
     }
   }
+
+  // Direktlink auf eine bestimmte Sitzung (z.B. per E-Mail verschickt als
+  // /sitzungen?id=...) – öffnet die Detailansicht automatisch.
+  useEffect(() => {
+    const id = new URLSearchParams(location.search).get("id");
+    if (id) sitzungOeffnen(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
 
   async function sitzungAktualisieren(id: string) {
     const s = await api.sitzungen.einzel(id);
@@ -431,6 +437,33 @@ function SitzungDetail({
   const [linkModal, setLinkModal]       = useState<{ topId: string; topTitel: string } | null>(null);
   const [spontanModal, setSpontanModal] = useState(false);
   const [bearbeitenModal, setBearbeitenModal] = useState(false);
+  const [linkKopiert, setLinkKopiert] = useState(false);
+
+  async function linkKopieren() {
+    const url = `${window.location.origin}/sitzungen?id=${sitzung.id}`;
+    try {
+      // navigator.clipboard gibt es nur in "sicheren Kontexten" (HTTPS/localhost) –
+      // im HTTP-Intranet-Betrieb fehlt die API schlicht, daher Fallback über die
+      // klassische execCommand-Methode (funktioniert auch über HTTP).
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = url;
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      setLinkKopiert(true);
+      setTimeout(() => setLinkKopiert(false), 2000);
+    } catch {
+      prompt("Konnte nicht automatisch kopiert werden – bitte manuell kopieren:", url);
+    }
+  }
 
   const readonly    = sitzung.status === "PROTOKOLL_FINAL" || sitzung.status === "ABGESAGT";
   const imEntwurf   = sitzung.status === "ENTWURF";
@@ -506,6 +539,14 @@ function SitzungDetail({
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${SITZUNG_BADGE[sitzung.status]}`}>
               {SITZUNG_STATUS_LABEL[sitzung.status]}
             </span>
+            <button
+              onClick={linkKopieren}
+              title="Link zu dieser Sitzung kopieren (z.B. für eine E-Mail) – Empfänger müssen sich einloggen"
+              className="flex items-center gap-1 text-xs text-gray-400 hover:text-[rgb(var(--accent))] border border-gray-200 hover:border-[rgb(var(--accent))] rounded-full px-2 py-0.5 transition-colors"
+            >
+              <Copy size={11} />
+              {linkKopiert ? "Kopiert!" : "Link kopieren"}
+            </button>
             {imEntwurf && (
               <>
                 <button
@@ -557,23 +598,13 @@ function SitzungDetail({
                 <span className="ml-2 inline-flex items-center gap-1">
                   <a
                     href={`${import.meta.env.VITE_API_URL ?? "http://localhost:4000"}/api/sitzungen/${sitzung.id}/pdf/${v.versionNummer}`}
-                    download
                     onClick={e => {
                       e.stopPropagation();
-                      const token = localStorage.getItem("brdms_token");
                       e.preventDefault();
-                      fetch(
-                        `${import.meta.env.VITE_API_URL ?? "http://localhost:4000"}/api/sitzungen/${sitzung.id}/pdf/${v.versionNummer}`,
-                        { headers: { Authorization: `Bearer ${token}` } }
-                      ).then(r => r.blob()).then(blob => {
-                        const a = document.createElement("a");
-                        a.href = URL.createObjectURL(blob);
-                        a.download = `sitzung-v${v.versionNummer}.pdf`;
-                        a.click();
-                      });
+                      pdfInTabOeffnen(`${import.meta.env.VITE_API_URL ?? "http://localhost:4000"}/api/sitzungen/${sitzung.id}/pdf/${v.versionNummer}`);
                     }}
                     className="text-[rgb(var(--accent))] hover:brightness-75"
-                    title="PDF herunterladen"
+                    title="PDF öffnen"
                   >
                     <Download size={11} />
                   </a>
@@ -642,20 +673,12 @@ function SitzungDetail({
             href={api.sitzungen.anwesenheitslisteUrl(sitzung.id)}
             onClick={e => {
               e.preventDefault();
-              const token = localStorage.getItem("brdms_token");
-              fetch(api.sitzungen.anwesenheitslisteUrl(sitzung.id), {
-                headers: { Authorization: `Bearer ${token}` },
-              }).then(r => r.blob()).then(blob => {
-                const a = document.createElement("a");
-                a.href = URL.createObjectURL(blob);
-                a.download = `anwesenheitsliste.pdf`;
-                a.click();
-              });
+              pdfInTabOeffnen(api.sitzungen.anwesenheitslisteUrl(sitzung.id));
             }}
             className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
           >
             <Download size={14} />
-            PDF herunterladen
+            PDF öffnen
           </a>
         </div>
       )}
@@ -696,6 +719,7 @@ function SitzungDetail({
                 key={top.id}
                 top={top}
                 sitzungId={sitzung.id}
+                sitzungsdatum={sitzung.sitzungsdatum}
                 sitzungStatus={sitzung.status}
                 readonly={readonly}
                 imEntwurf={imEntwurf}
@@ -768,201 +792,16 @@ function SitzungDetail({
   );
 }
 
-// ── Aufgabe aus TOP anlegen ───────────────────────────────────────
-function TopAufgabeModal({
-  topTitel, topInhalt, onSchliessen, onErfolg,
-}: { topTitel: string; topInhalt: string; onSchliessen: () => void; onErfolg: () => void }) {
-  const [laden, setLaden]         = useState(false);
-  const [fehler, setFehler]       = useState("");
-  const [erfolg, setErfolg]       = useState(false);
-  const [typ, setTyp]             = useState<"AUFGABE" | "PROJEKT">("AUFGABE");
-  const [titel, setTitel]         = useState(topTitel);
-  const [beschreibung, setBeschreibung] = useState(topInhalt);
-  const [prioritaet, setPrioritaet] = useState("MITTEL");
-  const [faelligAm, setFaelligAm] = useState("");
-  const [startDatum, setStartDatum] = useState("");
-  const [endDatum, setEndDatum]   = useState("");
-  const [zugewiesenAnId, setZugewiesenAnId] = useState("");
-  const [oberProjektId, setOberProjektId]   = useState("");
-  const [mitglieder, setMitglieder]         = useState<{ id: string; name: string }[]>([]);
-  const [zeitraeume, setZeitraeume]         = useState<{ id: string; titel: string }[]>([]);
-
-  useEffect(() => {
-    api.get<{ id: string; name: string }[]>("/api/benutzer").then(setMitglieder).catch(() => {});
-    api.aufgaben.liste().then(a => setZeitraeume(a.filter(x => x.typ === "PROJEKT" && !x.oberProjektId))).catch(() => {});
-  }, []);
-
-  const istZeitraum = typ === "PROJEKT";
-
-  async function speichern(e: FormEvent) {
-    e.preventDefault();
-    if (!titel) return;
-    setFehler("");
-    setLaden(true);
-    try {
-      await api.aufgaben.erstellen({
-        titel,
-        typ,
-        beschreibung:  beschreibung  || undefined,
-        oberProjektId: oberProjektId || undefined,
-        ...(istZeitraum
-          ? {
-              startDatum: startDatum || undefined,
-              endDatum:   endDatum   || undefined,
-            }
-          : {
-              prioritaet:     prioritaet as "HOCH" | "MITTEL" | "NIEDRIG",
-              faelligAm:      faelligAm || undefined,
-              zugewiesenAnId: zugewiesenAnId || undefined,
-            }
-        ),
-      });
-      setErfolg(true);
-      setTimeout(onErfolg, 1200);
-    } catch (err) {
-      setFehler(err instanceof Error ? err.message : "Fehler");
-    } finally {
-      setLaden(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900">Aus TOP übernehmen</h2>
-          <button onClick={onSchliessen} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
-        </div>
-        {erfolg ? (
-          <div className="px-6 py-8 text-center text-emerald-600 font-medium">
-            <CheckSquare size={32} className="mx-auto mb-2" />
-            {istZeitraum ? "Zeitraum wurde erstellt." : "Aufgabe wurde erstellt."}
-          </div>
-        ) : (
-          <form onSubmit={speichern} className="px-6 py-4 space-y-4">
-            {/* Typ-Toggle */}
-            <div className="flex rounded-lg border border-gray-200 overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setTyp("AUFGABE")}
-                className={`flex-1 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
-                  typ === "AUFGABE"
-                    ? "bg-[rgb(var(--accent))] text-white"
-                    : "bg-white text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                <CheckSquare size={14} /> Aufgabe
-              </button>
-              <button
-                type="button"
-                onClick={() => setTyp("PROJEKT")}
-                className={`flex-1 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
-                  typ === "PROJEKT"
-                    ? "bg-[rgb(var(--accent))] text-white"
-                    : "bg-white text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                <Folder size={14} /> Zeitraum
-              </button>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Titel *</label>
-              <input value={titel} onChange={e => setTitel(e.target.value)} required
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Beschreibung</label>
-              <textarea value={beschreibung} onChange={e => setBeschreibung(e.target.value)} rows={3}
-                placeholder="Optional"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
-            </div>
-
-            {/* Übergeordneter Zeitraum */}
-            {zeitraeume.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {istZeitraum ? "Übergeordneter Zeitraum" : "Gehört zu Zeitraum"}
-                </label>
-                <select value={oberProjektId} onChange={e => setOberProjektId(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
-                  <option value="">– keiner –</option>
-                  {zeitraeume.map(z => <option key={z.id} value={z.id}>{z.titel}</option>)}
-                </select>
-              </div>
-            )}
-
-            {/* Felder je nach Typ */}
-            {istZeitraum ? (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Von</label>
-                  <input type="date" value={startDatum} onChange={e => setStartDatum(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Bis</label>
-                  <input type="date" value={endDatum} onChange={e => setEndDatum(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Priorität</label>
-                    <select value={prioritaet} onChange={e => setPrioritaet(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
-                      <option value="HOCH">Hoch</option>
-                      <option value="MITTEL">Mittel</option>
-                      <option value="NIEDRIG">Niedrig</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Fällig am</label>
-                    <input type="date" value={faelligAm} onChange={e => setFaelligAm(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
-                  </div>
-                </div>
-                {mitglieder.length > 0 && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Zuweisen an</label>
-                    <select value={zugewiesenAnId} onChange={e => setZugewiesenAnId(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
-                      <option value="">Niemanden zuweisen</option>
-                      {mitglieder.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                    </select>
-                  </div>
-                )}
-              </>
-            )}
-
-            {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
-            <div className="flex gap-3 pt-2">
-              <button type="button" onClick={onSchliessen}
-                className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Abbrechen</button>
-              <button type="submit" disabled={laden}
-                className="flex-1 px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-lg flex items-center justify-center gap-2">
-                {laden && <Loader2 size={14} className="animate-spin" />}
-                {istZeitraum ? "Zeitraum erstellen" : "Aufgabe erstellen"}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ── TOP-Zeile ─────────────────────────────────────────────────────
 function TopZeile({
-  top, sitzungId, sitzungStatus, readonly, imEntwurf, imProtokoll,
+  top, sitzungId, sitzungsdatum, sitzungStatus, readonly, imEntwurf, imProtokoll,
   istErster, istLetzter,
   onBearbeiten, onLoeschen, onVerschiebenHoch, onVerschiebenRunter,
   onDokumentVerknuepfen, onDokumentEntknuepfen, onAktualisieren,
 }: {
   top: TOP;
   sitzungId: string;
+  sitzungsdatum: string;
   sitzungStatus: SitzungStatus;
   readonly: boolean;
   imEntwurf: boolean;
@@ -991,8 +830,24 @@ function TopZeile({
     if (!inhaltGeaendert) setInhaltJson(top.inhaltsJson ?? null);
   }, [top.aktualisiertAm]); // eslint-disable-line react-hooks/exhaustive-deps
   const [kommentareOffen, setKommentareOffen]   = useState(false);
+  const [kommentarAnzahl, setKommentarAnzahl]   = useState(top._count?.kommentare ?? 0);
   const [extraktModal, setExtraktModal]         = useState(false);
   const [aufgabeModal, setAufgabeModal]         = useState(false);
+  const [gehaltModal, setGehaltModal]           = useState(false);
+  const [mehrOffen, setMehrOffen]               = useState(false);
+  const mehrRef = useRef<HTMLDivElement>(null);
+
+  // Mehr-Menü bei Klick außerhalb schließen
+  useEffect(() => {
+    if (!mehrOffen) return;
+    function handleClick(e: MouseEvent) {
+      if (mehrRef.current && !mehrRef.current.contains(e.target as Node)) {
+        setMehrOffen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [mehrOffen]);
 
   async function ergebnisSpeichern() {
     setSpeichern(true);
@@ -1036,6 +891,14 @@ function TopZeile({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-medium text-gray-900 text-sm">{top.titel}</p>
+            {top.vertraulich && (
+              <span
+                title="Vertraulich – für JAV-Zugang ausgeblendet"
+                className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600"
+              >
+                <Lock size={10} /> Vertraulich
+              </span>
+            )}
             {top.spontan && (
               <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
                 <Zap size={10} /> Spontan
@@ -1079,8 +942,10 @@ function TopZeile({
             </div>
           )}
 
-          {/* Beschlüsse (Abstimmungsmatrix, nur in Protokoll-Phase) */}
-          {imProtokoll && (
+          {/* Beschlüsse (Abstimmungsmatrix) – auch nach dem Finalisieren sichtbar,
+              nur eben schreibgeschützt. Vorher verschwand der ganze Block, sobald
+              die Sitzung PROTOKOLL_FINAL erreichte. */}
+          {(imProtokoll || sitzungStatus === "PROTOKOLL_FINAL") && (
             <BeschlussBlock
               topId={top.id}
               sitzungId={sitzungId}
@@ -1123,57 +988,69 @@ function TopZeile({
           {/* Verknüpfte Dokumente */}
           {top.dokumente.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {top.dokumente.map(td => (
-                <div key={td.id} className="flex items-center gap-1 bg-blue-50 border border-blue-100 rounded-lg px-2 py-1 text-xs text-blue-700">
-                  <FileText size={11} />
-                  <span className="max-w-[160px] truncate" title={td.dokument.titel}>
-                    {td.dokument.titel}
-                  </span>
-                  <span className="text-blue-400 ml-0.5">({KATEGORIE_LABEL[td.dokument.kategorie]})</span>
-                  <button
-                    title="Dokument öffnen"
-                    onClick={() => {
-                      const token = localStorage.getItem("brdms_token");
-                      fetch(api.dokumente.downloadUrl(td.dokument.id), {
-                        headers: token ? { Authorization: `Bearer ${token}` } : {},
-                      })
-                        .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.blob(); })
-                        .then(blob => {
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement("a");
-                          a.href = url;
-                          const isPdf = td.dokument.dateiname.toLowerCase().endsWith(".pdf");
-                          if (isPdf) {
-                            a.target = "_blank";
-                          } else {
-                            a.download = td.dokument.dateiname;
-                          }
-                          document.body.appendChild(a);
-                          a.click();
-                          document.body.removeChild(a);
-                          setTimeout(() => URL.revokeObjectURL(url), 60_000);
-                        })
-                        .catch(err => alert(`Fehler beim Öffnen: ${err}`));
-                    }}
-                    className="ml-1 text-blue-400 hover:text-blue-700"
+              {top.dokumente.map(td => {
+                function dokumentOeffnen() {
+                  const token = localStorage.getItem("brdms_token");
+                  fetch(api.dokumente.downloadUrl(td.dokument.id), {
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                  })
+                    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.blob(); })
+                    .then(blob => {
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      const isPdf = td.dokument.dateiname.toLowerCase().endsWith(".pdf");
+                      if (isPdf) {
+                        a.target = "_blank";
+                      } else {
+                        a.download = td.dokument.dateiname;
+                      }
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                    })
+                    .catch(err => alert(`Fehler beim Öffnen: ${err}`));
+                }
+
+                return (
+                  <div
+                    key={td.id}
+                    onDoubleClick={dokumentOeffnen}
+                    title="Doppelklick zum Öffnen"
+                    className="flex items-center gap-1 bg-blue-50 border border-blue-100 rounded-lg pl-2 pr-1 py-1 text-xs text-blue-700 cursor-pointer hover:border-blue-300"
                   >
-                    <Eye size={10} />
-                  </button>
-                  {!readonly && (
+                    <FileText size={11} />
+                    <span className="max-w-[160px] truncate" title={td.dokument.alias ?? td.dokument.titel}>
+                      {td.dokument.alias ?? td.dokument.titel}
+                    </span>
+                    <span className="text-blue-400 ml-0.5">({KATEGORIE_LABEL[td.dokument.kategorie]})</span>
                     <button
-                      onClick={() => {
-                        if (confirm(`Verknüpfung mit „${td.dokument.titel}" wirklich trennen?`)) {
-                          onDokumentEntknuepfen(td.dokument.id);
-                        }
-                      }}
-                      title="Verknüpfung trennen"
-                      className="text-blue-200 hover:text-red-500 ml-2"
+                      title="Dokument öffnen"
+                      onClick={dokumentOeffnen}
+                      className="p-1 ml-1 text-blue-400 hover:text-blue-700 hover:bg-blue-100 rounded"
                     >
-                      <Unlink size={10} />
+                      <Eye size={13} />
                     </button>
-                  )}
-                </div>
-              ))}
+                    {!readonly && (imEntwurf || top.spontan) && (
+                      <>
+                        <span className="w-px h-3.5 bg-blue-200 mx-0.5" />
+                        <button
+                          onClick={() => {
+                            if (confirm(`Verknüpfung mit „${td.dokument.titel}" wirklich trennen?`)) {
+                              onDokumentEntknuepfen(td.dokument.id);
+                            }
+                          }}
+                          title="Verknüpfung trennen"
+                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                        >
+                          <Unlink size={13} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -1200,84 +1077,103 @@ function TopZeile({
               </button>
             </>
           )}
+
+          {/* Die 3 meistgenutzten Aktionen: beschriftet und immer sichtbar */}
           <button
             onClick={() => setKommentareOffen(o => !o)}
-            title="Kommentare"
-            className={`p-1.5 rounded transition-colors ${kommentareOffen ? "text-purple-600 bg-purple-50" : "text-gray-400 hover:text-purple-600 hover:bg-purple-50"}`}
+            title={kommentarAnzahl > 0 ? `${kommentarAnzahl} Kommentar(e)` : "Kommentare"}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${kommentareOffen ? "text-purple-600 bg-purple-50" : "text-gray-500 hover:text-purple-600 hover:bg-purple-50"}`}
           >
-            <MessageSquare size={15} />
+            <MessageSquare size={14} /> Kommentar
+            {kommentarAnzahl > 0 && (
+              <span className={`text-[10px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center ${kommentareOffen ? "bg-purple-600 text-white" : "bg-purple-100 text-purple-700"}`}>
+                {kommentarAnzahl}
+              </span>
+            )}
           </button>
           {!readonly && (
             <button
               onClick={() => setAufgabeModal(true)}
               title="Als Aufgabe anlegen"
-              className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
             >
-              <CheckSquare size={15} />
+              <CheckSquare size={14} /> Als Aufgabe
             </button>
           )}
-          <button
-            onClick={() => setExtraktModal(true)}
-            title="Ins Wissensarchiv extrahieren"
-            className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded transition-colors"
-          >
-            <BookmarkPlus size={15} />
-          </button>
           {imProtokoll && !ergebnisOffen && (
             <button
               onClick={() => setErgebnisOffen(true)}
               title="Ergebnis / Beschluss eintragen"
-              className="p-1.5 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium text-gray-500 hover:text-orange-600 hover:bg-orange-50 transition-colors"
             >
-              <ClipboardList size={15} />
+              <ClipboardList size={14} /> Beschluss
             </button>
           )}
-          {(imProtokoll || readonly) && (
+
+          {/* Seltener genutzte Aktionen: hinter Mehr-Menü */}
+          <div className="relative" ref={mehrRef}>
             <button
-              onClick={() => {
-                const token = localStorage.getItem("brdms_token");
-                fetch(api.sitzungen.topAuszugUrl(sitzungId, top.id), {
-                  headers: { Authorization: `Bearer ${token}` },
-                }).then(r => r.blob()).then(blob => {
-                  const a = document.createElement("a");
-                  a.href = URL.createObjectURL(blob);
-                  a.download = `auszug-top${top.nummer}.pdf`;
-                  a.click();
-                }).catch(() => alert("PDF konnte nicht erstellt werden"));
-              }}
-              title="Auszug als PDF (ohne Stimmdetails)"
-              className="p-1.5 text-gray-400 hover:text-green-700 hover:bg-green-50 rounded transition-colors"
+              onClick={() => setMehrOffen(o => !o)}
+              title="Weitere Aktionen"
+              className={`p-1.5 rounded transition-colors ${mehrOffen ? "text-gray-700 bg-gray-100" : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"}`}
             >
-              <Download size={15} />
+              <MoreHorizontal size={15} />
             </button>
-          )}
-          {!readonly && (
-            <button
-              onClick={onDokumentVerknuepfen}
-              title="Dokument verknüpfen"
-              className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded transition-colors"
-            >
-              <Link size={15} />
-            </button>
-          )}
-          {imEntwurf && (
-            <>
-              <button
-                onClick={onBearbeiten}
-                title="Bearbeiten"
-                className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded transition-colors"
-              >
-                <FileText size={15} />
-              </button>
-              <button
-                onClick={onLoeschen}
-                title="Löschen"
-                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-              >
-                <Trash2 size={15} />
-              </button>
-            </>
-          )}
+            {mehrOffen && (
+              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 min-w-[200px]">
+                {!readonly && (
+                  <button
+                    onClick={() => { setGehaltModal(true); setMehrOffen(false); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 text-left"
+                  >
+                    <Wallet size={14} className="text-amber-500" /> In Gehaltstabelle übertragen
+                  </button>
+                )}
+                <button
+                  onClick={() => { setExtraktModal(true); setMehrOffen(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 text-left"
+                >
+                  <BookmarkPlus size={14} className="text-[rgb(var(--accent))]" /> Ins Wissensarchiv extrahieren
+                </button>
+                {(imProtokoll || readonly) && (
+                  <button
+                    onClick={() => {
+                      setMehrOffen(false);
+                      pdfInTabOeffnen(api.sitzungen.topAuszugUrl(sitzungId, top.id));
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 text-left"
+                  >
+                    <Download size={14} className="text-green-600" /> Auszug als PDF
+                  </button>
+                )}
+                {!readonly && (imEntwurf || top.spontan) && (
+                  <button
+                    onClick={() => { onDokumentVerknuepfen(); setMehrOffen(false); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 text-left"
+                  >
+                    <Link size={14} className="text-[rgb(var(--accent))]" /> Dokument verknüpfen
+                  </button>
+                )}
+                {imEntwurf && (
+                  <>
+                    <button
+                      onClick={() => { onBearbeiten(); setMehrOffen(false); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 text-left"
+                    >
+                      <FileText size={14} className="text-[rgb(var(--accent))]" /> Bearbeiten
+                    </button>
+                    <div className="h-px bg-gray-100 my-1" />
+                    <button
+                      onClick={() => { onLoeschen(); setMehrOffen(false); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 text-left"
+                    >
+                      <Trash2 size={14} /> Löschen
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1289,6 +1185,7 @@ function TopZeile({
             ladeUrl={`/api/tops/${top.id}/kommentare`}
             erstellenUrl={`/api/tops/${top.id}/kommentare`}
             loeschenUrl={kid => `/api/tops/${top.id}/kommentare/${kid}`}
+            onAnzahlAendert={setKommentarAnzahl}
           />
         </div>
       )}
@@ -1302,14 +1199,235 @@ function TopZeile({
         onSchliessen={() => setExtraktModal(false)}
       />
       {aufgabeModal && (
-        <TopAufgabeModal
-          topTitel={top.titel}
-          topInhalt={top.inhaltsJson ? tiptapZuText(top.inhaltsJson as object) : (top.inhalt ?? "")}
+        <AufgabeUebernehmenModal
+          headerTitel="Aus TOP übernehmen"
+          titelVorschlag={top.titel}
+          beschreibungVorschlag={top.inhaltsJson ? tiptapZuText(top.inhaltsJson as object) : (top.inhalt ?? "")}
           onSchliessen={() => setAufgabeModal(false)}
           onErfolg={() => setAufgabeModal(false)}
         />
       )}
+      {gehaltModal && (
+        <TopGehaltModal
+          sitzungId={sitzungId}
+          sitzungsdatum={sitzungsdatum}
+          onSchliessen={() => setGehaltModal(false)}
+          onErfolg={() => setGehaltModal(false)}
+        />
+      )}
 
+    </div>
+  );
+}
+
+// ── Gehaltsstufe aus TOP in die Gehaltstabelle übertragen ─────────
+function TopGehaltModal({
+  sitzungId, sitzungsdatum, onSchliessen, onErfolg,
+}: { sitzungId: string; sitzungsdatum: string; onSchliessen: () => void; onErfolg: () => void }) {
+  const [mitarbeiterListe, setMitarbeiterListe] = useState<Mitarbeiter[]>([]);
+  const [abteilungen, setAbteilungen]           = useState<Abteilung[]>([]);
+  const [neuerMitarbeiter, setNeuerMitarbeiter] = useState(false);
+  const [mitarbeiterId, setMitarbeiterId]       = useState("");
+  const [vorname, setVorname]                   = useState("");
+  const [nachname, setNachname]                 = useState("");
+  const [pnr, setPnr]                           = useState("");
+  const [eintritt, setEintritt]                 = useState("");
+  const [austritt, setAustritt]                 = useState("");
+  const [abteilungId, setAbteilungId]           = useState("");
+  const [stufe, setStufe]                       = useState("");
+  const [gueltigAb, setGueltigAb]               = useState(sitzungsdatum?.slice(0, 10) ?? new Date().toISOString().slice(0, 10));
+  const [bemerkung, setBemerkung]               = useState("");
+  const [laden, setLaden]                       = useState(false);
+  const [fehler, setFehler]                     = useState("");
+  const [erfolg, setErfolg]                     = useState(false);
+
+  useEffect(() => {
+    api.mitarbeiter.liste().then(setMitarbeiterListe).catch(() => {});
+    api.abteilungen.liste().then(setAbteilungen).catch(() => {});
+  }, []);
+
+  async function speichern(e: FormEvent) {
+    e.preventDefault();
+    setFehler("");
+    setLaden(true);
+    try {
+      let zielMitarbeiterId = mitarbeiterId;
+
+      if (neuerMitarbeiter) {
+        if (!vorname.trim() || !nachname.trim()) {
+          setFehler("Vor- und Nachname sind Pflicht");
+          setLaden(false);
+          return;
+        }
+        const m = await api.mitarbeiter.erstellen({
+          vorname, nachname,
+          abteilungId: abteilungId || undefined,
+          pnr:         pnr.trim() || undefined,
+          eintritt:    eintritt || undefined,
+          austritt:    austritt || undefined,
+        });
+        zielMitarbeiterId = m.id;
+      }
+
+      if (!zielMitarbeiterId) {
+        setFehler("Bitte einen Mitarbeiter auswählen");
+        setLaden(false);
+        return;
+      }
+      if (!stufe.trim()) {
+        setFehler("Gehaltsstufe ist ein Pflichtfeld");
+        setLaden(false);
+        return;
+      }
+
+      await api.gehaltstabelle.erstellen({
+        mitarbeiterId: zielMitarbeiterId,
+        stufe:         stufe.trim(),
+        gueltigAb,
+        bemerkung:     bemerkung || undefined,
+        sitzungId,
+      });
+      setErfolg(true);
+      setTimeout(onErfolg, 1200);
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="font-semibold text-gray-900">In Gehaltstabelle übertragen</h2>
+          <button onClick={onSchliessen} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>
+        {erfolg ? (
+          <div className="px-6 py-8 text-center text-emerald-600 font-medium">
+            <Wallet size={32} className="mx-auto mb-2" />
+            Eintrag wurde in die Gehaltstabelle übernommen.
+          </div>
+        ) : (
+          <form onSubmit={speichern} className="px-6 py-4 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Mitarbeiter *</label>
+              {!neuerMitarbeiter ? (
+                <div className="flex gap-2">
+                  <select
+                    value={mitarbeiterId}
+                    onChange={e => setMitarbeiterId(e.target.value)}
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  >
+                    <option value="">– auswählen –</option>
+                    {mitarbeiterListe.map(m => (
+                      <option key={m.id} value={m.id}>{m.nachname}, {m.vorname}{m.abteilung ? ` (${m.abteilung.name})` : ""}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setNeuerMitarbeiter(true)}
+                    className="px-3 py-2 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600 whitespace-nowrap"
+                  >
+                    + neuer Mitarbeiter
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50">
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text" placeholder="Vorname" value={vorname} autoFocus
+                      onChange={e => setVorname(e.target.value)}
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    />
+                    <input
+                      type="text" placeholder="Nachname" value={nachname}
+                      onChange={e => setNachname(e.target.value)}
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text" placeholder="PNR (optional)" value={pnr}
+                      onChange={e => setPnr(e.target.value)}
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    />
+                    <input
+                      type="date" placeholder="Eintritt" value={eintritt}
+                      onChange={e => setEintritt(e.target.value)}
+                      title="Eintrittsdatum (optional)"
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="date" placeholder="Austritt" value={austritt}
+                      onChange={e => setAustritt(e.target.value)}
+                      title="Austrittsdatum (optional)"
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    />
+                  </div>
+                  <select
+                    value={abteilungId}
+                    onChange={e => setAbteilungId(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  >
+                    <option value="">Abteilung (optional)</option>
+                    {abteilungen.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setNeuerMitarbeiter(false)}
+                    className="text-xs text-gray-500 hover:text-gray-700"
+                  >
+                    Zurück zur Auswahl
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Gehaltsstufe *</label>
+              <input
+                type="text" required value={stufe}
+                onChange={e => setStufe(e.target.value)}
+                placeholder="z.B. B3.3"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Gültig ab *</label>
+              <input
+                type="date" required value={gueltigAb}
+                onChange={e => setGueltigAb(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Bemerkung</label>
+              <input
+                type="text" value={bemerkung}
+                onChange={e => setBemerkung(e.target.value)}
+                placeholder="Optional"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              />
+            </div>
+
+            {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={onSchliessen}
+                className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Abbrechen</button>
+              <button type="submit" disabled={laden}
+                className="flex-1 px-4 py-2 text-sm bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white rounded-lg flex items-center justify-center gap-2">
+                {laden && <Loader2 size={14} className="animate-spin" />}
+                Übertragen
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
     </div>
   );
 }
@@ -1321,6 +1439,7 @@ function TopModal({
   const [fehler, setFehler]     = useState("");
   const [titel, setTitel]       = useState(top?.titel ?? "");
   const [inhaltJson, setInhaltJson] = useState<object | null>(top?.inhaltsJson ?? null);
+  const [vertraulich, setVertraulich] = useState(top?.vertraulich ?? false);
 
   async function speichern(e: FormEvent) {
     e.preventDefault();
@@ -1332,6 +1451,7 @@ function TopModal({
         titel,
         inhalt: tiptapZuText(inhaltJson) || undefined,
         inhaltsJson: inhaltJson ?? undefined,
+        vertraulich,
       };
       if (top) {
         await api.sitzungen.topAktualisieren(sitzungId, top.id, payload);
@@ -1369,6 +1489,15 @@ function TopModal({
               minHeight="140px"
             />
           </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={vertraulich}
+              onChange={e => setVertraulich(e.target.checked)}
+              className="rounded border-gray-300 text-[rgb(var(--accent))]"
+            />
+            <span className="text-sm text-gray-700">Vertraulich (für JAV-Zugang ausgeblendet)</span>
+          </label>
           {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onSchliessen} className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Abbrechen</button>
@@ -1500,107 +1629,17 @@ function ExtraktModal({
 
 // ── Kommentare Section ────────────────────────────────────────────
 function KommentareSection({ sitzungId }: { sitzungId: string }) {
-  const [kommentare, setKommentare] = useState<Kommentar[]>([]);
-  const [neuerKommentar, setNeuerKommentar] = useState("");
-  const [laded, setLaded] = useState(true);
-  const [senden, setSenden] = useState(false);
-
-  useEffect(() => {
-    ladeKommentare();
-  }, [sitzungId]);
-
-  async function ladeKommentare() {
-    setLaded(true);
-    try {
-      const data = await api.get<Kommentar[]>(`/api/sitzungen/${sitzungId}/kommentare`);
-      setKommentare(data);
-    } catch (err) {
-      console.error("Fehler beim Laden:", err);
-    } finally {
-      setLaded(false);
-    }
-  }
-
-  async function hinzufügen(e: FormEvent) {
-    e.preventDefault();
-    if (!neuerKommentar.trim()) return;
-    setSenden(true);
-    try {
-      const k = await api.post<Kommentar>(`/api/sitzungen/${sitzungId}/kommentare`, { inhalt: neuerKommentar });
-      setKommentare([...kommentare, k]);
-      setNeuerKommentar("");
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Fehler");
-    } finally {
-      setSenden(false);
-    }
-  }
-
-  async function löschen(id: string) {
-    if (!confirm("Kommentar wirklich löschen?")) return;
-    try {
-      await api.delete(`/api/sitzungen/${sitzungId}/kommentare/${id}`);
-      setKommentare(kommentare.filter(k => k.id !== id));
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Fehler");
-    }
-  }
-
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mt-5">
       <div className="flex items-center gap-2 mb-3">
         <MessageSquare size={18} className="text-gray-500" />
-        <h2 className="font-semibold text-gray-800 text-sm">Kommentare ({kommentare.length})</h2>
+        <h2 className="font-semibold text-gray-800 text-sm">Kommentare</h2>
       </div>
-
-      {/* Eingabe */}
-      <form onSubmit={hinzufügen} className="mb-4 flex gap-2">
-        <input
-          value={neuerKommentar}
-          onChange={e => setNeuerKommentar(e.target.value)}
-          placeholder="Kommentar hinzufügen..."
-          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
-        />
-        <button
-          type="submit"
-          disabled={senden || !neuerKommentar.trim()}
-          className="flex items-center gap-1 bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-50 text-white text-sm px-4 py-2 rounded-lg"
-        >
-          {senden ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-          Senden
-        </button>
-      </form>
-
-      {/* Liste */}
-      {laded ? (
-        <div className="flex items-center justify-center h-20 text-gray-400 text-sm">
-          <Loader2 className="animate-spin mr-2" size={16} /> Laden...
-        </div>
-      ) : kommentare.length === 0 ? (
-        <p className="text-gray-400 text-sm text-center py-4">Noch keine Kommentare</p>
-      ) : (
-        <div className="space-y-2">
-          {kommentare.map(k => (
-            <div key={k.id} className="bg-gray-50 rounded-lg p-3 border border-gray-100">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1">
-                  <p className="text-sm text-gray-800 whitespace-pre-wrap">{k.inhalt}</p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {k.autor.name} · {new Date(k.erstelltAm).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
-                  </p>
-                </div>
-                <button
-                  onClick={() => löschen(k.id)}
-                  className="text-gray-400 hover:text-red-600 p-1"
-                  title="Löschen"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <KommentarBlock
+        ladeUrl={`/api/sitzungen/${sitzungId}/kommentare`}
+        erstellenUrl={`/api/sitzungen/${sitzungId}/kommentare`}
+        loeschenUrl={kid => `/api/sitzungen/${sitzungId}/kommentare/${kid}`}
+      />
     </div>
   );
 }

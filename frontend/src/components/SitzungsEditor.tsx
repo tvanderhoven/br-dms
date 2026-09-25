@@ -104,25 +104,29 @@ export default function SitzungsEditor({
       const tab = window.open("", "_blank");
 
       const token = localStorage.getItem("brdms_token");
-      fetch(api.dokumente.vorschauUrl(dokumentId), {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-        .then(res => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          return res.blob();
-        })
+      const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+      fetch(api.dokumente.vorschauUrl(dokumentId), { headers: authHeader })
+        .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.blob(); })
         .then(blob => {
           const url = URL.createObjectURL(blob);
-          if (tab) {
-            tab.location.href = url;
-          } else {
-            window.location.href = url;
-          }
+          if (tab) tab.location.href = url; else window.location.href = url;
           setTimeout(() => URL.revokeObjectURL(url), 60_000);
         })
         .catch(() => {
-          if (tab) tab.close();
-          window.open(api.dokumente.downloadUrl(dokumentId), "_blank");
+          // Vorschau nicht möglich (z.B. kein PDF) – Download stattdessen authentifiziert laden.
+          // Wichtig: auch hier den Auth-Header mitschicken, sonst 401 statt Datei.
+          fetch(api.dokumente.downloadUrl(dokumentId), { headers: authHeader })
+            .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.blob(); })
+            .then(blob => {
+              const url = URL.createObjectURL(blob);
+              if (tab) tab.location.href = url; else window.location.href = url;
+              setTimeout(() => URL.revokeObjectURL(url), 60_000);
+            })
+            .catch(() => {
+              if (tab) tab.close();
+              alert("Dokument konnte nicht geöffnet werden");
+            });
         });
     }
 
@@ -333,7 +337,7 @@ function DokumentPickerModal({
 
   const gefiltert = dokumente.filter(d =>
     suche === "" ||
-    d.titel.toLowerCase().includes(suche.toLowerCase()) ||
+    (d.alias ?? d.titel).toLowerCase().includes(suche.toLowerCase()) ||
     d.aktenzeichen?.toLowerCase().includes(suche.toLowerCase())
   );
 
@@ -372,11 +376,11 @@ function DokumentPickerModal({
                 <button
                   key={d.id}
                   type="button"
-                  onClick={() => onEinfuegen({ dokumentId: d.id, titel: d.titel, kategorie: d.kategorie })}
+                  onClick={() => onEinfuegen({ dokumentId: d.id, titel: d.alias ?? d.titel, kategorie: d.kategorie })}
                   className="w-full flex items-start gap-3 px-4 py-2.5 text-left hover:bg-blue-50 border-b border-gray-50 last:border-0 transition-colors"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{d.titel}</p>
+                    <p className="text-sm font-medium text-gray-900 truncate">{d.alias ?? d.titel}</p>
                     <p className="text-xs text-gray-400">
                       {KATEGORIE_LABEL[d.kategorie]}
                       {d.aktenzeichen && ` · Az.: ${d.aktenzeichen}`}

@@ -39,6 +39,10 @@ export interface PipelineOptionen {
     aktenzeichen?: string;
     vertraulich?: boolean;
     inboxQuelle?: string;
+    // Nur relevant bei kategorie=ANHOERUNG_102: legt fest, welche der beiden
+    // Fristen erzeugt wird (7 Tage ordentlich vs. 3 Tage außerordentlich).
+    // Ohne Angabe werden sicherheitshalber beide angelegt (z.B. Watchfolder).
+    kuendigungsArt?: "ORDENTLICH" | "AUSSERORDENTLICH";
   };
 }
 
@@ -124,7 +128,7 @@ export async function verarbeiteDokument(opts: PipelineOptionen) {
     },
   });
 
-  await fristenAnlegen(docId, kategorie);
+  await fristenAnlegen(docId, kategorie, metadata.kuendigungsArt);
 
   await prisma.auditLog.create({
     data: {
@@ -156,7 +160,11 @@ export async function verarbeiteDokument(opts: PipelineOptionen) {
   return dokument;
 }
 
-async function fristenAnlegen(dokumentId: string, kategorie: Kategorie): Promise<void> {
+async function fristenAnlegen(
+  dokumentId: string,
+  kategorie: Kategorie,
+  kuendigungsArt?: "ORDENTLICH" | "AUSSERORDENTLICH",
+): Promise<void> {
   const jetzt = new Date();
   const fristen: Array<{ typ: string; tage: number }> = [];
 
@@ -165,8 +173,16 @@ async function fristenAnlegen(dokumentId: string, kategorie: Kategorie): Promise
     fristen.push({ typ: "WIDERSPRUCH", tage: 7 });
   }
   if (kategorie === Kategorie.ANHOERUNG_102) {
-    fristen.push({ typ: "ANHOERUNG_102_ORDENTLICH", tage: 7 });
-    fristen.push({ typ: "ANHOERUNG_102_AUSSERORDENTLICH", tage: 3 });
+    if (kuendigungsArt === "AUSSERORDENTLICH") {
+      fristen.push({ typ: "ANHOERUNG_102_AUSSERORDENTLICH", tage: 3 });
+    } else if (kuendigungsArt === "ORDENTLICH") {
+      fristen.push({ typ: "ANHOERUNG_102_ORDENTLICH", tage: 7 });
+    } else {
+      // Keine Angabe (z.B. automatischer Watchfolder-Import ohne manuelle
+      // Klassifizierung) – sicherheitshalber beide Fristen anlegen.
+      fristen.push({ typ: "ANHOERUNG_102_ORDENTLICH", tage: 7 });
+      fristen.push({ typ: "ANHOERUNG_102_AUSSERORDENTLICH", tage: 3 });
+    }
   }
   if (kategorie === Kategorie.ZEITMODELL_87) {
     fristen.push({ typ: "ZEITMODELL_87_WOCHE", tage: 7 });

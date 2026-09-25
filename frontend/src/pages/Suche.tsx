@@ -1,10 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Search, FileText, CalendarDays, CheckSquare, BookOpen, Globe, ExternalLink } from "lucide-react";
+import { Search, FileText, CalendarDays, CheckSquare, BookOpen, Globe, ExternalLink, Scale, GraduationCap, Users, Gavel } from "lucide-react";
 import {
   api, SuchErgebnis, KATEGORIE_LABEL, SITZUNG_STATUS_LABEL,
   RESSOURCE_KATEGORIE_LABEL, RESSOURCE_KATEGORIE_FARBE, formatDatum,
+  GesetzParagraph,
 } from "../lib/api";
+import GesetzModal from "../components/GesetzModal";
+
+const BV_STATUS_LABEL: Record<string, string> = {
+  AKTIV: "Aktiv", GEKUENDIGT: "Gekündigt", ABGELOEST: "Abgelöst", BEFRISTET_AUSGELAUFEN: "Befristet ausgelaufen",
+};
+const SCHULUNG_STATUS_LABEL: Record<string, string> = {
+  GEPLANT: "Geplant", ABSOLVIERT: "Absolviert", ABGESAGT: "Abgesagt",
+};
 
 const PRIORITAET_STYLE: Record<string, string> = {
   HOCH:    "bg-red-100 text-red-700",
@@ -39,6 +48,13 @@ export default function Suche() {
   const [ergebnisse, setErgebnisse] = useState<SuchErgebnis | null>(null);
   const [laden, setLaden] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [gesetzModal, setGesetzModal] = useState<GesetzParagraph | null>(null);
+  const [gesetzLaden, setGesetzLaden] = useState(false);
+
+  function gesetzOeffnen(id: string) {
+    setGesetzLaden(true);
+    api.gesetze.einzel(id).then(setGesetzModal).finally(() => setGesetzLaden(false));
+  }
 
   const suche = useCallback((q: string) => {
     if (q.trim().length < 2) { setErgebnisse(null); return; }
@@ -77,7 +93,11 @@ export default function Suche() {
     (ergebnisse?.sitzungen.length ?? 0) +
     (ergebnisse?.aufgaben?.length ?? 0) +
     (ergebnisse?.wissen?.length ?? 0) +
-    (ergebnisse?.ressourcen?.length ?? 0);
+    (ergebnisse?.ressourcen?.length ?? 0) +
+    (ergebnisse?.betriebsvereinbarungen?.length ?? 0) +
+    (ergebnisse?.schulungen?.length ?? 0) +
+    (ergebnisse?.mitarbeiter?.length ?? 0) +
+    (ergebnisse?.gesetze?.length ?? 0);
 
   const aktuellerBegriff = searchParams.get("q") ?? "";
 
@@ -122,7 +142,7 @@ export default function Suche() {
         <div className="text-center py-16 text-gray-300 dark:text-gray-600">
           <Search className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <p className="text-sm">Mindestens 2 Zeichen eingeben</p>
-          <p className="text-xs mt-1">Durchsucht Dokumente, Aufgaben, Sitzungen, Wissensarchiv & Ressourcen</p>
+          <p className="text-xs mt-1">Durchsucht Dokumente, Aufgaben, Sitzungen, Wissensarchiv, Ressourcen, Betriebsvereinbarungen, Schulungen, Mitarbeiter & Gesetzestexte</p>
         </div>
       )}
 
@@ -188,7 +208,11 @@ export default function Suche() {
                 {ergebnisse.aufgaben!.map(auf => (
                   <button
                     key={auf.id}
-                    onClick={() => navigate("/aufgaben")}
+                    onClick={() => navigate(
+                      auf.kanbanStatus ? "/themen-backlog"
+                      : (auf.typ === "PROJEKT" || auf.oberProjektId) ? "/zeitraeume"
+                      : "/aufgaben"
+                    )}
                     className="w-full text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 hover:border-[rgb(var(--accent)/0.4)] hover:shadow-sm transition-all"
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -317,7 +341,125 @@ export default function Suche() {
             </section>
           )}
 
+          {/* ── Betriebsvereinbarungen ── */}
+          {(ergebnisse.betriebsvereinbarungen?.length ?? 0) > 0 && (
+            <section>
+              <h2 className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
+                <Scale className="w-3.5 h-3.5" />
+                Betriebsvereinbarungen
+                <span className="bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-full px-2 py-0.5 font-normal normal-case tracking-normal">
+                  {ergebnisse.betriebsvereinbarungen!.length}
+                </span>
+              </h2>
+              <div className="space-y-2">
+                {ergebnisse.betriebsvereinbarungen!.map(bv => (
+                  <button
+                    key={bv.id}
+                    onClick={() => navigate("/betriebsvereinbarungen")}
+                    className="w-full text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 hover:border-[rgb(var(--accent)/0.4)] hover:shadow-sm transition-all"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium text-gray-800 dark:text-gray-100 leading-snug">{bv.titel}</p>
+                      <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0 bg-gray-100 text-gray-600">
+                        {BV_STATUS_LABEL[bv.status] ?? bv.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">{formatDatum(bv.abschlussdatum)}</p>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ── Schulungen ── */}
+          {(ergebnisse.schulungen?.length ?? 0) > 0 && (
+            <section>
+              <h2 className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
+                <GraduationCap className="w-3.5 h-3.5" />
+                Schulungen
+                <span className="bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-full px-2 py-0.5 font-normal normal-case tracking-normal">
+                  {ergebnisse.schulungen!.length}
+                </span>
+              </h2>
+              <div className="space-y-2">
+                {ergebnisse.schulungen!.map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => navigate("/schulungen")}
+                    className="w-full text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 hover:border-[rgb(var(--accent)/0.4)] hover:shadow-sm transition-all"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium text-gray-800 dark:text-gray-100 leading-snug">
+                        {s.qualifikation.name}{s.titel ? ` – ${s.titel}` : ""}
+                      </p>
+                      <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0 bg-gray-100 text-gray-600">
+                        {SCHULUNG_STATUS_LABEL[s.status] ?? s.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">{formatDatum(s.datum)}</p>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ── Mitarbeiter ── */}
+          {(ergebnisse.mitarbeiter?.length ?? 0) > 0 && (
+            <section>
+              <h2 className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
+                <Users className="w-3.5 h-3.5" />
+                Mitarbeiter
+                <span className="bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-full px-2 py-0.5 font-normal normal-case tracking-normal">
+                  {ergebnisse.mitarbeiter!.length}
+                </span>
+              </h2>
+              <div className="space-y-2">
+                {ergebnisse.mitarbeiter!.map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => navigate("/gehaltstabelle")}
+                    className="w-full text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 hover:border-[rgb(var(--accent)/0.4)] hover:shadow-sm transition-all"
+                  >
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-100 leading-snug">{m.nachname}, {m.vorname}</p>
+                    <p className="text-xs text-gray-400 mt-1">{[m.pnr ? `PNR ${m.pnr}` : null, m.abteilung?.name].filter(Boolean).join(" · ") || "–"}</p>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ── Gesetzestexte ── */}
+          {(ergebnisse.gesetze?.length ?? 0) > 0 && (
+            <section>
+              <h2 className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
+                <Gavel className="w-3.5 h-3.5" />
+                Gesetzestexte
+                <span className="bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-full px-2 py-0.5 font-normal normal-case tracking-normal">
+                  {ergebnisse.gesetze!.length}
+                </span>
+              </h2>
+              <div className="space-y-2">
+                {ergebnisse.gesetze!.map(g => (
+                  <button
+                    key={g.id}
+                    onClick={() => gesetzOeffnen(g.id)}
+                    className="w-full text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 hover:border-[rgb(var(--accent)/0.4)] hover:shadow-sm transition-all"
+                  >
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-100 leading-snug">
+                      {g.gesetz} {g.paragraph}{g.titel ? ` – ${g.titel}` : ""}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1 line-clamp-2">{g.text}</p>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
         </div>
+      )}
+
+      {(gesetzModal || gesetzLaden) && (
+        <GesetzModal paragraph={gesetzModal} laden={gesetzLaden} onSchliessen={() => setGesetzModal(null)} />
       )}
     </div>
   );

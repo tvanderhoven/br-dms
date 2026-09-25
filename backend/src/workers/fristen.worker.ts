@@ -2,10 +2,17 @@ import { PrismaClient, FristStatus, Role } from "@prisma/client";
 import cron from "node-cron";
 import { sendeFristenZusammenfassung } from "../lib/mailer.js";
 
+export interface FristenWorkerErgebnis {
+  fristenAnzahl: number;
+  empfaengerAnzahl: number;
+  gesendetAn: string[];
+  fehlgeschlagenAn: { email: string; fehler: string }[];
+}
+
 export class FristenWorker {
   private readonly prisma = new PrismaClient();
 
-  async run(): Promise<void> {
+  async run(): Promise<FristenWorkerErgebnis> {
     console.log(`[FristenWorker] Start: ${new Date().toISOString()}`);
     try {
       const jetzt = new Date();
@@ -24,7 +31,7 @@ export class FristenWorker {
 
       if (fristen.length === 0) {
         console.log("[FristenWorker] Keine ablaufenden Fristen.");
-        return;
+        return { fristenAnzahl: 0, empfaengerAnzahl: 0, gesendetAn: [], fehlgeschlagenAn: [] };
       }
 
       const empfaenger = await this.prisma.benutzer.findMany({
@@ -34,7 +41,7 @@ export class FristenWorker {
 
       if (empfaenger.length === 0) {
         console.log("[FristenWorker] Keine VORSITZ/STELLVERTRETER gefunden.");
-        return;
+        return { fristenAnzahl: fristen.length, empfaengerAnzahl: 0, gesendetAn: [], fehlgeschlagenAn: [] };
       }
 
       const payload = fristen.map(f => ({
@@ -44,13 +51,21 @@ export class FristenWorker {
         tageVerbleibend: Math.max(0, Math.ceil((f.faelligAm.getTime() - jetzt.getTime()) / 86_400_000)),
       }));
 
+      const gesendetAn: string[] = [];
+      const fehlgeschlagenAn: { email: string; fehler: string }[] = [];
+
       for (const e of empfaenger) {
-        await sendeFristenZusammenfassung(e.email, e.name, payload).catch(err =>
-          console.error(`[FristenWorker] E-Mail an ${e.email} fehlgeschlagen:`, err)
-        );
+        try {
+          await sendeFristenZusammenfassung(e.email, e.name, payload);
+          gesendetAn.push(e.email);
+        } catch (err) {
+          console.error(`[FristenWorker] E-Mail an ${e.email} fehlgeschlagen:`, err);
+          fehlgeschlagenAn.push({ email: e.email, fehler: err instanceof Error ? err.message : "Unbekannter Fehler" });
+        }
       }
 
-      console.log(`[FristenWorker] ${fristen.length} Frist(en) an ${empfaenger.length} Empfänger gesendet.`);
+      console.log(`[FristenWorker] ${fristen.length} Frist(en) an ${gesendetAn.length}/${empfaenger.length} Empfänger gesendet.`);
+      return { fristenAnzahl: fristen.length, empfaengerAnzahl: empfaenger.length, gesendetAn, fehlgeschlagenAn };
     } finally {
       await this.prisma.$disconnect();
     }

@@ -19,7 +19,7 @@ RUN npx prisma generate && npm run build
 FROM node:20-alpine AS production
 WORKDIR /app
 
-RUN apk add --no-cache dumb-init su-exec poppler-utils openssl
+RUN apk add --no-cache dumb-init su-exec poppler-utils openssl font-dejavu
 
 COPY package.json package-lock.json* ./
 RUN npm install --omit=dev

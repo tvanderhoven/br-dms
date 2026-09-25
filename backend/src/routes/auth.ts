@@ -13,8 +13,9 @@ import { authenticate } from "../middleware/auth.js";
 import { sendePasswortReset } from "../lib/mailer.js";
 
 interface LoginBody {
-  email:    string;
+  email:    string; // vollständige E-Mail ODER Teil vor dem "@" (Benutzername)
   passwort: string;
+  eingeloggtBleiben?: boolean; // false → Token nur 1h gültig statt der konfigurierten Dauer
 }
 
 export async function authRouten(app: FastifyInstance): Promise<void> {
@@ -28,17 +29,22 @@ export async function authRouten(app: FastifyInstance): Promise<void> {
           type: "object",
           required: ["email", "passwort"],
           properties: {
-            email:    { type: "string", format: "email" },
-            passwort: { type: "string", minLength: 1 },
+            email:             { type: "string", minLength: 1 },
+            passwort:          { type: "string", minLength: 1 },
+            eingeloggtBleiben: { type: "boolean" },
           },
         },
       },
     },
     async (request: FastifyRequest<{ Body: LoginBody }>, reply: FastifyReply) => {
-      const { email, passwort } = request.body;
+      const { email, passwort, eingeloggtBleiben } = request.body;
 
-      const benutzer = await prisma.benutzer.findUnique({
-        where:  { email: email.toLowerCase().trim() },
+      // Eingabe kann die vollständige E-Mail oder nur der Teil vor dem "@" sein
+      const eingabe  = email.toLowerCase().trim();
+      const istEmail = eingabe.includes("@");
+
+      const benutzer = await prisma.benutzer.findFirst({
+        where:  istEmail ? { email: eingabe } : { email: { startsWith: `${eingabe}@` } },
         select: { id: true, name: true, email: true, rolle: true, aktiv: true, passwortHash: true },
       });
 
@@ -61,7 +67,7 @@ export async function authRouten(app: FastifyInstance): Promise<void> {
 
       const token = await reply.jwtSign(
         { sub: benutzer.id, email: benutzer.email, rolle: benutzer.rolle },
-        { expiresIn: process.env.JWT_EXPIRES_IN ?? "24h" }
+        { expiresIn: eingeloggtBleiben === false ? "1h" : (process.env.JWT_EXPIRES_IN ?? "24h") }
       );
 
       // Letzten Login aktualisieren
@@ -102,6 +108,54 @@ export async function authRouten(app: FastifyInstance): Promise<void> {
         select: { id: true, name: true, email: true, rolle: true, letzterLogin: true, istVertretungFuer: true },
       });
       return reply.send(benutzer);
+    }
+  );
+
+  // ── PATCH /passwort – eigenes Passwort ändern (eingeloggt) ──────
+  app.patch<{ Body: { aktuellesPasswort: string; neuesPasswort: string } }>(
+    "/passwort",
+    {
+      preHandler: [authenticate],
+      schema: {
+        body: {
+          type: "object",
+          required: ["aktuellesPasswort", "neuesPasswort"],
+          properties: {
+            aktuellesPasswort: { type: "string", minLength: 1 },
+            neuesPasswort:     { type: "string", minLength: 8 },
+          },
+        },
+      },
+    },
+    async (request: FastifyRequest<{ Body: { aktuellesPasswort: string; neuesPasswort: string } }>, reply: FastifyReply) => {
+      const { aktuellesPasswort, neuesPasswort } = request.body;
+
+      const benutzer = await prisma.benutzer.findUnique({
+        where: { id: request.benutzer.sub },
+        select: { id: true, passwortHash: true },
+      });
+      if (!benutzer) return reply.status(404).send({ fehler: "Benutzer nicht gefunden" });
+
+      if (!verifyPassword(aktuellesPasswort, benutzer.passwortHash)) {
+        return reply.status(401).send({ fehler: "Aktuelles Passwort ist falsch" });
+      }
+
+      await prisma.benutzer.update({
+        where: { id: benutzer.id },
+        data:  { passwortHash: hashPassword(neuesPasswort) },
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          benutzerId: benutzer.id,
+          aktion:     AuditAktion.PASSWORT_GEAENDERT,
+          ip:         request.ip,
+          userAgent:  request.headers["user-agent"] ?? null,
+          details:    { durchVorsitz: false },
+        },
+      });
+
+      return reply.send({ nachricht: "Passwort erfolgreich geändert" });
     }
   );
 

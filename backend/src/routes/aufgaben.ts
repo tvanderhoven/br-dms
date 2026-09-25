@@ -1,5 +1,5 @@
 import { FastifyInstance } from "fastify";
-import { Prioritaet, Sichtbarkeit, AufgabeTyp } from "@prisma/client";
+import { Prisma, Prioritaet, Sichtbarkeit, AufgabeTyp, KanbanStatus, AufgabenStatus } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 
@@ -9,6 +9,12 @@ const AUFGABE_INCLUDE = {
   erstelltVon:  { select: BENUTZER_SELECT },
   zugewiesenAn: { select: BENUTZER_SELECT },
   oberProjekt:  { select: { id: true, titel: true, farbe: true } },
+  top: {
+    select: {
+      id: true, nummer: true, titel: true,
+      sitzung: { select: { id: true, titel: true } },
+    },
+  },
 };
 
 export async function aufgabenRouten(app: FastifyInstance): Promise<void> {
@@ -43,6 +49,7 @@ export async function aufgabenRouten(app: FastifyInstance): Promise<void> {
   app.post<{ Body: {
     titel: string;
     beschreibung?: string;
+    beschreibungJson?: object;
     typ?: AufgabeTyp;
     prioritaet?: Prioritaet;
     startDatum?: string;
@@ -52,6 +59,9 @@ export async function aufgabenRouten(app: FastifyInstance): Promise<void> {
     zugewiesenAnId?: string;
     sichtbarkeit?: Sichtbarkeit;
     oberProjektId?: string;
+    kanbanStatus?: KanbanStatus;
+    aufgabenStatus?: AufgabenStatus;
+    topId?: string;
   } }>(
     "/",
     {
@@ -61,8 +71,9 @@ export async function aufgabenRouten(app: FastifyInstance): Promise<void> {
           type: "object",
           required: ["titel"],
           properties: {
-            titel:          { type: "string", minLength: 1 },
-            beschreibung:   { type: "string" },
+            titel:            { type: "string", minLength: 1 },
+            beschreibung:     { type: "string" },
+            beschreibungJson: {},
             typ:            { type: "string", enum: ["PROJEKT", "AUFGABE"] },
             prioritaet:     { type: "string", enum: ["HOCH", "MITTEL", "NIEDRIG"] },
             startDatum:     { type: "string" },
@@ -72,21 +83,26 @@ export async function aufgabenRouten(app: FastifyInstance): Promise<void> {
             zugewiesenAnId: { type: "string" },
             sichtbarkeit:   { type: "string", enum: ["PRIVAT", "OEFFENTLICH"] },
             oberProjektId:  { type: "string" },
+            kanbanStatus:   { type: "string", enum: ["BACKLOG", "IN_BEARBEITUNG", "ERLEDIGT"] },
+            aufgabenStatus: { type: "string", enum: ["NEU", "IN_BEARBEITUNG", "AUF_HOLD", "ERLEDIGT"] },
+            topId:          { type: "string" },
           },
         },
       },
     },
     async (req, reply) => {
       const {
-        titel, beschreibung, typ, prioritaet,
+        titel, beschreibung, beschreibungJson, typ, prioritaet,
         startDatum, endDatum, faelligAm, farbe,
         zugewiesenAnId, sichtbarkeit, oberProjektId,
+        kanbanStatus, aufgabenStatus, topId,
       } = req.body;
 
       const aufgabe = await prisma.aufgabe.create({
         data: {
           titel,
           beschreibung,
+          beschreibungJson: beschreibungJson != null ? (beschreibungJson as Prisma.InputJsonValue) : undefined,
           typ:           typ ?? "AUFGABE",
           prioritaet:    prioritaet ?? "MITTEL",
           sichtbarkeit:  sichtbarkeit ?? "OEFFENTLICH",
@@ -97,6 +113,9 @@ export async function aufgabenRouten(app: FastifyInstance): Promise<void> {
           erstelltVonId: req.benutzer.sub,
           zugewiesenAnId: zugewiesenAnId || undefined,
           oberProjektId:  oberProjektId  || undefined,
+          kanbanStatus:   kanbanStatus   ?? undefined,
+          aufgabenStatus: aufgabenStatus ?? undefined,
+          topId:          topId          || undefined,
         },
         include: AUFGABE_INCLUDE,
       });
@@ -108,6 +127,7 @@ export async function aufgabenRouten(app: FastifyInstance): Promise<void> {
   app.patch<{ Params: { id: string }; Body: {
     titel?: string;
     beschreibung?: string;
+    beschreibungJson?: object | null;
     typ?: AufgabeTyp;
     prioritaet?: Prioritaet;
     startDatum?: string | null;
@@ -118,6 +138,9 @@ export async function aufgabenRouten(app: FastifyInstance): Promise<void> {
     zugewiesenAnId?: string | null;
     sichtbarkeit?: Sichtbarkeit;
     oberProjektId?: string | null;
+    kanbanStatus?: KanbanStatus | null;
+    aufgabenStatus?: AufgabenStatus;
+    topId?: string | null;
   } }>(
     "/:id",
     {
@@ -129,14 +152,16 @@ export async function aufgabenRouten(app: FastifyInstance): Promise<void> {
     async (req, reply) => {
       const { id } = req.params;
       const {
-        titel, beschreibung, typ, prioritaet,
+        titel, beschreibung, beschreibungJson, typ, prioritaet,
         startDatum, endDatum, faelligAm, farbe,
         erledigt, zugewiesenAnId, sichtbarkeit, oberProjektId,
+        kanbanStatus, aufgabenStatus, topId,
       } = req.body;
 
       const data: Record<string, unknown> = {};
       if (titel           !== undefined) data.titel           = titel;
       if (beschreibung    !== undefined) data.beschreibung    = beschreibung;
+      if (beschreibungJson !== undefined) data.beschreibungJson = beschreibungJson != null ? (beschreibungJson as Prisma.InputJsonValue) : Prisma.DbNull;
       if (typ             !== undefined) data.typ             = typ;
       if (prioritaet      !== undefined) data.prioritaet      = prioritaet;
       if (sichtbarkeit    !== undefined) data.sichtbarkeit    = sichtbarkeit;
@@ -146,9 +171,34 @@ export async function aufgabenRouten(app: FastifyInstance): Promise<void> {
       if (farbe           !== undefined) data.farbe           = farbe || null;
       if (zugewiesenAnId  !== undefined) data.zugewiesenAnId  = zugewiesenAnId || null;
       if (oberProjektId   !== undefined) data.oberProjektId   = oberProjektId  || null;
+      if (topId           !== undefined) data.topId           = topId || null;
       if (erledigt        !== undefined) {
         data.erledigt   = erledigt;
         data.erledigtAm = erledigt ? new Date() : null;
+        // Häkchen in der Listenansicht hält auch das Aufgaben-Kanban-Board synchron
+        // (nur relevant für eigenständige ToDos, bei anderen Typen einfach ungenutzt)
+        if (aufgabenStatus === undefined) {
+          data.aufgabenStatus = erledigt ? "ERLEDIGT" : "NEU";
+        }
+      }
+      // Kanban-Status ändern hält "erledigt" synchron, damit Liste/Gantt weiterhin
+      // konsistent bleiben (die kennen nur das Häkchen, nicht die Kanban-Spalte)
+      if (kanbanStatus    !== undefined) {
+        data.kanbanStatus = kanbanStatus;
+        if (kanbanStatus === "ERLEDIGT") {
+          data.erledigt   = true;
+          data.erledigtAm = new Date();
+        } else if (kanbanStatus !== null) {
+          data.erledigt   = false;
+          data.erledigtAm = null;
+        }
+      }
+      // Aufgaben-Kanban-Status ändern hält ebenfalls "erledigt" synchron (gleiche
+      // Logik wie oben bei kanbanStatus, nur für das Board auf der Aufgaben-Seite)
+      if (aufgabenStatus  !== undefined) {
+        data.aufgabenStatus = aufgabenStatus;
+        data.erledigt       = aufgabenStatus === "ERLEDIGT";
+        data.erledigtAm     = aufgabenStatus === "ERLEDIGT" ? new Date() : null;
       }
 
       const aufgabe = await prisma.aufgabe.update({

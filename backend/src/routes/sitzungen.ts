@@ -40,18 +40,21 @@ const TOP_SELECT = {
   ergebnisJson: true,
   status:      true,
   spontan:     true,
+  vertraulich: true,
   erstelltAm:    true,
   aktualisiertAm: true,
+  _count: { select: { kommentare: true } },
   dokumente: {
     select: {
       id: true,
       hinweis: true,
       dokument: {
         select: {
-          id:        true,
-          titel:     true,
-          kategorie: true,
-          dateiname: true,
+          id:           true,
+          titel:        true,
+          alias:        true,
+          kategorie:    true,
+          dateiname:    true,
           aktenzeichen: true,
         },
       },
@@ -225,6 +228,12 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
       const { id } = request.params as { id: string };
       const sitzung = await prisma.sitzung.findUnique({ where: { id }, select: SITZUNG_SELECT });
       if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
+
+      // JAV sieht als vertraulich markierte TOPs nicht
+      if (request.benutzer.rolle === Role.JAV) {
+        return reply.send({ ...sitzung, tops: sitzung.tops.filter(t => !t.vertraulich) });
+      }
+
       return reply.send(sitzung);
     }
   );
@@ -491,7 +500,8 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
         return reply.status(409).send({ fehler: "TOPs können nur in Sitzungen im Status ENTWURF hinzugefügt werden" });
       }
 
-      const { titel, inhalt, inhaltsJson } = request.body as { titel: string; inhalt?: string; inhaltsJson?: object };
+      const { titel, inhalt, inhaltsJson, vertraulich } =
+        request.body as { titel: string; inhalt?: string; inhaltsJson?: object; vertraulich?: boolean };
       if (!titel) return reply.status(400).send({ fehler: "titel ist ein Pflichtfeld" });
 
       const naechsteNummer = (sitzung.tops[0]?.nummer ?? 0) + 1;
@@ -504,6 +514,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
           inhalt:      inhalt ?? null,
           inhaltsJson: inhaltsJson ?? undefined,
           status:      TopStatus.OFFEN,
+          vertraulich: vertraulich ?? false,
         },
         select: TOP_SELECT,
       });
@@ -618,8 +629,8 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
       if (!top) return reply.status(404).send({ fehler: "TOP nicht gefunden" });
 
       const status = sitzung.status;
-      const { titel, inhalt, inhaltsJson, ergebnis, ergebnisJson, topStatus } =
-        request.body as Partial<{ titel: string; inhalt: string; inhaltsJson: object; ergebnis: string; ergebnisJson: object; topStatus: TopStatus }>;
+      const { titel, inhalt, inhaltsJson, ergebnis, ergebnisJson, topStatus, vertraulich } =
+        request.body as Partial<{ titel: string; inhalt: string; inhaltsJson: object; ergebnis: string; ergebnisJson: object; topStatus: TopStatus; vertraulich: boolean }>;
 
       // Titel nur in ENTWURF editierbar
       if (titel !== undefined && status !== SitzungStatus.ENTWURF) {
@@ -650,6 +661,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
           ...(ergebnis     !== undefined && { ergebnis }),
           ...(ergebnisJson !== undefined && { ergebnisJson }),
           ...(topStatus    !== undefined && { status: topStatus }),
+          ...(vertraulich  !== undefined && { vertraulich }),
         },
         select: TOP_SELECT,
       });
@@ -708,8 +720,15 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
         return reply.status(409).send({ fehler: "Finalisierte Sitzungen sind unveränderlich" });
       }
 
-      const top = await prisma.tOP.findFirst({ where: { id: topId, sitzungId: id } });
+      const top = await prisma.tOP.findFirst({ where: { id: topId, sitzungId: id }, select: { id: true, spontan: true } });
       if (!top) return reply.status(404).send({ fehler: "TOP nicht gefunden" });
+
+      // Nach der Fixierung dürfen nur noch Spontan-TOPs (die eh erst während
+      // des Protokolls entstehen) neue Dokumente bekommen – reguläre TOPs
+      // sind mit der fixierten Tagesordnung eingefroren.
+      if (sitzung.status !== SitzungStatus.ENTWURF && !top.spontan) {
+        return reply.status(409).send({ fehler: "Die Tagesordnung ist fixiert – Dokumente können nur noch bei Spontan-TOPs verknüpft werden" });
+      }
 
       const dokument = await prisma.dokument.findUnique({ where: { id: dokumentId }, select: { id: true } });
       if (!dokument) return reply.status(404).send({ fehler: "Dokument nicht gefunden" });
@@ -749,6 +768,13 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
 
       if (sitzung.status === SitzungStatus.PROTOKOLL_FINAL || sitzung.status === SitzungStatus.ABGESAGT) {
         return reply.status(409).send({ fehler: "Finalisierte Sitzungen sind unveränderlich" });
+      }
+
+      const top = await prisma.tOP.findFirst({ where: { id: topId, sitzungId: id }, select: { spontan: true } });
+      if (!top) return reply.status(404).send({ fehler: "TOP nicht gefunden" });
+
+      if (sitzung.status !== SitzungStatus.ENTWURF && !top.spontan) {
+        return reply.status(409).send({ fehler: "Die Tagesordnung ist fixiert – Verknüpfungen können nur noch bei Spontan-TOPs gelöst werden" });
       }
 
       await prisma.topDokument.delete({

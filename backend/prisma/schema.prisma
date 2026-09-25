@@ -23,12 +23,33 @@ enum Role {
   MITGLIED
   ERSATZMITGLIED
   ADMIN
+  // Stark eingeschränkte Rolle: nur Lesezugriff auf Sitzungen/Protokolle
+  // (z.B. JAV-Vertretung, die im Raum ist, aber nicht Betriebsratsmitglied ist)
+  JAV
 }
 
 enum Prioritaet {
   HOCH
   MITTEL
   NIEDRIG
+}
+
+// Für Themen-Backlog (Kanban-Board in der Aufgaben-Ansicht). Optional/nullable,
+// da normale Aufgaben weiterhin nur über "erledigt" laufen und nicht am Board teilnehmen.
+enum KanbanStatus {
+  BACKLOG
+  IN_BEARBEITUNG
+  ERLEDIGT
+}
+
+// Kanban-Spalten für die normale Aufgaben-Seite (unabhängig vom Themen-Backlog,
+// siehe KanbanStatus oben – eigenständige ToDos haben kanbanStatus=null und
+// nutzen stattdessen dieses Feld)
+enum AufgabenStatus {
+  NEU
+  IN_BEARBEITUNG
+  AUF_HOLD
+  ERLEDIGT
 }
 
 enum Sichtbarkeit {
@@ -101,6 +122,7 @@ enum Stimme {
   JA
   NEIN
   ENTHALTUNG
+  NICHT_TEILGENOMMEN
 }
 
 enum NachrichtTyp {
@@ -129,6 +151,7 @@ enum AuditAktion {
   FRIST_ERLEDIGT
   BENUTZER_ERSTELLT
   BENUTZER_DEAKTIVIERT
+  BENUTZER_GELOESCHT
   PASSWORT_GEAENDERT
   ZUGRIFF_VERWEIGERT
   SITZUNG_ERSTELLT
@@ -145,6 +168,11 @@ enum AuditAktion {
   WISSEN_AKTUALISIERT
   WISSEN_GELOESCHT
   DOKUMENT_VERSION_ERSTELLT
+  GEHALTSTABELLE_GELOESCHT
+  GEHALTSTABELLE_EINTRAEGE_GELOESCHT
+  BV_ERSTELLT
+  BV_AKTUALISIERT
+  BV_GELOESCHT
 }
 
 // ================================================================
@@ -180,6 +208,9 @@ model Benutzer {
   zugewieseneAufgaben   Aufgabe[]       @relation("AufgabeZugewiesen")
   wissenEintraege        WissensEintrag[] @relation("WissensErstelltVon")
   ressourcen             Ressource[]      @relation("RessourceErstellt")
+  betriebsvereinbarungenErstellt Betriebsvereinbarung[] @relation("BVErstellt")
+  schulungenErstellt     Schulungstermin[] @relation("SchulungErstellt")
+  kummerkastenBearbeitet KummerkastenEintrag[]
 
   @@map("benutzer")
 }
@@ -204,6 +235,7 @@ model Aufgabe {
   id              String       @id @default(uuid())
   titel           String
   beschreibung    String?
+  beschreibungJson Json?       @map("beschreibung_json")
   typ             AufgabeTyp   @default(AUFGABE)
   prioritaet      Prioritaet   @default(MITTEL)
   startDatum      DateTime?    @map("start_datum")
@@ -213,6 +245,13 @@ model Aufgabe {
   erledigt        Boolean      @default(false)
   erledigtAm      DateTime?    @map("erledigt_am")
   sichtbarkeit    Sichtbarkeit @default(OEFFENTLICH)
+
+  // Themen-Backlog / Kanban-Board – null = normale Aufgabe, nimmt nicht am Board teil
+  kanbanStatus    KanbanStatus? @map("kanban_status")
+
+  // Kanban-Board auf der Aufgaben-Seite selbst (Neu/In Bearbeitung/Auf Hold/Erledigt) –
+  // wird mit "erledigt" synchron gehalten (siehe routes/aufgaben.ts)
+  aufgabenStatus  AufgabenStatus @default(NEU) @map("aufgaben_status")
 
   // Hierarchie: Ober-/Unterprojekte und Aufgaben unter Projekten
   oberProjektId   String?      @map("ober_projekt_id")
@@ -227,6 +266,10 @@ model Aufgabe {
 
   dokumentId      String?      @map("dokument_id")
   dokument        Dokument?    @relation(fields: [dokumentId], references: [id], onDelete: SetNull)
+
+  // Verknüpfung: Thema wurde in einen Sitzungs-TOP übernommen
+  topId           String?      @map("top_id")
+  top             TOP?         @relation(fields: [topId], references: [id], onDelete: SetNull)
 
   erstelltAm      DateTime     @default(now()) @map("erstellt_am")
   aktualisiertAm  DateTime     @updatedAt @map("aktualisiert_am")
@@ -279,6 +322,7 @@ model Dokument {
   topVerknuepfungen TopDokument[]
   kommentare        Kommentar[]
   aufgaben          Aufgabe[]
+  betriebsvereinbarungen Betriebsvereinbarung[]
 
   @@index([deleteAt, status])
   @@index([kategorie, status])
@@ -355,6 +399,7 @@ model Sitzung {
   kommentare     Kommentar[]
   anwesenheiten  Anwesenheit[]
   protocolBlocks ProtocolBlock[]
+  gehaltsstufenEintraege GehaltsstufenEintrag[]
 
   @@index([sitzungsdatum, status])
   @@map("sitzungen")
@@ -454,10 +499,14 @@ model TOP {
   // Spontan-TOP: nachträglich in Sitzung aufgenommen
   spontan        Boolean   @default(false)
 
+  // Für stark eingeschränkte Rollen (z.B. JAV) ausgeblendet
+  vertraulich    Boolean   @default(false)
+
   dokumente      TopDokument[]
   abstimmung     Abstimmung?
   beschluesse    Beschluss[]
   kommentare     Kommentar[]
+  themen         Aufgabe[]       // Backlog-Themen, die in diesen TOP übernommen wurden
 
   erstelltAm     DateTime  @default(now()) @map("erstellt_am")
   aktualisiertAm DateTime  @updatedAt @map("aktualisiert_am")
@@ -498,6 +547,7 @@ model Beschluss {
   jaStimmen       Int       @default(0) @map("ja_stimmen")
   neinStimmen     Int       @default(0) @map("nein_stimmen")
   enthaltungen    Int       @default(0)
+  nichtTeilgenommen Int     @default(0) @map("nicht_teilgenommen")
   anwesend        Int       @default(0)
   ergebnis        String?
 
@@ -621,7 +671,8 @@ model Nachricht {
 
 model Kommentar {
   id         String    @id @default(uuid())
-  inhalt     String
+  inhalt     String                       // Plaintext-Fallback (Anzeige/Suche/PDF)
+  inhaltJson Json?     @map("inhalt_json") // TipTap-JSON (Rich-Text-Inhalt)
 
   autorId    String    @map("autor_id")
   autor      Benutzer  @relation("KommentarAutor", fields: [autorId], references: [id], onDelete: Cascade)
@@ -787,4 +838,226 @@ model WissensEintrag {
   @@index([erstelltAm])
   @@index([erstelltVonId])
   @@map("wissen")
+}
+
+// ================================================================
+//  GEHALTSTABELLE (Gehaltsstufen-Historie je Mitarbeiter)
+// ================================================================
+
+model Abteilung {
+  id             String   @id @default(uuid())
+  name           String   @unique
+
+  erstelltAm     DateTime @default(now()) @map("erstellt_am")
+  aktualisiertAm DateTime @updatedAt @map("aktualisiert_am")
+
+  mitarbeiter    Mitarbeiter[]
+
+  @@map("abteilungen")
+}
+
+enum Beschaeftigungsart {
+  MITARBEITER
+  AZUBI
+  STUDENT
+  ZEITARBEITER
+}
+
+model Mitarbeiter {
+  id             String     @id @default(uuid())
+  vorname        String
+  nachname       String
+
+  pnr            String?    @unique
+  eintritt       DateTime?
+  austritt       DateTime?
+  standort       String?
+
+  // z.B. Geschäftsführung, Ausbildung – bewusst ohne Gehaltsstufen-Tracking,
+  // wird deshalb nicht in der "Mitarbeiter ohne Gehaltseintrag"-Warnung gezeigt
+  gehaltIgnorieren Boolean  @default(false) @map("gehalt_ignorieren")
+
+  // Beschäftigungsart – nur Kennzeichnung für Filter/Badge/Statistik in der Anzeige
+  beschaeftigungsart Beschaeftigungsart @default(MITARBEITER) @map("beschaeftigungsart")
+
+  abteilungId    String?    @map("abteilung_id")
+  abteilung      Abteilung? @relation(fields: [abteilungId], references: [id], onDelete: SetNull)
+
+  erstelltAm     DateTime   @default(now()) @map("erstellt_am")
+  aktualisiertAm DateTime   @updatedAt @map("aktualisiert_am")
+
+  gehaltsstufen  GehaltsstufenEintrag[]
+  schulungsTeilnahmen SchulungsTeilnahme[]
+
+  @@index([nachname, vorname])
+  @@map("mitarbeiter")
+}
+
+model GehaltsstufenEintrag {
+  id             String      @id @default(uuid())
+  mitarbeiterId  String      @map("mitarbeiter_id")
+  mitarbeiter    Mitarbeiter @relation(fields: [mitarbeiterId], references: [id], onDelete: Cascade)
+
+  stufe          String
+  gueltigAb      DateTime    @map("gueltig_ab")
+  bemerkung      String?
+
+  sitzungId      String?     @map("sitzung_id")
+  sitzung        Sitzung?    @relation(fields: [sitzungId], references: [id], onDelete: SetNull)
+
+  erstelltAm     DateTime    @default(now()) @map("erstellt_am")
+  aktualisiertAm DateTime    @updatedAt @map("aktualisiert_am")
+
+  @@index([mitarbeiterId, gueltigAb])
+  @@map("gehaltsstufen_eintraege")
+}
+
+// ================================================================
+//  BETRIEBSVEREINBARUNGEN (Register)
+// ================================================================
+
+enum BVStatus {
+  AKTIV
+  GEKUENDIGT
+  ABGELOEST
+  BEFRISTET_AUSGELAUFEN
+}
+
+model Betriebsvereinbarung {
+  id              String   @id @default(uuid())
+  titel           String
+  abschlussdatum  DateTime
+  geltungsbereich String?
+  status          BVStatus @default(AKTIV)
+  laufzeitEnde    DateTime? @map("laufzeit_ende") // Kündigungsfrist bzw. befristetes Enddatum
+  bemerkung       String?
+
+  dokumentId      String?   @map("dokument_id")
+  dokument        Dokument? @relation(fields: [dokumentId], references: [id], onDelete: SetNull)
+
+  erstelltVonId   String    @map("erstellt_von_id")
+  erstelltVon     Benutzer  @relation("BVErstellt", fields: [erstelltVonId], references: [id])
+
+  erstelltAm      DateTime  @default(now()) @map("erstellt_am")
+  aktualisiertAm  DateTime  @updatedAt @map("aktualisiert_am")
+
+  @@index([status])
+  @@index([laufzeitEnde])
+  @@map("betriebsvereinbarungen")
+}
+
+// ================================================================
+//  SCHULUNGSVERWALTUNG / QUALIFIKATIONSMATRIX
+// ================================================================
+
+enum SchulungsStatus {
+  GEPLANT
+  ABSOLVIERT
+  ABGESAGT
+}
+
+model Qualifikation {
+  id                      String   @id @default(uuid())
+  name                    String   @unique
+  beschreibung            String?
+  gueltigkeitsdauerMonate Int?     @map("gueltigkeitsdauer_monate") // z.B. Ersthelfer alle 24 Monate; leer = unbegrenzt gültig
+
+  erstelltAm              DateTime @default(now()) @map("erstellt_am")
+  aktualisiertAm          DateTime @updatedAt @map("aktualisiert_am")
+
+  termine                 Schulungstermin[]
+
+  @@map("qualifikationen")
+}
+
+model Schulungstermin {
+  id              String          @id @default(uuid())
+  qualifikationId String          @map("qualifikation_id")
+  qualifikation   Qualifikation   @relation(fields: [qualifikationId], references: [id])
+
+  titel           String?
+  datum           DateTime
+  ort             String?
+  anbieter        String?
+  kosten          Float?
+  status          SchulungsStatus @default(GEPLANT)
+  bemerkung       String?
+
+  teilnehmer      SchulungsTeilnahme[]
+
+  erstelltVonId   String          @map("erstellt_von_id")
+  erstelltVon     Benutzer        @relation("SchulungErstellt", fields: [erstelltVonId], references: [id])
+
+  erstelltAm      DateTime        @default(now()) @map("erstellt_am")
+  aktualisiertAm  DateTime        @updatedAt @map("aktualisiert_am")
+
+  @@index([datum])
+  @@index([qualifikationId])
+  @@map("schulungstermine")
+}
+
+model SchulungsTeilnahme {
+  id                String          @id @default(uuid())
+  schulungsterminId String          @map("schulungstermin_id")
+  schulungstermin   Schulungstermin @relation(fields: [schulungsterminId], references: [id], onDelete: Cascade)
+
+  mitarbeiterId     String          @map("mitarbeiter_id")
+  mitarbeiter       Mitarbeiter     @relation(fields: [mitarbeiterId], references: [id], onDelete: Cascade)
+
+  teilgenommen      Boolean         @default(true) // false = angemeldet, aber nicht erschienen/abgesagt
+
+  erstelltAm        DateTime        @default(now()) @map("erstellt_am")
+
+  @@unique([schulungsterminId, mitarbeiterId])
+  @@map("schulungs_teilnahmen")
+}
+
+// ================================================================
+//  GESETZESTEXTE (statischer Import von gesetze-im-internet.de)
+// ================================================================
+
+model GesetzParagraph {
+  id             String   @id @default(uuid())
+
+  gesetzSlug     String   @map("gesetz_slug")    // z.B. "betrvg" (URL-Teil bei gesetze-im-internet.de)
+  gesetz         String                          // Anzeigename, z.B. "BetrVG"
+  paragraph      String                          // z.B. "§ 1" oder "§ 14a"
+  titel          String?
+  text           String                          // reiner Fließtext, ohne Formatierung
+
+  quelleUrl      String   @map("quelle_url")
+
+  aktualisiertAm DateTime @updatedAt @map("aktualisiert_am")
+
+  @@unique([gesetzSlug, paragraph])
+  @@index([gesetzSlug])
+  @@map("gesetz_paragraphen")
+}
+
+// ================================================================
+//  KUMMERKASTEN (öffentliches, nicht eingeloggtes Formular für die
+//  Belegschaft – bewusst ohne Bezug zu Benutzer/Auth beim Absender,
+//  um echte Anonymität zu ermöglichen)
+// ================================================================
+
+enum KummerkastenStatus {
+  NEU
+  IN_BEARBEITUNG
+  ERLEDIGT
+}
+
+model KummerkastenEintrag {
+  id              String             @id @default(uuid())
+  nachricht       String
+  absenderName    String?            @map("absender_name")
+  status          KummerkastenStatus @default(NEU)
+  notiz           String?            // interne BR-Notiz, für den Absender nie sichtbar
+
+  bearbeitetVonId String?            @map("bearbeitet_von_id")
+  bearbeitetVon   Benutzer?          @relation(fields: [bearbeitetVonId], references: [id], onDelete: SetNull)
+  bearbeitetAm    DateTime?          @map("bearbeitet_am")
+
+  erstelltAm      DateTime           @default(now()) @map("erstellt_am")
+
+  @@map("kummerkasten_eintraege")
 }

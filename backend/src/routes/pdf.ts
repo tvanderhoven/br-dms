@@ -58,6 +58,7 @@ async function sitzungFuerPdf(id: string) {
               jaStimmen:       true,
               neinStimmen:     true,
               enthaltungen:    true,
+              nichtTeilgenommen: true,
               anwesend:        true,
               ergebnis:        true,
               finalisiert:     true,

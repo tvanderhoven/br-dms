@@ -34,10 +34,12 @@ interface PasswortReset {
 
 export async function benutzerRouten(app: FastifyInstance): Promise<void> {
 
-  // ── GET / – alle Benutzer ──────────────────────────────────────
+  // ── GET / – alle Benutzer (Lesezugriff für alle eingeloggten Rollen –
+  //           wird auch für "Zuweisen an"-Dropdowns o.ä. gebraucht, nicht
+  //           nur von der Benutzerverwaltung selbst) ──────────────────
   app.get(
     "/",
-    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    { preHandler: [authenticate] },
     async (_request: FastifyRequest, reply: FastifyReply) => {
       const benutzer = await prisma.benutzer.findMany({
         select: {
@@ -141,6 +143,48 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
       });
 
       return reply.send(aktualisiert);
+    }
+  );
+
+  // ── DELETE /:id – Benutzer endgültig löschen (nur ADMIN) ───────
+  // Anders als "deaktivieren" (aktiv=false, der normale Weg für echte
+  // Mitglieder, die ausscheiden) ist das hier ein echtes Löschen – nur
+  // sinnvoll für versehentlich angelegte Test-Accounts ohne echte Historie.
+  // Prisma verweigert das Löschen automatisch (Fremdschlüssel-Fehler), wenn
+  // der Benutzer bereits Dokumente/Sitzungen/Kommentare/etc. hinterlassen hat.
+  app.delete<{ Params: { id: string } }>(
+    "/:id",
+    { preHandler: [authenticate, erfordert(Role.ADMIN)] },
+    async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+      const { id } = request.params;
+
+      if (id === request.benutzer.sub) {
+        return reply.status(400).send({ fehler: "Sie können sich nicht selbst löschen" });
+      }
+
+      const benutzer = await prisma.benutzer.findUnique({ where: { id } });
+      if (!benutzer) return reply.status(404).send({ fehler: "Benutzer nicht gefunden" });
+
+      try {
+        await prisma.benutzer.delete({ where: { id } });
+      } catch (err: any) {
+        if (err?.code === "P2003") {
+          return reply.status(409).send({
+            fehler: "Dieser Benutzer hat bereits Daten im System hinterlassen (z.B. Dokumente, Sitzungen, Kommentare) und kann daher nicht endgültig gelöscht werden – nur deaktivieren.",
+          });
+        }
+        throw err;
+      }
+
+      await prisma.auditLog.create({
+        data: {
+          benutzerId: request.benutzer.sub,
+          aktion:     AuditAktion.BENUTZER_GELOESCHT,
+          details:    { geloeschterBenutzer: benutzer.email },
+        },
+      }).catch(() => {});
+
+      return reply.send({ ok: true });
     }
   );
 

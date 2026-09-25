@@ -4,7 +4,7 @@ import {
   Loader2, Check, CheckCheck, History, Search, RotateCcw, ScrollText,
 } from "lucide-react";
 import {
-  api, Dokument, SitzungListItem, Benutzer, KATEGORIE_LABEL, formatDatum, formatDateigroesse
+  api, Dokument, SitzungListItem, Benutzer, TOP, KATEGORIE_LABEL, formatDatum, formatDateigroesse
 } from "../lib/api";
 
 type Aktion = "sitzung-top" | "wissensarchiv" | "aufgabe" | "version" | "wiedervorlage" | null;
@@ -21,6 +21,26 @@ const QUELLE_FARBE: Record<string, string> = {
   SYSTEM:      "bg-gray-100 text-gray-700",
 };
 
+// Datei im neuen Tab öffnen statt als Datei zu erzwingen – vermeidet Chromes
+// "nicht sicher"-Downloadwarnung im HTTP-Intranet-Betrieb. Wichtig: die
+// Endpunkte brauchen einen Auth-Token, ein simples <a href> würde den nicht
+// mitschicken (kein Cookie-Login) und nur eine 401-Fehlerseite liefern.
+function dateiInTabOeffnen(url: string) {
+  const tab = window.open("", "_blank");
+  const token = localStorage.getItem("brdms_token");
+  fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.blob(); })
+    .then(blob => {
+      const objectUrl = URL.createObjectURL(blob);
+      if (tab) tab.location.href = objectUrl; else window.location.href = objectUrl;
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    })
+    .catch(() => {
+      if (tab) tab.close();
+      alert("Datei konnte nicht geöffnet werden");
+    });
+}
+
 export default function Eingang() {
   const [dokumente, setDokumente]             = useState<Dokument[]>([]);
   const [laden, setLaden]                     = useState(true);
@@ -36,6 +56,10 @@ export default function Eingang() {
 
   // Sitzung/TOP-Felder
   const [selSitzungId, setSelSitzungId]       = useState("");
+  const [topModus, setTopModus]               = useState<"neu" | "bestehend">("neu");
+  const [topsDerSitzung, setTopsDerSitzung]   = useState<TOP[]>([]);
+  const [topsLaden, setTopsLaden]             = useState(false);
+  const [selTopId, setSelTopId]               = useState("");
   const [topTitel, setTopTitel]               = useState("");
   const [fristDatum, setFristDatum]           = useState("");
   // Wissensarchiv-Felder
@@ -104,9 +128,14 @@ export default function Eingang() {
   async function oeffneAktion(aktion: Aktion) {
     setAktiveAktion(aktion);
     setAktionErfolg(null);
-    if (aktion === "sitzung-top" && sitzungen.length === 0) {
-      const data = await api.sitzungen.liste().catch(() => []);
-      setSitzungen(data.filter(s => s.status === "ENTWURF" || s.status === "TAGESORDNUNG_FIXIERT"));
+    if (aktion === "sitzung-top") {
+      setTopModus("neu");
+      setSelTopId("");
+      setTopsDerSitzung([]);
+      if (sitzungen.length === 0) {
+        const data = await api.sitzungen.liste().catch(() => []);
+        setSitzungen(data.filter(s => s.status === "ENTWURF" || s.status === "TAGESORDNUNG_FIXIERT"));
+      }
     }
     if (aktion === "aufgabe" && benutzer.length === 0) {
       const data = await api.get<Benutzer[]>("/api/benutzer").catch(() => []);
@@ -127,12 +156,31 @@ export default function Eingang() {
     }
   }
 
+  async function waehleSitzungFuerTop(sitzungId: string) {
+    setSelSitzungId(sitzungId);
+    setSelTopId("");
+    setTopsDerSitzung([]);
+    if (!sitzungId) return;
+    setTopsLaden(true);
+    try {
+      const sitzung = await api.sitzungen.einzel(sitzungId);
+      setTopsDerSitzung(sitzung.tops);
+    } catch { setTopsDerSitzung([]); }
+    finally { setTopsLaden(false); }
+  }
+
   async function sendeAktionSitzungTop() {
-    if (!ausgewaehlt || !selSitzungId || !topTitel) return;
+    if (!ausgewaehlt || !selSitzungId) return;
+    if (topModus === "neu" && !topTitel) return;
+    if (topModus === "bestehend" && !selTopId) return;
     setAktionLaden(true);
     try {
+      const gewaehlterTop = topsDerSitzung.find(t => t.id === selTopId);
       await api.dokumente.aktionSitzungTop(ausgewaehlt.id, {
-        sitzungId: selSitzungId, topTitel, fristDatum: fristDatum || undefined,
+        sitzungId: selSitzungId,
+        topTitel:  topModus === "bestehend" ? (gewaehlterTop?.titel ?? "") : topTitel,
+        topId:     topModus === "bestehend" ? selTopId : undefined,
+        fristDatum: fristDatum || undefined,
       });
       setAktionErfolg("Dokument wurde mit Sitzung/TOP verknüpft.");
       setDokumente(prev => prev.filter(d => d.id !== ausgewaehlt.id));
@@ -354,17 +402,16 @@ export default function Eingang() {
                         <RotateCcw className="w-4 h-4" /> Wiedervorlage
                       </button>
                       {(ausgewaehlt.kategorie === "ANHOERUNG_99" || ausgewaehlt.kategorie === "ANHOERUNG_102") && (
-                        <a
-                          href={api.export.briefvorlageUrl(ausgewaehlt.id, ausgewaehlt.kategorie === "ANHOERUNG_99" ? "widerspruch_99" : "zustimmungsverweigerung_102")}
-                          target="_blank" rel="noreferrer"
+                        <button
+                          onClick={() => dateiInTabOeffnen(api.export.briefvorlageUrl(ausgewaehlt.id, ausgewaehlt.kategorie === "ANHOERUNG_99" ? "widerspruch_99" : "zustimmungsverweigerung_102"))}
                           className="flex items-center gap-2 px-3 py-2 bg-rose-600 text-white text-sm rounded-lg hover:bg-rose-700 transition-colors">
                           <ScrollText className="w-4 h-4" /> Briefvorlage
-                        </a>
+                        </button>
                       )}
-                      <a href={api.dokumente.downloadUrl(ausgewaehlt.id)} target="_blank" rel="noreferrer"
+                      <button onClick={() => dateiInTabOeffnen(api.dokumente.downloadUrl(ausgewaehlt.id))}
                         className="flex items-center gap-2 px-3 py-2 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300 transition-colors">
                         <Eye className="w-4 h-4" /> Download
-                      </a>
+                      </button>
                       <button onClick={sendeAktionErledigt} disabled={aktionLaden}
                         className="flex items-center gap-2 px-3 py-2 bg-gray-500 text-white text-sm rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50">
                         {aktionLaden ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCheck className="w-4 h-4" />}
@@ -383,7 +430,7 @@ export default function Eingang() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="col-span-2">
                           <label className="block text-xs font-medium text-gray-700 mb-1">Sitzung auswählen</label>
-                          <select value={selSitzungId} onChange={e => setSelSitzungId(e.target.value)}
+                          <select value={selSitzungId} onChange={e => waehleSitzungFuerTop(e.target.value)}
                             className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white">
                             <option value="">– Sitzung wählen –</option>
                             {sitzungen.map(s => (
@@ -391,19 +438,54 @@ export default function Eingang() {
                             ))}
                           </select>
                         </div>
-                        <div className="col-span-2">
-                          <label className="block text-xs font-medium text-gray-700 mb-1">TOP-Titel (neuer TOP)</label>
-                          <input type="text" value={topTitel} onChange={e => setTopTitel(e.target.value)}
-                            placeholder="z. B. Einstellung Mustermann"
-                            className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2" />
+
+                        <div className="col-span-2 flex gap-4 text-sm">
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <input type="radio" name="topModus" checked={topModus === "neu"}
+                              onChange={() => setTopModus("neu")} />
+                            Neuer TOP
+                          </label>
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <input type="radio" name="topModus" checked={topModus === "bestehend"}
+                              onChange={() => setTopModus("bestehend")} />
+                            Als Anhang zu vorhandenem TOP
+                          </label>
                         </div>
+
+                        {topModus === "neu" ? (
+                          <div className="col-span-2">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">TOP-Titel (neuer TOP)</label>
+                            <input type="text" value={topTitel} onChange={e => setTopTitel(e.target.value)}
+                              placeholder="z. B. Einstellung Mustermann"
+                              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2" />
+                          </div>
+                        ) : (
+                          <div className="col-span-2">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Vorhandenen TOP wählen</label>
+                            <select value={selTopId} onChange={e => setSelTopId(e.target.value)}
+                              disabled={!selSitzungId || topsLaden}
+                              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white disabled:opacity-50">
+                              <option value="">
+                                {!selSitzungId ? "– zuerst Sitzung wählen –" : topsLaden ? "Lade TOPs…" : "– TOP wählen –"}
+                              </option>
+                              {topsDerSitzung.map(t => (
+                                <option key={t.id} value={t.id}>{t.nummer}. {t.titel}</option>
+                              ))}
+                            </select>
+                            {selSitzungId && !topsLaden && topsDerSitzung.length === 0 && (
+                              <p className="text-xs text-gray-400 mt-1">Diese Sitzung hat noch keine TOPs.</p>
+                            )}
+                          </div>
+                        )}
+
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">Fristdatum (optional)</label>
                           <input type="date" value={fristDatum} onChange={e => setFristDatum(e.target.value)}
                             className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2" />
                         </div>
                       </div>
-                      <button onClick={sendeAktionSitzungTop} disabled={aktionLaden || !selSitzungId || !topTitel}
+                      <button onClick={sendeAktionSitzungTop}
+                        disabled={aktionLaden || !selSitzungId || (topModus === "neu" ? !topTitel : !selTopId)}
                         className="flex items-center gap-2 px-4 py-2 text-white text-sm rounded-lg hover:brightness-90 disabled:opacity-50"
                         style={{ backgroundColor: "rgb(var(--accent))" }}>
                         {aktionLaden ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}

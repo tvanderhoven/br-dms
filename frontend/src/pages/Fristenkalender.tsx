@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { CalendarRange, ChevronLeft, ChevronRight, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
+import { CalendarRange, ChevronLeft, ChevronRight, AlertTriangle, Clock, CheckCircle2, Trash2 } from "lucide-react";
 import { api, FristMitDokument, KATEGORIE_LABEL, formatDatum } from "../lib/api";
 
 const FRIST_TYP_LABEL: Record<string, string> = {
@@ -76,6 +76,12 @@ export default function Fristenkalender() {
   }
 
   const ausgewaehlteFristen = ausgewaehltTag ? (nachTag[ausgewaehltTag] ?? []) : [];
+
+  async function fristLoeschen(id: string) {
+    if (!confirm("Diese Frist wirklich löschen? (z.B. weil beim Upload die falsche Kündigungsart gewählt wurde)")) return;
+    await api.fristen.loeschen(id);
+    setFristen(prev => prev.filter(f => f.id !== id));
+  }
 
   const offene   = fristen.filter(f => f.status === "OFFEN").length;
   const erledigt = fristen.filter(f => f.status === "ERLEDIGT").length;
@@ -190,9 +196,18 @@ export default function Fristenkalender() {
             ) : (
               <ul className="divide-y divide-gray-100">
                 {(ausgewaehltTag ? ausgewaehlteFristen : fristen).map(f => (
-                  <li key={f.id} className="px-4 py-3">
-                    <div className={`inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded border mb-1 ${tagFarbe(f.faelligAm, f.status)}`}>
-                      {FRIST_TYP_LABEL[f.typ] ?? f.typ}
+                  <li key={f.id} className="px-4 py-3 group relative">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className={`inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded border mb-1 ${tagFarbe(f.faelligAm, f.status)}`}>
+                        {FRIST_TYP_LABEL[f.typ] ?? f.typ}
+                      </div>
+                      <button
+                        onClick={() => fristLoeschen(f.id)}
+                        title="Frist löschen"
+                        className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                      >
+                        <Trash2 size={13} />
+                      </button>
                     </div>
                     <p className="text-sm font-medium text-gray-800 leading-snug truncate">
                       {f.dokument.alias ?? f.dokument.titel}
