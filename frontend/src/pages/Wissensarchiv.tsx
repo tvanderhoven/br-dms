@@ -4,6 +4,8 @@ import {
   FileText, Check, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { api, WissensEintrag, WissensEintragErstellen, formatDatum } from "../lib/api";
+import SitzungsEditor from "../components/SitzungsEditor";
+import { tiptapZuText, tiptapZuHtml, textZuTiptap } from "../lib/tiptap";
 
 export default function Wissensarchiv() {
   const [eintraege, setEintraege]       = useState<WissensEintrag[]>([]);
@@ -13,7 +15,7 @@ export default function Wissensarchiv() {
   const [ausgeklappt, setAusgeklappt]   = useState<string | null>(null);
   const [bearbeitet, setBearbeitet]     = useState(false);
   const [form, setForm]                 = useState<WissensEintragErstellen & { id?: string }>({
-    titel: "", inhalt: "", kategorien: [], loesung: "", herkunft: "MANUELL",
+    titel: "", inhalt: "", inhaltJson: null, kategorien: [], loesung: "", loesungJson: null, herkunft: "MANUELL",
   });
   const [tagInput, setTagInput]         = useState("");
   const [aktivKategorie, setAktivKategorie] = useState<string | null>(null);
@@ -40,12 +42,14 @@ export default function Wissensarchiv() {
     if (eintrag) {
       setForm({
         id: eintrag.id, titel: eintrag.titel, inhalt: eintrag.inhalt,
+        inhaltJson: eintrag.inhaltJson ?? textZuTiptap(eintrag.inhalt),
         kategorien: eintrag.kategorien, loesung: eintrag.loesung ?? "",
+        loesungJson: eintrag.loesungJson ?? textZuTiptap(eintrag.loesung),
         herkunft: eintrag.herkunft, quelle: eintrag.quelle ?? undefined,
       });
       setBearbeitet(true);
     } else {
-      setForm({ titel: "", inhalt: "", kategorien: [], loesung: "", herkunft: "MANUELL" });
+      setForm({ titel: "", inhalt: "", inhaltJson: null, kategorien: [], loesung: "", loesungJson: null, herkunft: "MANUELL" });
       setBearbeitet(false);
     }
     setModal(true);
@@ -53,10 +57,12 @@ export default function Wissensarchiv() {
 
   async function speichern(e: FormEvent) {
     e.preventDefault();
-    if (!form.titel.trim() || !form.inhalt.trim()) return;
+    const inhaltText = tiptapZuText(form.inhaltJson);
+    if (!form.titel.trim() || !inhaltText) return;
     const payload = {
-      titel: form.titel.trim(), inhalt: form.inhalt.trim(),
-      kategorien: form.kategorien, loesung: form.loesung || undefined,
+      titel: form.titel.trim(), inhalt: inhaltText, inhaltJson: form.inhaltJson ?? undefined,
+      kategorien: form.kategorien,
+      loesung: tiptapZuText(form.loesungJson) || undefined, loesungJson: form.loesungJson ?? undefined,
       herkunft: form.herkunft, quelle: form.quelle,
     };
     try {
@@ -199,14 +205,28 @@ export default function Wissensarchiv() {
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
                       <FileText size={13} /> Situation / Sachverhalt
                     </h3>
-                    <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{eintrag.inhalt}</div>
+                    {eintrag.inhaltJson ? (
+                      <div
+                        className="text-sm text-gray-700 leading-relaxed [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-0.5 [&_p]:my-0.5 [&_strong]:font-semibold [&_em]:italic"
+                        dangerouslySetInnerHTML={{ __html: tiptapZuHtml(eintrag.inhaltJson) }}
+                      />
+                    ) : (
+                      <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{eintrag.inhalt}</div>
+                    )}
                   </div>
                   {eintrag.loesung && (
                     <div className="bg-green-50 rounded-xl border border-green-200 p-4 mb-3">
                       <h3 className="text-xs font-semibold text-green-800 uppercase tracking-wide mb-2 flex items-center gap-1.5">
                         <Check className="w-3.5 h-3.5" /> Lösung / Ergebnis
                       </h3>
-                      <div className="text-sm text-green-900 whitespace-pre-wrap leading-relaxed">{eintrag.loesung}</div>
+                      {eintrag.loesungJson ? (
+                        <div
+                          className="text-sm text-green-900 leading-relaxed [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-0.5 [&_p]:my-0.5 [&_strong]:font-semibold [&_em]:italic"
+                          dangerouslySetInnerHTML={{ __html: tiptapZuHtml(eintrag.loesungJson) }}
+                        />
+                      ) : (
+                        <div className="text-sm text-green-900 whitespace-pre-wrap leading-relaxed">{eintrag.loesung}</div>
+                      )}
                     </div>
                   )}
                   <div className="flex gap-2">
@@ -257,23 +277,21 @@ export default function Wissensarchiv() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Sachverhalt / Situation *</label>
-                <textarea
-                  required rows={4}
-                  value={form.inhalt}
-                  onChange={e => setForm(f => ({ ...f, inhalt: e.target.value }))}
+                <SitzungsEditor
+                  content={form.inhaltJson ?? null}
+                  onChange={json => setForm(f => ({ ...f, inhaltJson: json }))}
                   placeholder="Beschreibe die Situation oder den Fall…"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
+                  minHeight="100px"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Lösung / Ergebnis</label>
-                <textarea
-                  rows={3}
-                  value={form.loesung}
-                  onChange={e => setForm(f => ({ ...f, loesung: e.target.value }))}
+                <SitzungsEditor
+                  content={form.loesungJson ?? null}
+                  onChange={json => setForm(f => ({ ...f, loesungJson: json }))}
                   placeholder="Wie wurde das Problem gelöst? Welches Ergebnis wurde erzielt?"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
+                  minHeight="80px"
                 />
               </div>
 

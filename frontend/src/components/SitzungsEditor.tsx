@@ -55,7 +55,7 @@ export default function SitzungsEditor({
         openOnClick: true,
         autolink: true,
         linkOnPaste: true,
-        protocols: ['lbo', 'lboffice', 'lbofficem', 'ftp', 'mailto'],
+        protocols: ['lbo', 'lboffice', 'lbofficem', 'ftp', 'mailto', 'file', 'brdmsfile'],
         HTMLAttributes: {
           target: "_blank",
           rel: "noopener noreferrer",
@@ -153,8 +153,19 @@ export default function SitzungsEditor({
       editor?.chain().focus().unsetLink().run();
     } else {
       let url = linkEingabe.trim();
+      // UNC-Pfad aus der Explorer-Adressleiste kopiert (\\server\freigabe\...) – in das
+      // brdmsfile://-Protokoll umwandeln. file:// wird von Browsern für Netzwerkfreigaben
+      // blockiert (SMB/NTLM-Schutz, siehe tools/brdmsfile-protokoll/), brdmsfile:// läuft
+      // stattdessen über den lokal installierten Handler (wie die bekannten lbo://-Links).
+      if (/^\\\\/.test(url)) url = "brdmsfile:" + url.replace(/\\/g, "/");
       // Nur https voranstellen wenn überhaupt kein Protokoll angegeben (z.B. nicht lbo://, ftp://, mailto:)
-      if (!/^[a-zA-Z][a-zA-Z0-9+\-.]*:\/?\/?/i.test(url)) url = "https://" + url;
+      else if (!/^[a-zA-Z][a-zA-Z0-9+\-.]*:\/?\/?/i.test(url)) url = "https://" + url;
+      // file:// / brdmsfile://-Pfade werden oft mit rohen Leerzeichen/Umlauten eingefügt –
+      // ohne Kodierung bricht die URL am ersten Leerzeichen ab.
+      if (/^(file|brdmsfile):\/\//i.test(url)) {
+        const idx = url.indexOf("://") + 3;
+        url = url.slice(0, idx) + encodeURI(url.slice(idx));
+      }
       editor?.chain().focus().setLink({ href: url }).run();
     }
     setLinkEingabe("");

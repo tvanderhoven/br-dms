@@ -24,6 +24,11 @@ export async function authRouten(app: FastifyInstance): Promise<void> {
   app.post<{ Body: LoginBody }>(
     "/login",
     {
+      // Kein Login-Zwang für diesen Endpunkt möglich (das ist ja der Login selbst) -
+      // Rate-Limit als Schutz gegen Brute-Force-Angriffe auf Passwörter.
+      config: {
+        rateLimit: { max: 10, timeWindow: "10 minutes" },
+      },
       schema: {
         body: {
           type: "object",

@@ -102,7 +102,8 @@ function ListenAnsicht({
       {gefiltert.map(aufgabe => (
         <div
           key={aufgabe.id}
-          className={`bg-white rounded-xl border p-4 flex gap-3 transition-opacity ${
+          onDoubleClick={() => onBearbeiten(aufgabe)}
+          className={`bg-white rounded-xl border p-4 flex gap-3 transition-opacity cursor-pointer ${
             aufgabe.erledigt ? "opacity-60 border-gray-200" : "border-gray-200 shadow-sm"
           }`}
         >
@@ -243,6 +244,7 @@ function KanbanAnsicht({
                   key={karte.id}
                   draggable
                   onDragStart={e => e.dataTransfer.setData("text/aufgabe-id", karte.id)}
+                  onDoubleClick={() => onBearbeiten(karte)}
                   className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 cursor-grab active:cursor-grabbing group"
                 >
                   <div className="flex items-start justify-between gap-2">

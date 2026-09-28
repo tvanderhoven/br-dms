@@ -33,6 +33,8 @@ import { fristenRouten } from "./routes/fristen.js";
 import { exportRouten } from "./routes/export.js";
 import { mitarbeiterRouten, abteilungenRouten } from "./routes/mitarbeiter.js";
 import { gehaltstabelleRouten } from "./routes/gehaltstabelle.js";
+import { zeitmodellRouten } from "./routes/zeitmodell.js";
+import { ueberstundenRouten } from "./routes/ueberstunden.js";
 import { betriebsvereinbarungenRouten } from "./routes/betriebsvereinbarungen.js";
 import { qualifikationenRouten, schulungenRouten } from "./routes/schulungen.js";
 import { gesetzeRouten } from "./routes/gesetze.js";
@@ -49,7 +51,18 @@ const app = Fastify({
   logger: { level: process.env.NODE_ENV === "production" ? "info" : "debug" },
 });
 
-await app.register(cors, { origin: true, credentials: true });
+// Nur die echte Frontend-Origin zulassen statt jede beliebige Seite (origin: true) -
+// APP_URL ist ohnehin schon Pflicht-Env-Var (siehe README), lokale Dev-Server als Fallback.
+const erlaubteOrigins = [
+  process.env.APP_URL,
+  "http://localhost:5173", // Vite Dev-Server
+  "http://localhost:3000", // lokaler Frontend-Build
+].filter((o): o is string => Boolean(o));
+
+await app.register(cors, {
+  origin: erlaubteOrigins.length > 0 ? erlaubteOrigins : true,
+  credentials: true,
+});
 
 await app.register(jwt, {
   secret: process.env.JWT_SECRET!,
@@ -93,6 +106,8 @@ await app.register(exportRouten,             { prefix: "/api/export" });
 await app.register(mitarbeiterRouten,        { prefix: "/api/mitarbeiter" });
 await app.register(abteilungenRouten,        { prefix: "/api/abteilungen" });
 await app.register(gehaltstabelleRouten,     { prefix: "/api/gehaltstabelle" });
+await app.register(zeitmodellRouten,         { prefix: "/api/zeitmodell" });
+await app.register(ueberstundenRouten,       { prefix: "/api/ueberstunden" });
 await app.register(betriebsvereinbarungenRouten, { prefix: "/api/betriebsvereinbarungen" });
 await app.register(qualifikationenRouten,    { prefix: "/api/qualifikationen" });
 await app.register(schulungenRouten,         { prefix: "/api/schulungen" });

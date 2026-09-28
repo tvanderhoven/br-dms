@@ -45,6 +45,8 @@ EINZEL = [
     "frontend/postcss.config.js",
     "frontend/tsconfig.json",
     "frontend/vite.config.ts",
+    "proxy/nginx.conf",
+    "proxy/generate-selfsigned-cert.sh",
 ]
 
 # Erweiterungen die beim Scan beruecksichtigt werden

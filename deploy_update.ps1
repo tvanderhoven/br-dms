@@ -51,6 +51,8 @@ $quellen = @(
     "frontend/tailwind.config.js",
     "frontend/tsconfig.json",
     "frontend/vite.config.ts",
+    "proxy",
+    "docker-compose.yml",
     "backup.sh",
     "restore.sh"
 )
@@ -58,7 +60,7 @@ $quellen = @(
 # tar + SSH (benoetigt OpenSSH und tar, beide in Windows 10/11 eingebaut)
 $quellenStr = $quellen -join " "
 $tarCmd = "tar -czf - --exclude='*.env' $quellenStr"
-$sshCmd = "tar -xzf - -C '$DATA_PATH' && chmod +x '$DATA_PATH/backup.sh' '$DATA_PATH/restore.sh'"
+$sshCmd = "tar -xzf - -C '$DATA_PATH' && chmod +x '$DATA_PATH/backup.sh' '$DATA_PATH/restore.sh' '$DATA_PATH/proxy/generate-selfsigned-cert.sh'"
 $proc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c $tarCmd | ssh $ZIEL `"$sshCmd`"" -WorkingDirectory $DIR -Wait -PassThru -NoNewWindow
 
 if ($proc.ExitCode -eq 0) {

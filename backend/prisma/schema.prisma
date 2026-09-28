@@ -820,12 +820,14 @@ model WissensEintrag {
   id        String   @id @default(uuid())
   titel     String
   inhalt    String
+  inhaltJson Json?   @map("inhalt_json") // TipTap-JSON (Rich-Text), inhalt bleibt für Suche/Vorschau gepflegt
 
   herkunft  String   @default("MANUELL") // MANUELL | PROTOKOLL_EXTRAKT
   quelle    Json?    // { sitzungId, topId, protocolBlockId }
 
   kategorien String[] @default([]) // Tags/Schlagworte zur Kategorisierung
   loesung    String?  // Beschreibung der Lösung / des Ergebnisses
+  loesungJson Json?   @map("loesung_json") // TipTap-JSON (Rich-Text) für loesung
 
   erstelltVonId String   @map("erstellt_von_id")
   erstelltVon   Benutzer @relation("WissensErstelltVon", fields: [erstelltVonId], references: [id])
@@ -887,18 +889,31 @@ model Mitarbeiter {
   aktualisiertAm DateTime   @updatedAt @map("aktualisiert_am")
 
   gehaltsstufen  GehaltsstufenEintrag[]
+  zeitmodelle    ZeitmodellEintrag[]
+  ueberstunden   UeberstundenEintrag[]
   schulungsTeilnahmen SchulungsTeilnahme[]
 
   @@index([nachname, vorname])
   @@map("mitarbeiter")
 }
 
+// Eingruppierung (Gruppe+Stufe) – ändert sich selten. Das Zeitmodell (siehe
+// ZeitmodellEintrag) ändert sich viel öfter und hat eine eigene Historie mit
+// echtem Gültigkeitszeitraum, deshalb bewusst getrennt statt in einem
+// kombinierten String wie früher ("B:3.2").
 model GehaltsstufenEintrag {
   id             String      @id @default(uuid())
   mitarbeiterId  String      @map("mitarbeiter_id")
   mitarbeiter    Mitarbeiter @relation(fields: [mitarbeiterId], references: [id], onDelete: Cascade)
 
-  stufe          String
+  // Gruppe/Stufe ODER gehaltAt ist gesetzt, nie beides: AT ("außer Tarif")
+  // hat kein Gruppen-System, sondern ein individuell vereinbartes reales
+  // Gehalt (Quelle: CSV-Wert "AT:<Betrag>" statt "Zeitmodell:Gruppe.Stufe").
+  // Nullable außerdem, weil bei der Umstellung auf structured Felder ein paar
+  // historische Einträge nicht automatisch zugeordnet werden konnten.
+  gruppe         Int?
+  stufe          Int?
+  gehaltAt       Decimal?    @map("gehalt_at") @db.Decimal(10, 2)
   gueltigAb      DateTime    @map("gueltig_ab")
   bemerkung      String?
 
@@ -910,6 +925,54 @@ model GehaltsstufenEintrag {
 
   @@index([mitarbeiterId, gueltigAb])
   @@map("gehaltsstufen_eintraege")
+}
+
+enum Zeitmodell {
+  A
+  B
+  C
+  D
+}
+
+// Zeitmodell-Historie mit echtem Gültigkeitszeitraum (gueltigBis = null heißt
+// unbefristet). Getrennt von der Eingruppierung, weil sich das Zeitmodell viel
+// öfter ändert (befristet von 1 Monat bis unbefristet) und aus anderen
+// Gründen als die Gehaltsstufe.
+model ZeitmodellEintrag {
+  id             String      @id @default(uuid())
+  mitarbeiterId  String      @map("mitarbeiter_id")
+  mitarbeiter    Mitarbeiter @relation(fields: [mitarbeiterId], references: [id], onDelete: Cascade)
+
+  zeitmodell     Zeitmodell
+  gueltigVon     DateTime    @map("gueltig_von")
+  gueltigBis     DateTime?   @map("gueltig_bis")
+  bemerkung      String?
+
+  erstelltAm     DateTime    @default(now()) @map("erstellt_am")
+  aktualisiertAm DateTime    @updatedAt @map("aktualisiert_am")
+
+  @@index([mitarbeiterId, gueltigVon])
+  @@map("zeitmodell_eintraege")
+}
+
+// Überstunden-Regelung mit echtem Gültigkeitszeitraum – strukturell wie
+// ZeitmodellEintrag, nur ohne festes Enum: die Regelung selbst ist Freitext
+// (z.B. "Ausgleich in Freizeit", "Auszahlung ab 20h").
+model UeberstundenEintrag {
+  id             String      @id @default(uuid())
+  mitarbeiterId  String      @map("mitarbeiter_id")
+  mitarbeiter    Mitarbeiter @relation(fields: [mitarbeiterId], references: [id], onDelete: Cascade)
+
+  regelung       String
+  gueltigVon     DateTime    @map("gueltig_von")
+  gueltigBis     DateTime?   @map("gueltig_bis")
+  bemerkung      String?
+
+  erstelltAm     DateTime    @default(now()) @map("erstellt_am")
+  aktualisiertAm DateTime    @updatedAt @map("aktualisiert_am")
+
+  @@index([mitarbeiterId, gueltigVon])
+  @@map("ueberstunden_eintraege")
 }
 
 // ================================================================

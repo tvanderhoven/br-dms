@@ -34,7 +34,14 @@ export function tiptapZuHtml(json: object | null | undefined): string {
     const ch = (node.content ?? []).map(r).join("");
     switch (node.type) {
       case "paragraph":   return `<p>${ch}</p>`;
-      case "heading":     return `<h${node.attrs?.level ?? 1}>${ch}</h${node.attrs?.level ?? 1}>`;
+      case "heading": {
+        // attrs.level kommt aus dem gespeicherten JSON und ist nicht vertrauenswürdig
+        // (die API validiert die JSON-Struktur nicht) - ungeprüft eingesetzt wäre das
+        // eine HTML/Attribut-Injection in den <h*>-Tag. Nur echte Heading-Level erlauben.
+        const level = node.attrs?.level;
+        const sicheresLevel = typeof level === "number" && Number.isInteger(level) && level >= 1 && level <= 6 ? level : 1;
+        return `<h${sicheresLevel}>${ch}</h${sicheresLevel}>`;
+      }
       case "bulletList":  return `<ul>${ch}</ul>`;
       case "orderedList": return `<ol>${ch}</ol>`;
       case "listItem":    return `<li>${ch}</li>`;

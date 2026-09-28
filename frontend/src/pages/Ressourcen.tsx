@@ -19,6 +19,27 @@ const KATEGORIE_ICON: Record<RessourceKategorie, React.ReactNode> = {
   SONSTIGES:   <Link2 size={14} />,
 };
 
+// Favicon direkt von der verlinkten Seite selbst laden (nicht über einen Drittanbieter-Dienst
+// wie Google – die Ressource wird ohnehin schon extern aufgerufen, sonst keine Zusatzabfrage).
+function favicon(url: string): string | null {
+  try { return `https://${new URL(url).hostname}/favicon.ico`; }
+  catch { return null; }
+}
+
+function Favicon({ url }: { url: string }) {
+  const [fehler, setFehler] = useState(false);
+  const src = favicon(url);
+  if (!src || fehler) return null;
+  return (
+    <img
+      src={src}
+      onError={() => setFehler(true)}
+      className="w-4 h-4 rounded-sm shrink-0 object-contain"
+      alt=""
+    />
+  );
+}
+
 export default function Ressourcen() {
   const [liste, setListe]             = useState<Ressource[]>([]);
   const [laden, setLaden]             = useState(true);
@@ -187,7 +208,10 @@ export default function Ressourcen() {
                     </span>
                     <span className="text-xs text-gray-400">{r.erstelltVon.name} · {formatDatum(r.erstelltAm)}</span>
                   </div>
-                  <p className="font-semibold text-gray-900">{r.titel}</p>
+                  <p className="font-semibold text-gray-900 flex items-center gap-1.5">
+                    <Favicon url={r.url} />
+                    {r.titel}
+                  </p>
                   <p className="text-xs text-blue-500 truncate mt-0.5">{r.url}</p>
                   {r.beschreibung && (
                     <p className="text-xs text-gray-400 line-clamp-1 mt-0.5">{r.beschreibung}</p>

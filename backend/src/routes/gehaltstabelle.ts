@@ -1,5 +1,13 @@
 /**
- * Gehaltstabelle – Gehaltsstufen-Historie je Mitarbeiter
+ * Gehaltstabelle – Eingruppierungs-Historie (Gruppe+Stufe) je Mitarbeiter.
+ * Das Zeitmodell hat eine eigene Historie mit echtem Zeitraum, siehe
+ * routes/zeitmodell.ts – die Quelle liefert beides weiterhin als einen
+ * kombinierten Code (z.B. "B:3.2"), der Import splittet ihn auf.
+ *
+ * AT ("außer Tarif"): kein Gruppen-System, sondern ein individuell
+ * vereinbartes reales Gehalt. Quelle liefert dafür "AT:<Betrag>" (z.B.
+ * "AT:4200") statt "Zeitmodell:Gruppe.Stufe" in derselben Spalte – landet in
+ * gehaltAt statt gruppe/stufe, kein Zeitmodell-Eintrag dafür.
  *
  * GET    /api/gehaltstabelle         – Einträge (Filter: abteilungId, mitarbeiterId, von, bis)
  * POST   /api/gehaltstabelle         – neuen Eintrag anlegen
@@ -17,6 +25,7 @@ import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { decodeCsvBuffer, parseCsv, parseImportDatum } from "../lib/csv.js";
+import { parseGehaltsstufe, zeitmodellPeriodeAnlegen } from "../lib/zeitmodell.js";
 
 // ── CSV-Import: Typen ───────────────────────────────────────────────
 interface ImportFehler         { zeile: number; grund: string; }
@@ -101,8 +110,8 @@ async function verarbeiteImport(
   });
 
   const vorhandeneEintragsSchluessel = new Set(
-    (await client.gehaltsstufenEintrag.findMany({ select: { mitarbeiterId: true, stufe: true, gueltigAb: true } }))
-      .map(e => `${e.mitarbeiterId}|${e.stufe}|${e.gueltigAb.getTime()}`)
+    (await client.gehaltsstufenEintrag.findMany({ select: { mitarbeiterId: true, gruppe: true, stufe: true, gueltigAb: true } }))
+      .map(e => `${e.mitarbeiterId}|${e.gruppe}.${e.stufe}|${e.gueltigAb.getTime()}`)
   );
 
   const gemeldeteNeueMitarbeiter = new Set<string>();
@@ -117,7 +126,7 @@ async function verarbeiteImport(
     const abteilungName  = spalte(zeile, "abteilung");
     const eintrittRoh     = spalte(zeile, "eintritt");
     const austrittRoh     = spalte(zeile, "austritt");
-    const stufe          = spalte(zeile, "gehaltsstufe");
+    const gehaltsstufeRoh = spalte(zeile, "gehaltsstufe");
     const gueltigAbRoh    = spalte(zeile, "gueltigAb");
     const bemerkung       = spalte(zeile, "bemerkung") || null;
 
@@ -135,8 +144,16 @@ async function verarbeiteImport(
       });
       continue;
     }
-    if (!stufe) {
+    if (!gehaltsstufeRoh) {
       zusammenfassung.fehler.push({ zeile: zeileNr, grund: "Gehaltsstufe fehlt" });
+      continue;
+    }
+    const geparsteStufe = parseGehaltsstufe(gehaltsstufeRoh);
+    if (!geparsteStufe) {
+      zusammenfassung.fehler.push({
+        zeile: zeileNr,
+        grund: `Gehaltsstufe "${gehaltsstufeRoh}" passt weder ins Format "Zeitmodell:Gruppe.Stufe" (z.B. B:3.2) noch ins AT-Format "AT:Betrag" (z.B. AT:4200)`,
+      });
       continue;
     }
 
@@ -266,8 +283,11 @@ async function verarbeiteImport(
       }
     }
 
-    // ── Gehaltsstufen-Eintrag anlegen (Duplikate überspringen) ────────
-    const eintragsSchluessel = `${mitarbeiter.id}|${stufe}|${gueltigAb.getTime()}`;
+    // ── Gehaltsstufen-Eintrag (Eingruppierung ODER AT) anlegen (Duplikate überspringen) ──
+    const wertSchluessel = geparsteStufe.art === "at"
+      ? `AT:${geparsteStufe.gehalt}`
+      : `${geparsteStufe.gruppe}.${geparsteStufe.stufe}`;
+    const eintragsSchluessel = `${mitarbeiter.id}|${wertSchluessel}|${gueltigAb.getTime()}`;
     if (vorhandeneEintragsSchluessel.has(eintragsSchluessel)) {
       zusammenfassung.uebersprungen.push({ zeile: zeileNr, grund: "Identischer Eintrag (Mitarbeiter, Gehaltsstufe, Gültig ab) existiert bereits" });
       continue;
@@ -276,8 +296,33 @@ async function verarbeiteImport(
 
     if (!dryRun) {
       await client.gehaltsstufenEintrag.create({
-        data: { mitarbeiterId: mitarbeiter.id, stufe, gueltigAb, bemerkung },
+        data: geparsteStufe.art === "at"
+          ? { mitarbeiterId: mitarbeiter.id, gehaltAt: geparsteStufe.gehalt, gueltigAb, bemerkung }
+          : { mitarbeiterId: mitarbeiter.id, gruppe: geparsteStufe.gruppe, stufe: geparsteStufe.stufe, gueltigAb, bemerkung },
       });
+
+      // Zeitmodell separat fortschreiben (eigene Historie, eigener Zeitraum) –
+      // nur für tarifliche Eingruppierung, AT-Zeilen enthalten kein Zeitmodell.
+      // Nur außerhalb des Dry-Runs, da diese Hilfsfunktion direkt schreibt.
+      if (geparsteStufe.art === "eingruppierung") {
+        const zeitmodellErgebnis = await zeitmodellPeriodeAnlegen(client, {
+          mitarbeiterId: mitarbeiter.id,
+          zeitmodell:    geparsteStufe.zeitmodell,
+          gueltigVon:    gueltigAb,
+          bemerkung,
+        });
+        if (zeitmodellErgebnis.art === "konflikt") {
+          zusammenfassung.uebersprungen.push({
+            zeile: zeileNr,
+            grund: `Zeitmodell konnte nicht übernommen werden: ${zeitmodellErgebnis.grund}`,
+          });
+        } else if (zeitmodellErgebnis.art === "aktualisiert") {
+          zusammenfassung.geaendert.push({
+            zeile: zeileNr,
+            grund: `Zeitmodell von "${zeitmodellErgebnis.vorherigesZeitmodell}" auf "${zeitmodellErgebnis.eintrag.zeitmodell}" geändert (ab ${gueltigAb.toLocaleDateString("de-DE")})`,
+          });
+        }
+      }
     }
     zusammenfassung.neueEintraege++;
   }
@@ -292,18 +337,33 @@ interface ListenFilter {
   bis?:          string;
 }
 
+// Entweder Gruppe+Stufe (tariflich) ODER gehaltAt (AT/außer Tarif), nie beides.
 interface NeuerEintrag {
   mitarbeiterId: string;
-  stufe:         string;
+  gruppe?:       number;
+  stufe?:        number;
+  gehaltAt?:     number;
   gueltigAb:     string;
   bemerkung?:    string;
   sitzungId?:    string;
 }
 
 interface EintragUpdate {
-  stufe?:      string;
+  gruppe?:     number;
+  stufe?:      number;
+  gehaltAt?:   number;
   gueltigAb?:  string;
   bemerkung?:  string | null;
+}
+
+function gueltigeGruppe(gruppe: unknown): gruppe is number {
+  return typeof gruppe === "number" && Number.isInteger(gruppe) && gruppe >= 1 && gruppe <= 6;
+}
+function gueltigeStufe(stufe: unknown): stufe is number {
+  return typeof stufe === "number" && Number.isInteger(stufe) && stufe >= 1 && stufe <= 4;
+}
+function gueltigerGehaltAt(gehalt: unknown): gehalt is number {
+  return typeof gehalt === "number" && Number.isFinite(gehalt) && gehalt > 0;
 }
 
 const MITARBEITER_INCLUDE = {
@@ -399,11 +459,17 @@ export async function gehaltstabelleRouten(app: FastifyInstance): Promise<void> 
     "/",
     { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request: FastifyRequest<{ Body: NeuerEintrag }>, reply: FastifyReply) => {
-      const { mitarbeiterId, stufe, gueltigAb, bemerkung, sitzungId } = request.body;
+      const { mitarbeiterId, gruppe, stufe, gehaltAt, gueltigAb, bemerkung, sitzungId } = request.body;
 
       if (!mitarbeiterId?.trim()) return reply.status(400).send({ fehler: "mitarbeiterId ist ein Pflichtfeld" });
-      if (!stufe?.trim())         return reply.status(400).send({ fehler: "stufe ist ein Pflichtfeld" });
       if (!gueltigAb)             return reply.status(400).send({ fehler: "gueltigAb ist ein Pflichtfeld" });
+
+      if (gehaltAt !== undefined) {
+        if (!gueltigerGehaltAt(gehaltAt)) return reply.status(400).send({ fehler: "gehaltAt muss eine positive Zahl sein" });
+      } else {
+        if (!gueltigeGruppe(gruppe)) return reply.status(400).send({ fehler: "gruppe muss zwischen 1 und 6 liegen" });
+        if (!gueltigeStufe(stufe))   return reply.status(400).send({ fehler: "stufe muss zwischen 1 und 4 liegen" });
+      }
 
       const mitarbeiter = await prisma.mitarbeiter.findUnique({ where: { id: mitarbeiterId } });
       if (!mitarbeiter) {
@@ -418,7 +484,7 @@ export async function gehaltstabelleRouten(app: FastifyInstance): Promise<void> 
       const eintrag = await prisma.gehaltsstufenEintrag.create({
         data: {
           mitarbeiterId,
-          stufe:      stufe.trim(),
+          ...(gehaltAt !== undefined ? { gehaltAt } : { gruppe, stufe }),
           gueltigAb:  new Date(gueltigAb),
           bemerkung:  bemerkung?.trim() || null,
           sitzungId:  sitzungId || null,
@@ -436,15 +502,31 @@ export async function gehaltstabelleRouten(app: FastifyInstance): Promise<void> 
     { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request: FastifyRequest<{ Params: { id: string }; Body: EintragUpdate }>, reply: FastifyReply) => {
       const { id } = request.params;
-      const { stufe, gueltigAb, bemerkung } = request.body;
+      const { gruppe, stufe, gehaltAt, gueltigAb, bemerkung } = request.body;
+
+      if (gehaltAt !== undefined && !gueltigerGehaltAt(gehaltAt)) {
+        return reply.status(400).send({ fehler: "gehaltAt muss eine positive Zahl sein" });
+      }
+      if (gruppe !== undefined && !gueltigeGruppe(gruppe)) {
+        return reply.status(400).send({ fehler: "gruppe muss zwischen 1 und 6 liegen" });
+      }
+      if (stufe !== undefined && !gueltigeStufe(stufe)) {
+        return reply.status(400).send({ fehler: "stufe muss zwischen 1 und 4 liegen" });
+      }
 
       const vorhandener = await prisma.gehaltsstufenEintrag.findUnique({ where: { id } });
       if (!vorhandener) return reply.status(404).send({ fehler: "Eintrag nicht gefunden" });
 
+      // Gruppe/Stufe und gehaltAt schließen sich aus – wechselt das Formular
+      // den Modus, wird die jeweils andere Seite mit geleert (nie beides gesetzt).
+      const modusUpdate = gehaltAt !== undefined
+        ? { gehaltAt, gruppe: null, stufe: null }
+        : (gruppe !== undefined || stufe !== undefined) ? { gruppe, stufe, gehaltAt: null } : {};
+
       const aktualisiert = await prisma.gehaltsstufenEintrag.update({
         where: { id },
         data: {
-          ...(stufe     !== undefined ? { stufe: stufe.trim() } : {}),
+          ...modusUpdate,
           ...(gueltigAb !== undefined ? { gueltigAb: new Date(gueltigAb) } : {}),
           ...(bemerkung !== undefined ? { bemerkung: bemerkung?.trim() || null } : {}),
         },

@@ -1234,7 +1234,10 @@ function TopGehaltModal({
   const [eintritt, setEintritt]                 = useState("");
   const [austritt, setAustritt]                 = useState("");
   const [abteilungId, setAbteilungId]           = useState("");
+  const [istAt, setIstAt]                       = useState(false);
+  const [gruppe, setGruppe]                     = useState("");
   const [stufe, setStufe]                       = useState("");
+  const [gehaltAt, setGehaltAt]                 = useState("");
   const [gueltigAb, setGueltigAb]               = useState(sitzungsdatum?.slice(0, 10) ?? new Date().toISOString().slice(0, 10));
   const [bemerkung, setBemerkung]               = useState("");
   const [laden, setLaden]                       = useState(false);
@@ -1274,15 +1277,34 @@ function TopGehaltModal({
         setLaden(false);
         return;
       }
-      if (!stufe.trim()) {
-        setFehler("Gehaltsstufe ist ein Pflichtfeld");
-        setLaden(false);
-        return;
+      let werteFeld: { gruppe: number; stufe: number; gehaltAt?: undefined } | { gruppe?: undefined; stufe?: undefined; gehaltAt: number };
+      if (istAt) {
+        const gehaltNr = Number(gehaltAt.replace(",", "."));
+        if (!gehaltAt || !Number.isFinite(gehaltNr) || gehaltNr <= 0) {
+          setFehler("Bitte ein gültiges Gehalt eingeben");
+          setLaden(false);
+          return;
+        }
+        werteFeld = { gehaltAt: gehaltNr };
+      } else {
+        const gruppeNr = Number(gruppe);
+        const stufeNr  = Number(stufe);
+        if (!gruppe || !Number.isInteger(gruppeNr) || gruppeNr < 1 || gruppeNr > 6) {
+          setFehler("Bitte eine Gruppe (1-6) auswählen");
+          setLaden(false);
+          return;
+        }
+        if (!stufe || !Number.isInteger(stufeNr) || stufeNr < 1 || stufeNr > 4) {
+          setFehler("Bitte eine Stufe (1-4) auswählen");
+          setLaden(false);
+          return;
+        }
+        werteFeld = { gruppe: gruppeNr, stufe: stufeNr };
       }
 
       await api.gehaltstabelle.erstellen({
         mitarbeiterId: zielMitarbeiterId,
-        stufe:         stufe.trim(),
+        ...werteFeld,
         gueltigAb,
         bemerkung:     bemerkung || undefined,
         sitzungId,
@@ -1386,15 +1408,64 @@ function TopGehaltModal({
               )}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Gehaltsstufe *</label>
-              <input
-                type="text" required value={stufe}
-                onChange={e => setStufe(e.target.value)}
-                placeholder="z.B. B3.3"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
-              />
+            <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden w-fit">
+              <button
+                type="button"
+                onClick={() => setIstAt(false)}
+                className={`px-3 py-1.5 text-sm transition-colors ${!istAt ? "bg-[rgb(var(--accent))] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+              >
+                Tarif (Gruppe/Stufe)
+              </button>
+              <button
+                type="button"
+                onClick={() => setIstAt(true)}
+                className={`px-3 py-1.5 text-sm transition-colors ${istAt ? "bg-[rgb(var(--accent))] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+              >
+                AT (reales Gehalt)
+              </button>
             </div>
+
+            {istAt ? (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Gehalt (€) *</label>
+                <input
+                  type="text" required value={gehaltAt}
+                  onChange={e => setGehaltAt(e.target.value)}
+                  placeholder="z.B. 4200"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                />
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Gruppe *</label>
+                    <select
+                      required value={gruppe}
+                      onChange={e => setGruppe(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    >
+                      <option value="">– wählen –</option>
+                      {[1, 2, 3, 4, 5, 6].map(g => <option key={g} value={g}>{g}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Stufe *</label>
+                    <select
+                      required value={stufe}
+                      onChange={e => setStufe(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    >
+                      <option value="">– wählen –</option>
+                      {[1, 2, 3, 4].map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 -mt-2">
+                  Das Zeitmodell wird getrennt in der Gehaltstabelle (Tab „Zeitmodell") verwaltet.
+                </p>
+              </>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Gültig ab *</label>

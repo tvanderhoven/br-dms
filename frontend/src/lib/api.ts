@@ -211,7 +211,7 @@ export const api = {
     },
     erstellen: (data: GehaltsstufenEintragErstellen) =>
       request<GehaltsstufenEintrag>("/api/gehaltstabelle", { method: "POST", body: JSON.stringify(data) }),
-    aktualisieren: (id: string, data: Partial<Pick<GehaltsstufenEintragErstellen, "stufe" | "gueltigAb" | "bemerkung">>) =>
+    aktualisieren: (id: string, data: Partial<Pick<GehaltsstufenEintragErstellen, "gruppe" | "stufe" | "gehaltAt" | "gueltigAb" | "bemerkung">>) =>
       request<GehaltsstufenEintrag>(`/api/gehaltstabelle/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     loeschen: (id: string) => request<{ ok: boolean }>(`/api/gehaltstabelle/${id}`, { method: "DELETE" }),
     // Bewusst kein Daten-Export – nur die leere Kopfzeile fürs CSV-Import-Format
@@ -232,6 +232,36 @@ export const api = {
       request<{ ok: boolean; geloescht: { eintraege: number } }>(
         "/api/gehaltstabelle/eintraege", { method: "DELETE" }
       ),
+  },
+
+  zeitmodell: {
+    liste: (params: { mitarbeiterId?: string; abteilungId?: string } = {}) => {
+      const q = new URLSearchParams();
+      if (params.mitarbeiterId) q.set("mitarbeiterId", params.mitarbeiterId);
+      if (params.abteilungId)   q.set("abteilungId",   params.abteilungId);
+      return request<ZeitmodellEintrag[]>(`/api/zeitmodell?${q.toString()}`);
+    },
+    laufenBaldAb: (tage = 30) => request<ZeitmodellEintrag[]>(`/api/zeitmodell/laufen-bald-ab?tage=${tage}`),
+    erstellen: (data: ZeitmodellEintragErstellen) =>
+      request<ZeitmodellEintrag>("/api/zeitmodell", { method: "POST", body: JSON.stringify(data) }),
+    aktualisieren: (id: string, data: Partial<Pick<ZeitmodellEintragErstellen, "zeitmodell" | "gueltigVon" | "gueltigBis" | "bemerkung">>) =>
+      request<ZeitmodellEintrag>(`/api/zeitmodell/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    loeschen: (id: string) => request<{ ok: boolean }>(`/api/zeitmodell/${id}`, { method: "DELETE" }),
+  },
+
+  ueberstunden: {
+    liste: (params: { mitarbeiterId?: string; abteilungId?: string } = {}) => {
+      const q = new URLSearchParams();
+      if (params.mitarbeiterId) q.set("mitarbeiterId", params.mitarbeiterId);
+      if (params.abteilungId)   q.set("abteilungId",   params.abteilungId);
+      return request<UeberstundenEintrag[]>(`/api/ueberstunden?${q.toString()}`);
+    },
+    laufenBaldAb: (tage = 30) => request<UeberstundenEintrag[]>(`/api/ueberstunden/laufen-bald-ab?tage=${tage}`),
+    erstellen: (data: UeberstundenEintragErstellen) =>
+      request<UeberstundenEintrag>("/api/ueberstunden", { method: "POST", body: JSON.stringify(data) }),
+    aktualisieren: (id: string, data: Partial<Pick<UeberstundenEintragErstellen, "regelung" | "gueltigVon" | "gueltigBis" | "bemerkung">>) =>
+      request<UeberstundenEintrag>(`/api/ueberstunden/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    loeschen: (id: string) => request<{ ok: boolean }>(`/api/ueberstunden/${id}`, { method: "DELETE" }),
   },
 
   betriebsvereinbarungen: {
@@ -764,10 +794,12 @@ export interface WissensEintrag {
   id: string;
   titel: string;
   inhalt: string;
+  inhaltJson?: object | null;
   herkunft: string;
   quelle?: { sitzungId?: string; topId?: string; protocolBlockId?: string } | null;
   kategorien: string[];
   loesung?: string | null;
+  loesungJson?: object | null;
   erstelltVon: { id: string; name: string; email: string };
   erstelltAm: string;
   aktualisiertAm: string;
@@ -976,7 +1008,11 @@ export interface GehaltstabelleImportZusammenfassung {
 export interface GehaltsstufenEintrag {
   id: string;
   mitarbeiterId: string;
-  stufe: string;
+  gruppe: number | null;
+  stufe: number | null;
+  // AT ("außer Tarif") – reales Gehalt statt Gruppe/Stufe. Kommt vom Server als
+  // String (Decimal-Serialisierung), nie zusammen mit gruppe/stufe gesetzt.
+  gehaltAt: string | null;
   gueltigAb: string;
   bemerkung?: string | null;
   sitzungId?: string | null;
@@ -997,10 +1033,73 @@ export interface GehaltsstufenEintrag {
 
 export interface GehaltsstufenEintragErstellen {
   mitarbeiterId: string;
-  stufe: string;
+  // Entweder Gruppe+Stufe (tariflich) ODER gehaltAt (AT/außer Tarif), nie beides.
+  gruppe?: number;
+  stufe?: number;
+  gehaltAt?: number;
   gueltigAb: string;
   bemerkung?: string;
   sitzungId?: string;
+}
+
+export type Zeitmodell = "A" | "B" | "C" | "D";
+
+export interface ZeitmodellEintrag {
+  id: string;
+  mitarbeiterId: string;
+  zeitmodell: Zeitmodell;
+  gueltigVon: string;
+  gueltigBis?: string | null;
+  bemerkung?: string | null;
+  mitarbeiter: {
+    id: string;
+    vorname: string;
+    nachname: string;
+    pnr?: string | null;
+    austritt?: string | null;
+    standort?: string | null;
+    abteilung?: { id: string; name: string } | null;
+    beschaeftigungsart?: Beschaeftigungsart;
+  };
+  erstelltAm: string;
+  aktualisiertAm: string;
+}
+
+export interface ZeitmodellEintragErstellen {
+  mitarbeiterId: string;
+  zeitmodell: Zeitmodell;
+  gueltigVon: string;
+  gueltigBis?: string | null;
+  bemerkung?: string;
+}
+
+export interface UeberstundenEintrag {
+  id: string;
+  mitarbeiterId: string;
+  regelung: string;
+  gueltigVon: string;
+  gueltigBis?: string | null;
+  bemerkung?: string | null;
+  mitarbeiter: {
+    id: string;
+    vorname: string;
+    nachname: string;
+    pnr?: string | null;
+    austritt?: string | null;
+    standort?: string | null;
+    abteilung?: { id: string; name: string } | null;
+    beschaeftigungsart?: Beschaeftigungsart;
+  };
+  erstelltAm: string;
+  aktualisiertAm: string;
+}
+
+export interface UeberstundenEintragErstellen {
+  mitarbeiterId: string;
+  regelung: string;
+  gueltigVon: string;
+  gueltigBis?: string | null;
+  bemerkung?: string;
 }
 
 export type BVStatus = "AKTIV" | "GEKUENDIGT" | "ABGELOEST" | "BEFRISTET_AUSGELAUFEN";
@@ -1093,8 +1192,10 @@ export interface QualifikationsMatrix {
 export interface WissensEintragErstellen {
   titel: string;
   inhalt: string;
+  inhaltJson?: object | null;
   kategorien?: string[];
   loesung?: string;
+  loesungJson?: object | null;
   herkunft?: string;
   quelle?: { sitzungId?: string; topId?: string; protocolBlockId?: string };
 }

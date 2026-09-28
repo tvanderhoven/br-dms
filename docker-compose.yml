@@ -1,8 +1,8 @@
 # ================================================================
 #  BR-DMS – Synology Container Manager
-#  Intranet-Betrieb, kein Reverse Proxy
-#  Frontend: http://<NAS-IP>:3000
-#  Backend:  http://<NAS-IP>:4000
+#  Intranet-Betrieb, ausschließlich über HTTPS erreichbar:
+#  https://<NAS-IP-oder-Hostname>:${PROXY_HTTPS_PORT:-8443}
+#  (Frontend/Backend haben keine eigenen Host-Ports mehr, siehe proxy/)
 # ================================================================
 
 networks:
@@ -40,7 +40,9 @@ services:
 
   # ----------------------------------------------------------------
   #  Backend (Fastify + Prisma)
-  #  Port 4000 direkt erreichbar im Intranet
+  #  Kein direkter Port nach außen mehr - nur über den HTTPS-Proxy erreichbar
+  #  (Frontend-Nginx leitet /api intern an backend:4000 weiter, siehe
+  #  frontend/nginx.conf). BACKEND_PORT nur noch fuer den Healthcheck relevant.
   # ----------------------------------------------------------------
   backend:
     build:
@@ -50,8 +52,6 @@ services:
     restart: unless-stopped
     networks:
       - brdms_net
-    ports:
-      - "${BACKEND_PORT:-4000}:4000"
     environment:
       NODE_ENV:        ${NODE_ENV:-production}
       DATABASE_URL:    postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
@@ -88,20 +88,42 @@ services:
 
   # ----------------------------------------------------------------
   #  Frontend (React/Vite, via Nginx im Container)
-  #  Port 3000 direkt erreichbar im Intranet
+  #  Kein direkter Port nach außen mehr - nur über den HTTPS-Proxy erreichbar
+  #  (siehe proxy/nginx.conf). FRONTEND_PORT wird nicht mehr benoetigt.
   # ----------------------------------------------------------------
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: "http://${NAS_IP:-localhost}:${BACKEND_PORT:-4000}"
+        # Leer = relative "/api"-Pfade, damit es hinter dem HTTPS-Proxy unter
+        # jeder Origin funktioniert (Proxy leitet /api/* zum Backend weiter).
+        VITE_API_URL: ""
     container_name: brdms_frontend
     restart: unless-stopped
     networks:
       - brdms_net
-    ports:
-      - "${FRONTEND_PORT:-3000}:80"
     depends_on:
       backend:
         condition: service_healthy
+
+  # ----------------------------------------------------------------
+  #  Reverse-Proxy (Nginx) – terminiert TLS, fuehrt Frontend+Backend
+  #  unter einer gemeinsamen HTTPS-Adresse zusammen. Siehe README,
+  #  Abschnitt "HTTPS aktivieren" fuer die Zertifikat-Einrichtung.
+  # ----------------------------------------------------------------
+  proxy:
+    image: nginx:1.25-alpine
+    container_name: brdms_proxy
+    restart: unless-stopped
+    networks:
+      - brdms_net
+    ports:
+      - "${PROXY_HTTPS_PORT:-8443}:443"
+      - "${PROXY_HTTP_PORT:-8080}:80"
+    volumes:
+      - ./proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ${DATA_PATH}/certs:/etc/nginx/certs:ro
+    depends_on:
+      - frontend
+      - backend

@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { Role } from "@prisma/client";
+import { Prisma, Role } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
@@ -65,11 +65,13 @@ export async function wissenRouten(app: FastifyInstance): Promise<void> {
 
   app.post("/", { preHandler: [authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const { titel, inhalt, kategorien, loesung, herkunft, quelle } = request.body as {
+      const { titel, inhalt, inhaltJson, kategorien, loesung, loesungJson, herkunft, quelle } = request.body as {
         titel: string;
         inhalt: string;
+        inhaltJson?: object;
         kategorien?: string[];
         loesung?: string;
+        loesungJson?: object;
         herkunft?: string;
         quelle?: object;
       };
@@ -82,8 +84,10 @@ export async function wissenRouten(app: FastifyInstance): Promise<void> {
         data: {
           titel: titel.trim(),
           inhalt: inhalt.trim(),
+          inhaltJson: inhaltJson != null ? (inhaltJson as Prisma.InputJsonValue) : undefined,
           kategorien: kategorien ?? [],
           loesung: loesung ?? null,
+          loesungJson: loesungJson != null ? (loesungJson as Prisma.InputJsonValue) : undefined,
           herkunft: herkunft ?? "MANUELL",
           quelle: quelle ?? undefined,
           erstelltVonId: request.benutzer.sub,
@@ -99,23 +103,27 @@ export async function wissenRouten(app: FastifyInstance): Promise<void> {
   app.patch<{ Params: { id: string }; Body: {
     titel?: string;
     inhalt?: string;
+    inhaltJson?: object | null;
     kategorien?: string[];
     loesung?: string;
+    loesungJson?: object | null;
   } }>(
     "/:id",
     { preHandler: [authenticate] },
     async (request, reply) => {
       const { id } = request.params;
-      const { titel, inhalt, kategorien, loesung } = request.body;
+      const { titel, inhalt, inhaltJson, kategorien, loesung, loesungJson } = request.body;
 
       const eintrag = await prisma.wissensEintrag.findUnique({ where: { id } });
       if (!eintrag) return reply.status(404).send({ fehler: "Wissenseintrag nicht gefunden" });
 
       const data: Record<string, unknown> = {};
-      if (titel      !== undefined) data.titel      = titel.trim();
-      if (inhalt     !== undefined) data.inhalt     = inhalt.trim();
-      if (kategorien !== undefined) data.kategorien = kategorien;
-      if (loesung    !== undefined) data.loesung    = loesung ?? null;
+      if (titel       !== undefined) data.titel       = titel.trim();
+      if (inhalt      !== undefined) data.inhalt      = inhalt.trim();
+      if (inhaltJson  !== undefined) data.inhaltJson  = inhaltJson != null ? (inhaltJson as Prisma.InputJsonValue) : Prisma.DbNull;
+      if (kategorien  !== undefined) data.kategorien  = kategorien;
+      if (loesung     !== undefined) data.loesung     = loesung ?? null;
+      if (loesungJson !== undefined) data.loesungJson = loesungJson != null ? (loesungJson as Prisma.InputJsonValue) : Prisma.DbNull;
 
       const aktualisiert = await prisma.wissensEintrag.update({
         where: { id },

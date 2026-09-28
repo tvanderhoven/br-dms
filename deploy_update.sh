@@ -55,10 +55,11 @@ tar -czf - \
   frontend/tailwind.config.js \
   frontend/tsconfig.json \
   frontend/vite.config.ts \
+  proxy \
   docker-compose.yml \
   backup.sh \
   restore.sh \
-| ssh "${ZIEL}" "tar -xzf - -C '${DATA_PATH}' && chmod +x '${DATA_PATH}/backup.sh' '${DATA_PATH}/restore.sh'"
+| ssh "${ZIEL}" "tar -xzf - -C '${DATA_PATH}' && chmod +x '${DATA_PATH}/backup.sh' '${DATA_PATH}/restore.sh' '${DATA_PATH}/proxy/generate-selfsigned-cert.sh'"
 
 echo -e "  ${GRN}✓ Übertragung abgeschlossen${NC}"
 

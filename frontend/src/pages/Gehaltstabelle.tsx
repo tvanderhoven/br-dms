@@ -1,24 +1,19 @@
 import { useState, useEffect, useMemo, useRef, FormEvent, ChangeEvent } from "react";
-import { Wallet, Plus, Trash2, Download, Upload, X, Loader2, Edit3, Filter, AlertTriangle, UserCog, List, BarChart3 } from "lucide-react";
+import { Wallet, Plus, Trash2, Download, Upload, X, Loader2, Edit3, Filter, AlertTriangle, UserCog, List, BarChart3, BarChart2, Clock, Timer, ZoomIn, ZoomOut, CheckSquare, Square } from "lucide-react";
 import {
   api, GehaltsstufenEintrag, Abteilung, Mitarbeiter, GehaltstabelleImportZusammenfassung, formatDatum,
   Beschaeftigungsart, ALLE_BESCHAEFTIGUNGSARTEN, BESCHAEFTIGUNGSART_FARBE, BESCHAEFTIGUNGSART_KUERZEL, BESCHAEFTIGUNGSART_LABEL,
+  Zeitmodell, ZeitmodellEintrag, UeberstundenEintrag,
 } from "../lib/api";
 import MitarbeiterBearbeitenModal from "../components/MitarbeiterBearbeitenModal";
 import Sichtschutz from "../components/Sichtschutz";
 
-// ── Gehaltsstufen-Format: Zeitmodell(A-D):Gruppe(1-6).Stufe(1-4), z.B. "B:3.2" ──
-const GEHALTSSTUFE_REGEX = /^([A-Da-d]):([1-6])\.([1-4])$/;
-const ZEITMODELLE = ["A", "B", "C", "D"];
+// Eingruppierung: Gruppe 1-6, Stufe 1-4 (siehe backend/prisma/schema.prisma)
 const GRUPPEN = [1, 2, 3, 4, 5, 6];
 const STUFEN = [1, 2, 3, 4];
 
-interface GeparsteStufe { zeitmodell: string; gruppe: number; stufe: number; }
-
-function parseGehaltsstufe(stufe: string): GeparsteStufe | null {
-  const treffer = stufe.trim().match(GEHALTSSTUFE_REGEX);
-  if (!treffer) return null;
-  return { zeitmodell: treffer[1].toUpperCase(), gruppe: Number(treffer[2]), stufe: Number(treffer[3]) };
+function formatGehalt(betrag: string | number): string {
+  return Number(betrag).toLocaleString("de-DE", { style: "currency", currency: "EUR" });
 }
 
 export default function Gehaltstabelle() {
@@ -32,7 +27,7 @@ export default function Gehaltstabelle() {
   const [bearbeiteterMitarbeiter, setBearbeiteterMitarbeiter] = useState<Mitarbeiter | null>(null);
   const [mitarbeiterIdsMitEintrag, setMitarbeiterIdsMitEintrag] = useState<Set<string>>(new Set());
   const [alleEintraege, setAlleEintraege] = useState<GehaltsstufenEintrag[]>([]);
-  const [tab, setTab] = useState<"liste" | "statistik">("liste");
+  const [tab, setTab] = useState<"liste" | "zeitmodell" | "ueberstunden" | "statistik">("ueberstunden");
 
   const importInputRef = useRef<HTMLInputElement>(null);
   const [importDatei, setImportDatei] = useState<File | null>(null);
@@ -227,6 +222,18 @@ export default function Gehaltstabelle() {
       {/* Tabs */}
       <div className="flex gap-1 mb-5 bg-gray-100 rounded-lg p-1 w-fit">
         <button
+          onClick={() => setTab("ueberstunden")}
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${tab === "ueberstunden" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+        >
+          <Timer size={14} /> Überstunden
+        </button>
+        <button
+          onClick={() => setTab("zeitmodell")}
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${tab === "zeitmodell" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+        >
+          <Clock size={14} /> Zeitmodell
+        </button>
+        <button
           onClick={() => setTab("liste")}
           className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${tab === "liste" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
         >
@@ -244,6 +251,14 @@ export default function Gehaltstabelle() {
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl mb-5 flex items-center gap-2">
           <AlertTriangle size={16} /> {importFehler}
         </div>
+      )}
+
+      {tab === "zeitmodell" && (
+        <ZeitmodellTab mitarbeiterListe={mitarbeiterListe} abteilungen={abteilungen} />
+      )}
+
+      {tab === "ueberstunden" && (
+        <UeberstundenTab mitarbeiterListe={mitarbeiterListe} abteilungen={abteilungen} />
       )}
 
       {tab === "statistik" && (
@@ -397,7 +412,13 @@ export default function Gehaltstabelle() {
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-gray-600">{e.mitarbeiter.abteilung?.name ?? "–"}</td>
-                    <td className="px-4 py-2.5 text-gray-800 font-medium">{e.stufe}</td>
+                    <td className="px-4 py-2.5 text-gray-800 font-medium">
+                      {e.gruppe != null && e.stufe != null
+                        ? `Gruppe ${e.gruppe}.${e.stufe}`
+                        : e.gehaltAt != null
+                          ? <span className="text-violet-700">AT · {formatGehalt(e.gehaltAt)}</span>
+                          : "– nicht zugeordnet –"}
+                    </td>
                     <td className="px-4 py-2.5 text-gray-600">{formatDatum(e.gueltigAb)}</td>
                     <td className="px-4 py-2.5 text-gray-500">{e.bemerkung ?? "–"}</td>
                     <td className="px-4 py-2.5 text-right whitespace-nowrap">
@@ -592,7 +613,10 @@ function EintragModal({
   const [eintritt, setEintritt] = useState("");
   const [austritt, setAustritt] = useState("");
   const [abteilungId, setAbteilungId] = useState("");
-  const [stufe, setStufe]       = useState(eintrag?.stufe ?? "");
+  const [istAt, setIstAt]       = useState(eintrag?.gehaltAt != null);
+  const [gruppe, setGruppe]     = useState(eintrag?.gruppe != null ? String(eintrag.gruppe) : "");
+  const [stufe, setStufe]       = useState(eintrag?.stufe != null ? String(eintrag.stufe) : "");
+  const [gehaltAt, setGehaltAt] = useState(eintrag?.gehaltAt ?? "");
   const [gueltigAb, setGueltigAb] = useState(eintrag?.gueltigAb?.slice(0, 10) ?? new Date().toISOString().slice(0, 10));
   const [bemerkung, setBemerkung] = useState(eintrag?.bemerkung ?? "");
   const [laden, setLaden]       = useState(false);
@@ -627,19 +651,38 @@ function EintragModal({
         setLaden(false);
         return;
       }
-      if (!stufe.trim()) {
-        setFehler("Gehaltsstufe ist ein Pflichtfeld");
-        setLaden(false);
-        return;
+      let werteFeld: { gruppe: number; stufe: number; gehaltAt?: undefined } | { gruppe?: undefined; stufe?: undefined; gehaltAt: number };
+      if (istAt) {
+        const gehaltNr = Number(gehaltAt.replace(",", "."));
+        if (!gehaltAt || !Number.isFinite(gehaltNr) || gehaltNr <= 0) {
+          setFehler("Bitte ein gültiges Gehalt eingeben");
+          setLaden(false);
+          return;
+        }
+        werteFeld = { gehaltAt: gehaltNr };
+      } else {
+        const gruppeNr = Number(gruppe);
+        const stufeNr  = Number(stufe);
+        if (!gruppe || !Number.isInteger(gruppeNr) || gruppeNr < 1 || gruppeNr > 6) {
+          setFehler("Bitte eine Gruppe (1-6) auswählen");
+          setLaden(false);
+          return;
+        }
+        if (!stufe || !Number.isInteger(stufeNr) || stufeNr < 1 || stufeNr > 4) {
+          setFehler("Bitte eine Stufe (1-4) auswählen");
+          setLaden(false);
+          return;
+        }
+        werteFeld = { gruppe: gruppeNr, stufe: stufeNr };
       }
 
       if (eintrag) {
         await api.gehaltstabelle.aktualisieren(eintrag.id, {
-          stufe: stufe.trim(), gueltigAb, bemerkung: bemerkung || undefined,
+          ...werteFeld, gueltigAb, bemerkung: bemerkung || undefined,
         });
       } else {
         await api.gehaltstabelle.erstellen({
-          mitarbeiterId: zielMitarbeiterId, stufe: stufe.trim(), gueltigAb, bemerkung: bemerkung || undefined,
+          mitarbeiterId: zielMitarbeiterId, ...werteFeld, gueltigAb, bemerkung: bemerkung || undefined,
         });
       }
       onErfolg();
@@ -741,16 +784,64 @@ function EintragModal({
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Gehaltsstufe *</label>
-            <input
-              type="text" required
-              value={stufe}
-              onChange={e => setStufe(e.target.value)}
-              placeholder="z.B. B:3.2 (Zeitmodell:Gruppe.Stufe)"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
-            />
+          <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden w-fit">
+            <button
+              type="button"
+              onClick={() => setIstAt(false)}
+              className={`px-3 py-1.5 text-sm transition-colors ${!istAt ? "bg-[rgb(var(--accent))] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+            >
+              Tarif (Gruppe/Stufe)
+            </button>
+            <button
+              type="button"
+              onClick={() => setIstAt(true)}
+              className={`px-3 py-1.5 text-sm transition-colors ${istAt ? "bg-[rgb(var(--accent))] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+            >
+              AT (reales Gehalt)
+            </button>
           </div>
+
+          {istAt ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Gehalt (€) *</label>
+              <input
+                type="text" required value={gehaltAt}
+                onChange={e => setGehaltAt(e.target.value)}
+                placeholder="z.B. 4200"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              />
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Gruppe *</label>
+                  <select
+                    required value={gruppe}
+                    onChange={e => setGruppe(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  >
+                    <option value="">– wählen –</option>
+                    {[1, 2, 3, 4, 5, 6].map(g => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Stufe *</label>
+                  <select
+                    required value={stufe}
+                    onChange={e => setStufe(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  >
+                    <option value="">– wählen –</option>
+                    {[1, 2, 3, 4].map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+              <p className="text-xs text-gray-400 -mt-2">
+                Das Zeitmodell wird getrennt im Tab „Zeitmodell" verwaltet.
+              </p>
+            </>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Gültig ab *</label>
@@ -793,6 +884,950 @@ function EintragModal({
   );
 }
 
+// ── Gemeinsame Gantt-Ansicht für Zeitmodell/Überstunden – eine Zeile pro
+//    Mitarbeiter, ein Balken pro Zeitraum. Angelehnt an GanttAnsicht in
+//    Zeitraeume.tsx, aber ohne Projekt-Hierarchie (hier reicht eine flache
+//    Mitarbeiter-Liste, da Zeiträume je Mitarbeiter serverseitig nie
+//    überlappen).
+interface GanttBalken { id: string; von: string; bis: string | null; farbe: string; titel: string; }
+interface GanttZeile { id: string; name: string; balken: GanttBalken[]; }
+
+function PeriodenGantt({ zeilen, leerText, onBalkenDoppelklick }: {
+  zeilen: GanttZeile[];
+  leerText: string;
+  onBalkenDoppelklick?: (balkenId: string) => void;
+}) {
+  const heute = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
+
+  const { minDate, maxDate } = useMemo(() => {
+    const daten = zeilen.flatMap(z => z.balken.flatMap(b => [
+      new Date(b.von).getTime(),
+      b.bis ? new Date(b.bis).getTime() : null,
+    ])).filter((d): d is number => d !== null);
+
+    const fruehestes = daten.length > 0 ? Math.min(...daten) - 30 * 86_400_000 : heute.getTime() - 60 * 86_400_000;
+    const spaetestes = daten.length > 0 ? Math.max(...daten) + 30 * 86_400_000 : heute.getTime() + 180 * 86_400_000;
+
+    return {
+      minDate: new Date(Math.min(fruehestes, heute.getTime() - 60 * 86_400_000)),
+      maxDate: new Date(Math.max(spaetestes, heute.getTime() + 180 * 86_400_000)),
+    };
+  }, [zeilen, heute]);
+
+  const totalMs = maxDate.getTime() - minDate.getTime();
+  function pct(date: Date): number {
+    return Math.max(0, Math.min(100, ((date.getTime() - minDate.getTime()) / totalMs) * 100));
+  }
+
+  const monate = useMemo(() => {
+    const result: { label: string; left: number; width: number }[] = [];
+    let cur = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+    while (cur <= maxDate) {
+      const next = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+      const start = Math.max(cur.getTime(), minDate.getTime());
+      const end   = Math.min(next.getTime(), maxDate.getTime());
+      result.push({
+        label: cur.toLocaleDateString("de-DE", { month: "short", year: "2-digit" }),
+        left:  ((start - minDate.getTime()) / totalMs) * 100,
+        width: ((end   - start)              / totalMs) * 100,
+      });
+      cur = next;
+    }
+    return result;
+  }, [minDate, maxDate, totalMs]);
+
+  const heutePct = pct(heute);
+  const LABEL_W = 200;
+  const ZEILE_H = 40;
+  const BAR_H = 22;
+
+  const [monatBreite, setMonatBreite] = useState(90);
+  const MONAT_BREITE_MIN = 50;
+  const MONAT_BREITE_MAX = 220;
+  const zeitachseBreite = Math.max(1000, monate.length * monatBreite);
+
+  // Standardmäßig auf "heute" scrollen statt auf den Anfang der Daten – sonst
+  // müsste man sich bei viel Historie erst mühsam nach rechts durchklicken.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  function zuHeuteScrollen() {
+    if (!scrollRef.current) return;
+    const heutePx = (heutePct / 100) * zeitachseBreite;
+    scrollRef.current.scrollLeft = Math.max(0, heutePx - 40);
+  }
+  useEffect(zuHeuteScrollen, [heutePct, zeitachseBreite, zeilen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="flex items-center justify-end gap-2 px-3 py-1.5 border-b border-gray-100 bg-gray-50">
+        <button
+          onClick={zuHeuteScrollen}
+          className="text-xs text-gray-500 hover:text-gray-800 px-2 py-1 rounded hover:bg-gray-200 transition-colors"
+        >
+          Heute
+        </button>
+        <span className="text-xs text-gray-400 mr-1">Zoom:</span>
+        <button
+          onClick={() => setMonatBreite(b => Math.max(MONAT_BREITE_MIN, b - 20))}
+          disabled={monatBreite <= MONAT_BREITE_MIN}
+          title="Monate schmaler"
+          className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+        >
+          <ZoomOut size={14} />
+        </button>
+        <button
+          onClick={() => setMonatBreite(b => Math.min(MONAT_BREITE_MAX, b + 20))}
+          disabled={monatBreite >= MONAT_BREITE_MAX}
+          title="Monate breiter"
+          className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+        >
+          <ZoomIn size={14} />
+        </button>
+      </div>
+      <div className="overflow-x-auto" ref={scrollRef}>
+        <div style={{ minWidth: LABEL_W + zeitachseBreite }}>
+          <div className="flex border-b border-gray-200 bg-gray-50">
+            <div
+              className="shrink-0 border-r border-gray-200 px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-20"
+              style={{ width: LABEL_W }}
+            >
+              Name
+            </div>
+            <div className="flex-1 relative bg-gray-50" style={{ height: 36 }}>
+              {monate.map((m, i) => (
+                <div
+                  key={i}
+                  className="absolute top-0 h-full border-l border-gray-200 flex items-center px-1.5 text-xs text-gray-400"
+                  style={{ left: `${m.left}%`, width: `${m.width}%` }}
+                >
+                  {m.label}
+                </div>
+              ))}
+              <div className="absolute top-0 h-full w-0.5 bg-red-400 z-10" style={{ left: `${heutePct}%` }} />
+            </div>
+          </div>
+
+          {zeilen.length === 0 && (
+            <div className="text-center text-gray-400 py-16 text-sm">{leerText}</div>
+          )}
+
+          {zeilen.map(zeile => (
+            <div key={zeile.id} className="flex border-b border-gray-100 hover:bg-gray-50">
+              <div
+                className="shrink-0 border-r border-gray-200 px-3 flex items-center text-sm text-gray-700 sticky left-0 bg-white z-10 truncate"
+                style={{ width: LABEL_W, height: ZEILE_H }}
+                title={zeile.name}
+              >
+                {zeile.name}
+              </div>
+              <div className="flex-1 relative" style={{ height: ZEILE_H }}>
+                {zeile.balken.map((b, i) => {
+                  const von = new Date(b.von);
+                  const bis = b.bis ? new Date(b.bis) : maxDate;
+                  const l = pct(von);
+                  const r = pct(bis);
+                  const w = Math.max(0.4, r - l);
+                  const top = Math.round((ZEILE_H - BAR_H) / 2);
+                  return (
+                    <div
+                      key={i}
+                      className={`absolute rounded flex items-center px-2 text-white text-xs font-medium overflow-hidden ${onBalkenDoppelklick ? "cursor-pointer" : ""}`}
+                      style={{ left: `${l}%`, width: `${w}%`, height: `${BAR_H}px`, top: `${top}px`, backgroundColor: b.farbe }}
+                      title={onBalkenDoppelklick ? `${b.titel}\n(Doppelklick zum Bearbeiten)` : b.titel}
+                      onDoubleClick={() => onBalkenDoppelklick?.(b.id)}
+                    >
+                      {w > 6 && <span className="truncate">{b.titel}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Tab: Zeitmodell – eigene Historie mit echtem Von/Bis-Zeitraum ──────
+const ZEITMODELLE_ALLE: Zeitmodell[] = ["A", "B", "C", "D"];
+
+// Feste, nicht rotierende Farbzuordnung – vier klar unterscheidbare Farben
+const ZEITMODELL_FARBE: Record<Zeitmodell, string> = {
+  A: "#3b82f6", // blue-500
+  B: "#8b5cf6", // violet-500
+  C: "#f59e0b", // amber-500
+  D: "#10b981", // emerald-500
+};
+
+function mitarbeiterIstAktiv(m: { austritt?: string | null }): boolean {
+  return !m.austritt || new Date(m.austritt) >= new Date();
+}
+
+function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mitarbeiter[]; abteilungen: Abteilung[] }) {
+  const [zeitraeume, setZeitraeume]       = useState<ZeitmodellEintrag[]>([]);
+  const [baldAblaufend, setBaldAblaufend] = useState<ZeitmodellEintrag[]>([]);
+  const [laden, setLaden]                 = useState(true);
+  const [filterMitarbeiter, setFilterMitarbeiter] = useState("");
+  const [filterAbteilung, setFilterAbteilung]     = useState("");
+  const [nurAktive, setNurAktive] = useState(true);
+  const [filterBefristung, setFilterBefristung] = useState<"" | "befristet" | "unbefristet">("");
+  // B ist das Standardmodell, das fast alle haben – standardmäßig ausgeblendet,
+  // sonst zeigt die Ansicht kaum mehr als eine Wand aus B-Balken.
+  const [zeitmodelleAn, setZeitmodelleAn] = useState<Record<Zeitmodell, boolean>>({ A: true, B: false, C: true, D: true });
+  const [ansicht, setAnsicht]     = useState<"tabelle" | "gantt">("tabelle");
+  const [modal, setModal]         = useState(false);
+  const [bearbeitet, setBearbeitet] = useState<ZeitmodellEintrag | null>(null);
+  const [ausgewaehlt, setAusgewaehlt] = useState<Set<string>>(new Set());
+
+  useEffect(() => { laden_(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function laden_() {
+    setLaden(true);
+    try {
+      const [alle, bald] = await Promise.all([
+        api.zeitmodell.liste(),
+        api.zeitmodell.laufenBaldAb(30),
+      ]);
+      setZeitraeume(alle);
+      setBaldAblaufend(bald);
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  async function loeschen(id: string) {
+    if (!confirm("Zeitraum wirklich löschen?")) return;
+    try {
+      await api.zeitmodell.loeschen(id);
+      await laden_();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Fehler beim Löschen");
+    }
+  }
+
+  function einzelnUmschalten(id: string) {
+    setAusgewaehlt(prev => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  }
+
+  async function mehrereLoeschen() {
+    if (ausgewaehlt.size === 0) return;
+    if (!confirm(`${ausgewaehlt.size} Zeitraum${ausgewaehlt.size !== 1 ? "e" : ""} wirklich löschen?`)) return;
+    try {
+      await Promise.all([...ausgewaehlt].map(id => api.zeitmodell.loeschen(id)));
+      setAusgewaehlt(new Set());
+      await laden_();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Fehler beim Löschen");
+    }
+  }
+
+  const gefiltert = zeitraeume.filter(z =>
+    (!filterMitarbeiter || z.mitarbeiterId === filterMitarbeiter) &&
+    (!filterAbteilung || z.mitarbeiter.abteilung?.id === filterAbteilung) &&
+    (!nurAktive || mitarbeiterIstAktiv(z.mitarbeiter)) &&
+    (!filterBefristung || (filterBefristung === "befristet" ? z.gueltigBis !== null : z.gueltigBis === null)) &&
+    zeitmodelleAn[z.zeitmodell]
+  );
+
+  function alleUmschalten() {
+    if (gefiltert.every(z => ausgewaehlt.has(z.id))) {
+      setAusgewaehlt(prev => { const n = new Set(prev); gefiltert.forEach(z => n.delete(z.id)); return n; });
+    } else {
+      setAusgewaehlt(prev => { const n = new Set(prev); gefiltert.forEach(z => n.add(z.id)); return n; });
+    }
+  }
+
+  const ganttZeilen: GanttZeile[] = useMemo(() => {
+    const proMitarbeiter = new Map<string, GanttZeile>();
+    for (const z of gefiltert) {
+      const key = z.mitarbeiterId;
+      if (!proMitarbeiter.has(key)) {
+        proMitarbeiter.set(key, { id: key, name: `${z.mitarbeiter.nachname}, ${z.mitarbeiter.vorname}`, balken: [] });
+      }
+      proMitarbeiter.get(key)!.balken.push({
+        id: z.id,
+        von: z.gueltigVon, bis: z.gueltigBis ?? null,
+        farbe: ZEITMODELL_FARBE[z.zeitmodell],
+        titel: `Zeitmodell ${z.zeitmodell}${z.bemerkung ? ` – ${z.bemerkung}` : ""}`,
+      });
+    }
+    return [...proMitarbeiter.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [gefiltert]);
+
+  function ganttBalkenBearbeiten(balkenId: string) {
+    const eintrag = zeitraeume.find(z => z.id === balkenId);
+    if (eintrag) { setBearbeitet(eintrag); setModal(true); }
+  }
+
+  return (
+    <div>
+      {baldAblaufend.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle size={15} className="text-amber-600" />
+            <p className="text-sm font-medium text-amber-900">
+              {baldAblaufend.length} Zeitmodell{baldAblaufend.length !== 1 ? "e" : ""} laufen in den nächsten 30 Tagen ab
+            </p>
+          </div>
+          <ul className="space-y-1 max-h-48 overflow-y-auto">
+            {baldAblaufend.map(z => (
+              <li key={z.id} className="flex items-center justify-between text-sm bg-white border border-amber-100 rounded-lg px-3 py-1.5">
+                <span className="text-gray-700">
+                  {z.mitarbeiter.nachname}, {z.mitarbeiter.vorname}
+                  <span className="text-gray-400"> · Zeitmodell {z.zeitmodell}</span>
+                </span>
+                <span className="text-xs text-amber-700 font-medium shrink-0">bis {formatDatum(z.gueltigBis!)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            value={filterMitarbeiter}
+            onChange={e => setFilterMitarbeiter(e.target.value)}
+            className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+          >
+            <option value="">Alle Mitarbeiter</option>
+            {mitarbeiterListe.map(m => <option key={m.id} value={m.id}>{m.nachname}, {m.vorname}</option>)}
+          </select>
+          <select
+            value={filterAbteilung}
+            onChange={e => setFilterAbteilung(e.target.value)}
+            className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+          >
+            <option value="">Alle Abteilungen</option>
+            {abteilungen.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+          <label className="flex items-center gap-1.5 text-sm text-gray-600">
+            <input type="checkbox" checked={nurAktive} onChange={e => setNurAktive(e.target.checked)} />
+            Nur aktive
+          </label>
+          <select
+            value={filterBefristung}
+            onChange={e => setFilterBefristung(e.target.value as "" | "befristet" | "unbefristet")}
+            className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+          >
+            <option value="">Befristet & unbefristet</option>
+            <option value="befristet">Nur befristete</option>
+            <option value="unbefristet">Nur unbefristete</option>
+          </select>
+          <div className="flex items-center gap-1">
+            {ZEITMODELLE_ALLE.map(z => (
+              <button
+                key={z}
+                onClick={() => setZeitmodelleAn(prev => ({ ...prev, [z]: !prev[z] }))}
+                title={zeitmodelleAn[z] ? `Zeitmodell ${z} ausblenden` : `Zeitmodell ${z} einblenden`}
+                className={`w-7 h-7 rounded-full text-xs font-semibold flex items-center justify-center border transition-colors ${
+                  zeitmodelleAn[z]
+                    ? "text-white border-transparent"
+                    : "text-gray-400 border-gray-300 bg-white hover:bg-gray-50"
+                }`}
+                style={zeitmodelleAn[z] ? { backgroundColor: ZEITMODELL_FARBE[z] } : undefined}
+              >
+                {z}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden">
+            <button
+              onClick={() => setAnsicht("tabelle")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors ${ansicht === "tabelle" ? "bg-[rgb(var(--accent))] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+            >
+              <List size={14} /> Tabelle
+            </button>
+            <button
+              onClick={() => setAnsicht("gantt")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors ${ansicht === "gantt" ? "bg-[rgb(var(--accent))] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+            >
+              <BarChart2 size={14} /> Gantt
+            </button>
+          </div>
+        </div>
+        <button
+          onClick={() => { setBearbeitet(null); setModal(true); }}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white hover:brightness-90 transition-colors"
+          style={{ backgroundColor: "rgb(var(--accent))" }}
+        >
+          <Plus size={16} /> Neuer Zeitraum
+        </button>
+      </div>
+
+      {laden ? (
+        <div className="flex items-center justify-center py-16 text-gray-400 text-sm">
+          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Lade…
+        </div>
+      ) : ansicht === "gantt" ? (
+        <PeriodenGantt zeilen={ganttZeilen} leerText="Keine Zeitmodell-Zeiträume für diese Auswahl" onBalkenDoppelklick={ganttBalkenBearbeiten} />
+      ) : gefiltert.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">
+          <Clock size={40} className="mx-auto mb-3 opacity-20" />
+          <p className="font-medium">Noch keine Zeitmodell-Zeiträume</p>
+        </div>
+      ) : (
+        <>
+          {ausgewaehlt.size > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-3 flex items-center gap-3">
+              <span className="text-sm text-blue-800 font-medium">{ausgewaehlt.size} ausgewählt</span>
+              <button
+                onClick={mehrereLoeschen}
+                className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+              >
+                <Trash2 size={14} /> Löschen
+              </button>
+              <button
+                onClick={() => setAusgewaehlt(new Set())}
+                className="text-xs text-blue-600 hover:text-blue-800"
+              >
+                Auswahl aufheben
+              </button>
+            </div>
+          )}
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-100 text-left text-xs text-gray-500 uppercase">
+                <th className="px-4 py-2.5 w-8">
+                  <button onClick={alleUmschalten} className="text-gray-400 hover:text-gray-600" title="Alle sichtbaren auswählen/abwählen">
+                    {gefiltert.length > 0 && gefiltert.every(z => ausgewaehlt.has(z.id))
+                      ? <CheckSquare size={15} /> : <Square size={15} />}
+                  </button>
+                </th>
+                <th className="px-4 py-2.5">Name</th>
+                <th className="px-4 py-2.5">Zeitmodell</th>
+                <th className="px-4 py-2.5">Von</th>
+                <th className="px-4 py-2.5">Bis</th>
+                <th className="px-4 py-2.5">Bemerkung</th>
+                <th className="px-4 py-2.5" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {gefiltert.map(z => (
+                <tr key={z.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-2.5">
+                    <button onClick={() => einzelnUmschalten(z.id)} className="text-gray-400 hover:text-gray-600">
+                      {ausgewaehlt.has(z.id) ? <CheckSquare size={15} className="text-[rgb(var(--accent))]" /> : <Square size={15} />}
+                    </button>
+                  </td>
+                  <td className="px-4 py-2.5 font-medium text-gray-900">{z.mitarbeiter.nachname}, {z.mitarbeiter.vorname}</td>
+                  <td className="px-4 py-2.5 text-gray-800 font-medium">{z.zeitmodell}</td>
+                  <td className="px-4 py-2.5 text-gray-600">{formatDatum(z.gueltigVon)}</td>
+                  <td className="px-4 py-2.5 text-gray-600">{z.gueltigBis ? formatDatum(z.gueltigBis) : "unbefristet"}</td>
+                  <td className="px-4 py-2.5 text-gray-500">{z.bemerkung ?? "–"}</td>
+                  <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                    <button
+                      onClick={() => { setBearbeitet(z); setModal(true); }}
+                      className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded transition-colors"
+                      title="Bearbeiten"
+                    >
+                      <Edit3 size={14} />
+                    </button>
+                    <button
+                      onClick={() => loeschen(z.id)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                      title="Löschen"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        </>
+      )}
+
+      {modal && (
+        <ZeitmodellModal
+          zeitraum={bearbeitet}
+          mitarbeiterListe={mitarbeiterListe}
+          onSchliessen={() => setModal(false)}
+          onErfolg={() => { setModal(false); laden_(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Modal: Zeitmodell-Zeitraum anlegen / bearbeiten ─────────────────
+function ZeitmodellModal({
+  zeitraum, mitarbeiterListe, onSchliessen, onErfolg,
+}: {
+  zeitraum: ZeitmodellEintrag | null;
+  mitarbeiterListe: Mitarbeiter[];
+  onSchliessen: () => void;
+  onErfolg: () => void;
+}) {
+  const [mitarbeiterId, setMitarbeiterId] = useState(zeitraum?.mitarbeiterId ?? "");
+  const [zeitmodell, setZeitmodell]       = useState<Zeitmodell>(zeitraum?.zeitmodell ?? "A");
+  const [gueltigVon, setGueltigVon]       = useState(zeitraum?.gueltigVon?.slice(0, 10) ?? new Date().toISOString().slice(0, 10));
+  const [unbefristet, setUnbefristet]     = useState(zeitraum ? !zeitraum.gueltigBis : true);
+  const [gueltigBis, setGueltigBis]       = useState(zeitraum?.gueltigBis?.slice(0, 10) ?? "");
+  const [bemerkung, setBemerkung]         = useState(zeitraum?.bemerkung ?? "");
+  const [laden, setLaden]                 = useState(false);
+  const [fehler, setFehler]               = useState("");
+
+  async function speichern(e: FormEvent) {
+    e.preventDefault();
+    setFehler("");
+    if (!mitarbeiterId) { setFehler("Bitte einen Mitarbeiter auswählen"); return; }
+    if (!unbefristet && !gueltigBis) { setFehler('Bitte ein Enddatum angeben oder "unbefristet" wählen'); return; }
+    setLaden(true);
+    try {
+      if (zeitraum) {
+        await api.zeitmodell.aktualisieren(zeitraum.id, {
+          zeitmodell, gueltigVon, gueltigBis: unbefristet ? null : gueltigBis, bemerkung: bemerkung || undefined,
+        });
+      } else {
+        await api.zeitmodell.erstellen({
+          mitarbeiterId, zeitmodell, gueltigVon, gueltigBis: unbefristet ? null : gueltigBis, bemerkung: bemerkung || undefined,
+        });
+      }
+      onErfolg();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler beim Speichern");
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold text-gray-900">{zeitraum ? "Zeitraum bearbeiten" : "Neuer Zeitmodell-Zeitraum"}</h2>
+          <button onClick={onSchliessen} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+        </div>
+
+        <form onSubmit={speichern} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Mitarbeiter *</label>
+            <select
+              required disabled={!!zeitraum} value={mitarbeiterId}
+              onChange={e => setMitarbeiterId(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] disabled:bg-gray-100"
+            >
+              <option value="">– auswählen –</option>
+              {mitarbeiterListe.map(m => <option key={m.id} value={m.id}>{m.nachname}, {m.vorname}</option>)}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Zeitmodell *</label>
+              <select
+                required value={zeitmodell}
+                onChange={e => setZeitmodell(e.target.value as Zeitmodell)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              >
+                {ZEITMODELLE_ALLE.map(z => <option key={z} value={z}>{z}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Von *</label>
+              <input
+                type="date" required value={gueltigVon}
+                onChange={e => setGueltigVon(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer mb-2">
+              <input
+                type="checkbox" checked={unbefristet}
+                onChange={e => setUnbefristet(e.target.checked)}
+                className="rounded border-gray-300 text-[rgb(var(--accent))]"
+              />
+              <span className="text-sm text-gray-700">Unbefristet</span>
+            </label>
+            {!unbefristet && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Bis *</label>
+                <input
+                  type="date" required value={gueltigBis}
+                  onChange={e => setGueltigBis(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                />
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Bemerkung</label>
+            <textarea
+              rows={2} value={bemerkung}
+              onChange={e => setBemerkung(e.target.value)}
+              placeholder="Optional"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
+            />
+          </div>
+
+          {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
+
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onSchliessen}
+              className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
+              Abbrechen
+            </button>
+            <button type="submit" disabled={laden}
+              className="flex-1 hover:brightness-90 disabled:opacity-60 text-white py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+              style={{ backgroundColor: "rgb(var(--accent))" }}>
+              {laden && <Loader2 size={14} className="animate-spin" />}
+              {zeitraum ? "Speichern" : "Erstellen"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Tab: Überstunden – wie Zeitmodell, aber Regelung ist Freitext ──────
+function UeberstundenTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mitarbeiter[]; abteilungen: Abteilung[] }) {
+  const [zeitraeume, setZeitraeume]       = useState<UeberstundenEintrag[]>([]);
+  const [baldAblaufend, setBaldAblaufend] = useState<UeberstundenEintrag[]>([]);
+  const [laden, setLaden]                 = useState(true);
+  const [filterMitarbeiter, setFilterMitarbeiter] = useState("");
+  const [filterAbteilung, setFilterAbteilung]     = useState("");
+  const [nurAktive, setNurAktive] = useState(true);
+  const [ansicht, setAnsicht]     = useState<"tabelle" | "gantt">("tabelle");
+  const [modal, setModal]         = useState(false);
+  const [bearbeitet, setBearbeitet] = useState<UeberstundenEintrag | null>(null);
+
+  useEffect(() => { laden_(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function laden_() {
+    setLaden(true);
+    try {
+      const [alle, bald] = await Promise.all([
+        api.ueberstunden.liste(),
+        api.ueberstunden.laufenBaldAb(30),
+      ]);
+      setZeitraeume(alle);
+      setBaldAblaufend(bald);
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  async function loeschen(id: string) {
+    if (!confirm("Zeitraum wirklich löschen?")) return;
+    try {
+      await api.ueberstunden.loeschen(id);
+      await laden_();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Fehler beim Löschen");
+    }
+  }
+
+  const gefiltert = zeitraeume.filter(z =>
+    (!filterMitarbeiter || z.mitarbeiterId === filterMitarbeiter) &&
+    (!filterAbteilung || z.mitarbeiter.abteilung?.id === filterAbteilung) &&
+    (!nurAktive || mitarbeiterIstAktiv(z.mitarbeiter))
+  );
+
+  const ganttZeilen: GanttZeile[] = useMemo(() => {
+    const proMitarbeiter = new Map<string, GanttZeile>();
+    for (const z of gefiltert) {
+      const key = z.mitarbeiterId;
+      if (!proMitarbeiter.has(key)) {
+        proMitarbeiter.set(key, { id: key, name: `${z.mitarbeiter.nachname}, ${z.mitarbeiter.vorname}`, balken: [] });
+      }
+      proMitarbeiter.get(key)!.balken.push({
+        id: z.id,
+        von: z.gueltigVon, bis: z.gueltigBis ?? null,
+        farbe: "rgb(var(--accent))",
+        titel: z.regelung,
+      });
+    }
+    return [...proMitarbeiter.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [gefiltert]);
+
+  function ganttBalkenBearbeiten(balkenId: string) {
+    const eintrag = zeitraeume.find(z => z.id === balkenId);
+    if (eintrag) { setBearbeitet(eintrag); setModal(true); }
+  }
+
+  return (
+    <div>
+      {baldAblaufend.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle size={15} className="text-amber-600" />
+            <p className="text-sm font-medium text-amber-900">
+              {baldAblaufend.length} Überstunden-Regelung{baldAblaufend.length !== 1 ? "en" : ""} laufen in den nächsten 30 Tagen ab
+            </p>
+          </div>
+          <ul className="space-y-1 max-h-48 overflow-y-auto">
+            {baldAblaufend.map(z => (
+              <li key={z.id} className="flex items-center justify-between text-sm bg-white border border-amber-100 rounded-lg px-3 py-1.5">
+                <span className="text-gray-700">
+                  {z.mitarbeiter.nachname}, {z.mitarbeiter.vorname}
+                  <span className="text-gray-400"> · {z.regelung}</span>
+                </span>
+                <span className="text-xs text-amber-700 font-medium shrink-0">bis {formatDatum(z.gueltigBis!)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            value={filterMitarbeiter}
+            onChange={e => setFilterMitarbeiter(e.target.value)}
+            className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+          >
+            <option value="">Alle Mitarbeiter</option>
+            {mitarbeiterListe.map(m => <option key={m.id} value={m.id}>{m.nachname}, {m.vorname}</option>)}
+          </select>
+          <select
+            value={filterAbteilung}
+            onChange={e => setFilterAbteilung(e.target.value)}
+            className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+          >
+            <option value="">Alle Abteilungen</option>
+            {abteilungen.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+          <label className="flex items-center gap-1.5 text-sm text-gray-600">
+            <input type="checkbox" checked={nurAktive} onChange={e => setNurAktive(e.target.checked)} />
+            Nur aktive
+          </label>
+          <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden">
+            <button
+              onClick={() => setAnsicht("tabelle")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors ${ansicht === "tabelle" ? "bg-[rgb(var(--accent))] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+            >
+              <List size={14} /> Tabelle
+            </button>
+            <button
+              onClick={() => setAnsicht("gantt")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors ${ansicht === "gantt" ? "bg-[rgb(var(--accent))] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+            >
+              <BarChart2 size={14} /> Gantt
+            </button>
+          </div>
+        </div>
+        <button
+          onClick={() => { setBearbeitet(null); setModal(true); }}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white hover:brightness-90 transition-colors"
+          style={{ backgroundColor: "rgb(var(--accent))" }}
+        >
+          <Plus size={16} /> Neuer Zeitraum
+        </button>
+      </div>
+
+      {laden ? (
+        <div className="flex items-center justify-center py-16 text-gray-400 text-sm">
+          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Lade…
+        </div>
+      ) : ansicht === "gantt" ? (
+        <PeriodenGantt zeilen={ganttZeilen} leerText="Keine Überstunden-Zeiträume für diese Auswahl" onBalkenDoppelklick={ganttBalkenBearbeiten} />
+      ) : gefiltert.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">
+          <Timer size={40} className="mx-auto mb-3 opacity-20" />
+          <p className="font-medium">Noch keine Überstunden-Zeiträume</p>
+        </div>
+      ) : (
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-100 text-left text-xs text-gray-500 uppercase">
+                <th className="px-4 py-2.5">Name</th>
+                <th className="px-4 py-2.5">Regelung</th>
+                <th className="px-4 py-2.5">Von</th>
+                <th className="px-4 py-2.5">Bis</th>
+                <th className="px-4 py-2.5">Bemerkung</th>
+                <th className="px-4 py-2.5" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {gefiltert.map(z => (
+                <tr key={z.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-2.5 font-medium text-gray-900">{z.mitarbeiter.nachname}, {z.mitarbeiter.vorname}</td>
+                  <td className="px-4 py-2.5 text-gray-800">{z.regelung}</td>
+                  <td className="px-4 py-2.5 text-gray-600">{formatDatum(z.gueltigVon)}</td>
+                  <td className="px-4 py-2.5 text-gray-600">{z.gueltigBis ? formatDatum(z.gueltigBis) : "unbefristet"}</td>
+                  <td className="px-4 py-2.5 text-gray-500">{z.bemerkung ?? "–"}</td>
+                  <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                    <button
+                      onClick={() => { setBearbeitet(z); setModal(true); }}
+                      className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded transition-colors"
+                      title="Bearbeiten"
+                    >
+                      <Edit3 size={14} />
+                    </button>
+                    <button
+                      onClick={() => loeschen(z.id)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                      title="Löschen"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {modal && (
+        <UeberstundenModal
+          zeitraum={bearbeitet}
+          mitarbeiterListe={mitarbeiterListe}
+          onSchliessen={() => setModal(false)}
+          onErfolg={() => { setModal(false); laden_(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Modal: Überstunden-Zeitraum anlegen / bearbeiten ────────────────
+function UeberstundenModal({
+  zeitraum, mitarbeiterListe, onSchliessen, onErfolg,
+}: {
+  zeitraum: UeberstundenEintrag | null;
+  mitarbeiterListe: Mitarbeiter[];
+  onSchliessen: () => void;
+  onErfolg: () => void;
+}) {
+  const [mitarbeiterId, setMitarbeiterId] = useState(zeitraum?.mitarbeiterId ?? "");
+  const [regelung, setRegelung]           = useState(zeitraum?.regelung ?? "");
+  const [gueltigVon, setGueltigVon]       = useState(zeitraum?.gueltigVon?.slice(0, 10) ?? new Date().toISOString().slice(0, 10));
+  const [unbefristet, setUnbefristet]     = useState(zeitraum ? !zeitraum.gueltigBis : true);
+  const [gueltigBis, setGueltigBis]       = useState(zeitraum?.gueltigBis?.slice(0, 10) ?? "");
+  const [bemerkung, setBemerkung]         = useState(zeitraum?.bemerkung ?? "");
+  const [laden, setLaden]                 = useState(false);
+  const [fehler, setFehler]               = useState("");
+
+  async function speichern(e: FormEvent) {
+    e.preventDefault();
+    setFehler("");
+    if (!mitarbeiterId) { setFehler("Bitte einen Mitarbeiter auswählen"); return; }
+    if (!regelung.trim()) { setFehler("Bitte die Regelung beschreiben"); return; }
+    if (!unbefristet && !gueltigBis) { setFehler('Bitte ein Enddatum angeben oder "unbefristet" wählen'); return; }
+    setLaden(true);
+    try {
+      if (zeitraum) {
+        await api.ueberstunden.aktualisieren(zeitraum.id, {
+          regelung: regelung.trim(), gueltigVon, gueltigBis: unbefristet ? null : gueltigBis, bemerkung: bemerkung || undefined,
+        });
+      } else {
+        await api.ueberstunden.erstellen({
+          mitarbeiterId, regelung: regelung.trim(), gueltigVon, gueltigBis: unbefristet ? null : gueltigBis, bemerkung: bemerkung || undefined,
+        });
+      }
+      onErfolg();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler beim Speichern");
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold text-gray-900">{zeitraum ? "Zeitraum bearbeiten" : "Neuer Überstunden-Zeitraum"}</h2>
+          <button onClick={onSchliessen} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+        </div>
+
+        <form onSubmit={speichern} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Mitarbeiter *</label>
+            <select
+              required disabled={!!zeitraum} value={mitarbeiterId}
+              onChange={e => setMitarbeiterId(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] disabled:bg-gray-100"
+            >
+              <option value="">– auswählen –</option>
+              {mitarbeiterListe.map(m => <option key={m.id} value={m.id}>{m.nachname}, {m.vorname}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Regelung *</label>
+            <input
+              type="text" required value={regelung}
+              onChange={e => setRegelung(e.target.value)}
+              placeholder="z.B. Ausgleich in Freizeit, Auszahlung ab 20h"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Von *</label>
+            <input
+              type="date" required value={gueltigVon}
+              onChange={e => setGueltigVon(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+            />
+          </div>
+
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer mb-2">
+              <input
+                type="checkbox" checked={unbefristet}
+                onChange={e => setUnbefristet(e.target.checked)}
+                className="rounded border-gray-300 text-[rgb(var(--accent))]"
+              />
+              <span className="text-sm text-gray-700">Unbefristet</span>
+            </label>
+            {!unbefristet && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Bis *</label>
+                <input
+                  type="date" required value={gueltigBis}
+                  onChange={e => setGueltigBis(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                />
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Bemerkung</label>
+            <textarea
+              rows={2} value={bemerkung}
+              onChange={e => setBemerkung(e.target.value)}
+              placeholder="Optional"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
+            />
+          </div>
+
+          {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
+
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onSchliessen}
+              className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
+              Abbrechen
+            </button>
+            <button type="submit" disabled={laden}
+              className="flex-1 hover:brightness-90 disabled:opacity-60 text-white py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+              style={{ backgroundColor: "rgb(var(--accent))" }}>
+              {laden && <Loader2 size={14} className="animate-spin" />}
+              {zeitraum ? "Speichern" : "Erstellen"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── Kleine Stat-Kachel für die Statistik-Ansicht ────────────────────
 function MiniStat({ titel, wert }: { titel: string; wert: number }) {
   return (
@@ -811,17 +1846,17 @@ interface GruppenZeile {
   gesamt: number;
 }
 
-// Gruppiert die aktuellsten Gehaltsstufen (mit gültigem Format) nach einem
-// beliebigen Merkmal (z.B. Standort) und zählt je Gruppe (1-6).
+// Gruppiert Eingruppierungs-Einträge (bereits auf gruppe != null gefiltert)
+// nach einem beliebigen Merkmal (z.B. Standort) und zählt je Gruppe (1-6).
 function gruppiereNachMerkmal(
-  geparst: { eintrag: GehaltsstufenEintrag; parsed: GeparsteStufe | null }[],
+  eintraege: GehaltsstufenEintrag[],
   merkmal: (m: EintragMitarbeiter) => string,
 ): GruppenZeile[] {
   const map = new Map<string, Record<number, number>>();
-  for (const { eintrag, parsed } of geparst) {
-    const key = merkmal(eintrag.mitarbeiter) || "– keine –";
+  for (const e of eintraege) {
+    const key = merkmal(e.mitarbeiter) || "– keine –";
     if (!map.has(key)) map.set(key, Object.fromEntries(GRUPPEN.map(g => [g, 0])));
-    if (parsed) map.get(key)![parsed.gruppe]++;
+    map.get(key)![e.gruppe!]++;
   }
   return [...map.entries()]
     .map(([name, proGruppe]) => ({ name, proGruppe, gesamt: GRUPPEN.reduce((summe, g) => summe + proGruppe[g], 0) }))
@@ -858,15 +1893,15 @@ function GruppenTabelle({ titel, spaltenTitel, zeilen }: { titel: string; spalte
   );
 }
 
-// Zählt die geparsten Gehaltsstufen als Gruppe(1-6) × Spalte-Matrix (Spalte = Zeitmodell oder Stufe)
+// Zählt eine Liste von (Gruppe, Spaltenwert)-Paaren als Gruppe(1-6) × Spalte-Matrix
+// (Spalte = Zeitmodell-Buchstabe oder Stufen-Zahl, je nach Aufrufer)
 function gruppeXSpalteMatrix(
-  geparst: { parsed: GeparsteStufe | null }[],
+  paare: { gruppe: number; wert: string }[],
   spalten: string[],
-  spaltenWert: (p: GeparsteStufe) => string,
 ): Record<number, Record<string, number>> {
   const matrix: Record<number, Record<string, number>> = {};
   for (const g of GRUPPEN) matrix[g] = Object.fromEntries(spalten.map(s => [s, 0]));
-  for (const { parsed } of geparst) if (parsed) matrix[parsed.gruppe][spaltenWert(parsed)]++;
+  for (const { gruppe, wert } of paare) matrix[gruppe][wert]++;
   return matrix;
 }
 
@@ -919,6 +1954,22 @@ function StatistikTab({
 }) {
   const istAktiv = (m: EintragMitarbeiter) => !m.austritt || new Date(m.austritt) >= new Date();
 
+  // Zeitmodell hat eine eigene Historie (siehe ZeitmodellTab) – für die
+  // Statistik brauchen wir nur, welches Zeitmodell HEUTE je Mitarbeiter aktiv ist.
+  const [alleZeitraeume, setAlleZeitraeume] = useState<ZeitmodellEintrag[]>([]);
+  useEffect(() => { api.zeitmodell.liste().then(setAlleZeitraeume).catch(() => {}); }, []);
+
+  const zeitmodellAktuellProMitarbeiter = useMemo(() => {
+    const heute = new Date();
+    const map = new Map<string, Zeitmodell>();
+    for (const z of alleZeitraeume) {
+      const von = new Date(z.gueltigVon);
+      const bis = z.gueltigBis ? new Date(z.gueltigBis) : null;
+      if (von <= heute && (!bis || bis >= heute)) map.set(z.mitarbeiterId, z.zeitmodell);
+    }
+    return map;
+  }, [alleZeitraeume]);
+
   const neuesteProMitarbeiter = useMemo(() => {
     const map = new Map<string, GehaltsstufenEintrag>();
     for (const e of eintraege) {
@@ -952,38 +2003,42 @@ function StatistikTab({
   const maxStandort = Math.max(1, ...standortVerteilung.map(o => o.gesamt));
   const vorkommendeArten = ALLE_BESCHAEFTIGUNGSARTEN.filter(art => anzahlProArt[art] > 0);
 
-  const geparst = useMemo(
-    () => neuesteProMitarbeiter.map(eintrag => ({ eintrag, parsed: parseGehaltsstufe(eintrag.stufe) })),
+  // Nur Einträge mit vollständig zugeordneter Gruppe/Stufe fließen in die
+  // Gruppe/Stufe/Zeitmodell-Auswertungen ein (siehe "nicht zugeordnet" unten).
+  const mitGruppeStufe = useMemo(
+    () => neuesteProMitarbeiter.filter((e): e is GehaltsstufenEintrag & { gruppe: number; stufe: number } => e.gruppe != null && e.stufe != null),
     [neuesteProMitarbeiter],
   );
 
-  const gruppeXZeitmodell = useMemo(
-    () => gruppeXSpalteMatrix(geparst, ZEITMODELLE, p => p.zeitmodell),
-    [geparst],
-  );
+  const gruppeXZeitmodell = useMemo(() => {
+    const paare = mitGruppeStufe
+      .map(e => ({ gruppe: e.gruppe, wert: zeitmodellAktuellProMitarbeiter.get(e.mitarbeiterId) }))
+      .filter((p): p is { gruppe: number; wert: Zeitmodell } => p.wert !== undefined);
+    return gruppeXSpalteMatrix(paare, ZEITMODELLE_ALLE);
+  }, [mitGruppeStufe, zeitmodellAktuellProMitarbeiter]);
+
   const gruppeXStufe = useMemo(
-    () => gruppeXSpalteMatrix(geparst, STUFEN.map(String), p => String(p.stufe)),
-    [geparst],
+    () => gruppeXSpalteMatrix(mitGruppeStufe.map(e => ({ gruppe: e.gruppe, wert: String(e.stufe) })), STUFEN.map(String)),
+    [mitGruppeStufe],
   );
 
-  const standortXGruppe = useMemo(() => gruppiereNachMerkmal(geparst, m => m.standort ?? ""), [geparst]);
+  const standortXGruppe = useMemo(() => gruppiereNachMerkmal(mitGruppeStufe, m => m.standort ?? ""), [mitGruppeStufe]);
 
   // Abteilung × Gruppe × Stufe – je Abteilung eine eigene Matrix, damit man per
   // Dropdown gezielt eine Abteilung anschauen kann statt eine riesige Tabelle
   // mit allen Abteilungen auf einmal zu haben.
   const abteilungGruppeStufe = useMemo(() => {
     const map = new Map<string, Record<number, Record<string, number>>>();
-    for (const { eintrag, parsed } of geparst) {
-      if (!parsed) continue;
-      const key = eintrag.mitarbeiter.abteilung?.name;
+    for (const e of mitGruppeStufe) {
+      const key = e.mitarbeiter.abteilung?.name;
       if (!key) continue;
       if (!map.has(key)) {
         map.set(key, Object.fromEntries(GRUPPEN.map(g => [g, Object.fromEntries(STUFEN.map(s => [String(s), 0]))])));
       }
-      map.get(key)![parsed.gruppe][String(parsed.stufe)]++;
+      map.get(key)![e.gruppe][String(e.stufe)]++;
     }
     return map;
-  }, [geparst]);
+  }, [mitGruppeStufe]);
   const abteilungenMitDaten = useMemo(() => [...abteilungGruppeStufe.keys()].sort((a, b) => a.localeCompare(b)), [abteilungGruppeStufe]);
   const [statistikAbteilung, setStatistikAbteilung] = useState("");
   const leereGruppeStufeMatrix = useMemo(
@@ -991,26 +2046,36 @@ function StatistikTab({
     [],
   );
 
-  // Datenqualität: ALLE Einträge (nicht nur der aktuellste je MA) prüfen –
-  // ein historischer Tippfehler soll genauso auffallen.
-  const nichtErkannt = useMemo(
+  // AT ("außer Tarif") – reales Gehalt statt Gruppe/Stufe, kein Datenproblem,
+  // taucht deshalb bewusst nicht in den Gruppe/Stufe-Auswertungen oben auf.
+  const atEintraege = useMemo(() => neuesteProMitarbeiter.filter(e => e.gehaltAt != null), [neuesteProMitarbeiter]);
+  const atDurchschnitt = atEintraege.length > 0
+    ? atEintraege.reduce((summe, e) => summe + Number(e.gehaltAt), 0) / atEintraege.length
+    : 0;
+
+  // Einzige echten Ausreißer: weder Gruppe/Stufe noch AT-Gehalt gesetzt – kann
+  // nur bei sehr alten, händisch verpfuschten Einträgen vorkommen.
+  // ALLE Einträge prüfen, nicht nur der aktuellste je Mitarbeiter.
+  const nichtZugeordnet = useMemo(
     () => eintraege
-      .filter(e => !parseGehaltsstufe(e.stufe))
+      .filter(e => e.gruppe == null && e.stufe == null && e.gehaltAt == null)
       .sort((a, b) => new Date(b.gueltigAb).getTime() - new Date(a.gueltigAb).getTime()),
     [eintraege],
   );
 
   return (
     <div className="space-y-5 mb-6">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         <MiniStat titel="MA mit Gehaltseintrag" wert={neuesteProMitarbeiter.length} />
         <MiniStat titel="Mitarbeiter" wert={anzahlProArt.MITARBEITER} />
         <MiniStat titel="Azubis" wert={anzahlProArt.AZUBI} />
         <MiniStat titel="Studenten" wert={anzahlProArt.STUDENT} />
         <MiniStat titel="Zeitarbeiter" wert={anzahlProArt.ZEITARBEITER} />
+        <MiniStat titel="AT" wert={atEintraege.length} />
       </div>
       <p className="text-xs text-gray-400 -mt-3">
         Basis: Mitarbeiter mit mindestens einem Gehaltsstufen-Eintrag{nurAktive && " · nur aktive"}
+        {atEintraege.length > 0 && ` · Ø AT-Gehalt ${formatGehalt(atDurchschnitt)}`}
       </p>
 
       {standortVerteilung.length > 0 && (
@@ -1051,8 +2116,8 @@ function StatistikTab({
 
       <GruppeMatrixTabelle
         titel="Gruppe × Zeitmodell"
-        unterschrift="Aktuellste Gehaltsstufe je Mitarbeiter, nur erkannte Einträge (siehe Datenqualität unten)"
-        spalten={ZEITMODELLE}
+        unterschrift="Aktuelle Eingruppierung × aktuell gültiges Zeitmodell je Mitarbeiter"
+        spalten={ZEITMODELLE_ALLE}
         matrix={gruppeXZeitmodell}
       />
       <GruppeMatrixTabelle
@@ -1106,16 +2171,17 @@ function StatistikTab({
         </div>
       )}
 
-      {nichtErkannt.length > 0 && (
+      {nichtZugeordnet.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <AlertTriangle size={15} className="text-red-600" />
             <p className="text-sm font-medium text-red-900">
-              {nichtErkannt.length} Gehaltsstufe{nichtErkannt.length !== 1 ? "n" : ""} passen nicht ins Format „Zeitmodell:Gruppe.Stufe" (z.B. B:3.2) und fehlen daher oben in Gruppe/Zeitmodell
+              {nichtZugeordnet.length} Eintrag{nichtZugeordnet.length !== 1 ? "e" : ""} ohne Gruppe/Stufe und ohne AT-Gehalt –
+              bitte einmalig in der Liste nachpflegen (fehlen oben in den Auswertungen)
             </p>
           </div>
           <ul className="space-y-1 max-h-56 overflow-y-auto">
-            {nichtErkannt.map(e => (
+            {nichtZugeordnet.map(e => (
               <li key={e.id}>
                 <button
                   onClick={() => aufMitarbeiterSpringen(e.mitarbeiterId)}
@@ -1123,10 +2189,7 @@ function StatistikTab({
                   className="w-full flex items-center justify-between text-sm bg-white border border-red-100 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors text-left"
                 >
                   <span className="text-gray-700">{e.mitarbeiter.nachname}, {e.mitarbeiter.vorname}</span>
-                  <span className="text-gray-500 flex items-center gap-3 shrink-0">
-                    <code className="font-mono bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5">{e.stufe}</code>
-                    {formatDatum(e.gueltigAb)}
-                  </span>
+                  <span className="text-gray-500 shrink-0">{formatDatum(e.gueltigAb)}</span>
                 </button>
               </li>
             ))}
