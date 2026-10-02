@@ -16,6 +16,14 @@ interface ListItem {
   anwesenheit: Anwesenheit | null;
 }
 
+interface ErsatzVorschlagInfo {
+  vorschlag:   { id: string; name: string } | null;
+  warnung:     string | null;
+  alternative: { id: string; name: string } | null;
+}
+
+const ORDENTLICHE_ROLLEN = ["VORSITZ", "STELLVERTRETER", "MITGLIED"];
+
 const STATUS_LABEL: Record<AnwesenheitsStatus, string> = {
   ANWESEND: "Anwesend",
   ABWESEND_ENTSCHULDIGT: "Abwesend (entschuldigt)",
@@ -41,6 +49,8 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false }: Props
   const [speichern,      setSpeichern]      = useState<string | null>(null);
   // benutzerId → pending vertretungFuerId (wenn ERSATZ_FUER gewählt, aber noch nicht bestätigt)
   const [pendingErsatz,  setPendingErsatz]  = useState<Record<string, string>>({});
+  // abwesenderId (ordentliches Mitglied) → Nachrück-Vorschlag laut Wahlrang
+  const [vorschlaege,    setVorschlaege]    = useState<Record<string, ErsatzVorschlagInfo>>({});
 
   useEffect(() => { ladeDaten(); }, [sitzungId]);
 
@@ -72,21 +82,74 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false }: Props
     }
   }
 
-  function onStatusChange(item: ListItem, newStatus: AnwesenheitsStatus | "") {
+  async function onStatusChange(item: ListItem, newStatus: AnwesenheitsStatus | "") {
     if (newStatus === "ERSATZ_FUER") {
       // Erst vertretungFuerId abfragen, dann speichern
       setPendingErsatz(prev => ({ ...prev, [item.benutzer.id]: "" }));
-    } else if (newStatus !== "") {
-      setPendingErsatz(prev => {
-        const n = { ...prev };
-        delete n[item.benutzer.id];
-        return n;
-      });
-      setStatus(item.benutzer.id, newStatus);
+      return;
+    }
+
+    setPendingErsatz(prev => {
+      const n = { ...prev };
+      delete n[item.benutzer.id];
+      return n;
+    });
+
+    if (newStatus === "") {
+      await loescheEintrag(item);
+      return;
+    }
+
+    await setStatus(item.benutzer.id, newStatus);
+
+    const istAbwesendStatus = newStatus === "ABWESEND_ENTSCHULDIGT" || newStatus === "ABWESEND_UNENTSCHULDIGT";
+    if (istAbwesendStatus && ORDENTLICHE_ROLLEN.includes(item.benutzer.rolle)) {
+      ladeVorschlag(item.benutzer.id);
+    } else {
+      verwerfeVorschlag(item.benutzer.id);
     }
   }
 
-  function ersatzBestaetigen(ersatzId: string) {
+  // "Nicht gesetzt" ausgewählt – Eintrag komplett entfernen statt nur Status zu ändern.
+  // War bisher ein No-Op (keine Delete-Aktion verdrahtet), daher ließ sich ein einmal
+  // gesetzter Eintrag über die UI nie wieder entfernen.
+  async function loescheEintrag(item: ListItem) {
+    if (!item.anwesenheit) return;
+    const { id: eintragId, status, vertretungFuer } = item.anwesenheit;
+    setSpeichern(item.benutzer.id);
+    try {
+      await api.delete(`/api/sitzungen/${sitzungId}/anwesenheit/${eintragId}`);
+      ladeDaten();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Fehler beim Entfernen");
+    } finally {
+      setSpeichern(null);
+    }
+    verwerfeVorschlag(item.benutzer.id);
+    // War dieser Eintrag ein Ersatz für jemanden, bekommt der Abwesende seinen Vorschlag zurück.
+    if (status === "ERSATZ_FUER" && vertretungFuer) {
+      ladeVorschlag(vertretungFuer.id);
+    }
+  }
+
+  async function ladeVorschlag(abwesenderId: string) {
+    try {
+      const ergebnis = await api.sitzungen.ersatzVorschlag(sitzungId, abwesenderId);
+      setVorschlaege(prev => ({ ...prev, [abwesenderId]: ergebnis }));
+    } catch {
+      // Vorschlag ist best-effort – kein Blocker für die manuelle Zuordnung
+    }
+  }
+
+  function verwerfeVorschlag(abwesenderId: string) {
+    setVorschlaege(prev => {
+      const n = { ...prev };
+      delete n[abwesenderId];
+      return n;
+    });
+  }
+
+  async function ersatzBestaetigen(ersatzId: string) {
     const vertretungFuerId = pendingErsatz[ersatzId];
     if (!vertretungFuerId) return;
     setPendingErsatz(prev => {
@@ -94,7 +157,13 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false }: Props
       delete n[ersatzId];
       return n;
     });
-    setStatus(ersatzId, "ERSATZ_FUER", vertretungFuerId);
+    await setStatus(ersatzId, "ERSATZ_FUER", vertretungFuerId);
+    verwerfeVorschlag(vertretungFuerId);
+  }
+
+  async function vorschlagUebernehmen(abwesenderId: string, kandidatId: string) {
+    await setStatus(kandidatId, "ERSATZ_FUER", abwesenderId);
+    verwerfeVorschlag(abwesenderId);
   }
 
   const anwesend = liste.filter(l => l.anwesenheit?.status === "ANWESEND").length;
@@ -230,6 +299,15 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false }: Props
                   </button>
                 </div>
               )}
+
+              {/* Nachrück-Vorschlag laut Wahlrang, nachdem dieses Mitglied als abwesend gemeldet wurde */}
+              {!readonly && !hasPending && vorschlaege[item.benutzer.id] && (
+                <ErsatzVorschlagBanner
+                  info={vorschlaege[item.benutzer.id]}
+                  onUebernehmen={kandidatId => vorschlagUebernehmen(item.benutzer.id, kandidatId)}
+                  onSchliessen={() => verwerfeVorschlag(item.benutzer.id)}
+                />
+              )}
             </div>
           );
         })}
@@ -256,6 +334,52 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false }: Props
           </span>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Nachrück-Vorschlag-Banner (laut Wahlrang, mit optionaler Quoten-Warnung) ──
+function ErsatzVorschlagBanner({
+  info, onUebernehmen, onSchliessen,
+}: {
+  info: ErsatzVorschlagInfo;
+  onUebernehmen: (kandidatId: string) => void;
+  onSchliessen: () => void;
+}) {
+  const { vorschlag, warnung, alternative } = info;
+  if (!vorschlag) return null;
+
+  return (
+    <div className="px-4 pb-3 pt-1 bg-indigo-50 border-t border-indigo-100 space-y-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <UserPlus size={13} className="text-indigo-600 shrink-0" />
+        <span className="text-xs text-indigo-700">
+          Vorschlag laut Wahlrang: <span className="font-semibold">{vorschlag.name}</span> nachladen
+        </span>
+        <button
+          onClick={() => onUebernehmen(vorschlag.id)}
+          className="text-xs bg-indigo-600 hover:brightness-90 text-white px-3 py-1 rounded-lg font-medium transition-colors"
+        >
+          Übernehmen
+        </button>
+        <button onClick={onSchliessen} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1">
+          Ausblenden
+        </button>
+      </div>
+
+      {warnung && (
+        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <span className="text-xs text-amber-800 flex-1">{warnung}</span>
+          {alternative && (
+            <button
+              onClick={() => onUebernehmen(alternative.id)}
+              className="text-xs bg-amber-600 hover:brightness-90 text-white px-2 py-1 rounded-lg font-medium shrink-0 whitespace-nowrap"
+            >
+              „{alternative.name}“ stattdessen
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -13,7 +13,7 @@ import path from "node:path";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
-import { Kategorie, Role } from "@prisma/client";
+import { Kategorie, Role, Geschlecht } from "@prisma/client";
 
 const STORAGE = process.env.STORAGE_PATH ?? "/data/storage";
 const LOGO_VERZ = path.join(STORAGE, "logo");
@@ -374,6 +374,58 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
         // Ordner nicht gemountet/lesbar (z.B. vor dem ersten Deploy mit dem neuen Volume) – kein harter Fehler
         return reply.send({ pfadLesbar: false, anzahl: 0, saetze: [] });
       }
+    }
+  );
+
+  // ── Wahlquote: Minderheitengeschlecht + Mindestsitze (§15 Abs. 2 BetrVG) ──
+  // Basis für den automatischen Ersatzmitglieder-Nachrück-Vorschlag (siehe
+  // lib/ersatzVorschlag.ts). Werte kommen 1:1 aus dem Wahlprotokoll der
+  // letzten BR-Wahl – keine Berechnung hier. null/0 = nicht konfiguriert,
+  // dann wird beim Nachrücken keine Quote geprüft.
+  app.get(
+    "/wahlquote",
+    { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      const einstellungen = await prisma.systemEinstellung.findMany({
+        where: { schluessel: { in: ["wahl.minderheitengeschlecht", "wahl.mindestsitze_minderheit"] } },
+      });
+      const map = new Map(einstellungen.map(e => [e.schluessel, e.wert]));
+
+      const geschlechtWert = map.get("wahl.minderheitengeschlecht");
+      const mindestsitzeMinderheit = parseInt(map.get("wahl.mindestsitze_minderheit") ?? "0", 10);
+
+      return reply.send({
+        minderheitengeschlecht: (geschlechtWert || null) as Geschlecht | null,
+        mindestsitzeMinderheit: Number.isNaN(mindestsitzeMinderheit) ? 0 : mindestsitzeMinderheit,
+      });
+    }
+  );
+
+  app.put<{ Body: { minderheitengeschlecht: Geschlecht | null; mindestsitzeMinderheit: number } }>(
+    "/wahlquote",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (request, reply) => {
+      const { minderheitengeschlecht, mindestsitzeMinderheit } = request.body;
+
+      if (minderheitengeschlecht !== null && !Object.values(Geschlecht).includes(minderheitengeschlecht)) {
+        return reply.status(400).send({ fehler: "Ungültiges Geschlecht" });
+      }
+      if (!Number.isInteger(mindestsitzeMinderheit) || mindestsitzeMinderheit < 0) {
+        return reply.status(400).send({ fehler: "mindestsitzeMinderheit muss eine Ganzzahl >= 0 sein" });
+      }
+
+      await prisma.systemEinstellung.upsert({
+        where:  { schluessel: "wahl.minderheitengeschlecht" },
+        update: { wert: minderheitengeschlecht ?? "" },
+        create: { schluessel: "wahl.minderheitengeschlecht", wert: minderheitengeschlecht ?? "" },
+      });
+      await prisma.systemEinstellung.upsert({
+        where:  { schluessel: "wahl.mindestsitze_minderheit" },
+        update: { wert: String(mindestsitzeMinderheit) },
+        create: { schluessel: "wahl.mindestsitze_minderheit", wert: String(mindestsitzeMinderheit) },
+      });
+
+      return reply.send({ ok: true, minderheitengeschlecht, mindestsitzeMinderheit });
     }
   );
 

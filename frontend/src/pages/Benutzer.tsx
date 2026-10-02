@@ -1,6 +1,11 @@
 import { useEffect, useState, FormEvent } from "react";
-import { UserPlus, KeyRound, Power, Trash2, Loader2, X, Shield, Users } from "lucide-react";
-import { api, Benutzer, Rolle } from "../lib/api";
+import { UserPlus, KeyRound, Power, Trash2, Loader2, X, Shield, Users, Info } from "lucide-react";
+import { api, Benutzer, Rolle, Geschlecht } from "../lib/api";
+
+const GESCHLECHT_LABEL: Record<Geschlecht, string> = {
+  MAENNLICH: "Männlich",
+  WEIBLICH:  "Weiblich",
+};
 
 const ROLLEN: Rolle[] = ["VORSITZ", "STELLVERTRETER", "MITGLIED", "ERSATZMITGLIED", "JAV"];
 
@@ -61,6 +66,24 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
     }
   }
 
+  async function geschlechtAendern(b: Benutzer, geschlecht: Geschlecht | "") {
+    try {
+      await apiFetch(`/api/benutzer/${b.id}`, "PATCH", { geschlecht: geschlecht || null });
+      laden_();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler");
+    }
+  }
+
+  async function wahlReihenfolgeAendern(b: Benutzer, wahlReihenfolge: number | null) {
+    try {
+      await apiFetch(`/api/benutzer/${b.id}`, "PATCH", { wahlReihenfolge });
+      laden_();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler");
+    }
+  }
+
   async function benutzerLoeschen(b: Benutzer) {
     if (!confirm(`"${b.name}" wirklich endgültig löschen? Das geht nur, wenn der Benutzer noch keine Daten im System hinterlassen hat, und kann nicht rückgängig gemacht werden.`)) return;
     setFehler("");
@@ -105,6 +128,14 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
         </div>
       )}
 
+      <div className="mb-4 flex items-start gap-2 bg-blue-50 border border-blue-200 text-blue-800 text-xs px-4 py-3 rounded-lg">
+        <Info size={14} className="shrink-0 mt-0.5" />
+        <span>
+          Geschlecht und Wahl-Rang stammen aus dem Wahlprotokoll der letzten BR-Wahl (Rang nach Stimmenzahl, 1 = meiste Stimmen).
+          Sie bestimmen, wer bei Abwesenheit automatisch als nächstes Ersatzmitglied vorgeschlagen wird.
+        </span>
+      </div>
+
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         {laden ? (
           <div className="flex items-center justify-center h-48 text-gray-400">
@@ -116,6 +147,8 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
               <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500 uppercase tracking-wide">
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Rolle</th>
+                <th className="px-4 py-3 font-medium">Geschlecht</th>
+                <th className="px-4 py-3 font-medium">Wahl-Rang</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Letzter Login</th>
                 <th className="px-4 py-3 font-medium">Aktionen</th>
@@ -157,6 +190,22 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
                         ))}
                       </select>
                     )}
+                  </td>
+
+                  <td className="px-4 py-3">
+                    <select
+                      value={b.geschlecht ?? ""}
+                      onChange={e => geschlechtAendern(b, e.target.value as Geschlecht | "")}
+                      className="text-xs border border-gray-300 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    >
+                      <option value="">–</option>
+                      <option value="MAENNLICH">{GESCHLECHT_LABEL.MAENNLICH}</option>
+                      <option value="WEIBLICH">{GESCHLECHT_LABEL.WEIBLICH}</option>
+                    </select>
+                  </td>
+
+                  <td className="px-4 py-3">
+                    <WahlRangZelle benutzer={b} onGeaendert={wert => wahlReihenfolgeAendern(b, wert)} />
                   </td>
 
                   <td className="px-4 py-3">
@@ -325,6 +374,34 @@ function PasswortResetModal({ benutzerId, benutzerName, onSchliessen, onErfolg }
         <Buttons laden={laden} onAbbrechen={onSchliessen} submitLabel="Passwort setzen" />
       </form>
     </Modal>
+  );
+}
+
+// ── Wahl-Rang Zelle (eigene Komponente wegen lokalem Input-State) ──
+function WahlRangZelle({ benutzer, onGeaendert }: { benutzer: Benutzer; onGeaendert: (wert: number | null) => void }) {
+  const original = benutzer.wahlReihenfolge != null ? String(benutzer.wahlReihenfolge) : "";
+  const [wert, setWert] = useState(original);
+
+  useEffect(() => { setWert(original); }, [original]);
+
+  function commit() {
+    if (wert === original) return;
+    if (wert.trim() === "") { onGeaendert(null); return; }
+    const zahl = parseInt(wert, 10);
+    if (!Number.isInteger(zahl) || zahl < 1) { setWert(original); return; }
+    onGeaendert(zahl);
+  }
+
+  return (
+    <input
+      type="number"
+      min={1}
+      value={wert}
+      onChange={e => setWert(e.target.value)}
+      onBlur={commit}
+      placeholder="–"
+      className="w-16 border border-gray-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+    />
   );
 }
 

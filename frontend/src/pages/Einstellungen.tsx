@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Settings, Save, Loader2, RotateCcw, Users, Clock, FileText, Upload, Trash2, Palette, Download, FolderOpen, CheckCircle2, XCircle, Puzzle, Scale, RefreshCw, AlertTriangle } from "lucide-react";
-import { api, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen, Rolle, ModuleKey, MODULE_KEYS, MODULE_LABEL, GesetzStatus } from "../lib/api";
+import { api, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen, Rolle, ModuleKey, MODULE_KEYS, MODULE_LABEL, GesetzStatus, Geschlecht } from "../lib/api";
 import BenutzerVerwaltung from "./Benutzer";
 
 type Tab = "fristen" | "benutzer" | "protokoll" | "design" | "system" | "module" | "gesetze" | "amtsuebergabe";
@@ -787,6 +787,92 @@ function SicherheitEinstellung() {
   );
 }
 
+// ── Wahlquote: Minderheitengeschlecht + Mindestsitze (§15 Abs. 2 BetrVG) ──
+// Basis für den automatischen Ersatzmitglieder-Nachrück-Vorschlag in Sitzungen.
+function WahlQuoteEinstellung() {
+  const [geschlecht, setGeschlecht]   = useState<Geschlecht | "">("");
+  const [mindestsitze, setMindestsitze] = useState("0");
+  const [laden, setLaden]             = useState(true);
+  const [speichern, setSpeichern]     = useState(false);
+  const [gespeichert, setGespeichert] = useState(false);
+  const [fehler, setFehler]           = useState("");
+
+  useEffect(() => {
+    api.einstellungen.wahlquote()
+      .then(w => {
+        setGeschlecht(w.minderheitengeschlecht ?? "");
+        setMindestsitze(String(w.mindestsitzeMinderheit));
+      })
+      .catch(() => {})
+      .finally(() => setLaden(false));
+  }, []);
+
+  async function speichernKlick() {
+    const wert = parseInt(mindestsitze, 10);
+    if (!Number.isInteger(wert) || wert < 0) {
+      setFehler("Mindestsitze muss eine Ganzzahl >= 0 sein");
+      return;
+    }
+    setFehler("");
+    setSpeichern(true);
+    setGespeichert(false);
+    try {
+      await api.einstellungen.wahlquoteSpeichern({
+        minderheitengeschlecht: geschlecht || null,
+        mindestsitzeMinderheit: wert,
+      });
+      setGespeichert(true);
+      setTimeout(() => setGespeichert(false), 3000);
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Speichern fehlgeschlagen");
+    } finally {
+      setSpeichern(false);
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-4">
+      <h2 className="font-semibold text-gray-800 mb-1">Geschlechterquote (§15 Abs. 2 BetrVG)</h2>
+      <p className="text-sm text-gray-500 mb-4">
+        Werte aus dem Wahlprotokoll der letzten BR-Wahl. Wird beim automatischen Ersatzmitglieder-Vorschlag
+        in Sitzungen nur als Warnung angezeigt, nie blockierend.
+      </p>
+      {laden ? (
+        <div className="flex items-center text-gray-400 text-sm"><Loader2 size={16} className="animate-spin mr-2" /> Laden…</div>
+      ) : (
+        <div className="flex items-center gap-2 flex-wrap">
+          <label className="text-sm text-gray-600">Minderheitengeschlecht</label>
+          <select
+            value={geschlecht}
+            onChange={e => setGeschlecht(e.target.value as Geschlecht | "")}
+            className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+          >
+            <option value="">Nicht konfiguriert</option>
+            <option value="MAENNLICH">Männlich</option>
+            <option value="WEIBLICH">Weiblich</option>
+          </select>
+          <label className="text-sm text-gray-600 ml-2">Mindestsitze</label>
+          <input
+            type="number" min={0} value={mindestsitze}
+            onChange={e => setMindestsitze(e.target.value)}
+            className="w-20 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+          />
+          <button
+            onClick={speichernKlick}
+            disabled={speichern}
+            className="flex items-center gap-1.5 bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ml-2"
+          >
+            {speichern && <Loader2 size={14} className="animate-spin" />}
+            Speichern
+          </button>
+          {gespeichert && <span className="text-green-700 text-sm">Gespeichert.</span>}
+        </div>
+      )}
+      {fehler && <p className="text-red-700 text-sm mt-2">{fehler}</p>}
+    </div>
+  );
+}
+
 function backupAlter(zeitpunkt: string): string {
   const ms = Date.now() - new Date(zeitpunkt).getTime();
   const stunden = Math.floor(ms / (1000 * 60 * 60));
@@ -1066,6 +1152,7 @@ export default function Einstellungen() {
       {tab === "protokoll" && <ProtokollTab />}
 
       {/* Tab: Benutzerverwaltung */}
+      {tab === "benutzer" && meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && <WahlQuoteEinstellung />}
       {tab === "benutzer" && <BenutzerVerwaltung eingebettet />}
 
       {/* Tab: Design */}

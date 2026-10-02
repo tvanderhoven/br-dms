@@ -151,6 +151,12 @@ export const api = {
       request<TOP>(`/api/sitzungen/${id}/spontan-top`, { method: "POST", body: JSON.stringify({ titel }) }),
     pdfNeuGenerieren: (id: string, versionNummer: string) =>
       request<{ nachricht: string }>(`/api/sitzungen/${id}/pdf/${versionNummer}`, { method: "POST" }),
+    ersatzVorschlag: (id: string, abwesenderId: string) =>
+      request<{
+        vorschlag: { id: string; name: string } | null;
+        warnung: string | null;
+        alternative: { id: string; name: string } | null;
+      }>(`/api/sitzungen/${id}/ersatz-vorschlag?abwesenderId=${encodeURIComponent(abwesenderId)}`),
   },
 
   watchfolder: {
@@ -364,6 +370,9 @@ export const api = {
       anzahl: number;
       saetze: { zeitpunkt: string; groesseBytes: number; vollstaendig: boolean }[];
     }>("/api/einstellungen/backups"),
+    wahlquote: () => request<{ minderheitengeschlecht: Geschlecht | null; mindestsitzeMinderheit: number }>("/api/einstellungen/wahlquote"),
+    wahlquoteSpeichern: (data: { minderheitengeschlecht: Geschlecht | null; mindestsitzeMinderheit: number }) =>
+      request<{ ok: boolean }>("/api/einstellungen/wahlquote", { method: "PUT", body: JSON.stringify(data) }),
   },
 
   fristen: {
@@ -504,9 +513,12 @@ export interface AufgabeErstellen {
   topId?: string;
 }
 
+export type Geschlecht = "MAENNLICH" | "WEIBLICH";
+
 export interface Benutzer {
   id: string; name: string; email: string; rolle: Rolle;
   aktiv: boolean; letzterLogin?: string; istVertretungFuer?: string;
+  geschlecht?: Geschlecht | null; wahlReihenfolge?: number | null;
 }
 
 export type Kategorie =

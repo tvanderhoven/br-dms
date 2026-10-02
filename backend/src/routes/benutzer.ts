@@ -8,7 +8,7 @@
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { Role, AuditAktion } from "@prisma/client";
+import { Role, AuditAktion, Geschlecht } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 import prisma from "../lib/prisma.js";
 import { hashPassword } from "../lib/password.js";
@@ -26,6 +26,8 @@ interface BenutzerUpdate {
   rolle?:  Role;
   aktiv?:  boolean;
   istVertretungFuer?: string | null;
+  geschlecht?: Geschlecht | null;
+  wahlReihenfolge?: number | null;
 }
 
 interface PasswortReset {
@@ -51,6 +53,8 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
           letzterLogin:     true,
           erstelltAm:       true,
           istVertretungFuer: true,
+          geschlecht:       true,
+          wahlReihenfolge:  true,
         },
         orderBy: [{ rolle: "asc" }, { name: "asc" }],
       });
@@ -114,11 +118,15 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request: FastifyRequest<{ Params: { id: string }; Body: BenutzerUpdate }>, reply: FastifyReply) => {
       const { id } = request.params;
-      const { rolle, aktiv, istVertretungFuer } = request.body;
+      const { rolle, aktiv, istVertretungFuer, geschlecht, wahlReihenfolge } = request.body;
 
       // Schutz: sich selbst nicht deaktivieren
       if (id === request.benutzer.sub && aktiv === false) {
         return reply.status(400).send({ fehler: "Sie können sich nicht selbst deaktivieren" });
+      }
+
+      if (wahlReihenfolge !== undefined && wahlReihenfolge !== null && (!Number.isInteger(wahlReihenfolge) || wahlReihenfolge < 1)) {
+        return reply.status(400).send({ fehler: "wahlReihenfolge muss eine positive Ganzzahl oder null sein" });
       }
 
       const benutzer = await prisma.benutzer.findUnique({ where: { id } });
@@ -130,8 +138,10 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
           ...(rolle !== undefined ? { rolle } : {}),
           ...(aktiv !== undefined ? { aktiv } : {}),
           ...(istVertretungFuer !== undefined ? { istVertretungFuer } : {}),
+          ...(geschlecht !== undefined ? { geschlecht } : {}),
+          ...(wahlReihenfolge !== undefined ? { wahlReihenfolge } : {}),
         },
-        select: { id: true, name: true, email: true, rolle: true, aktiv: true, istVertretungFuer: true },
+        select: { id: true, name: true, email: true, rolle: true, aktiv: true, istVertretungFuer: true, geschlecht: true, wahlReihenfolge: true },
       });
 
       await prisma.auditLog.create({

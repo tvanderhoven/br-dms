@@ -34,6 +34,13 @@ enum Prioritaet {
   NIEDRIG
 }
 
+// Für Wahlergebnis-Daten (Geschlechterquote §15 Abs. 2 BetrVG) – bewusst binär,
+// da die gesetzliche Minderheitenquote sich auf diese beiden Gruppen bezieht.
+enum Geschlecht {
+  MAENNLICH
+  WEIBLICH
+}
+
 // Für Themen-Backlog (Kanban-Board in der Aufgaben-Ansicht). Optional/nullable,
 // da normale Aufgaben weiterhin nur über "erledigt" laufen und nicht am Board teilnehmen.
 enum KanbanStatus {
@@ -189,6 +196,11 @@ model Benutzer {
 
   istVertretungFuer String?                      @map("ist_vertretung_fuer")
   vertretungErhalten Anwesenheit[]              @relation("VertretungErhalten")
+
+  // Wahlergebnis der letzten BR-Wahl (einmalig aus dem Wahlprotokoll übertragen) –
+  // Basis für den automatischen Ersatzmitglieder-Nachrück-Vorschlag inkl. Quoten-Warnung.
+  geschlecht      Geschlecht? @map("geschlecht")
+  wahlReihenfolge Int?        @map("wahl_reihenfolge")
 
   letzterLogin    DateTime? @map("letzter_login")
   erstelltAm      DateTime  @default(now()) @map("erstellt_am")

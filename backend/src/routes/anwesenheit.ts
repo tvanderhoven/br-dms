@@ -11,6 +11,7 @@ import { AnwesenheitsStatus, Role } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
+import { ermittleErsatzVorschlag } from "../lib/ersatzVorschlag.js";
 
 const ANWESENHEIT_SELECT = {
   id: true,
@@ -24,6 +25,23 @@ const ANWESENHEIT_SELECT = {
   erstelltAm: true,
   aktualisiertAm: true,
 } as const;
+
+// Kein separates Nachname-Feld im Schema – Nachname wird als letztes Wort
+// des "Vorname Nachname"-Strings angenähert (deckt z.B. "van der Hoven" ab,
+// da Präfixe wie "van der" konventionell nicht die Sortierposition bestimmen).
+function nachname(name: string): string {
+  const teile = name.trim().split(/\s+/);
+  return teile[teile.length - 1] || name;
+}
+
+// Sortier-Gruppe für die Anwesenheitsliste: ordentliche Mitglieder zuerst
+// (alphabetisch nach Nachname), dann Ersatzmitglieder (nach Wahlrang/Nachrück-
+// Reihenfolge, siehe lib/ersatzVorschlag.ts), zuletzt JAV.
+function gruppenRang(rolle: Role): number {
+  if (rolle === Role.ERSATZMITGLIED) return 1;
+  if (rolle === Role.JAV) return 2;
+  return 0;
+}
 
 export async function anwesenheitRouten(app: FastifyInstance): Promise<void> {
 
@@ -44,8 +62,15 @@ export async function anwesenheitRouten(app: FastifyInstance): Promise<void> {
       // funktionaler Zugang, kein echtes Sitzungsmitglied, taucht hier nicht auf.
       const alleMitglieder = await prisma.benutzer.findMany({
         where: { aktiv: true, rolle: { not: Role.ADMIN } },
-        select: { id: true, name: true, rolle: true, istVertretungFuer: true },
-        orderBy: { name: "asc" },
+        select: { id: true, name: true, rolle: true, istVertretungFuer: true, wahlReihenfolge: true },
+      });
+
+      alleMitglieder.sort((a, b) => {
+        const ga = gruppenRang(a.rolle);
+        const gb = gruppenRang(b.rolle);
+        if (ga !== gb) return ga - gb;
+        if (ga === 1) return (a.wahlReihenfolge ?? Infinity) - (b.wahlReihenfolge ?? Infinity);
+        return nachname(a.name).localeCompare(nachname(b.name), "de");
       });
 
       // Anwesenheiten zuordnen
@@ -56,6 +81,28 @@ export async function anwesenheitRouten(app: FastifyInstance): Promise<void> {
       }));
 
       return reply.send(liste);
+    }
+  );
+
+  // ── GET /:id/ersatz-vorschlag – Nachrück-Vorschlag für Abwesenden ──
+  app.get(
+    "/:id/ersatz-vorschlag",
+    { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const { abwesenderId } = request.query as { abwesenderId?: string };
+
+      if (!abwesenderId) {
+        return reply.status(400).send({ fehler: "abwesenderId erforderlich" });
+      }
+
+      const sitzung = await prisma.sitzung.findUnique({ where: { id }, select: { id: true } });
+      if (!sitzung) {
+        return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
+      }
+
+      const ergebnis = await ermittleErsatzVorschlag(id, abwesenderId);
+      return reply.send(ergebnis);
     }
   );
 
