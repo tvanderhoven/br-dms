@@ -123,11 +123,12 @@ Im ersten Schritt wählst du das Zielsystem:
 **Danach (auf dem Zielhost):**
 ```bash
 mkdir -p <DATA_PATH>/{storage,postgres,logs,watch_inbox,backups,certs}
+bash proxy/generate-selfsigned-cert.sh <DATA_PATH> <Hostname> <Host-IP>   # Zertifikat MUSS vor dem ersten Start existieren
 docker compose up -d --build
 docker exec brdms_backend npx prisma db seed   # legt den ersten Admin-Account an
 ```
 
-Browser öffnen: `http://<Host-IP>:3000` (für produktiven Betrieb siehe [HTTPS aktivieren](#https-aktivieren)).
+Browser öffnen: `https://<Host-IP>:8443` (Zertifikatswarnung beim ersten Aufruf ist normal, siehe [HTTPS aktivieren](#https-aktivieren) für Details/Alternativen). Frontend/Backend haben **keinen eigenen Host-Port** – der Proxy ist der einzige Zugriffsweg.
 
 ### Installation – Option B: Manuell
 
@@ -153,21 +154,27 @@ python deploy_komplett.py
 bash deploy_update.sh
 ```
 
-**3. Container starten:**
+**3. Zertifikat erzeugen (muss vor dem ersten Start existieren, sonst startet der Proxy-Container nicht):**
 ```bash
 cd <DATA_PATH>          # bei NAS: auf der NAS per SSH
+bash proxy/generate-selfsigned-cert.sh <DATA_PATH> <Hostname> <Host-IP>
+```
+
+**4. Container starten:**
+```bash
 docker compose up -d --build
 ```
 
-**4. Admin-Account anlegen (einmalig):**
+**5. Admin-Account anlegen (einmalig):**
 ```bash
 docker exec brdms_backend npx prisma db seed
 ```
 
-**5. Browser öffnen:**
+**6. Browser öffnen:**
 ```
-http://<Host-IP>:3000
+https://<Host-IP>:8443
 ```
+(Zertifikatswarnung beim ersten Aufruf ist normal bei selbstsigniertem Zertifikat, siehe [HTTPS aktivieren](#https-aktivieren).)
 
 ---
 
@@ -183,7 +190,7 @@ Pflichtfelder:
 | `JWT_SECRET` | Token-Signaturschlüssel | `openssl rand -hex 32` |
 | `ENCRYPTION_KEY` | AES-256 Dokumentschlüssel | `openssl rand -hex 32` |
 | `NAS_IP` | IP-Adresse bzw. Hostname des Docker-Hosts | `hostname -I` |
-| `APP_URL` | URL für Passwort-Reset-Mails | `http://<Host-IP>:3000` |
+| `APP_URL` | URL für Passwort-Reset-Mails (muss die Proxy-HTTPS-Adresse sein, siehe unten) | `https://<Host-IP>:8443` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Login-Daten des ersten Admin-Accounts, nur beim einmaligen `npx prisma db seed` verwendet | frei wählbar |
 
 > **Kritisch:** Der `ENCRYPTION_KEY` muss separat gesichert werden. Bei Verlust sind alle Dokumente dauerhaft unlesbar.
@@ -237,7 +244,7 @@ Alle Fristen sind in den Einstellungen (VORSITZ/ADMIN) individuell anpassbar.
 
 ## HTTPS aktivieren
 
-Standardmäßig läuft BR-DMS über einfaches HTTP – für den produktiven Betrieb empfohlen: ein vorgeschalteter Reverse-Proxy-Container (`proxy/`), der TLS terminiert und Frontend + Backend unter einer gemeinsamen Adresse zusammenführt.
+Der Reverse-Proxy-Container (`proxy/`) ist **keine optionale Zusatzkomponente**, sondern der einzige Zugriffsweg: Frontend und Backend haben keinen eigenen Host-Port (siehe [Ports](#ports)), und der Proxy terminiert TLS und führt beide unter einer gemeinsamen HTTPS-Adresse zusammen. Ohne ein gültiges Zertifikat unter `<DATA_PATH>/certs/` startet der Proxy-Container gar nicht – das Zertifikat muss also schon vor dem allerersten `docker compose up` existieren (siehe Schritt 1 unten).
 
 ### Schritt 1: Zertifikat erzeugen
 

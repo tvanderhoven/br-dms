@@ -442,7 +442,9 @@ SMTP_FROM={smtp_from}
 # SMTP_FROM=BR-DMS <deine@domain.de>
 """
 
-    app_url = f"http://{host_address}:{frontend_port}"
+    # Frontend/Backend haben keinen eigenen Host-Port (siehe docker-compose.yml) -
+    # einziger Zugriffsweg ist der HTTPS-Proxy.
+    app_url = f"https://{host_address}:{proxy_https_port}"
 
     full_env_content = f"""\
 # ================================================================
@@ -532,16 +534,23 @@ FRONTEND_PORT={frontend_port}
     section(9, "Nächste Schritte", color=GREEN)
     print()
 
+    # Der Proxy-Container startet nicht ohne Zertifikat unter <DATA_PATH>/certs/ -
+    # Zertifikat muss also vor dem allerersten "docker compose up" existieren.
+    cert_cmd_generic = f"bash proxy/generate-selfsigned-cert.sh {data_path} {host_address}"
+    cert_cmd_nas     = f"bash {data_path}/proxy/generate-selfsigned-cert.sh {data_path} {nas_ip if not is_generic else host_address}"
+
     if is_generic:
         steps = [
             ("Verzeichnisse anlegen",
              f"mkdir -p {data_path}/{{storage,postgres,logs,watch_inbox,backups,certs}}"),
+            ("TLS-Zertifikat erzeugen (muss vor dem ersten Start existieren)",
+             cert_cmd_generic),
             ("Container bauen & starten",
              f"{docker_cmd} compose up -d --build"),
             ("Admin-Benutzer anlegen (einmalig)",
              f"{docker_cmd} exec brdms_backend npx prisma db seed"),
             ("System aufrufen",
-             f"http://{host_address}:{frontend_port}  (bzw. https://…:{proxy_https_port} nach HTTPS-Setup, siehe README)"),
+             f"https://{host_address}:{proxy_https_port}  (Zertifikatswarnung bei selbstsigniertem Zertifikat ist normal)"),
         ]
     else:
         dc_file = f"{data_path}/docker-compose.yml"
@@ -552,6 +561,8 @@ FRONTEND_PORT={frontend_port}
              f"scp {NAS_ENV} {nas_user}@{nas_ip}:{data_path}/.env"),
             ("Quelldateien deployen",
              f"python3 {SCRIPT_DIR}/deploy_komplett.py"),
+            ("TLS-Zertifikat auf dem NAS erzeugen (muss vor dem ersten Start existieren)",
+             f'ssh {nas_user}@{nas_ip} "{cert_cmd_nas}"'),
             ("Container bauen (Erstinstallation – Option A)",
              f"{docker_cmd} compose -f {dc_file} build"),
             ("Container starten",
@@ -559,7 +570,7 @@ FRONTEND_PORT={frontend_port}
             ("Admin-Benutzer anlegen (einmalig)",
              f"{docker_cmd} exec brdms_backend npx prisma db seed"),
             ("System aufrufen",
-             f"http://{nas_ip}:{frontend_port}  (bzw. https://…:{proxy_https_port} nach HTTPS-Setup, siehe README)"),
+             f"https://{nas_ip}:{proxy_https_port}  (Zertifikatswarnung bei selbstsigniertem Zertifikat ist normal)"),
         ]
 
     for i, (titel, befehl) in enumerate(steps, 1):
