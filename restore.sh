@@ -15,10 +15,11 @@ if [ ! -f "$ENV_FILE" ]; then
   echo "Fehler: $ENV_FILE nicht gefunden. restore.sh muss im DATA_PATH-Verzeichnis liegen." >&2
   exit 1
 fi
-set -a
-source "$ENV_FILE"
-set +a
-DATA_PATH="${DATA_PATH:?DATA_PATH fehlt in $ENV_FILE}"
+# Nur DATA_PATH gezielt auslesen statt die .env zu sourcen - Werte wie
+# SMTP_FROM="BR-DMS <...>" enthalten Shell-Sonderzeichen (< >), die beim
+# Sourcen zu Syntaxfehlern fuehren.
+DATA_PATH="$(grep -E '^DATA_PATH=' "$ENV_FILE" | tail -1 | cut -d'=' -f2- | tr -d '\r' | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'\$//")"
+DATA_PATH="${DATA_PATH:?DATA_PATH fehlt oder ist leer in $ENV_FILE}"
 
 BACKUP_DIR="$DATA_PATH/backups"
 CONTAINER="brdms_postgres"

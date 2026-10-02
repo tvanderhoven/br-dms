@@ -249,26 +249,34 @@ def main():
     existing_enc = defaults.get("ENCRYPTION_KEY", "")
     existing_dbpw = defaults.get("POSTGRES_PASSWORD", "")
 
-    has_secrets = (len(existing_jwt) == 64 and len(existing_enc) == 64)
+    def resolve_hex_secret(name, existing):
+        """Bestehenden Wert behalten, eigenen Wert eingeben (z.B. aus einem
+        Backup eines anderen Systems) oder neu generieren."""
+        if len(existing) == 64:
+            note(f"Bestehender {name} gefunden.")
+            if ask_yn(f"Bestehenden {name} behalten?", default=True):
+                ok(f"{name}: " + c(existing[:16] + "…", DIM))
+                return existing
+        if ask_yn(f"Eigenen {name} eingeben (z.B. aus einem Backup eines anderen Systems)?", default=False):
+            while True:
+                val = ask(f"{name} (64 Hex-Zeichen)").strip()
+                if re.fullmatch(r"[0-9a-fA-F]{64}", val):
+                    ok(f"{name}: " + c(val[:16] + "…  (manuell eingegeben)", GREEN))
+                    return val
+                print(c("    ↳ Muss genau 64 Hex-Zeichen sein (openssl rand -hex 32).", RED))
+        val = gen_hex()
+        ok(f"{name}: " + c(val[:16] + "…  (automatisch generiert)", GREEN))
+        return val
 
-    if has_secrets:
-        note("Bestehende Schlüssel gefunden.")
-        keep_secrets = ask_yn("Bestehende Schlüssel behalten?", default=True)
-        if keep_secrets:
-            jwt_secret     = existing_jwt
-            encryption_key = existing_enc
-            ok("JWT_SECRET:      " + c(jwt_secret[:16] + "…", DIM))
-            ok("ENCRYPTION_KEY:  " + c(encryption_key[:16] + "…", DIM))
-        else:
-            jwt_secret     = gen_hex()
-            encryption_key = gen_hex()
-            ok("JWT_SECRET:      " + c(jwt_secret[:16] + "…  (neu generiert)", GREEN))
-            ok("ENCRYPTION_KEY:  " + c(encryption_key[:16] + "…  (neu generiert)", GREEN))
-    else:
-        jwt_secret     = gen_hex()
-        encryption_key = gen_hex()
-        ok("JWT_SECRET:      " + c(jwt_secret[:16] + "…  (automatisch generiert)", GREEN))
-        ok("ENCRYPTION_KEY:  " + c(encryption_key[:16] + "…  (automatisch generiert)", GREEN))
+    print()
+    note("WICHTIG beim Wiederherstellen eines Backups von einem anderen System:")
+    note("Der ENCRYPTION_KEY muss exakt der des Quellsystems sein - sonst lassen")
+    note("sich die wiederhergestellten Dokumente nicht mehr entschlüsseln.")
+    print()
+
+    jwt_secret     = resolve_hex_secret("JWT_SECRET", existing_jwt)
+    print()
+    encryption_key = resolve_hex_secret("ENCRYPTION_KEY", existing_enc)
 
     print()
     warn(c("ENCRYPTION_KEY separat sichern (Passwortmanager o.ä.)!", BOLD))
