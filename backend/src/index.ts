@@ -29,6 +29,7 @@ import { startWiedervorlageWorker } from "./workers/wiedervorlage.worker.js";
 import { startGesetzeWorker } from "./workers/gesetze.worker.js";
 import { startAblaufWorker } from "./workers/ablauf.worker.js";
 import { starteWatchFolder } from "./services/watchfolder.service.js";
+import { erstAdminAnlegen } from "./lib/erst-admin.js";
 import { beschlussRegisterRouten } from "./routes/beschlussregister.js";
 import { fristenRouten } from "./routes/fristen.js";
 import { exportRouten } from "./routes/export.js";
@@ -116,6 +117,9 @@ await app.register(schulungenRouten,         { prefix: "/api/schulungen" });
 await app.register(gesetzeRouten,            { prefix: "/api/gesetze" });
 await app.register(kummerkastenRouten,       { prefix: "/api/kummerkasten" });
 await app.register(ablaufRouten,             { prefix: "/api/ablauf" });
+
+// ── Erster Admin (nur bei leerer Benutzertabelle) ─────────────────
+await erstAdminAnlegen();
 
 // ── Worker & Services ─────────────────────────────────────────────
 startDeletionWorker(process.env.NODE_ENV !== "production");

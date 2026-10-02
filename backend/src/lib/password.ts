@@ -20,5 +20,9 @@ export function verifyPassword(password: string, stored: string): boolean {
   const [salt, hash] = stored.split(":");
   if (!salt || !hash) return false;
   const incoming = scryptSync(password, salt, KEY_LEN);
-  return timingSafeEqual(Buffer.from(hash, "hex"), incoming);
+  const expected = Buffer.from(hash, "hex");
+  // timingSafeEqual wirft bei ungleicher Länge (z.B. Dummy-Hash beim Login
+  // eines unbekannten Benutzers) → als "falsch" werten statt HTTP 500
+  if (expected.length !== incoming.length) return false;
+  return timingSafeEqual(expected, incoming);
 }

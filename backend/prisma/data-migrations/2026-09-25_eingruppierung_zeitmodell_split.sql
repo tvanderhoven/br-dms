@@ -4,9 +4,14 @@
 --
 -- Idempotent: läuft bei jedem Start, tut aber nach dem ersten Mal nichts mehr,
 -- weil dann die Spalte "gruppe" schon existiert (Guard-Bedingung unten).
+-- Existiert die Tabelle noch gar nicht (Neuinstallation bzw. Stand vor der
+-- Gehaltstabelle), gibt es nichts zu migrieren – "prisma db push" legt sie an.
 DO $$
 BEGIN
-  IF NOT EXISTS (
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_name = 'gehaltsstufen_eintraege'
+  ) AND NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'gehaltsstufen_eintraege' AND column_name = 'gruppe'
   ) THEN
