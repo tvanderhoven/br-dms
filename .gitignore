@@ -1,9 +1,13 @@
 .env
 .env.local
 .env.deploy
+nas.env
 node_modules/
 dist/
 __pycache__/
 *.pyc
 *.enc
 .claude/
+*.key
+*.pem
+qnap_certs/

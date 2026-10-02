@@ -1,12 +1,22 @@
 #!/bin/bash
 # BR-DMS Backup: PostgreSQL-Dump + Storage-Dateien
-# Aufruf: ./backup.sh
-# Empfehlung: täglich per QNAP Task Scheduler
+# Aufruf: ./backup.sh  (muss im selben Verzeichnis wie die .env liegen)
+# Empfehlung: täglich per NAS-Aufgabenplaner (QNAP/Synology)
 
 set -euo pipefail
 
-BACKUP_DIR="/share/Container/br-dms/backups"
-DATA_PATH="/share/Container/br-dms"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="$SCRIPT_DIR/.env"
+if [ ! -f "$ENV_FILE" ]; then
+  echo "Fehler: $ENV_FILE nicht gefunden. backup.sh muss im DATA_PATH-Verzeichnis liegen." >&2
+  exit 1
+fi
+set -a
+source "$ENV_FILE"
+set +a
+DATA_PATH="${DATA_PATH:?DATA_PATH fehlt in $ENV_FILE}"
+
+BACKUP_DIR="$DATA_PATH/backups"
 CONTAINER="brdms_postgres"
 KEEP_DAYS=30
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)

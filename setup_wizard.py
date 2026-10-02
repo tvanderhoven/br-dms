@@ -2,9 +2,14 @@
 # -*- coding: utf-8 -*-
 """
 BR-DMS Installationsassistent
-Führt durch die Erstkonfiguration und erstellt:
-  • .env     – lokal (für Deploy-Skripte auf diesem Rechner)
-  • nas.env  – vollständig (für das NAS, per SCP übertragen)
+Fragt alle benötigten Werte ab und erstellt eine fertige .env.
+
+Zielsysteme:
+  • Generischer Docker-Host (lokal, Server, beliebige Docker-Umgebung)
+    -> schreibt eine einzige .env direkt ins Projektverzeichnis.
+  • Synology / QNAP NAS (per SSH-Deploy-Workflow)
+    -> schreibt zusätzlich eine nas.env zum Kopieren auf das NAS
+       (passend zu deploy_komplett.py / deploy_update.sh).
 """
 
 import os, sys, re, secrets, string, getpass, subprocess
@@ -91,7 +96,7 @@ def load_env(path):
     return env
 
 def ssh_query_id(user, host):
-    """Versucht PUID/PGID via SSH zu ermitteln. Gibt (uid, gid) oder None zurück."""
+    """Versucht PUID/PGID via SSH auf dem NAS zu ermitteln. Gibt (uid, gid) oder None zurück."""
     try:
         r = subprocess.run(
             ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=6",
@@ -108,6 +113,13 @@ def ssh_query_id(user, host):
         pass
     return None
 
+def local_id():
+    """Ermittelt PUID/PGID des aktuell angemeldeten Benutzers auf diesem Rechner (Linux/macOS)."""
+    try:
+        return str(os.getuid()), str(os.getgid())
+    except AttributeError:
+        return None  # Windows
+
 def validate_email(email):
     return re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email) is not None
 
@@ -121,16 +133,13 @@ def main():
     print(c("  BR-DMS Installationsassistent", BOLD + CYAN))
     print(c("═" * 64, BOLD + CYAN))
     print()
-    print("  Dieses Skript führt dich durch die Erstkonfiguration")
-    print("  und erstellt am Ende zwei Dateien:")
-    print()
-    print(f"  {c('.env', YEL)}     – lokal, für die Deploy-Skripte auf diesem Rechner")
-    print(f"  {c('nas.env', YEL)} – vollständig, wird per SCP auf das NAS kopiert")
+    print("  Dieses Skript führt dich durch die Erstkonfiguration und")
+    print("  erstellt am Ende eine fertige .env mit allen benötigten Werten.")
     print()
     warn("ENCRYPTION_KEY  sichern! Ohne ihn sind alle Dokumente verloren.")
     print()
 
-    # Bestehende .env als Quelle für Voreinstellungen
+    # Bestehende .env / nas.env als Quelle für Voreinstellungen
     existing = load_env(LOCAL_ENV)
     existing_nas = load_env(NAS_ENV) if NAS_ENV.exists() else {}
     defaults = {**existing_nas, **existing}  # lokale .env überschreibt nas.env bei Überschneidungen
@@ -143,20 +152,32 @@ def main():
     # ─────────────────────────────────────────────────────────────────────────
     section(1, "Zielsystem wählen")
     print()
-    print(f"  {c('[1]', BOLD)} Synology NAS   (Container Manager, /volume1/docker/...)")
-    print(f"  {c('[2]', BOLD)} QNAP NAS        (Container Station, /share/Container/...)")
+    print(f"  {c('[1]', BOLD)} Generischer Docker-Host   (lokal, eigener Server, Cloud-VM, …)")
+    print(f"  {c('[2]', BOLD)} Synology NAS               (Container Manager, SSH-Deploy)")
+    print(f"  {c('[3]', BOLD)} QNAP NAS                   (Container Station, SSH-Deploy)")
+    print()
+    note("Optionen 2/3 nutzen zusätzlich die SSH-Deploy-Skripte (deploy_komplett.py)")
+    note("und legen eine nas.env zum Kopieren auf das NAS an. Option 1 reicht, wenn du")
+    note("docker compose direkt auf der Zielmaschine ausführst (auch auf einem NAS per SSH-Shell).")
     print()
 
     while True:
         wahl = ask("Auswahl", default="1")
-        if wahl in ("1", "2"):
+        if wahl in ("1", "2", "3"):
             break
-        print(c("    ↳ Bitte 1 oder 2 eingeben.", RED))
+        print(c("    ↳ Bitte 1, 2 oder 3 eingeben.", RED))
+
+    is_generic = (wahl == "1")
 
     if wahl == "1":
+        plattform     = "GENERISCH"
+        data_path_def = defaults.get("DATA_PATH", "./data")
+        docker_cmd    = "docker"
+    elif wahl == "2":
         plattform     = "SYNOLOGY"
         data_path_def = "/volume1/docker/br-dms"
         puid_def      = "1026"
+        pgid_def      = "100"
         docker_cmd    = "sudo /usr/local/bin/docker"
     else:
         plattform     = "QNAP"
@@ -168,32 +189,55 @@ def main():
     ok(f"Zielsystem: {c(plattform, BOLD)}")
 
     # ─────────────────────────────────────────────────────────────────────────
-    # Schritt 2: NAS-Zugangsdaten
+    # Schritt 2: Zugangsdaten / Erreichbarkeit
     # ─────────────────────────────────────────────────────────────────────────
-    section(2, "NAS-Zugangsdaten")
+    section(2, "Zugangsdaten & Erreichbarkeit")
     print()
 
-    nas_ip   = ask("IP-Adresse des NAS",   default=defaults.get("NAS_IP", defaults.get("NAS_HOST", "192.168.1.100")))
-    nas_user = ask("SSH-Benutzername",      default=defaults.get("NAS_USER", "admin"))
-    data_path = ask("Datenpfad auf dem NAS", default=data_path_def)
-    print()
-    auto_puid = ask_yn("PUID/PGID automatisch per SSH ermitteln?", default=True)
-    puid = pgid = None
-    if auto_puid:
+    if is_generic:
+        host_address = ask(
+            "IP-Adresse oder Hostname, unter der das System später erreichbar ist",
+            default=defaults.get("NAS_IP", defaults.get("APP_HOST", "localhost"))
+        )
+        data_path = ask("Datenverzeichnis auf diesem Host (für Postgres/Storage/Logs)", default=data_path_def)
+        nas_user = nas_ip = ""  # nicht benötigt im generischen Flow
+
         print()
-        note(f"Verbinde mit {nas_user}@{nas_ip} …")
-        result = ssh_query_id(nas_user, nas_ip)
-        if result:
-            puid, pgid = result
-            ok(f"PUID={c(puid, BOLD)}   PGID={c(pgid, BOLD)}")
+        detected = local_id()
+        if detected:
+            puid, pgid = detected
+            ok(f"PUID={c(puid, BOLD)}   PGID={c(pgid, BOLD)}   (aktueller Benutzer dieses Rechners)")
+            if not ask_yn("Diese Werte übernehmen?", default=True):
+                puid = ask("PUID (User-ID)", default=defaults.get("PUID", "1000"))
+                pgid = ask("PGID (Gruppen-ID)", default=defaults.get("PGID", "1000"))
         else:
-            warn("SSH-Abfrage fehlgeschlagen – bitte manuell eingeben.")
-            print("  (Tipp: auf dem NAS per SSH einloggen und 'id' ausführen)")
-
-    if not puid:
+            note("Automatische Erkennung auf diesem System nicht möglich (z.B. unter Windows).")
+            note("Falls docker auf einem Linux-Host läuft: dort per SSH 'id' ausführen.")
+            puid = ask("PUID (User-ID, Linux-Host)", default=defaults.get("PUID", "1000"))
+            pgid = ask("PGID (Gruppen-ID, Linux-Host)", default=defaults.get("PGID", "1000"))
+    else:
+        nas_ip   = ask("IP-Adresse des NAS",   default=defaults.get("NAS_IP", defaults.get("NAS_HOST", "192.168.1.100")))
+        nas_user = ask("SSH-Benutzername",      default=defaults.get("NAS_USER", "admin"))
+        data_path = ask("Datenpfad auf dem NAS", default=data_path_def)
+        host_address = nas_ip
         print()
-        puid = ask("PUID (User-ID auf dem NAS)", default=puid_def)
-        pgid = ask("PGID (Gruppen-ID)",           default="100")
+        auto_puid = ask_yn("PUID/PGID automatisch per SSH ermitteln?", default=True)
+        puid = pgid = None
+        if auto_puid:
+            print()
+            note(f"Verbinde mit {nas_user}@{nas_ip} …")
+            result = ssh_query_id(nas_user, nas_ip)
+            if result:
+                puid, pgid = result
+                ok(f"PUID={c(puid, BOLD)}   PGID={c(pgid, BOLD)}")
+            else:
+                warn("SSH-Abfrage fehlgeschlagen – bitte manuell eingeben.")
+                print("  (Tipp: auf dem NAS per SSH einloggen und 'id' ausführen)")
+
+        if not puid:
+            print()
+            puid = ask("PUID (User-ID auf dem NAS)", default=puid_def)
+            pgid = ask("PGID (Gruppen-ID)",           default=pgid_def)
 
     # ─────────────────────────────────────────────────────────────────────────
     # Schritt 3: Sicherheitsschlüssel
@@ -251,7 +295,8 @@ def main():
     # ─────────────────────────────────────────────────────────────────────────
     section(4, "Administrator-Konto")
     print()
-    print("  Das ist der erste Login-Account nach der Installation.")
+    print("  Das ist der erste Login-Account nach der Installation")
+    print("  (wird beim Befehl 'npx prisma db seed' angelegt).")
     print()
 
     admin_email_def = defaults.get("ADMIN_EMAIL", "admin@br-dms.lokal")
@@ -269,9 +314,15 @@ def main():
     # ─────────────────────────────────────────────────────────────────────────
     section(5, "Ports")
     print()
+    print("  HTTPS-Proxy-Ports sind der eigentliche Zugriffsweg (siehe README,")
+    print("  Abschnitt 'HTTPS aktivieren'). Frontend-/Backend-Port werden intern")
+    print("  bzw. für den Healthcheck verwendet und müssen i.d.R. nicht angepasst werden.")
+    print()
 
-    frontend_port = ask("Frontend-Port", default=defaults.get("FRONTEND_PORT", "3000"))
-    backend_port  = ask("Backend-Port",  default=defaults.get("BACKEND_PORT",  "4000"))
+    proxy_https_port = ask("HTTPS-Proxy-Port", default=defaults.get("PROXY_HTTPS_PORT", "8443"))
+    proxy_http_port  = ask("HTTP-Proxy-Port (Redirect)", default=defaults.get("PROXY_HTTP_PORT", "8080"))
+    frontend_port = ask("Frontend-Port (intern)", default=defaults.get("FRONTEND_PORT", "3000"))
+    backend_port  = ask("Backend-Port (intern)",  default=defaults.get("BACKEND_PORT",  "4000"))
 
     # ─────────────────────────────────────────────────────────────────────────
     # Schritt 6: E-Mail (Passwort-Reset)
@@ -292,7 +343,7 @@ def main():
         ok("E-Mail konfiguriert.")
     else:
         smtp_host = smtp_port = smtp_user = smtp_pass = smtp_from = ""
-        note("E-Mail übersprungen – kann später in der .env auf dem NAS ergänzt werden.")
+        note("E-Mail übersprungen – kann später in der .env ergänzt werden.")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Schritt 7: WatchFolder
@@ -306,10 +357,21 @@ def main():
     wf_default = defaults.get("WATCH_FOLDER_ENABLED", "false").lower() == "true"
     wf_enabled = ask_yn("WatchFolder aktivieren?", default=wf_default)
 
+    watch_inbox_path = defaults.get("WATCH_INBOX_PATH", "")
     if wf_enabled:
         print()
+        note("Standardmäßig liegt der Eingangsordner unter DATA_PATH/watch_inbox.")
+        note("Empfohlen: eigener, separat freigegebener Ordner (Einlieferer sehen dann")
+        note("nur diesen Ordner, nicht das restliche Datenverzeichnis).")
+        use_custom_path = ask_yn("Eigenen Pfad für den Eingangsordner verwenden?", default=bool(watch_inbox_path))
+        if use_custom_path:
+            watch_inbox_path = ask("Pfad des Eingangsordners auf diesem Host", default=watch_inbox_path or f"{data_path}/watch_inbox")
+        else:
+            watch_inbox_path = ""
+
+        print()
         warn("Nach dem ersten Start die SYSTEM_USER_ID aus der Benutzerverwaltung")
-        warn("im System holen und in der nas.env auf dem NAS nachtragen.")
+        warn("im System holen und in der .env nachtragen.")
         system_user_id = defaults.get("SYSTEM_USER_ID", "")
         if system_user_id:
             keep_uid = ask_yn(f"Bestehende SYSTEM_USER_ID behalten ({system_user_id[:8]}…)?", default=True)
@@ -326,10 +388,15 @@ def main():
 
     rows = [
         ("Zielsystem",         plattform),
-        ("NAS-IP",             nas_ip),
-        ("SSH-Benutzer",       nas_user),
+        ("Erreichbar unter",  host_address),
+    ]
+    if not is_generic:
+        rows.append(("SSH-Benutzer", nas_user))
+    rows += [
         ("DATA_PATH",          data_path),
         ("PUID / PGID",        f"{puid} / {pgid}"),
+        ("HTTPS-Proxy-Port",   proxy_https_port),
+        ("HTTP-Proxy-Port",    proxy_http_port),
         ("Frontend-Port",      frontend_port),
         ("Backend-Port",       backend_port),
         ("JWT_SECRET",         jwt_secret[:16] + "…"),
@@ -340,6 +407,8 @@ def main():
         ("E-Mail (SMTP)",      smtp_host if smtp_configured else "nicht konfiguriert"),
         ("WatchFolder",        "aktiviert" if wf_enabled else "deaktiviert"),
     ]
+    if wf_enabled and watch_inbox_path:
+        rows.append(("Watch-Inbox-Pfad", watch_inbox_path))
 
     label_w = max(len(r[0]) for r in rows) + 2
     for label, val in rows:
@@ -352,8 +421,7 @@ def main():
         note("Abgebrochen – keine Dateien geschrieben.")
         sys.exit(0)
 
-    # ── nas.env schreiben ────────────────────────────────────────────────────
-    smtp_block = ""
+    # ── gemeinsame Blöcke ────────────────────────────────────────────────────
     if smtp_configured:
         smtp_block = f"""
 # --- E-Mail (Passwort-Reset) ------------------------------------
@@ -374,20 +442,21 @@ SMTP_FROM={smtp_from}
 # SMTP_FROM=BR-DMS <deine@domain.de>
 """
 
-    nas_env_content = f"""\
+    app_url = f"http://{host_address}:{frontend_port}"
+
+    full_env_content = f"""\
 # ================================================================
-#  BR-DMS – Konfiguration für das NAS
-#  Erzeugt von setup_wizard.py – auf das NAS kopieren als .env
-#  Pfad auf dem NAS: {data_path}/.env
+#  BR-DMS – Konfiguration
+#  Erzeugt von setup_wizard.py ({plattform})
 # ================================================================
 
-# --- Plattform ({plattform}) ----------------------------------------
+# --- Datenpfad ----------------------------------------------------
 DATA_PATH={data_path}
-NAS_USER={nas_user}
-NAS_HOST={nas_ip}
-NAS_IP={nas_ip}
+NAS_IP={host_address}
 PUID={puid}
 PGID={pgid}
+{"NAS_USER=" + nas_user if not is_generic else ""}
+{"NAS_HOST=" + nas_ip if not is_generic else ""}
 
 # --- Datenbank --------------------------------------------------
 POSTGRES_USER=brdms
@@ -408,26 +477,38 @@ ENCRYPTION_KEY={encryption_key}
 # Intern im Container – nicht ändern
 STORAGE_PATH=/data/storage
 
+# --- Erster Admin-Account (nur fuer "npx prisma db seed") -------
+ADMIN_EMAIL={admin_email}
+ADMIN_PASSWORD={admin_pw}
+
 # --- Frontend ---------------------------------------------------
 FRONTEND_PORT={frontend_port}
-APP_URL=http://{nas_ip}:{frontend_port}
+APP_URL={app_url}
 {smtp_block}
 # --- Watch-Folder -----------------------------------------------
 WATCH_FOLDER=/data/watch_inbox
 WATCH_FOLDER_ENABLED={'true' if wf_enabled else 'false'}
+WATCH_INBOX_PATH={watch_inbox_path}
 # UUID des Admin-Benutzers (nach erstem Login in Benutzerverwaltung ermitteln)
 SYSTEM_USER_ID={system_user_id}
 
-# --- Admin-Seed (wird beim ersten 'prisma db seed' verwendet) ---
-ADMIN_EMAIL={admin_email}
-ADMIN_PASSWORD={admin_pw}
+# --- HTTPS-Proxy (siehe README, Abschnitt "HTTPS aktivieren") ---
+PROXY_HTTPS_PORT={proxy_https_port}
+PROXY_HTTP_PORT={proxy_http_port}
 """
+    # Leerzeilen bereinigen, die durch die bedingten NAS_USER/NAS_HOST-Zeilen entstehen
+    full_env_content = re.sub(r"\n{3,}", "\n\n", full_env_content)
 
-    NAS_ENV.write_text(nas_env_content, encoding="utf-8")
-    ok(f"nas.env  geschrieben → {c(str(NAS_ENV), BOLD)}")
+    if is_generic:
+        LOCAL_ENV.write_text(full_env_content, encoding="utf-8")
+        ok(f".env  geschrieben → {c(str(LOCAL_ENV), BOLD)}")
+    else:
+        # nas.env: vollständige Konfiguration, wird aufs NAS kopiert
+        NAS_ENV.write_text(full_env_content, encoding="utf-8")
+        ok(f"nas.env  geschrieben → {c(str(NAS_ENV), BOLD)}")
 
-    # ── lokale .env schreiben ────────────────────────────────────────────────
-    local_env_content = f"""\
+        # lokale .env: nur die Werte, die die Deploy-Skripte auf diesem Rechner brauchen
+        local_env_content = f"""\
 # ================================================================
 #  BR-DMS – Lokale .env für Deploy-Skripte
 #  Nur auf diesem Rechner – keine Secrets!
@@ -436,14 +517,14 @@ ADMIN_PASSWORD={admin_pw}
 DATA_PATH={data_path}
 NAS_USER={nas_user}
 NAS_HOST={nas_ip}
-NAS_IP={nas_ip}
+NAS_IP={host_address}
 PUID={puid}
 PGID={pgid}
 BACKEND_PORT={backend_port}
 FRONTEND_PORT={frontend_port}
 """
-    LOCAL_ENV.write_text(local_env_content, encoding="utf-8")
-    ok(f".env     geschrieben → {c(str(LOCAL_ENV), BOLD)}")
+        LOCAL_ENV.write_text(local_env_content, encoding="utf-8")
+        ok(f".env     geschrieben → {c(str(LOCAL_ENV), BOLD)}")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Schritt 9: Nächste Schritte
@@ -451,24 +532,35 @@ FRONTEND_PORT={frontend_port}
     section(9, "Nächste Schritte", color=GREEN)
     print()
 
-    dc_file = f"{data_path}/docker-compose.yml"
-
-    steps = [
-        ("Verzeichnisse auf dem NAS anlegen",
-         f'ssh {nas_user}@{nas_ip} "mkdir -p {data_path}/{{storage,postgres,logs,watch_inbox}}"'),
-        ("nas.env auf das NAS kopieren",
-         f"scp {NAS_ENV} {nas_user}@{nas_ip}:{data_path}/.env"),
-        ("Quelldateien deployen",
-         f"python3 {SCRIPT_DIR}/deploy_komplett.py"),
-        ("Container bauen (Erstinstallation – Option A)",
-         f"{docker_cmd} compose -f {dc_file} build"),
-        ("Container starten",
-         f"{docker_cmd} compose -f {dc_file} up -d"),
-        ("Admin-Benutzer anlegen (einmalig)",
-         f"{docker_cmd} exec brdms_backend npx prisma db seed"),
-        ("System aufrufen",
-         f"http://{nas_ip}:{frontend_port}"),
-    ]
+    if is_generic:
+        steps = [
+            ("Verzeichnisse anlegen",
+             f"mkdir -p {data_path}/{{storage,postgres,logs,watch_inbox,backups,certs}}"),
+            ("Container bauen & starten",
+             f"{docker_cmd} compose up -d --build"),
+            ("Admin-Benutzer anlegen (einmalig)",
+             f"{docker_cmd} exec brdms_backend npx prisma db seed"),
+            ("System aufrufen",
+             f"http://{host_address}:{frontend_port}  (bzw. https://…:{proxy_https_port} nach HTTPS-Setup, siehe README)"),
+        ]
+    else:
+        dc_file = f"{data_path}/docker-compose.yml"
+        steps = [
+            ("Verzeichnisse auf dem NAS anlegen",
+             f'ssh {nas_user}@{nas_ip} "mkdir -p {data_path}/{{storage,postgres,logs,watch_inbox,backups,certs}}"'),
+            ("nas.env auf das NAS kopieren",
+             f"scp {NAS_ENV} {nas_user}@{nas_ip}:{data_path}/.env"),
+            ("Quelldateien deployen",
+             f"python3 {SCRIPT_DIR}/deploy_komplett.py"),
+            ("Container bauen (Erstinstallation – Option A)",
+             f"{docker_cmd} compose -f {dc_file} build"),
+            ("Container starten",
+             f"{docker_cmd} compose -f {dc_file} up -d"),
+            ("Admin-Benutzer anlegen (einmalig)",
+             f"{docker_cmd} exec brdms_backend npx prisma db seed"),
+            ("System aufrufen",
+             f"http://{nas_ip}:{frontend_port}  (bzw. https://…:{proxy_https_port} nach HTTPS-Setup, siehe README)"),
+        ]
 
     for i, (titel, befehl) in enumerate(steps, 1):
         print(f"  {c(str(i) + '.', BOLD + CYAN)} {titel}")
@@ -478,8 +570,11 @@ FRONTEND_PORT={frontend_port}
     if wf_enabled:
         print()
         warn("WatchFolder: Nach dem ersten Login SYSTEM_USER_ID aus der Benutzerverwaltung")
-        warn(f"holen und in {data_path}/.env auf dem NAS eintragen, dann Backend neu starten:")
-        print(f"     {c(docker_cmd + ' compose -f ' + dc_file + ' restart backend', YEL)}")
+        warn("holen und in der .env eintragen, dann Backend neu starten:")
+        if is_generic:
+            print(f"     {c(docker_cmd + ' compose restart backend', YEL)}")
+        else:
+            print(f"     {c(docker_cmd + ' compose -f ' + dc_file + ' restart backend', YEL)}")
         print()
 
     hr()

@@ -1,14 +1,27 @@
 #!/bin/bash
 # BR-DMS Restore: Backup wieder einspielen
-# Aufruf: ./restore.sh
+# Aufruf: ./restore.sh  (muss im selben Verzeichnis wie die .env liegen)
 # Wählt interaktiv aus vorhandenen Backups
+#
+# WICHTIG: Der ENCRYPTION_KEY in der .env dieses Systems muss vor dem Restore
+# bereits der gleiche sein wie im System, von dem das Backup stammt - sonst
+# lassen sich die wiederhergestellten Dokumente nicht mehr entschlüsseln.
 
 set -euo pipefail
 
-BACKUP_DIR="/share/Container/br-dms/backups"
-DATA_PATH="/share/Container/br-dms"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="$SCRIPT_DIR/.env"
+if [ ! -f "$ENV_FILE" ]; then
+  echo "Fehler: $ENV_FILE nicht gefunden. restore.sh muss im DATA_PATH-Verzeichnis liegen." >&2
+  exit 1
+fi
+set -a
+source "$ENV_FILE"
+set +a
+DATA_PATH="${DATA_PATH:?DATA_PATH fehlt in $ENV_FILE}"
+
+BACKUP_DIR="$DATA_PATH/backups"
 CONTAINER="brdms_postgres"
-COMPOSE_DIR="/share/Container/br-dms"
 
 # --- Verfügbare DB-Backups anzeigen ---
 echo ""
@@ -80,9 +93,8 @@ fi
 
 # --- Backend neu starten ---
 echo "[$(date)] Backend neu starten..."
-cd "$COMPOSE_DIR"
 docker start brdms_backend
 
 echo ""
 echo "[$(date)] Restore abgeschlossen."
-echo "  Bitte prüfe das System unter http://<NAS-IP>:3000"
+echo "  Bitte prüfe das System unter der konfigurierten APP_URL (siehe .env)."

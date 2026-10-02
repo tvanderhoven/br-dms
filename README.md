@@ -1,11 +1,11 @@
 # BR-DMS – Betriebsrats-Dokumentenmanagementsystem
 
-![Self-hosted](https://img.shields.io/badge/Self--hosted-NAS%20%2F%20QNAP-blue)
+![Self-hosted](https://img.shields.io/badge/Self--hosted-NAS%20%2F%20Docker-blue)
 ![DSGVO](https://img.shields.io/badge/DSGVO-konform-green)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED)
 ![License](https://img.shields.io/badge/Lizenz-Intern-lightgrey)
 
-DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft vollständig im Intranet auf einer NAS (QNAP, Synology o.ä.) – ohne Cloud-Verbindung, ohne externen Zugriff.
+DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft vollständig im Intranet auf jedem Docker-Host (NAS wie QNAP/Synology, eigener Server, Cloud-VM) – ohne Cloud-Verbindung, ohne externen Zugriff.
 
 ---
 
@@ -99,28 +99,52 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 
 ### Voraussetzungen
 
-- NAS mit Docker-Unterstützung (QNAP Container Station, Synology Container Manager o.ä.)
-- SSH-Zugriff zur NAS
-- Entwickler-PC mit `bash` oder PowerShell + SSH-Client
+- Ein Host mit Docker + Docker Compose – egal ob NAS (QNAP Container Station, Synology Container Manager), eigener Server, Cloud-VM oder lokaler Rechner
+- Bei NAS-Betrieb zusätzlich: SSH-Zugriff zur NAS und ein Entwickler-PC mit `bash`/PowerShell + SSH-Client
 
-### Installation
+### Installation – Option A: Installationsassistent (empfohlen)
 
-**1. `.env.deploy` anlegen** (im Projektverzeichnis, nicht committen):
+Interaktives Skript, das alle benötigten Werte abfragt (Datenpfad, Datenbankpasswort,
+JWT-/Verschlüsselungsschlüssel, Admin-Account, Ports, SMTP, WatchFolder) und daraus eine
+fertige `.env` erzeugt:
+
+```bash
+bash installation.sh
+# oder direkt: python3 setup_wizard.py
+```
+
+Im ersten Schritt wählst du das Zielsystem:
+- **Generischer Docker-Host** – für jede beliebige Docker-Umgebung (lokal, eigener Server,
+  Cloud-VM, oder auch ein NAS, wenn du direkt per SSH-Shell darauf arbeitest). Schreibt eine
+  einzige `.env` ins Projektverzeichnis – danach direkt weiter mit Schritt 2 unten.
+- **Synology / QNAP NAS** – zusätzlich zur `.env` wird eine `nas.env` erzeugt, die zum NAS
+  kopiert wird, passend zu den SSH-Deploy-Skripten (`deploy_komplett.py` / `deploy_update.sh`).
+
+**Danach (auf dem Zielhost):**
+```bash
+mkdir -p <DATA_PATH>/{storage,postgres,logs,watch_inbox,backups,certs}
+docker compose up -d --build
+docker exec brdms_backend npx prisma db seed   # legt den ersten Admin-Account an
+```
+
+Browser öffnen: `http://<Host-IP>:3000` (für produktiven Betrieb siehe [HTTPS aktivieren](#https-aktivieren)).
+
+### Installation – Option B: Manuell
+
+**1. `.env` anlegen** (im Projektverzeichnis, nicht committen):
+```bash
+cp .env.example .env
+nano .env   # Alle Werte anpassen, siehe Tabelle unten
+```
+
+**2. Bei NAS-Betrieb zusätzlich `.env.deploy` anlegen** (steuert nur die Deploy-Skripte, keine Secrets):
 ```
 NAS_USER=<NAS-Benutzername>
 NAS_HOST=<NAS-IP oder Hostname>
 DATA_PATH=/share/Container/br-dms        # QNAP
 # DATA_PATH=/volume1/docker/br-dms      # Synology
 ```
-
-**2. `.env` auf der NAS anlegen:**
-```bash
-ssh <NAS-Benutzername>@<NAS-IP>
-cp <DATA_PATH>/.env.example <DATA_PATH>/.env
-nano <DATA_PATH>/.env   # Alle Werte anpassen
-```
-
-**3. Dateien deployen:**
+und die `.env` per SCP auf die NAS kopieren, bzw. die Deploy-Skripte nutzen:
 ```bash
 # Windows:
 python deploy_komplett.py
@@ -129,15 +153,20 @@ python deploy_komplett.py
 bash deploy_update.sh
 ```
 
-**4. Container starten (auf der NAS per SSH):**
+**3. Container starten:**
 ```bash
-cd <DATA_PATH>
-sudo /usr/local/bin/docker compose up -d --build
+cd <DATA_PATH>          # bei NAS: auf der NAS per SSH
+docker compose up -d --build
+```
+
+**4. Admin-Account anlegen (einmalig):**
+```bash
+docker exec brdms_backend npx prisma db seed
 ```
 
 **5. Browser öffnen:**
 ```
-http://<NAS-IP>:3000
+http://<Host-IP>:3000
 ```
 
 ---
@@ -153,10 +182,12 @@ Pflichtfelder:
 | `POSTGRES_PASSWORD` | Datenbankpasswort (32+ Zeichen) | `openssl rand -base64 32` |
 | `JWT_SECRET` | Token-Signaturschlüssel | `openssl rand -hex 32` |
 | `ENCRYPTION_KEY` | AES-256 Dokumentschlüssel | `openssl rand -hex 32` |
-| `NAS_IP` | IP-Adresse der NAS | `hostname -I` |
-| `APP_URL` | URL für Passwort-Reset-Mails | `http://<NAS-IP>:3000` |
+| `NAS_IP` | IP-Adresse bzw. Hostname des Docker-Hosts | `hostname -I` |
+| `APP_URL` | URL für Passwort-Reset-Mails | `http://<Host-IP>:3000` |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Login-Daten des ersten Admin-Accounts, nur beim einmaligen `npx prisma db seed` verwendet | frei wählbar |
 
 > **Kritisch:** Der `ENCRYPTION_KEY` muss separat gesichert werden. Bei Verlust sind alle Dokumente dauerhaft unlesbar.
+> `ADMIN_PASSWORD` nach dem ersten Login sofort in den Einstellungen ändern – wird nur beim Seed gelesen, danach nicht mehr automatisch synchronisiert.
 
 ### Watch-Folder (optional)
 
@@ -164,14 +195,15 @@ Pflichtfelder:
 |---|---|---|
 | `WATCH_FOLDER_ENABLED` | Watch-Folder aktivieren | `false` |
 | `SYSTEM_USER_ID` | UUID des Admin-Users für automatische Imports | – |
-| `WATCH_INBOX_PATH` | NAS-Pfad des Eingangsordners (unabhängig vom Docker-Verzeichnis) | `DATA_PATH/watch_inbox` |
+| `WATCH_INBOX_PATH` | Pfad des Eingangsordners auf dem Host (unabhängig vom Docker-Verzeichnis) | `DATA_PATH/watch_inbox` |
 
-Eingangsordner auf separate NAS-Freigabe legen (empfohlen):
+Eingangsordner auf einen separaten, eigenständig freigegebenen Pfad legen (empfohlen):
 ```bash
-WATCH_INBOX_PATH=/share/kp          # QNAP
-# WATCH_INBOX_PATH=/volume1/br-dms-eingang   # Synology
+WATCH_INBOX_PATH=/share/kp                   # QNAP (SMB-Freigabe)
+# WATCH_INBOX_PATH=/volume1/br-dms-eingang   # Synology (SMB-Freigabe)
+# WATCH_INBOX_PATH=/srv/br-dms-eingang       # generischer Docker-Host
 ```
-Einliefernde User erhalten dann per SMB nur Zugriff auf diesen Ordner – nie auf das Docker-Verzeichnis.
+Auf NAS-Systemen erhalten einliefernde User dann per SMB nur Zugriff auf diesen Ordner – nie auf das restliche Docker-Verzeichnis. Auf einem generischen Host entsprechend über die dort übliche Freigabe-/Berechtigungslösung einschränken.
 
 **Erwartete Unterordner im Watch-Folder:**
 ```
@@ -228,8 +260,9 @@ Wird nur von firmeneigenen, domain-verwalteten Geräten automatisch als vertraue
 
 ```bash
 cd <DATA_PATH>
-sudo /usr/local/bin/docker compose up -d --build
+docker compose up -d --build
 ```
+(auf NAS-Systemen ggf. mit `sudo` bzw. dem plattformeigenen Docker-Pfad, siehe Ausgabe des Installationsassistenten)
 
 Danach erreichbar unter `https://<NAS-IP-oder-Hostname>:${PROXY_HTTPS_PORT:-8443}` (Standard-Ports 443/80 sind bewusst nicht Default, da viele NAS – v.a. QNAP – diese schon für die eigene Verwaltungsoberfläche belegen; in `.env` auf 443/80 änderbar, falls frei).
 
@@ -253,16 +286,28 @@ Nach dem Transfer zeigt jedes Skript die Rebuild-Befehle für die NAS an.
 
 ## Backup & Restore
 
+`backup.sh`/`restore.sh` lesen `DATA_PATH` aus der `.env` im selben Verzeichnis – beide Skripte
+müssen also im `DATA_PATH`-Verzeichnis liegen (dort, wo auch `docker-compose.yml` und `.env`
+liegen; wird beim Deploy automatisch mitkopiert):
+
 ```bash
 # Backup erstellen (DB + Storage):
-sudo bash /volume1/docker/br-dms/backup.sh
+cd <DATA_PATH>
+sudo bash backup.sh
 
 # Backup wiederherstellen (interaktiv):
-sudo bash /volume1/docker/br-dms/restore.sh
+cd <DATA_PATH>
+sudo bash restore.sh
 ```
 
 Backups landen in `<DATA_PATH>/backups/` und werden nach 30 Tagen automatisch gelöscht.  
-Empfehlung: Tägliche Ausführung via NAS Task Scheduler (QNAP: Aufgabenplaner / Synology: Aufgabenplaner).
+Empfehlung: Tägliche Ausführung via Aufgabenplaner (QNAP/Synology) bzw. `cron` auf einem
+generischen Docker-Host.
+
+> **Wichtig beim Restore auf einem anderen/neuen System:** Der `ENCRYPTION_KEY` in der `.env`
+> muss schon *vor* dem Restore exakt dem Schlüssel des Quellsystems entsprechen – sonst lassen
+> sich die wiederhergestellten Dokumente nicht mehr entschlüsseln (siehe
+> [Umgebungsvariablen](#umgebungsvariablen)).
 
 ---
 
