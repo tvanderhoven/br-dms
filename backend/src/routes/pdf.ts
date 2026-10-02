@@ -14,6 +14,7 @@ import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { pdfGenerieren, anwesenheitslistePdfGenerieren, topAuszugPdfGenerieren } from "../services/pdf.service.js";
+import { vergleicheNachMitgliederSortierung } from "../lib/mitgliederSortierung.js";
 
 const STORAGE = process.env.STORAGE_PATH ?? "/data/storage";
 
@@ -111,10 +112,10 @@ export async function pdfRouten(app: FastifyInstance): Promise<void> {
       if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
 
       const alleBenutzer = await prisma.benutzer.findMany({
-        where: { aktiv: true, rolle: { in: ["VORSITZ", "STELLVERTRETER", "MITGLIED", "ERSATZMITGLIED"] } },
-        select: { id: true, name: true, rolle: true },
-        orderBy: [{ rolle: "asc" }, { name: "asc" }],
+        where: { aktiv: true, rolle: { in: ["VORSITZ", "STELLVERTRETER", "MITGLIED", "ERSATZMITGLIED", "JAV"] } },
+        select: { id: true, name: true, rolle: true, wahlReihenfolge: true },
       });
+      alleBenutzer.sort(vergleicheNachMitgliederSortierung);
 
       const anwesenheiten = await prisma.anwesenheit.findMany({
         where: { sitzungId: id },

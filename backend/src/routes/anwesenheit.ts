@@ -12,6 +12,7 @@ import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { ermittleErsatzVorschlag } from "../lib/ersatzVorschlag.js";
+import { vergleicheNachMitgliederSortierung } from "../lib/mitgliederSortierung.js";
 
 const ANWESENHEIT_SELECT = {
   id: true,
@@ -25,23 +26,6 @@ const ANWESENHEIT_SELECT = {
   erstelltAm: true,
   aktualisiertAm: true,
 } as const;
-
-// Kein separates Nachname-Feld im Schema – Nachname wird als letztes Wort
-// des "Vorname Nachname"-Strings angenähert (deckt z.B. "van der Hoven" ab,
-// da Präfixe wie "van der" konventionell nicht die Sortierposition bestimmen).
-function nachname(name: string): string {
-  const teile = name.trim().split(/\s+/);
-  return teile[teile.length - 1] || name;
-}
-
-// Sortier-Gruppe für die Anwesenheitsliste: ordentliche Mitglieder zuerst
-// (alphabetisch nach Nachname), dann Ersatzmitglieder (nach Wahlrang/Nachrück-
-// Reihenfolge, siehe lib/ersatzVorschlag.ts), zuletzt JAV.
-function gruppenRang(rolle: Role): number {
-  if (rolle === Role.ERSATZMITGLIED) return 1;
-  if (rolle === Role.JAV) return 2;
-  return 0;
-}
 
 export async function anwesenheitRouten(app: FastifyInstance): Promise<void> {
 
@@ -65,13 +49,7 @@ export async function anwesenheitRouten(app: FastifyInstance): Promise<void> {
         select: { id: true, name: true, rolle: true, istVertretungFuer: true, wahlReihenfolge: true },
       });
 
-      alleMitglieder.sort((a, b) => {
-        const ga = gruppenRang(a.rolle);
-        const gb = gruppenRang(b.rolle);
-        if (ga !== gb) return ga - gb;
-        if (ga === 1) return (a.wahlReihenfolge ?? Infinity) - (b.wahlReihenfolge ?? Infinity);
-        return nachname(a.name).localeCompare(nachname(b.name), "de");
-      });
+      alleMitglieder.sort(vergleicheNachMitgliederSortierung);
 
       // Anwesenheiten zuordnen
       const anwesendMap = new Map(anwesenheiten.map(a => [a.benutzer.id, a]));
