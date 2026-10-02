@@ -48,9 +48,9 @@ export type UeberstundenUpsertErgebnis =
 //   Mitarbeiters, der vor dem neuen Zeitraum beginnt.
 export async function ueberstundenPeriodeAnlegen(
   client: Prisma.TransactionClient,
-  params: { mitarbeiterId: string; regelung: string; gueltigVon: Date; gueltigBis?: Date | null; bemerkung?: string | null },
+  params: { mitarbeiterId: string; regelung: string; gueltigVon: Date; gueltigBis?: Date | null; bemerkung?: string | null; sitzungId?: string | null },
 ): Promise<UeberstundenUpsertErgebnis> {
-  const { mitarbeiterId, regelung, gueltigVon, gueltigBis, bemerkung } = params;
+  const { mitarbeiterId, regelung, gueltigVon, gueltigBis, bemerkung, sitzungId } = params;
 
   if (gueltigBis) {
     const ueberlappung = await findeUeberlappung(client, mitarbeiterId, gueltigVon, gueltigBis);
@@ -61,7 +61,7 @@ export async function ueberstundenPeriodeAnlegen(
       };
     }
     const neu = await client.ueberstundenEintrag.create({
-      data: { mitarbeiterId, regelung, gueltigVon, gueltigBis, bemerkung: bemerkung ?? null },
+      data: { mitarbeiterId, regelung, gueltigVon, gueltigBis, bemerkung: bemerkung ?? null, sitzungId: sitzungId ?? null },
     });
     return { art: "angelegt", eintrag: neu };
   }
@@ -97,7 +97,7 @@ export async function ueberstundenPeriodeAnlegen(
     });
 
     const neu = await client.ueberstundenEintrag.create({
-      data: { mitarbeiterId, regelung, gueltigVon, bemerkung: bemerkung ?? null },
+      data: { mitarbeiterId, regelung, gueltigVon, bemerkung: bemerkung ?? null, sitzungId: sitzungId ?? null },
     });
     return { art: "aktualisiert", eintrag: neu, vorherigeRegelung: offener.regelung };
   }
@@ -111,7 +111,7 @@ export async function ueberstundenPeriodeAnlegen(
   }
 
   const neu = await client.ueberstundenEintrag.create({
-    data: { mitarbeiterId, regelung, gueltigVon, bemerkung: bemerkung ?? null },
+    data: { mitarbeiterId, regelung, gueltigVon, bemerkung: bemerkung ?? null, sitzungId: sitzungId ?? null },
   });
   return { art: "angelegt", eintrag: neu };
 }

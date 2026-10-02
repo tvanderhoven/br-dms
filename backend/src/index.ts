@@ -27,6 +27,7 @@ import { startDeletionWorker } from "./workers/deletion.worker.js";
 import { startFristenWorker } from "./workers/fristen.worker.js";
 import { startWiedervorlageWorker } from "./workers/wiedervorlage.worker.js";
 import { startGesetzeWorker } from "./workers/gesetze.worker.js";
+import { startAblaufWorker } from "./workers/ablauf.worker.js";
 import { starteWatchFolder } from "./services/watchfolder.service.js";
 import { beschlussRegisterRouten } from "./routes/beschlussregister.js";
 import { fristenRouten } from "./routes/fristen.js";
@@ -39,6 +40,7 @@ import { betriebsvereinbarungenRouten } from "./routes/betriebsvereinbarungen.js
 import { qualifikationenRouten, schulungenRouten } from "./routes/schulungen.js";
 import { gesetzeRouten } from "./routes/gesetze.js";
 import { kummerkastenRouten } from "./routes/kummerkasten.js";
+import { ablaufRouten } from "./routes/ablauf.js";
 
 process.on("uncaughtException", (err) => {
   console.error("[process] uncaughtException – Backend bleibt am Laufen:", err);
@@ -113,12 +115,14 @@ await app.register(qualifikationenRouten,    { prefix: "/api/qualifikationen" })
 await app.register(schulungenRouten,         { prefix: "/api/schulungen" });
 await app.register(gesetzeRouten,            { prefix: "/api/gesetze" });
 await app.register(kummerkastenRouten,       { prefix: "/api/kummerkasten" });
+await app.register(ablaufRouten,             { prefix: "/api/ablauf" });
 
 // ── Worker & Services ─────────────────────────────────────────────
 startDeletionWorker(process.env.NODE_ENV !== "production");
 startFristenWorker();
 startWiedervorlageWorker();
 startGesetzeWorker();
+startAblaufWorker();
 
 if (process.env.WATCH_FOLDER_ENABLED === "true") {
   starteWatchFolder();

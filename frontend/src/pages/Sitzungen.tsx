@@ -4,10 +4,10 @@ import { SitzungsVorlage } from "../lib/api";
 import {
   CalendarDays, Plus, ChevronLeft, ChevronUp, ChevronDown, Lock, Unlock, FileCheck, FileText,
   Trash2, Link, Unlink, X, Loader2, CheckCircle, Clock, XCircle, RotateCcw, Eye,
-  Send, ClipboardList, Download, MessageSquare, Zap, Pencil, RefreshCw, BookmarkPlus, Tag, CheckSquare, Folder, Wallet, MoreHorizontal, Copy,
+  Send, ClipboardList, Download, MessageSquare, Zap, Pencil, RefreshCw, BookmarkPlus, Tag, CheckSquare, Folder, Wallet, MoreHorizontal, Copy, Timer,
 } from "lucide-react";
 import {
-  api, Sitzung, SitzungListItem, SitzungStatus, TOP, TopStatus, Dokument, Mitarbeiter, Abteilung,
+  api, Sitzung, SitzungListItem, SitzungStatus, TOP, TopStatus, Dokument, Mitarbeiter, Abteilung, Zeitmodell, Rolle,
   SITZUNG_STATUS_LABEL, TOP_STATUS_LABEL, KATEGORIE_LABEL, formatDatum,
 } from "../lib/api";
 import SitzungsEditor from "../components/SitzungsEditor";
@@ -110,7 +110,10 @@ export default function Sitzungen() {
   const [gewählt, setGewählt]       = useState<Sitzung | null>(null);
   const [neueModal, setNeueModal]   = useState(false);
   const [detailLaden, setDetailLaden] = useState(false);
+  const [meineRolle, setMeineRolle] = useState<Rolle | null>(null);
   const location = useLocation();
+
+  useEffect(() => { api.auth.me().then(b => setMeineRolle(b.rolle)).catch(() => {}); }, []);
 
   // Erneuter Klick auf "Sitzungen" in der Sidebar navigiert zur selben Route
   // (/sitzungen) – React Router vergibt dabei trotzdem einen neuen location.key.
@@ -160,6 +163,7 @@ export default function Sitzungen() {
     return (
       <SitzungDetail
         sitzung={gewählt}
+        meineRolle={meineRolle}
         onZurueck={() => { setGewählt(null); listeLaden(); }}
         onAktualisieren={() => sitzungAktualisieren(gewählt.id)}
       />
@@ -429,8 +433,8 @@ function NeueSitzungModal({
 
 // ── Sitzungs-Detail ───────────────────────────────────────────────
 function SitzungDetail({
-  sitzung, onZurueck, onAktualisieren,
-}: { sitzung: Sitzung; onZurueck: () => void; onAktualisieren: () => void }) {
+  sitzung, meineRolle, onZurueck, onAktualisieren,
+}: { sitzung: Sitzung; meineRolle: Rolle | null; onZurueck: () => void; onAktualisieren: () => void }) {
   const [aktion, setAktion]             = useState(false);
   const [fehler, setFehler]             = useState("");
   const [topModal, setTopModal]         = useState<{ top?: TOP } | null>(null);
@@ -468,6 +472,10 @@ function SitzungDetail({
   const readonly    = sitzung.status === "PROTOKOLL_FINAL" || sitzung.status === "ABGESAGT";
   const imEntwurf   = sitzung.status === "ENTWURF";
   const imProtokoll = sitzung.status === "PROTOKOLL_ENTWURF";
+  // Vorsitz/Stellvertretung dürfen auch nach Finalisierung noch Zeitmodell-/
+  // Überstunden-/Gehaltsänderungen aus einem TOP heraus nachtragen (Erprobungsphase) –
+  // für alle anderen bleibt der Knopf nach PROTOKOLL_FINAL ausgeblendet.
+  const kannRetroaktivUebertragen = meineRolle === "VORSITZ" || meineRolle === "STELLVERTRETER" || meineRolle === "ADMIN";
 
   async function topVerschieben(topId: string, richtung: "hoch" | "runter") {
     const tops = [...sitzung.tops].sort((a, b) => a.nummer - b.nummer);
@@ -724,6 +732,7 @@ function SitzungDetail({
                 readonly={readonly}
                 imEntwurf={imEntwurf}
                 imProtokoll={imProtokoll}
+                kannRetroaktivUebertragen={kannRetroaktivUebertragen}
                 istErster={idx === 0}
                 istLetzter={idx === sitzung.tops.length - 1}
                 onBearbeiten={() => setTopModal({ top })}
@@ -794,7 +803,7 @@ function SitzungDetail({
 
 // ── TOP-Zeile ─────────────────────────────────────────────────────
 function TopZeile({
-  top, sitzungId, sitzungsdatum, sitzungStatus, readonly, imEntwurf, imProtokoll,
+  top, sitzungId, sitzungsdatum, sitzungStatus, readonly, imEntwurf, imProtokoll, kannRetroaktivUebertragen,
   istErster, istLetzter,
   onBearbeiten, onLoeschen, onVerschiebenHoch, onVerschiebenRunter,
   onDokumentVerknuepfen, onDokumentEntknuepfen, onAktualisieren,
@@ -806,6 +815,7 @@ function TopZeile({
   readonly: boolean;
   imEntwurf: boolean;
   imProtokoll: boolean;
+  kannRetroaktivUebertragen: boolean;
   istErster: boolean;
   istLetzter: boolean;
   onBearbeiten: () => void;
@@ -1121,12 +1131,14 @@ function TopZeile({
             </button>
             {mehrOffen && (
               <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 min-w-[200px]">
-                {!readonly && (
+                {(!readonly || kannRetroaktivUebertragen) && (
                   <button
                     onClick={() => { setGehaltModal(true); setMehrOffen(false); }}
+                    title={readonly ? "Protokoll ist finalisiert – nachträgliche Übertragung nur für Vorsitz/Stellvertretung" : undefined}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 text-left"
                   >
                     <Wallet size={14} className="text-amber-500" /> In Gehaltstabelle übertragen
+                    {readonly && <Lock size={11} className="text-gray-400 ml-auto" />}
                   </button>
                 )}
                 <button
@@ -1212,7 +1224,6 @@ function TopZeile({
           sitzungId={sitzungId}
           sitzungsdatum={sitzungsdatum}
           onSchliessen={() => setGehaltModal(false)}
-          onErfolg={() => setGehaltModal(false)}
         />
       )}
 
@@ -1221,9 +1232,12 @@ function TopZeile({
 }
 
 // ── Gehaltsstufe aus TOP in die Gehaltstabelle übertragen ─────────
+const ZEITMODELLE_TOP_MODAL: Zeitmodell[] = ["A", "B", "C", "D"];
+
 function TopGehaltModal({
-  sitzungId, sitzungsdatum, onSchliessen, onErfolg,
-}: { sitzungId: string; sitzungsdatum: string; onSchliessen: () => void; onErfolg: () => void }) {
+  sitzungId, sitzungsdatum, onSchliessen,
+}: { sitzungId: string; sitzungsdatum: string; onSchliessen: () => void }) {
+  const [tab, setTab] = useState<"gehalt" | "zeitmodell" | "ueberstunden">("gehalt");
   const [mitarbeiterListe, setMitarbeiterListe] = useState<Mitarbeiter[]>([]);
   const [abteilungen, setAbteilungen]           = useState<Abteilung[]>([]);
   const [neuerMitarbeiter, setNeuerMitarbeiter] = useState(false);
@@ -1234,15 +1248,37 @@ function TopGehaltModal({
   const [eintritt, setEintritt]                 = useState("");
   const [austritt, setAustritt]                 = useState("");
   const [abteilungId, setAbteilungId]           = useState("");
-  const [istAt, setIstAt]                       = useState(false);
-  const [gruppe, setGruppe]                     = useState("");
-  const [stufe, setStufe]                       = useState("");
-  const [gehaltAt, setGehaltAt]                 = useState("");
-  const [gueltigAb, setGueltigAb]               = useState(sitzungsdatum?.slice(0, 10) ?? new Date().toISOString().slice(0, 10));
-  const [bemerkung, setBemerkung]               = useState("");
+
+  // Gehaltseinstufung
+  const [istAt, setIstAt]           = useState(false);
+  const [gruppe, setGruppe]         = useState("");
+  const [stufe, setStufe]           = useState("");
+  const [gehaltAt, setGehaltAt]     = useState("");
+  const [gueltigAb, setGueltigAb]   = useState(sitzungsdatum?.slice(0, 10) ?? new Date().toISOString().slice(0, 10));
+  const [bemerkung, setBemerkung]   = useState("");
+
+  // Zeitmodell
+  const [zmZeitmodell, setZmZeitmodell] = useState<Zeitmodell>("A");
+  const [zmGueltigVon, setZmGueltigVon] = useState(sitzungsdatum?.slice(0, 10) ?? new Date().toISOString().slice(0, 10));
+  const [zmUnbefristet, setZmUnbefristet] = useState(true);
+  const [zmGueltigBis, setZmGueltigBis]   = useState("");
+  const [zmBemerkung, setZmBemerkung]     = useState("");
+
+  // Überstunden
+  const [usRegelung, setUsRegelung]       = useState("");
+  const [usGueltigVon, setUsGueltigVon]   = useState(sitzungsdatum?.slice(0, 10) ?? new Date().toISOString().slice(0, 10));
+  const [usUnbefristet, setUsUnbefristet] = useState(true);
+  const [usGueltigBis, setUsGueltigBis]   = useState("");
+  const [usBemerkung, setUsBemerkung]     = useState("");
+
   const [laden, setLaden]                       = useState(false);
   const [fehler, setFehler]                     = useState("");
-  const [erfolg, setErfolg]                     = useState(false);
+  // Bewusst kein Auto-Schließen nach dem Speichern: in einer Sitzung müssen
+  // oft mehrere Mitarbeiter nacheinander dieselbe Regelung bekommen – Grunddaten
+  // (Tab, Daten, Regelung/Zeitmodell, Bemerkung) bleiben stehen, nur die
+  // Mitarbeiter-Auswahl wird zurückgesetzt, damit man direkt weitermachen kann.
+  const [erfolgName, setErfolgName]             = useState<string | null>(null);
+  const [gespeicherteAnzahl, setGespeicherteAnzahl] = useState(0);
 
   useEffect(() => {
     api.mitarbeiter.liste().then(setMitarbeiterListe).catch(() => {});
@@ -1255,6 +1291,9 @@ function TopGehaltModal({
     setLaden(true);
     try {
       let zielMitarbeiterId = mitarbeiterId;
+      let gespeicherterName = mitarbeiterListe.find(m => m.id === mitarbeiterId)
+        ? `${mitarbeiterListe.find(m => m.id === mitarbeiterId)!.nachname}, ${mitarbeiterListe.find(m => m.id === mitarbeiterId)!.vorname}`
+        : "";
 
       if (neuerMitarbeiter) {
         if (!vorname.trim() || !nachname.trim()) {
@@ -1270,6 +1309,8 @@ function TopGehaltModal({
           austritt:    austritt || undefined,
         });
         zielMitarbeiterId = m.id;
+        gespeicherterName = `${m.nachname}, ${m.vorname}`;
+        setMitarbeiterListe(prev => [...prev, m]);
       }
 
       if (!zielMitarbeiterId) {
@@ -1277,40 +1318,84 @@ function TopGehaltModal({
         setLaden(false);
         return;
       }
-      let werteFeld: { gruppe: number; stufe: number; gehaltAt?: undefined } | { gruppe?: undefined; stufe?: undefined; gehaltAt: number };
-      if (istAt) {
-        const gehaltNr = Number(gehaltAt.replace(",", "."));
-        if (!gehaltAt || !Number.isFinite(gehaltNr) || gehaltNr <= 0) {
-          setFehler("Bitte ein gültiges Gehalt eingeben");
+
+      if (tab === "gehalt") {
+        let werteFeld: { gruppe: number; stufe: number; gehaltAt?: undefined } | { gruppe?: undefined; stufe?: undefined; gehaltAt: number };
+        if (istAt) {
+          const gehaltNr = Number(gehaltAt.replace(",", "."));
+          if (!gehaltAt || !Number.isFinite(gehaltNr) || gehaltNr <= 0) {
+            setFehler("Bitte ein gültiges Gehalt eingeben");
+            setLaden(false);
+            return;
+          }
+          werteFeld = { gehaltAt: gehaltNr };
+        } else {
+          const gruppeNr = Number(gruppe);
+          const stufeNr  = Number(stufe);
+          if (!gruppe || !Number.isInteger(gruppeNr) || gruppeNr < 1 || gruppeNr > 6) {
+            setFehler("Bitte eine Gruppe (1-6) auswählen");
+            setLaden(false);
+            return;
+          }
+          if (!stufe || !Number.isInteger(stufeNr) || stufeNr < 1 || stufeNr > 4) {
+            setFehler("Bitte eine Stufe (1-4) auswählen");
+            setLaden(false);
+            return;
+          }
+          werteFeld = { gruppe: gruppeNr, stufe: stufeNr };
+        }
+
+        await api.gehaltstabelle.erstellen({
+          mitarbeiterId: zielMitarbeiterId,
+          ...werteFeld,
+          gueltigAb,
+          bemerkung:     bemerkung || undefined,
+          sitzungId,
+        });
+      } else if (tab === "zeitmodell") {
+        if (!zmUnbefristet && !zmGueltigBis) {
+          setFehler('Bitte ein Enddatum angeben oder "unbefristet" wählen');
           setLaden(false);
           return;
         }
-        werteFeld = { gehaltAt: gehaltNr };
+        await api.zeitmodell.erstellen({
+          mitarbeiterId: zielMitarbeiterId,
+          zeitmodell:    zmZeitmodell,
+          gueltigVon:    zmGueltigVon,
+          gueltigBis:    zmUnbefristet ? null : zmGueltigBis,
+          bemerkung:     zmBemerkung || undefined,
+          sitzungId,
+        });
       } else {
-        const gruppeNr = Number(gruppe);
-        const stufeNr  = Number(stufe);
-        if (!gruppe || !Number.isInteger(gruppeNr) || gruppeNr < 1 || gruppeNr > 6) {
-          setFehler("Bitte eine Gruppe (1-6) auswählen");
+        if (!usUnbefristet && !usGueltigBis) {
+          setFehler('Bitte ein Enddatum angeben oder "unbefristet" wählen');
           setLaden(false);
           return;
         }
-        if (!stufe || !Number.isInteger(stufeNr) || stufeNr < 1 || stufeNr > 4) {
-          setFehler("Bitte eine Stufe (1-4) auswählen");
-          setLaden(false);
-          return;
-        }
-        werteFeld = { gruppe: gruppeNr, stufe: stufeNr };
+        await api.ueberstunden.erstellen({
+          mitarbeiterId: zielMitarbeiterId,
+          regelung:      usRegelung.trim(),
+          gueltigVon:    usGueltigVon,
+          gueltigBis:    usUnbefristet ? null : usGueltigBis,
+          bemerkung:     usBemerkung || undefined,
+          sitzungId,
+        });
       }
 
-      await api.gehaltstabelle.erstellen({
-        mitarbeiterId: zielMitarbeiterId,
-        ...werteFeld,
-        gueltigAb,
-        bemerkung:     bemerkung || undefined,
-        sitzungId,
-      });
-      setErfolg(true);
-      setTimeout(onErfolg, 1200);
+      // Nur die Mitarbeiter-Auswahl zurücksetzen – Tab, Daten, Regelung/Zeitmodell
+      // und Bemerkung bleiben stehen, damit der nächste Mitarbeiter mit denselben
+      // Grunddaten sofort eingetragen werden kann.
+      setMitarbeiterId("");
+      setNeuerMitarbeiter(false);
+      setVorname("");
+      setNachname("");
+      setPnr("");
+      setEintritt("");
+      setAustritt("");
+      setAbteilungId("");
+      setGespeicherteAnzahl(n => n + 1);
+      setErfolgName(gespeicherterName || "Mitarbeiter");
+      setTimeout(() => setErfolgName(null), 3000);
     } catch (err) {
       setFehler(err instanceof Error ? err.message : "Fehler");
     } finally {
@@ -1318,20 +1403,54 @@ function TopGehaltModal({
     }
   }
 
+  const ERFOLGSTEXT_KURZ: Record<typeof tab, string> = {
+    gehalt:      "Gehaltseintrag",
+    zeitmodell:  "Zeitmodell",
+    ueberstunden: "Überstunden-Regelung",
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900">In Gehaltstabelle übertragen</h2>
+          <div>
+            <h2 className="font-semibold text-gray-900">In Gehaltstabelle übertragen</h2>
+            {gespeicherteAnzahl > 0 && (
+              <p className="text-xs text-gray-400 mt-0.5">{gespeicherteAnzahl} Eintrag{gespeicherteAnzahl !== 1 ? "e" : ""} in dieser Sitzung gespeichert</p>
+            )}
+          </div>
           <button onClick={onSchliessen} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
         </div>
-        {erfolg ? (
-          <div className="px-6 py-8 text-center text-emerald-600 font-medium">
-            <Wallet size={32} className="mx-auto mb-2" />
-            Eintrag wurde in die Gehaltstabelle übernommen.
+        {erfolgName && (
+          <div className="mx-6 mt-4 flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm px-3 py-2 rounded-lg">
+            <Wallet size={14} /> {ERFOLGSTEXT_KURZ[tab]} für {erfolgName} gespeichert.
           </div>
-        ) : (
-          <form onSubmit={speichern} className="px-6 py-4 space-y-4">
+        )}
+        <form onSubmit={speichern} className="px-6 py-4 space-y-4">
+            <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+              <button
+                type="button"
+                onClick={() => setTab("gehalt")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${tab === "gehalt" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                <Wallet size={13} /> Gehaltseinstufung
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab("zeitmodell")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${tab === "zeitmodell" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                <Clock size={13} /> Zeitmodell
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab("ueberstunden")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${tab === "ueberstunden" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                <Timer size={13} /> Überstunden
+              </button>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Mitarbeiter *</label>
               {!neuerMitarbeiter ? (
@@ -1408,96 +1527,205 @@ function TopGehaltModal({
               )}
             </div>
 
-            <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden w-fit">
-              <button
-                type="button"
-                onClick={() => setIstAt(false)}
-                className={`px-3 py-1.5 text-sm transition-colors ${!istAt ? "bg-[rgb(var(--accent))] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-              >
-                Tarif (Gruppe/Stufe)
-              </button>
-              <button
-                type="button"
-                onClick={() => setIstAt(true)}
-                className={`px-3 py-1.5 text-sm transition-colors ${istAt ? "bg-[rgb(var(--accent))] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-              >
-                AT (reales Gehalt)
-              </button>
-            </div>
-
-            {istAt ? (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Gehalt (€) *</label>
-                <input
-                  type="text" required value={gehaltAt}
-                  onChange={e => setGehaltAt(e.target.value)}
-                  placeholder="z.B. 4200"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
-                />
-              </div>
-            ) : (
+            {tab === "gehalt" && (
               <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Gruppe *</label>
-                    <select
-                      required value={gruppe}
-                      onChange={e => setGruppe(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
-                    >
-                      <option value="">– wählen –</option>
-                      {[1, 2, 3, 4, 5, 6].map(g => <option key={g} value={g}>{g}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Stufe *</label>
-                    <select
-                      required value={stufe}
-                      onChange={e => setStufe(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
-                    >
-                      <option value="">– wählen –</option>
-                      {[1, 2, 3, 4].map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
+                <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden w-fit">
+                  <button
+                    type="button"
+                    onClick={() => setIstAt(false)}
+                    className={`px-3 py-1.5 text-sm transition-colors ${!istAt ? "bg-[rgb(var(--accent))] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                  >
+                    Tarif (Gruppe/Stufe)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIstAt(true)}
+                    className={`px-3 py-1.5 text-sm transition-colors ${istAt ? "bg-[rgb(var(--accent))] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                  >
+                    AT (reales Gehalt)
+                  </button>
                 </div>
-                <p className="text-xs text-gray-400 -mt-2">
-                  Das Zeitmodell wird getrennt in der Gehaltstabelle (Tab „Zeitmodell") verwaltet.
-                </p>
+
+                {istAt ? (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Gehalt (€) *</label>
+                    <input
+                      type="text" required value={gehaltAt}
+                      onChange={e => setGehaltAt(e.target.value)}
+                      placeholder="z.B. 4200"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Gruppe *</label>
+                      <select
+                        required value={gruppe}
+                        onChange={e => setGruppe(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                      >
+                        <option value="">– wählen –</option>
+                        {[1, 2, 3, 4, 5, 6].map(g => <option key={g} value={g}>{g}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Stufe *</label>
+                      <select
+                        required value={stufe}
+                        onChange={e => setStufe(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                      >
+                        <option value="">– wählen –</option>
+                        {[1, 2, 3, 4].map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Gültig ab *</label>
+                  <input
+                    type="date" required value={gueltigAb}
+                    onChange={e => setGueltigAb(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bemerkung</label>
+                  <input
+                    type="text" value={bemerkung}
+                    onChange={e => setBemerkung(e.target.value)}
+                    placeholder="Optional"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  />
+                </div>
               </>
             )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Gültig ab *</label>
-              <input
-                type="date" required value={gueltigAb}
-                onChange={e => setGueltigAb(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
-              />
-            </div>
+            {tab === "zeitmodell" && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Zeitmodell *</label>
+                  <select
+                    required value={zmZeitmodell}
+                    onChange={e => setZmZeitmodell(e.target.value as Zeitmodell)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  >
+                    {ZEITMODELLE_TOP_MODAL.map(z => <option key={z} value={z}>{z}</option>)}
+                  </select>
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Bemerkung</label>
-              <input
-                type="text" value={bemerkung}
-                onChange={e => setBemerkung(e.target.value)}
-                placeholder="Optional"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
-              />
-            </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Von *</label>
+                  <input
+                    type="date" required value={zmGueltigVon}
+                    onChange={e => setZmGueltigVon(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  />
+                </div>
+
+                <div>
+                  <label className="flex items-center gap-2 cursor-pointer mb-2">
+                    <input
+                      type="checkbox" checked={zmUnbefristet}
+                      onChange={e => setZmUnbefristet(e.target.checked)}
+                      className="rounded border-gray-300 text-[rgb(var(--accent))]"
+                    />
+                    <span className="text-sm text-gray-700">Unbefristet</span>
+                  </label>
+                  {!zmUnbefristet && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Bis *</label>
+                      <input
+                        type="date" required value={zmGueltigBis}
+                        onChange={e => setZmGueltigBis(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bemerkung</label>
+                  <input
+                    type="text" value={zmBemerkung}
+                    onChange={e => setZmBemerkung(e.target.value)}
+                    placeholder="Optional"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  />
+                </div>
+              </>
+            )}
+
+            {tab === "ueberstunden" && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Regelung</label>
+                  <input
+                    type="text" value={usRegelung}
+                    onChange={e => setUsRegelung(e.target.value)}
+                    placeholder="Optional – z.B. Ausgleich in Freizeit, Auszahlung ab 20h"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Von *</label>
+                  <input
+                    type="date" required value={usGueltigVon}
+                    onChange={e => setUsGueltigVon(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  />
+                </div>
+
+                <div>
+                  <label className="flex items-center gap-2 cursor-pointer mb-2">
+                    <input
+                      type="checkbox" checked={usUnbefristet}
+                      onChange={e => setUsUnbefristet(e.target.checked)}
+                      className="rounded border-gray-300 text-[rgb(var(--accent))]"
+                    />
+                    <span className="text-sm text-gray-700">Unbefristet</span>
+                  </label>
+                  {!usUnbefristet && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Bis *</label>
+                      <input
+                        type="date" required value={usGueltigBis}
+                        onChange={e => setUsGueltigBis(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bemerkung</label>
+                  <input
+                    type="text" value={usBemerkung}
+                    onChange={e => setUsBemerkung(e.target.value)}
+                    placeholder="Optional"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  />
+                </div>
+              </>
+            )}
 
             {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={onSchliessen}
-                className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Abbrechen</button>
+                className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">
+                {gespeicherteAnzahl > 0 ? "Fertig" : "Abbrechen"}
+              </button>
               <button type="submit" disabled={laden}
                 className="flex-1 px-4 py-2 text-sm bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white rounded-lg flex items-center justify-center gap-2">
                 {laden && <Loader2 size={14} className="animate-spin" />}
-                Übertragen
+                {gespeicherteAnzahl > 0 ? "Nächsten übertragen" : "Übertragen"}
               </button>
             </div>
-          </form>
-        )}
+        </form>
       </div>
     </div>
   );

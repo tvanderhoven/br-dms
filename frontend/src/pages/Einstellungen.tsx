@@ -1057,6 +1057,11 @@ export default function Einstellungen() {
         <FristenErinnerungTestBox />
       )}
 
+      {/* Zeitmodell/Überstunden-Ablaufmail testen (nur VORSITZ/STELLVERTRETER/ADMIN) */}
+      {tab === "fristen" && meineRolle && ["ADMIN", "VORSITZ", "STELLVERTRETER"].includes(meineRolle) && (
+        <AblaufErinnerungTestBox />
+      )}
+
       {/* Tab: Protokoll-Layout */}
       {tab === "protokoll" && <ProtokollTab />}
 
@@ -1302,6 +1307,79 @@ function FristenErinnerungTestBox() {
               : ergebnis.empfaengerAnzahl === 0
               ? `${ergebnis.fristenAnzahl} fällige Frist(en) gefunden, aber keine aktiven Benutzer mit Rolle VORSITZ/STELLVERTRETER.`
               : `${ergebnis.fristenAnzahl} fällige Frist(en) · ${ergebnis.gesendetAn.length}/${ergebnis.empfaengerAnzahl} Mail(s) erfolgreich versendet.`}
+          </p>
+          {ergebnis.gesendetAn.length > 0 && (
+            <p className="text-green-700 text-xs">✓ Gesendet an: {ergebnis.gesendetAn.join(", ")}</p>
+          )}
+          {ergebnis.fehlgeschlagenAn.length > 0 && (
+            <div className="text-red-700 text-xs">
+              {ergebnis.fehlgeschlagenAn.map(f => (
+                <p key={f.email}>✗ {f.email}: {f.fehler}</p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {fehler && (
+        <div className="px-6 py-3 bg-red-50 border-t border-red-100 text-red-700 text-sm">{fehler}</div>
+      )}
+    </div>
+  );
+}
+
+// ── Zeitmodell/Überstunden-Ablaufmail testen ─────────────────────────
+// Läuft normalerweise monatlich am 15. um 07:00 Uhr automatisch (nur an
+// VORSITZ/STELLVERTRETER, nur wenn im laufenden Kalendermonat Zeitmodell- oder
+// Überstunden-Zeiträume auslaufen) – zum Nachprüfen hier direkt auslösbar statt
+// bis zum nächsten 15. zu warten.
+function AblaufErinnerungTestBox() {
+  const [laeuft, setLaeuft]     = useState(false);
+  const [ergebnis, setErgebnis] = useState<Awaited<ReturnType<typeof api.ablauf.testen>> | null>(null);
+  const [fehler, setFehler]     = useState("");
+
+  async function testen() {
+    setLaeuft(true);
+    setFehler("");
+    setErgebnis(null);
+    try {
+      setErgebnis(await api.ablauf.testen());
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler beim Testen");
+    } finally {
+      setLaeuft(false);
+    }
+  }
+
+  return (
+    <div className="mt-6 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-100 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="font-semibold text-gray-800">Zeitmodell/Überstunden-Ablaufmail</h2>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Läuft automatisch monatlich am 15. um 07:00 Uhr – schickt eine Zusammenfassung an VORSITZ/STELLVERTRETER,
+            aber nur wenn im laufenden Monat (1. bis letzter Tag) tatsächlich Zeitmodell- oder Überstunden-Zeiträume
+            auslaufen. Hier direkt testen, statt bis zum nächsten 15. zu warten.
+          </p>
+        </div>
+        <button
+          onClick={testen}
+          disabled={laeuft}
+          className="flex items-center gap-1.5 shrink-0 bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+        >
+          {laeuft ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+          Jetzt testen
+        </button>
+      </div>
+
+      {ergebnis && (
+        <div className="px-6 py-4 text-sm space-y-1">
+          <p className="text-gray-700">
+            {ergebnis.eintraegeAnzahl === 0
+              ? "Keine Zeitmodell-/Überstunden-Zeiträume laufen diesen Monat aus – deshalb wurde nichts verschickt (kein Fehler)."
+              : ergebnis.empfaengerAnzahl === 0
+              ? `${ergebnis.eintraegeAnzahl} auslaufende(r) Zeitraum/Zeiträume gefunden, aber keine aktiven Benutzer mit Rolle VORSITZ/STELLVERTRETER.`
+              : `${ergebnis.eintraegeAnzahl} auslaufende(r) Zeitraum/Zeiträume · ${ergebnis.gesendetAn.length}/${ergebnis.empfaengerAnzahl} Mail(s) erfolgreich versendet.`}
           </p>
           {ergebnis.gesendetAn.length > 0 && (
             <p className="text-green-700 text-xs">✓ Gesendet an: {ergebnis.gesendetAn.join(", ")}</p>

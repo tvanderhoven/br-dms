@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, FormEvent, ChangeEvent } from "react";
-import { Wallet, Plus, Trash2, Download, Upload, X, Loader2, Edit3, Filter, AlertTriangle, UserCog, List, BarChart3, BarChart2, Clock, Timer, ZoomIn, ZoomOut, CheckSquare, Square } from "lucide-react";
+import { Link as RouterLink } from "react-router-dom";
+import { Wallet, Plus, Trash2, Download, Upload, X, Loader2, Edit3, Filter, AlertTriangle, UserCog, List, BarChart3, BarChart2, Clock, Timer, ZoomIn, ZoomOut, CheckSquare, Square, ChevronDown, ChevronRight, Link2 } from "lucide-react";
 import {
   api, GehaltsstufenEintrag, Abteilung, Mitarbeiter, GehaltstabelleImportZusammenfassung, formatDatum,
   Beschaeftigungsart, ALLE_BESCHAEFTIGUNGSARTEN, BESCHAEFTIGUNGSART_FARBE, BESCHAEFTIGUNGSART_KUERZEL, BESCHAEFTIGUNGSART_LABEL,
@@ -14,6 +15,22 @@ const STUFEN = [1, 2, 3, 4];
 
 function formatGehalt(betrag: string | number): string {
   return Number(betrag).toLocaleString("de-DE", { style: "currency", currency: "EUR" });
+}
+
+// Kleiner Rückverweis-Link, wenn ein Eintrag direkt aus einem Sitzungs-TOP
+// heraus angelegt wurde (TopGehaltModal in Sitzungen.tsx setzt dafür sitzungId).
+function SitzungLink({ sitzung }: { sitzung?: { id: string; titel: string; sitzungsdatum: string } | null }) {
+  if (!sitzung) return null;
+  return (
+    <RouterLink
+      to={`/sitzungen?id=${sitzung.id}`}
+      onClick={e => e.stopPropagation()}
+      title={`Aus Sitzung übernommen: ${sitzung.titel} (${formatDatum(sitzung.sitzungsdatum)})`}
+      className="inline-flex items-center text-gray-300 hover:text-[rgb(var(--accent))] transition-colors"
+    >
+      <Link2 size={12} />
+    </RouterLink>
+  );
 }
 
 export default function Gehaltstabelle() {
@@ -40,6 +57,7 @@ export default function Gehaltstabelle() {
   const [filterVon, setFilterVon]   = useState("");
   const [filterBis, setFilterBis]   = useState("");
   const [nurAktive, setNurAktive]   = useState(false);
+  const [filterBeschaeftigungsart, setFilterBeschaeftigungsart] = useState<"" | Beschaeftigungsart>("");
 
   useEffect(() => {
     api.abteilungen.liste().then(setAbteilungen).catch(() => {});
@@ -73,9 +91,10 @@ export default function Gehaltstabelle() {
 
   useEffect(() => { laden_(); }, [filterAbteilung, filterMitarbeiter, filterVon, filterBis]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const listeGefiltert = nurAktive
-    ? liste.filter(e => !e.mitarbeiter.austritt || new Date(e.mitarbeiter.austritt) >= new Date())
-    : liste;
+  const listeGefiltert = liste.filter(e =>
+    (!nurAktive || !e.mitarbeiter.austritt || new Date(e.mitarbeiter.austritt) >= new Date()) &&
+    (!filterBeschaeftigungsart || (e.mitarbeiter.beschaeftigungsart ?? "MITARBEITER") === filterBeschaeftigungsart)
+  );
 
   async function laden_() {
     setLaden(true);
@@ -301,9 +320,17 @@ export default function Gehaltstabelle() {
           onChange={e => setFilterBis(e.target.value)}
           className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
         />
-        {(filterAbteilung || filterMitarbeiter || filterVon || filterBis) && (
+        <select
+          value={filterBeschaeftigungsart}
+          onChange={e => setFilterBeschaeftigungsart(e.target.value as "" | Beschaeftigungsart)}
+          className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+        >
+          <option value="">Alle Beschäftigungsarten</option>
+          {ALLE_BESCHAEFTIGUNGSARTEN.map(art => <option key={art} value={art}>{BESCHAEFTIGUNGSART_LABEL[art]}</option>)}
+        </select>
+        {(filterAbteilung || filterMitarbeiter || filterVon || filterBis || filterBeschaeftigungsart) && (
           <button
-            onClick={() => { setFilterAbteilung(""); setFilterMitarbeiter(""); setFilterVon(""); setFilterBis(""); }}
+            onClick={() => { setFilterAbteilung(""); setFilterMitarbeiter(""); setFilterVon(""); setFilterBis(""); setFilterBeschaeftigungsart(""); }}
             className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
           >
             <X size={12} /> Zurücksetzen
@@ -409,6 +436,7 @@ export default function Gehaltstabelle() {
                         >
                           <UserCog size={13} />
                         </button>
+                        <SitzungLink sitzung={e.sitzung} />
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-gray-600">{e.mitarbeiter.abteilung?.name ?? "–"}</td>
@@ -889,8 +917,32 @@ function EintragModal({
 //    Zeitraeume.tsx, aber ohne Projekt-Hierarchie (hier reicht eine flache
 //    Mitarbeiter-Liste, da Zeiträume je Mitarbeiter serverseitig nie
 //    überlappen).
-interface GanttBalken { id: string; von: string; bis: string | null; farbe: string; titel: string; }
-interface GanttZeile { id: string; name: string; balken: GanttBalken[]; }
+interface GanttBalken { id: string; von: string; bis: string | null; farbe: string; titel: string; quelle?: string; }
+interface GanttZeile { id: string; name: string; abteilung: string; balken: GanttBalken[]; }
+
+// Fasst überlappende/aneinander anschließende Zeiträume (z.B. mehrere
+// Mitarbeiter derselben Abteilung) zu durchgehenden Blöcken zusammen – für die
+// Abteilungs-Übersichtszeile, die zeigen soll "wann war in dieser Abteilung
+// überhaupt was aktiv", ohne jeden einzelnen Mitarbeiter-Balken zu zeigen.
+// bis=null heißt "läuft noch" und bleibt das für den ganzen Block, sobald ein
+// offener Zeitraum mit reinfällt.
+function intervalleZusammenfassen(balken: GanttBalken[]): { von: number; bis: number | null }[] {
+  const roh = balken
+    .map(b => ({ von: new Date(b.von).getTime(), bis: b.bis ? new Date(b.bis).getTime() : null }))
+    .sort((a, b) => a.von - b.von);
+
+  const ergebnis: { von: number; bis: number | null }[] = [];
+  for (const i of roh) {
+    const letzte = ergebnis[ergebnis.length - 1];
+    if (letzte && (letzte.bis === null || i.von <= letzte.bis)) {
+      if (i.bis === null) letzte.bis = null;
+      else if (letzte.bis !== null) letzte.bis = Math.max(letzte.bis, i.bis);
+    } else {
+      ergebnis.push({ von: i.von, bis: i.bis });
+    }
+  }
+  return ergebnis;
+}
 
 function PeriodenGantt({ zeilen, leerText, onBalkenDoppelklick }: {
   zeilen: GanttZeile[];
@@ -939,7 +991,41 @@ function PeriodenGantt({ zeilen, leerText, onBalkenDoppelklick }: {
   const heutePct = pct(heute);
   const LABEL_W = 200;
   const ZEILE_H = 40;
+  const GRUPPE_H = 32;
+  const GRUPPE_BAR_H = 14;
   const BAR_H = 22;
+
+  // Gruppierung nach Abteilung – "– keine Abteilung –" immer ans Ende, sonst
+  // alphabetisch. Eingeklappte Abteilungen nur per Name gemerkt, damit der
+  // Zustand auch über Filterwechsel (Zoom, Zeitmodell-Toggle etc.) stabil bleibt.
+  // Zusätzlich pro Abteilung die zusammengefassten Zeiträume aller Mitarbeiter
+  // (für die Übersichtsbalken in der Gruppenzeile, auch im eingeklappten Zustand sichtbar).
+  const gruppen = useMemo(() => {
+    const map = new Map<string, GanttZeile[]>();
+    for (const z of zeilen) {
+      if (!map.has(z.abteilung)) map.set(z.abteilung, []);
+      map.get(z.abteilung)!.push(z);
+    }
+    return [...map.entries()]
+      .sort(([a], [b]) => {
+        if (a === "– keine Abteilung –") return 1;
+        if (b === "– keine Abteilung –") return -1;
+        return a.localeCompare(b, "de", { numeric: true });
+      })
+      .map(([abteilung, mitarbeiterZeilen]) => ({
+        abteilung, mitarbeiterZeilen,
+        zusammengefasst: intervalleZusammenfassen(mitarbeiterZeilen.flatMap(z => z.balken)),
+      }));
+  }, [zeilen]);
+
+  const [eingeklappt, setEingeklappt] = useState<Set<string>>(new Set());
+  function gruppeUmschalten(abteilung: string) {
+    setEingeklappt(prev => {
+      const n = new Set(prev);
+      if (n.has(abteilung)) n.delete(abteilung); else n.add(abteilung);
+      return n;
+    });
+  }
 
   const [monatBreite, setMonatBreite] = useState(90);
   const MONAT_BREITE_MIN = 50;
@@ -1010,38 +1096,81 @@ function PeriodenGantt({ zeilen, leerText, onBalkenDoppelklick }: {
             <div className="text-center text-gray-400 py-16 text-sm">{leerText}</div>
           )}
 
-          {zeilen.map(zeile => (
-            <div key={zeile.id} className="flex border-b border-gray-100 hover:bg-gray-50">
-              <div
-                className="shrink-0 border-r border-gray-200 px-3 flex items-center text-sm text-gray-700 sticky left-0 bg-white z-10 truncate"
-                style={{ width: LABEL_W, height: ZEILE_H }}
-                title={zeile.name}
-              >
-                {zeile.name}
-              </div>
-              <div className="flex-1 relative" style={{ height: ZEILE_H }}>
-                {zeile.balken.map((b, i) => {
-                  const von = new Date(b.von);
-                  const bis = b.bis ? new Date(b.bis) : maxDate;
-                  const l = pct(von);
-                  const r = pct(bis);
-                  const w = Math.max(0.4, r - l);
-                  const top = Math.round((ZEILE_H - BAR_H) / 2);
-                  return (
+          {gruppen.map(({ abteilung, mitarbeiterZeilen, zusammengefasst }) => {
+            const zu = eingeklappt.has(abteilung);
+            return (
+              <div key={abteilung}>
+                <div
+                  onClick={() => gruppeUmschalten(abteilung)}
+                  className="flex border-b border-gray-200 bg-gray-100 hover:bg-gray-200 cursor-pointer select-none"
+                >
+                  <div
+                    className="shrink-0 px-3 flex items-center gap-1.5 text-xs font-semibold text-gray-600 sticky left-0 bg-gray-100 z-10 truncate"
+                    style={{ width: LABEL_W, height: GRUPPE_H }}
+                    title={abteilung}
+                  >
+                    {zu ? <ChevronRight size={13} className="shrink-0" /> : <ChevronDown size={13} className="shrink-0" />}
+                    <span className="truncate">{abteilung}</span>
+                    <span className="text-gray-400 font-normal shrink-0">({mitarbeiterZeilen.length})</span>
+                  </div>
+                  <div className="flex-1 relative bg-gray-100" style={{ height: GRUPPE_H }}>
+                    {zusammengefasst.map((iv, i) => {
+                      const bisDate = iv.bis !== null ? new Date(iv.bis) : maxDate;
+                      const l = pct(new Date(iv.von));
+                      const r = pct(bisDate);
+                      const w = Math.max(0.4, r - l);
+                      const top = Math.round((GRUPPE_H - GRUPPE_BAR_H) / 2);
+                      return (
+                        <div
+                          key={i}
+                          className="absolute rounded-sm"
+                          style={{ left: `${l}%`, width: `${w}%`, height: `${GRUPPE_BAR_H}px`, top: `${top}px`, backgroundColor: "rgba(55, 65, 81, 0.55)" }}
+                          title={`${abteilung}: ${formatDatum(new Date(iv.von).toISOString())} – ${iv.bis !== null ? formatDatum(new Date(iv.bis).toISOString()) : "laufend"}`}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {!zu && mitarbeiterZeilen.map(zeile => (
+                  <div key={zeile.id} className="flex border-b border-gray-100 hover:bg-gray-50">
                     <div
-                      key={i}
-                      className={`absolute rounded flex items-center px-2 text-white text-xs font-medium overflow-hidden ${onBalkenDoppelklick ? "cursor-pointer" : ""}`}
-                      style={{ left: `${l}%`, width: `${w}%`, height: `${BAR_H}px`, top: `${top}px`, backgroundColor: b.farbe }}
-                      title={onBalkenDoppelklick ? `${b.titel}\n(Doppelklick zum Bearbeiten)` : b.titel}
-                      onDoubleClick={() => onBalkenDoppelklick?.(b.id)}
+                      className="shrink-0 border-r border-gray-200 pl-7 pr-3 flex items-center text-sm text-gray-700 sticky left-0 bg-white z-10 truncate"
+                      style={{ width: LABEL_W, height: ZEILE_H }}
+                      title={zeile.name}
                     >
-                      {w > 6 && <span className="truncate">{b.titel}</span>}
+                      {zeile.name}
                     </div>
-                  );
-                })}
+                    <div className="flex-1 relative" style={{ height: ZEILE_H }}>
+                      {zeile.balken.map((b, i) => {
+                        const von = new Date(b.von);
+                        const bis = b.bis ? new Date(b.bis) : maxDate;
+                        const l = pct(von);
+                        const r = pct(bis);
+                        const w = Math.max(0.4, r - l);
+                        const top = Math.round((ZEILE_H - BAR_H) / 2);
+                        return (
+                          <div
+                            key={i}
+                            className={`absolute rounded flex items-center px-2 text-white text-xs font-medium overflow-hidden ${onBalkenDoppelklick ? "cursor-pointer" : ""}`}
+                            style={{ left: `${l}%`, width: `${w}%`, height: `${BAR_H}px`, top: `${top}px`, backgroundColor: b.farbe }}
+                            title={[
+                              b.titel,
+                              b.quelle ? `Aus Sitzung: ${b.quelle}` : null,
+                              onBalkenDoppelklick ? "(Doppelklick zum Bearbeiten)" : null,
+                            ].filter(Boolean).join("\n")}
+                            onDoubleClick={() => onBalkenDoppelklick?.(b.id)}
+                          >
+                            {w > 6 && <span className="truncate">{b.titel}</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
@@ -1071,6 +1200,7 @@ function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mi
   const [filterAbteilung, setFilterAbteilung]     = useState("");
   const [nurAktive, setNurAktive] = useState(true);
   const [filterBefristung, setFilterBefristung] = useState<"" | "befristet" | "unbefristet">("");
+  const [filterBeschaeftigungsart, setFilterBeschaeftigungsart] = useState<"" | Beschaeftigungsart>("");
   // B ist das Standardmodell, das fast alle haben – standardmäßig ausgeblendet,
   // sonst zeigt die Ansicht kaum mehr als eine Wand aus B-Balken.
   const [zeitmodelleAn, setZeitmodelleAn] = useState<Record<Zeitmodell, boolean>>({ A: true, B: false, C: true, D: true });
@@ -1130,6 +1260,7 @@ function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mi
     (!filterAbteilung || z.mitarbeiter.abteilung?.id === filterAbteilung) &&
     (!nurAktive || mitarbeiterIstAktiv(z.mitarbeiter)) &&
     (!filterBefristung || (filterBefristung === "befristet" ? z.gueltigBis !== null : z.gueltigBis === null)) &&
+    (!filterBeschaeftigungsart || (z.mitarbeiter.beschaeftigungsart ?? "MITARBEITER") === filterBeschaeftigungsart) &&
     zeitmodelleAn[z.zeitmodell]
   );
 
@@ -1146,13 +1277,18 @@ function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mi
     for (const z of gefiltert) {
       const key = z.mitarbeiterId;
       if (!proMitarbeiter.has(key)) {
-        proMitarbeiter.set(key, { id: key, name: `${z.mitarbeiter.nachname}, ${z.mitarbeiter.vorname}`, balken: [] });
+        proMitarbeiter.set(key, {
+          id: key, name: `${z.mitarbeiter.nachname}, ${z.mitarbeiter.vorname}`,
+          abteilung: z.mitarbeiter.abteilung?.name ?? "– keine Abteilung –",
+          balken: [],
+        });
       }
       proMitarbeiter.get(key)!.balken.push({
         id: z.id,
         von: z.gueltigVon, bis: z.gueltigBis ?? null,
         farbe: ZEITMODELL_FARBE[z.zeitmodell],
         titel: `Zeitmodell ${z.zeitmodell}${z.bemerkung ? ` – ${z.bemerkung}` : ""}`,
+        quelle: z.sitzung ? `${z.sitzung.titel} (${formatDatum(z.sitzung.sitzungsdatum)})` : undefined,
       });
     }
     return [...proMitarbeiter.values()].sort((a, b) => a.name.localeCompare(b.name));
@@ -1217,6 +1353,14 @@ function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mi
             <option value="">Befristet & unbefristet</option>
             <option value="befristet">Nur befristete</option>
             <option value="unbefristet">Nur unbefristete</option>
+          </select>
+          <select
+            value={filterBeschaeftigungsart}
+            onChange={e => setFilterBeschaeftigungsart(e.target.value as "" | Beschaeftigungsart)}
+            className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+          >
+            <option value="">Alle Beschäftigungsarten</option>
+            {ALLE_BESCHAEFTIGUNGSARTEN.map(art => <option key={art} value={art}>{BESCHAEFTIGUNGSART_LABEL[art]}</option>)}
           </select>
           <div className="flex items-center gap-1">
             {ZEITMODELLE_ALLE.map(z => (
@@ -1315,7 +1459,12 @@ function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mi
                       {ausgewaehlt.has(z.id) ? <CheckSquare size={15} className="text-[rgb(var(--accent))]" /> : <Square size={15} />}
                     </button>
                   </td>
-                  <td className="px-4 py-2.5 font-medium text-gray-900">{z.mitarbeiter.nachname}, {z.mitarbeiter.vorname}</td>
+                  <td className="px-4 py-2.5 font-medium text-gray-900">
+                    <span className="inline-flex items-center gap-1.5">
+                      {z.mitarbeiter.nachname}, {z.mitarbeiter.vorname}
+                      <SitzungLink sitzung={z.sitzung} />
+                    </span>
+                  </td>
                   <td className="px-4 py-2.5 text-gray-800 font-medium">{z.zeitmodell}</td>
                   <td className="px-4 py-2.5 text-gray-600">{formatDatum(z.gueltigVon)}</td>
                   <td className="px-4 py-2.5 text-gray-600">{z.gueltigBis ? formatDatum(z.gueltigBis) : "unbefristet"}</td>
@@ -1499,6 +1648,7 @@ function UeberstundenTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: 
   const [filterMitarbeiter, setFilterMitarbeiter] = useState("");
   const [filterAbteilung, setFilterAbteilung]     = useState("");
   const [nurAktive, setNurAktive] = useState(true);
+  const [filterBeschaeftigungsart, setFilterBeschaeftigungsart] = useState<"" | Beschaeftigungsart>("");
   const [ansicht, setAnsicht]     = useState<"tabelle" | "gantt">("tabelle");
   const [modal, setModal]         = useState(false);
   const [bearbeitet, setBearbeitet] = useState<UeberstundenEintrag | null>(null);
@@ -1532,7 +1682,8 @@ function UeberstundenTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: 
   const gefiltert = zeitraeume.filter(z =>
     (!filterMitarbeiter || z.mitarbeiterId === filterMitarbeiter) &&
     (!filterAbteilung || z.mitarbeiter.abteilung?.id === filterAbteilung) &&
-    (!nurAktive || mitarbeiterIstAktiv(z.mitarbeiter))
+    (!nurAktive || mitarbeiterIstAktiv(z.mitarbeiter)) &&
+    (!filterBeschaeftigungsart || (z.mitarbeiter.beschaeftigungsart ?? "MITARBEITER") === filterBeschaeftigungsart)
   );
 
   const ganttZeilen: GanttZeile[] = useMemo(() => {
@@ -1540,13 +1691,18 @@ function UeberstundenTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: 
     for (const z of gefiltert) {
       const key = z.mitarbeiterId;
       if (!proMitarbeiter.has(key)) {
-        proMitarbeiter.set(key, { id: key, name: `${z.mitarbeiter.nachname}, ${z.mitarbeiter.vorname}`, balken: [] });
+        proMitarbeiter.set(key, {
+          id: key, name: `${z.mitarbeiter.nachname}, ${z.mitarbeiter.vorname}`,
+          abteilung: z.mitarbeiter.abteilung?.name ?? "– keine Abteilung –",
+          balken: [],
+        });
       }
       proMitarbeiter.get(key)!.balken.push({
         id: z.id,
         von: z.gueltigVon, bis: z.gueltigBis ?? null,
         farbe: "rgb(var(--accent))",
-        titel: z.regelung,
+        titel: z.regelung || "Überstunden (ohne Regelungstext)",
+        quelle: z.sitzung ? `${z.sitzung.titel} (${formatDatum(z.sitzung.sitzungsdatum)})` : undefined,
       });
     }
     return [...proMitarbeiter.values()].sort((a, b) => a.name.localeCompare(b.name));
@@ -1572,7 +1728,7 @@ function UeberstundenTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: 
               <li key={z.id} className="flex items-center justify-between text-sm bg-white border border-amber-100 rounded-lg px-3 py-1.5">
                 <span className="text-gray-700">
                   {z.mitarbeiter.nachname}, {z.mitarbeiter.vorname}
-                  <span className="text-gray-400"> · {z.regelung}</span>
+                  {z.regelung && <span className="text-gray-400"> · {z.regelung}</span>}
                 </span>
                 <span className="text-xs text-amber-700 font-medium shrink-0">bis {formatDatum(z.gueltigBis!)}</span>
               </li>
@@ -1603,6 +1759,14 @@ function UeberstundenTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: 
             <input type="checkbox" checked={nurAktive} onChange={e => setNurAktive(e.target.checked)} />
             Nur aktive
           </label>
+          <select
+            value={filterBeschaeftigungsart}
+            onChange={e => setFilterBeschaeftigungsart(e.target.value as "" | Beschaeftigungsart)}
+            className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+          >
+            <option value="">Alle Beschäftigungsarten</option>
+            {ALLE_BESCHAEFTIGUNGSARTEN.map(art => <option key={art} value={art}>{BESCHAEFTIGUNGSART_LABEL[art]}</option>)}
+          </select>
           <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden">
             <button
               onClick={() => setAnsicht("tabelle")}
@@ -1654,8 +1818,13 @@ function UeberstundenTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: 
             <tbody className="divide-y divide-gray-50">
               {gefiltert.map(z => (
                 <tr key={z.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-2.5 font-medium text-gray-900">{z.mitarbeiter.nachname}, {z.mitarbeiter.vorname}</td>
-                  <td className="px-4 py-2.5 text-gray-800">{z.regelung}</td>
+                  <td className="px-4 py-2.5 font-medium text-gray-900">
+                    <span className="inline-flex items-center gap-1.5">
+                      {z.mitarbeiter.nachname}, {z.mitarbeiter.vorname}
+                      <SitzungLink sitzung={z.sitzung} />
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5 text-gray-800">{z.regelung || "–"}</td>
                   <td className="px-4 py-2.5 text-gray-600">{formatDatum(z.gueltigVon)}</td>
                   <td className="px-4 py-2.5 text-gray-600">{z.gueltigBis ? formatDatum(z.gueltigBis) : "unbefristet"}</td>
                   <td className="px-4 py-2.5 text-gray-500">{z.bemerkung ?? "–"}</td>
@@ -1716,7 +1885,6 @@ function UeberstundenModal({
     e.preventDefault();
     setFehler("");
     if (!mitarbeiterId) { setFehler("Bitte einen Mitarbeiter auswählen"); return; }
-    if (!regelung.trim()) { setFehler("Bitte die Regelung beschreiben"); return; }
     if (!unbefristet && !gueltigBis) { setFehler('Bitte ein Enddatum angeben oder "unbefristet" wählen'); return; }
     setLaden(true);
     try {
@@ -1759,11 +1927,11 @@ function UeberstundenModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Regelung *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Regelung</label>
             <input
-              type="text" required value={regelung}
+              type="text" value={regelung}
               onChange={e => setRegelung(e.target.value)}
-              placeholder="z.B. Ausgleich in Freizeit, Auszahlung ab 20h"
+              placeholder="Optional – z.B. Ausgleich in Freizeit, Auszahlung ab 20h"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
             />
           </div>
@@ -1980,7 +2148,7 @@ function StatistikTab({
   }, [eintraege, nurAktive]);
 
   const anzahlProArt = useMemo(() => {
-    const zaehler: Record<Beschaeftigungsart, number> = { MITARBEITER: 0, AZUBI: 0, STUDENT: 0, ZEITARBEITER: 0 };
+    const zaehler: Record<Beschaeftigungsart, number> = { MITARBEITER: 0, AZUBI: 0, STUDENT: 0, DUALER_STUDENT: 0, ZEITARBEITER: 0 };
     for (const e of neuesteProMitarbeiter) zaehler[e.mitarbeiter.beschaeftigungsart ?? "MITARBEITER"]++;
     return zaehler;
   }, [neuesteProMitarbeiter]);
@@ -1989,7 +2157,7 @@ function StatistikTab({
     const orte = new Map<string, Record<Beschaeftigungsart, number>>();
     for (const e of neuesteProMitarbeiter) {
       const key = e.mitarbeiter.standort || "– kein Standort –";
-      if (!orte.has(key)) orte.set(key, { MITARBEITER: 0, AZUBI: 0, STUDENT: 0, ZEITARBEITER: 0 });
+      if (!orte.has(key)) orte.set(key, { MITARBEITER: 0, AZUBI: 0, STUDENT: 0, DUALER_STUDENT: 0, ZEITARBEITER: 0 });
       orte.get(key)![e.mitarbeiter.beschaeftigungsart ?? "MITARBEITER"]++;
     }
     return [...orte.entries()]
@@ -2065,11 +2233,12 @@ function StatistikTab({
 
   return (
     <div className="space-y-5 mb-6">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
         <MiniStat titel="MA mit Gehaltseintrag" wert={neuesteProMitarbeiter.length} />
         <MiniStat titel="Mitarbeiter" wert={anzahlProArt.MITARBEITER} />
         <MiniStat titel="Azubis" wert={anzahlProArt.AZUBI} />
-        <MiniStat titel="Studenten" wert={anzahlProArt.STUDENT} />
+        <MiniStat titel="Stud. Hilfskräfte" wert={anzahlProArt.STUDENT} />
+        <MiniStat titel="Duale Studenten" wert={anzahlProArt.DUALER_STUDENT} />
         <MiniStat titel="Zeitarbeiter" wert={anzahlProArt.ZEITARBEITER} />
         <MiniStat titel="AT" wert={atEintraege.length} />
       </div>

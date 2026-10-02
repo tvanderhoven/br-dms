@@ -1016,25 +1016,6 @@ export async function anwesenheitslistePdfGenerieren(
       doc.y = rowY + 30;
     }
 
-    // Unterschrift – neue Seite wenn < 80pt bis Fußzeile (y=760)
-    if (doc.y > 680) { doc.addPage(); doc.y = 60; }
-
-    doc.moveDown(1);
-    doc.moveTo(RAND_LINKS, doc.y).lineTo(RAND_RECHTS, doc.y)
-       .strokeColor("#e5e7eb").lineWidth(0.5).stroke();
-    doc.moveDown(0.8);
-
-    const anwDatum = sitzung.sitzungsdatum.toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" });
-    doc.fontSize(8).font("Helvetica").fillColor(FARBE_GRAU)
-       .text("Liste ausgegeben an:", RAND_LINKS, doc.y, { width: BREITE / 2 });
-    doc.moveDown(2);
-    doc.moveTo(RAND_LINKS, doc.y).lineTo(RAND_LINKS + 220, doc.y)
-       .strokeColor("#111827").lineWidth(0.8).stroke();
-    doc.fontSize(7.5).font("Helvetica").fillColor(FARBE_GRAU)
-       .text(`Oberhausen/Gladbeck, ${anwDatum}`, RAND_LINKS, doc.y + 4, { width: 220 });
-    doc.fontSize(8).font("Helvetica-Bold").fillColor("#374151")
-       .text(layout.unterschrift_vorsitz, RAND_LINKS, doc.y + 12, { width: 220 });
-
     // Fußzeilen – y=760 statt 790, da A4+margin60 nur bis y≈782 reicht
     const seiten = (doc as any).bufferedPageRange().count;
     for (let i = 0; i < seiten; i++) {

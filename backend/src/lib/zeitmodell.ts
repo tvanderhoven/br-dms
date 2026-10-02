@@ -88,9 +88,9 @@ export type ZeitmodellUpsertErgebnis =
 //   Verhalten, das die Eingruppierung schon immer hatte.
 export async function zeitmodellPeriodeAnlegen(
   client: Prisma.TransactionClient,
-  params: { mitarbeiterId: string; zeitmodell: Zeitmodell; gueltigVon: Date; gueltigBis?: Date | null; bemerkung?: string | null },
+  params: { mitarbeiterId: string; zeitmodell: Zeitmodell; gueltigVon: Date; gueltigBis?: Date | null; bemerkung?: string | null; sitzungId?: string | null },
 ): Promise<ZeitmodellUpsertErgebnis> {
-  const { mitarbeiterId, zeitmodell, gueltigVon, gueltigBis, bemerkung } = params;
+  const { mitarbeiterId, zeitmodell, gueltigVon, gueltigBis, bemerkung, sitzungId } = params;
 
   if (gueltigBis) {
     const ueberlappung = await findeUeberlappung(client, mitarbeiterId, gueltigVon, gueltigBis);
@@ -101,7 +101,7 @@ export async function zeitmodellPeriodeAnlegen(
       };
     }
     const neu = await client.zeitmodellEintrag.create({
-      data: { mitarbeiterId, zeitmodell, gueltigVon, gueltigBis, bemerkung: bemerkung ?? null },
+      data: { mitarbeiterId, zeitmodell, gueltigVon, gueltigBis, bemerkung: bemerkung ?? null, sitzungId: sitzungId ?? null },
     });
     return { art: "angelegt", eintrag: neu };
   }
@@ -138,7 +138,7 @@ export async function zeitmodellPeriodeAnlegen(
     });
 
     const neu = await client.zeitmodellEintrag.create({
-      data: { mitarbeiterId, zeitmodell, gueltigVon, bemerkung: bemerkung ?? null },
+      data: { mitarbeiterId, zeitmodell, gueltigVon, bemerkung: bemerkung ?? null, sitzungId: sitzungId ?? null },
     });
     return { art: "aktualisiert", eintrag: neu, vorherigesZeitmodell: offener.zeitmodell };
   }
@@ -152,7 +152,7 @@ export async function zeitmodellPeriodeAnlegen(
   }
 
   const neu = await client.zeitmodellEintrag.create({
-    data: { mitarbeiterId, zeitmodell, gueltigVon, bemerkung: bemerkung ?? null },
+    data: { mitarbeiterId, zeitmodell, gueltigVon, bemerkung: bemerkung ?? null, sitzungId: sitzungId ?? null },
   });
   return { art: "angelegt", eintrag: neu };
 }

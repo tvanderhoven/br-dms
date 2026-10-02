@@ -28,6 +28,7 @@ interface NeuerZeitraum {
   gueltigVon:    string;
   gueltigBis?:   string | null;
   bemerkung?:    string;
+  sitzungId?:    string;
 }
 
 interface ZeitraumUpdate {
@@ -42,6 +43,9 @@ const ZEITMODELL_WERTE = Object.values(Zeitmodell);
 const MITARBEITER_INCLUDE = {
   mitarbeiter: {
     include: { abteilung: { select: { id: true, name: true } } },
+  },
+  sitzung: {
+    select: { id: true, titel: true, sitzungsdatum: true },
   },
 };
 
@@ -94,7 +98,7 @@ export async function zeitmodellRouten(app: FastifyInstance): Promise<void> {
     "/",
     { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request: FastifyRequest<{ Body: NeuerZeitraum }>, reply: FastifyReply) => {
-      const { mitarbeiterId, zeitmodell, gueltigVon, gueltigBis, bemerkung } = request.body;
+      const { mitarbeiterId, zeitmodell, gueltigVon, gueltigBis, bemerkung, sitzungId } = request.body;
 
       if (!mitarbeiterId?.trim()) return reply.status(400).send({ fehler: "mitarbeiterId ist ein Pflichtfeld" });
       if (!zeitmodell || !ZEITMODELL_WERTE.includes(zeitmodell)) {
@@ -109,10 +113,15 @@ export async function zeitmodellRouten(app: FastifyInstance): Promise<void> {
       const mitarbeiter = await prisma.mitarbeiter.findUnique({ where: { id: mitarbeiterId } });
       if (!mitarbeiter) return reply.status(404).send({ fehler: "Mitarbeiter nicht gefunden" });
 
+      if (sitzungId) {
+        const sitzung = await prisma.sitzung.findUnique({ where: { id: sitzungId } });
+        if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
+      }
+
       // Schließt automatisch einen offenen Vorgänger-Zeitraum, statt bei jeder
       // "neuer aktueller Zeitraum"-Eingabe eine Überschneidung abzulehnen.
       const ergebnis = await zeitmodellPeriodeAnlegen(prisma as unknown as Prisma.TransactionClient, {
-        mitarbeiterId, zeitmodell, gueltigVon: von, gueltigBis: bis, bemerkung: bemerkung?.trim() || null,
+        mitarbeiterId, zeitmodell, gueltigVon: von, gueltigBis: bis, bemerkung: bemerkung?.trim() || null, sitzungId: sitzungId || null,
       });
 
       if (ergebnis.art === "konflikt") {

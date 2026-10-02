@@ -383,6 +383,15 @@ export const api = {
     loeschen: (id: string) => request<{ ok: boolean }>(`/api/fristen/${id}`, { method: "DELETE" }),
   },
 
+  ablauf: {
+    testen: () => request<{
+      eintraegeAnzahl: number;
+      empfaengerAnzahl: number;
+      gesendetAn: string[];
+      fehlgeschlagenAn: { email: string; fehler: string }[];
+    }>("/api/ablauf/testen", { method: "POST" }),
+  },
+
   kummerkasten: {
     // Öffentlich, kein Login nötig – wird von der Public-Seite genutzt
     einreichen: (data: { nachricht: string; absenderName?: string; webseite?: string }) =>
@@ -943,33 +952,38 @@ export interface Abteilung {
   aktualisiertAm: string;
 }
 
-export type Beschaeftigungsart = "MITARBEITER" | "AZUBI" | "STUDENT" | "ZEITARBEITER";
+export type Beschaeftigungsart = "MITARBEITER" | "AZUBI" | "STUDENT" | "DUALER_STUDENT" | "ZEITARBEITER";
 
+// STUDENT = studentische Hilfskraft (stundenweise), DUALER_STUDENT = duales Studium
+// (weder Azubi noch studentische Hilfskraft) – bewusst zwei getrennte Kategorien.
 export const BESCHAEFTIGUNGSART_LABEL: Record<Beschaeftigungsart, string> = {
-  MITARBEITER: "Mitarbeiter",
-  AZUBI:       "Azubi",
-  STUDENT:     "Student",
-  ZEITARBEITER: "Zeitarbeiter",
+  MITARBEITER:    "Mitarbeiter",
+  AZUBI:          "Azubi",
+  STUDENT:        "Studentische Hilfskraft",
+  DUALER_STUDENT: "Dualer Student",
+  ZEITARBEITER:   "Zeitarbeiter",
 };
 
 // Kurzform fürs Badge (Mitarbeiter bekommt bewusst keins, siehe Anzeige-Stellen)
 export const BESCHAEFTIGUNGSART_KUERZEL: Record<Beschaeftigungsart, string> = {
-  MITARBEITER: "",
-  AZUBI:       "AZUBI",
-  STUDENT:     "STUD.",
-  ZEITARBEITER: "ZA",
+  MITARBEITER:    "",
+  AZUBI:          "AZUBI",
+  STUDENT:        "SHK",
+  DUALER_STUDENT: "DUAL",
+  ZEITARBEITER:   "ZA",
 };
 
 // Feste kategoriale Reihenfolge/Farben – konsistent über Badge, Stat-Karten und Standort-Diagramm.
 // MITARBEITER als Basisfarbe grau (häufigste/Standard-Kategorie), danach fest zugeordnet, nicht rotierend.
 export const BESCHAEFTIGUNGSART_FARBE: Record<Beschaeftigungsart, { badge: string; balken: string }> = {
-  MITARBEITER:  { badge: "bg-gray-100 text-gray-600",   balken: "bg-gray-400" },
-  AZUBI:        { badge: "bg-blue-100 text-blue-700",   balken: "bg-blue-500" },
-  STUDENT:      { badge: "bg-violet-100 text-violet-700", balken: "bg-violet-500" },
-  ZEITARBEITER: { badge: "bg-amber-100 text-amber-700", balken: "bg-amber-500" },
+  MITARBEITER:    { badge: "bg-gray-100 text-gray-600",   balken: "bg-gray-400" },
+  AZUBI:          { badge: "bg-blue-100 text-blue-700",   balken: "bg-blue-500" },
+  STUDENT:        { badge: "bg-violet-100 text-violet-700", balken: "bg-violet-500" },
+  DUALER_STUDENT: { badge: "bg-teal-100 text-teal-700",   balken: "bg-teal-500" },
+  ZEITARBEITER:   { badge: "bg-amber-100 text-amber-700", balken: "bg-amber-500" },
 };
 
-export const ALLE_BESCHAEFTIGUNGSARTEN: Beschaeftigungsart[] = ["MITARBEITER", "AZUBI", "STUDENT", "ZEITARBEITER"];
+export const ALLE_BESCHAEFTIGUNGSARTEN: Beschaeftigungsart[] = ["MITARBEITER", "AZUBI", "STUDENT", "DUALER_STUDENT", "ZEITARBEITER"];
 
 export interface Mitarbeiter {
   id: string;
@@ -1016,6 +1030,7 @@ export interface GehaltsstufenEintrag {
   gueltigAb: string;
   bemerkung?: string | null;
   sitzungId?: string | null;
+  sitzung?: { id: string; titel: string; sitzungsdatum: string } | null;
   mitarbeiter: {
     id: string;
     vorname: string;
@@ -1051,6 +1066,8 @@ export interface ZeitmodellEintrag {
   gueltigVon: string;
   gueltigBis?: string | null;
   bemerkung?: string | null;
+  sitzungId?: string | null;
+  sitzung?: { id: string; titel: string; sitzungsdatum: string } | null;
   mitarbeiter: {
     id: string;
     vorname: string;
@@ -1071,6 +1088,7 @@ export interface ZeitmodellEintragErstellen {
   gueltigVon: string;
   gueltigBis?: string | null;
   bemerkung?: string;
+  sitzungId?: string;
 }
 
 export interface UeberstundenEintrag {
@@ -1080,6 +1098,8 @@ export interface UeberstundenEintrag {
   gueltigVon: string;
   gueltigBis?: string | null;
   bemerkung?: string | null;
+  sitzungId?: string | null;
+  sitzung?: { id: string; titel: string; sitzungsdatum: string } | null;
   mitarbeiter: {
     id: string;
     vorname: string;
@@ -1096,10 +1116,11 @@ export interface UeberstundenEintrag {
 
 export interface UeberstundenEintragErstellen {
   mitarbeiterId: string;
-  regelung: string;
+  regelung?: string;
   gueltigVon: string;
   gueltigBis?: string | null;
   bemerkung?: string;
+  sitzungId?: string;
 }
 
 export type BVStatus = "AKTIV" | "GEKUENDIGT" | "ABGELOEST" | "BEFRISTET_AUSGELAUFEN";

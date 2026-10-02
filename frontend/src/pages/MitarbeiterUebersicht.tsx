@@ -124,7 +124,7 @@ function ImportVorschauModal({
 // ── Stat-Karte ───────────────────────────────────────────────────────
 function StatKarte({ icon, titel, wert, farbe }: {
   icon: React.ReactElement; titel: string; wert: number | string;
-  farbe: "blue" | "green" | "gray" | "violet" | "amber";
+  farbe: "blue" | "green" | "gray" | "violet" | "amber" | "teal";
 }) {
   const iconKlasse: Record<string, string> = {
     blue:   "text-blue-600 bg-blue-50",
@@ -132,6 +132,7 @@ function StatKarte({ icon, titel, wert, farbe }: {
     gray:   "text-gray-600 bg-gray-100",
     violet: "text-violet-600 bg-violet-50",
     amber:  "text-amber-600 bg-amber-50",
+    teal:   "text-teal-600 bg-teal-50",
   };
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
@@ -213,7 +214,7 @@ export default function MitarbeiterUebersicht() {
 
   // Anzahl je Beschäftigungsart (auf Basis der aktiven/inaktiven-Auswahl, ohne die übrigen Filter)
   const anzahlProArt = useMemo(() => {
-    const zaehler: Record<Beschaeftigungsart, number> = { MITARBEITER: 0, AZUBI: 0, STUDENT: 0, ZEITARBEITER: 0 };
+    const zaehler: Record<Beschaeftigungsart, number> = { MITARBEITER: 0, AZUBI: 0, STUDENT: 0, DUALER_STUDENT: 0, ZEITARBEITER: 0 };
     for (const m of basisliste) zaehler[m.beschaeftigungsart ?? "MITARBEITER"]++;
     return zaehler;
   }, [basisliste]);
@@ -223,7 +224,7 @@ export default function MitarbeiterUebersicht() {
     const orte = new Map<string, Record<Beschaeftigungsart, number>>();
     for (const m of basisliste) {
       const key = m.standort || "– kein Standort –";
-      if (!orte.has(key)) orte.set(key, { MITARBEITER: 0, AZUBI: 0, STUDENT: 0, ZEITARBEITER: 0 });
+      if (!orte.has(key)) orte.set(key, { MITARBEITER: 0, AZUBI: 0, STUDENT: 0, DUALER_STUDENT: 0, ZEITARBEITER: 0 });
       orte.get(key)![m.beschaeftigungsart ?? "MITARBEITER"]++;
     }
     return [...orte.entries()]
@@ -341,12 +342,13 @@ export default function MitarbeiterUebersicht() {
       </div>
 
       {/* Stat-Karten */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
         <StatKarte icon={<Users size={18} />} titel="Mitarbeiter aktiv" wert={liste.filter(istAktiv).length} farbe="green" />
         <StatKarte icon={<Users size={18} />} titel="Mitarbeiter gesamt" wert={liste.length} farbe="blue" />
         <StatKarte icon={<MapPin size={18} />} titel="Standorte erfasst" wert={standorte.length} farbe="gray" />
         <StatKarte icon={<GraduationCap size={18} />} titel="Azubis" wert={anzahlProArt.AZUBI} farbe="blue" />
-        <StatKarte icon={<GraduationCap size={18} />} titel="Studenten" wert={anzahlProArt.STUDENT} farbe="violet" />
+        <StatKarte icon={<GraduationCap size={18} />} titel="Stud. Hilfskräfte" wert={anzahlProArt.STUDENT} farbe="violet" />
+        <StatKarte icon={<GraduationCap size={18} />} titel="Duale Studenten" wert={anzahlProArt.DUALER_STUDENT} farbe="teal" />
         <StatKarte icon={<Briefcase size={18} />} titel="Zeitarbeiter" wert={anzahlProArt.ZEITARBEITER} farbe="amber" />
       </div>
 

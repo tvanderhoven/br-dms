@@ -24,10 +24,11 @@ interface ListenFilter {
 
 interface NeuerZeitraum {
   mitarbeiterId: string;
-  regelung:      string;
+  regelung?:     string;
   gueltigVon:    string;
   gueltigBis?:   string | null;
   bemerkung?:    string;
+  sitzungId?:    string;
 }
 
 interface ZeitraumUpdate {
@@ -40,6 +41,9 @@ interface ZeitraumUpdate {
 const MITARBEITER_INCLUDE = {
   mitarbeiter: {
     include: { abteilung: { select: { id: true, name: true } } },
+  },
+  sitzung: {
+    select: { id: true, titel: true, sitzungsdatum: true },
   },
 };
 
@@ -92,10 +96,9 @@ export async function ueberstundenRouten(app: FastifyInstance): Promise<void> {
     "/",
     { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request: FastifyRequest<{ Body: NeuerZeitraum }>, reply: FastifyReply) => {
-      const { mitarbeiterId, regelung, gueltigVon, gueltigBis, bemerkung } = request.body;
+      const { mitarbeiterId, regelung, gueltigVon, gueltigBis, bemerkung, sitzungId } = request.body;
 
       if (!mitarbeiterId?.trim()) return reply.status(400).send({ fehler: "mitarbeiterId ist ein Pflichtfeld" });
-      if (!regelung?.trim())      return reply.status(400).send({ fehler: "regelung ist ein Pflichtfeld" });
       if (!gueltigVon)            return reply.status(400).send({ fehler: "gueltigVon ist ein Pflichtfeld" });
 
       const von = new Date(gueltigVon);
@@ -105,10 +108,15 @@ export async function ueberstundenRouten(app: FastifyInstance): Promise<void> {
       const mitarbeiter = await prisma.mitarbeiter.findUnique({ where: { id: mitarbeiterId } });
       if (!mitarbeiter) return reply.status(404).send({ fehler: "Mitarbeiter nicht gefunden" });
 
+      if (sitzungId) {
+        const sitzung = await prisma.sitzung.findUnique({ where: { id: sitzungId } });
+        if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
+      }
+
       // Schließt automatisch einen offenen Vorgänger-Zeitraum, statt bei jeder
       // "neuer aktueller Zeitraum"-Eingabe eine Überschneidung abzulehnen.
       const ergebnis = await ueberstundenPeriodeAnlegen(prisma as unknown as Prisma.TransactionClient, {
-        mitarbeiterId, regelung: regelung.trim(), gueltigVon: von, gueltigBis: bis, bemerkung: bemerkung?.trim() || null,
+        mitarbeiterId, regelung: (regelung ?? "").trim(), gueltigVon: von, gueltigBis: bis, bemerkung: bemerkung?.trim() || null, sitzungId: sitzungId || null,
       });
 
       if (ergebnis.art === "konflikt") {
@@ -133,10 +141,6 @@ export async function ueberstundenRouten(app: FastifyInstance): Promise<void> {
 
       const vorhandener = await prisma.ueberstundenEintrag.findUnique({ where: { id } });
       if (!vorhandener) return reply.status(404).send({ fehler: "Zeitraum nicht gefunden" });
-
-      if (regelung !== undefined && !regelung.trim()) {
-        return reply.status(400).send({ fehler: "regelung darf nicht leer sein" });
-      }
 
       const von = gueltigVon !== undefined ? new Date(gueltigVon) : vorhandener.gueltigVon;
       const bis = gueltigBis !== undefined ? (gueltigBis ? new Date(gueltigBis) : null) : vorhandener.gueltigBis;

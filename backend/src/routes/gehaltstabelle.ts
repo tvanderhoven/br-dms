@@ -370,6 +370,9 @@ const MITARBEITER_INCLUDE = {
   mitarbeiter: {
     include: { abteilung: { select: { id: true, name: true } } },
   },
+  sitzung: {
+    select: { id: true, titel: true, sitzungsdatum: true },
+  },
 };
 
 function baueWhere(filter: ListenFilter): Prisma.GehaltsstufenEintragWhereInput {

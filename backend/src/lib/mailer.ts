@@ -1,5 +1,11 @@
 import nodemailer from "nodemailer";
 
+// "||" statt "??": Docker Compose ersetzt ${SMTP_FROM} durch einen LEEREN
+// String (nicht "unset"), wenn die Variable in der .env fehlt – das führte
+// schon mal zu einem komplett leeren From-Header, weil "??" einen leeren
+// String nicht als "fehlt" erkennt.
+const SMTP_FROM = process.env.SMTP_FROM || `"BR-DMS" <noreply@br-dms.lokal>`;
+
 const FRIST_TYP_LABEL: Record<string, string> = {
   ANHOERUNG_99_WOCHE:            "§ 99 Anhörung (1 Woche)",
   ANHOERUNG_102_ORDENTLICH:      "§ 102 ordentl. Kündigung",
@@ -16,6 +22,12 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER!,
     pass: process.env.SMTP_PASS!,
   },
+  // TODO wieder entfernen, sobald die IT das abgelaufene TLS-Zertifikat des
+  // Mailservers erneuert hat (Stand 2026-10-01: "certificate has expired").
+  // Ohne das brechen alle ausgehenden Mails (Fristen/Ablauf-Erinnerung,
+  // Passwort-Reset) beim TLS-Handshake ab. Nur vertretbar, weil der
+  // Mailserver ausschließlich im internen, vertrauenswürdigen Netz liegt.
+  tls: { rejectUnauthorized: false },
 });
 
 export async function sendePasswortReset(email: string, name: string, token: string): Promise<void> {
@@ -23,7 +35,7 @@ export async function sendePasswortReset(email: string, name: string, token: str
   const link   = `${appUrl}/passwort-reset?token=${token}`;
 
   await transporter.sendMail({
-    from:    process.env.SMTP_FROM ?? `"BR-DMS" <noreply@br-dms.lokal>`,
+    from:    SMTP_FROM,
     to:      email,
     subject: "BR-DMS – Passwort zurücksetzen",
     text: `Hallo ${name},\n\ndu hast eine Passwort-Zurücksetzen-Anfrage gestellt.\n\nLink (gültig 1 Stunde):\n${link}\n\nFalls du diese Anfrage nicht gestellt hast, kannst du diese E-Mail ignorieren.\n\nDein BR-DMS`,
@@ -38,6 +50,64 @@ export async function sendePasswortReset(email: string, name: string, token: str
       <p style="color:#6b7280;font-size:12px">Link gültig für 1 Stunde. Falls du diese Anfrage nicht gestellt hast, ignoriere diese E-Mail.</p>
       <p style="color:#6b7280;font-size:12px">Dein BR-DMS</p>
     `,
+  });
+}
+
+export interface AblaufEintrag {
+  typ:             "ZEITMODELL" | "UEBERSTUNDEN";
+  mitarbeiterName: string;
+  abteilung:       string | null;
+  detail:          string; // Zeitmodell-Buchstabe bzw. Überstunden-Regelung im Klartext
+  gueltigBis:      Date;
+}
+
+export async function sendeAblaufZusammenfassung(
+  email: string,
+  name: string,
+  eintraege: AblaufEintrag[]
+): Promise<void> {
+  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+
+  const zeilen = eintraege.map(e => `<tr>
+    <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">${e.mitarbeiterName}</td>
+    <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">${e.abteilung ?? "–"}</td>
+    <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">${e.typ === "ZEITMODELL" ? "Zeitmodell" : "Überstunden"}</td>
+    <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">${e.detail}</td>
+    <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#dc2626;font-weight:bold">${new Date(e.gueltigBis).toLocaleDateString("de-DE")}</td>
+  </tr>`).join("");
+
+  await transporter.sendMail({
+    from:    SMTP_FROM,
+    to:      email,
+    subject: `BR-DMS – ${eintraege.length} Zeitmodell/Überstunden-Regelung(en) laufen diesen Monat aus`,
+    text:    eintraege.map(e =>
+      `${e.mitarbeiterName} (${e.abteilung ?? "–"}) – ${e.typ === "ZEITMODELL" ? "Zeitmodell" : "Überstunden"}: ${e.detail} – läuft aus am ${new Date(e.gueltigBis).toLocaleDateString("de-DE")}`
+    ).join("\n"),
+    html: `<div style="font-family:sans-serif;max-width:640px;margin:0 auto">
+      <div style="background:#1e3a8a;color:white;padding:16px 20px;border-radius:8px 8px 0 0">
+        <h2 style="margin:0;font-size:18px">BR-DMS – Zeitmodell & Überstunden laufen aus</h2>
+      </div>
+      <div style="padding:20px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
+        <p>Hallo <strong>${name}</strong>,</p>
+        <p>folgende <strong>${eintraege.length} Regelung(en)</strong> laufen diesen Monat aus:</p>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb">
+          <thead>
+            <tr style="background:#dbeafe">
+              <th style="padding:10px 12px;text-align:left;font-size:12px;color:#1e40af">Mitarbeiter</th>
+              <th style="padding:10px 12px;text-align:left;font-size:12px;color:#1e40af">Abteilung</th>
+              <th style="padding:10px 12px;text-align:left;font-size:12px;color:#1e40af">Typ</th>
+              <th style="padding:10px 12px;text-align:left;font-size:12px;color:#1e40af">Regelung</th>
+              <th style="padding:10px 12px;text-align:left;font-size:12px;color:#1e40af">Läuft aus am</th>
+            </tr>
+          </thead>
+          <tbody>${zeilen}</tbody>
+        </table>
+        <p style="margin-top:20px">
+          <a href="${appUrl}/gehaltstabelle" style="background:#1e40af;color:white;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block">→ Zur Gehaltstabelle</a>
+        </p>
+        <p style="color:#9ca3af;font-size:11px;margin-top:20px">Automatische Nachricht von BR-DMS · Monatlich am 15. um 07:00 Uhr</p>
+      </div>
+    </div>`,
   });
 }
 
@@ -59,7 +129,7 @@ export async function sendeFristenZusammenfassung(
   }).join("");
 
   await transporter.sendMail({
-    from:    process.env.SMTP_FROM ?? `"BR-DMS" <noreply@br-dms.lokal>`,
+    from:    SMTP_FROM,
     to:      email,
     subject: `BR-DMS – ${fristen.length} Frist(en) laufen in 7 Tagen ab`,
     text:    fristen.map(f =>

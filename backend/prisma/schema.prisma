@@ -400,6 +400,8 @@ model Sitzung {
   anwesenheiten  Anwesenheit[]
   protocolBlocks ProtocolBlock[]
   gehaltsstufenEintraege GehaltsstufenEintrag[]
+  zeitmodellEintraege    ZeitmodellEintrag[]
+  ueberstundenEintraege  UeberstundenEintrag[]
 
   @@index([sitzungsdatum, status])
   @@map("sitzungen")
@@ -861,7 +863,8 @@ model Abteilung {
 enum Beschaeftigungsart {
   MITARBEITER
   AZUBI
-  STUDENT
+  STUDENT         // studentische Hilfskraft (stundenweise, kein duales Studium)
+  DUALER_STUDENT  // duales Studium – weder Azubi noch studentische Hilfskraft
   ZEITARBEITER
 }
 
@@ -948,6 +951,12 @@ model ZeitmodellEintrag {
   gueltigBis     DateTime?   @map("gueltig_bis")
   bemerkung      String?
 
+  // Optionale Rückverknüpfung, wenn der Eintrag direkt aus einem Sitzungs-TOP
+  // heraus angelegt wurde (siehe TopGehaltModal in Sitzungen.tsx) – wie bei
+  // GehaltsstufenEintrag.sitzungId.
+  sitzungId      String?     @map("sitzung_id")
+  sitzung        Sitzung?    @relation(fields: [sitzungId], references: [id], onDelete: SetNull)
+
   erstelltAm     DateTime    @default(now()) @map("erstellt_am")
   aktualisiertAm DateTime    @updatedAt @map("aktualisiert_am")
 
@@ -967,6 +976,12 @@ model UeberstundenEintrag {
   gueltigVon     DateTime    @map("gueltig_von")
   gueltigBis     DateTime?   @map("gueltig_bis")
   bemerkung      String?
+
+  // Optionale Rückverknüpfung, wenn der Eintrag direkt aus einem Sitzungs-TOP
+  // heraus angelegt wurde (siehe TopGehaltModal in Sitzungen.tsx) – wie bei
+  // GehaltsstufenEintrag.sitzungId.
+  sitzungId      String?     @map("sitzung_id")
+  sitzung        Sitzung?    @relation(fields: [sitzungId], references: [id], onDelete: SetNull)
 
   erstelltAm     DateTime    @default(now()) @map("erstellt_am")
   aktualisiertAm DateTime    @updatedAt @map("aktualisiert_am")
