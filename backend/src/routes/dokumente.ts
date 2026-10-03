@@ -142,7 +142,7 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
           hochgeladenVon: { select: { name: true } },
           fristen: {
             where:  { status: "OFFEN" },
-            select: { id: true, typ: true, faelligAm: true },
+            select: { id: true, typ: true, faelligAm: true, status: true },
           },
         },
         orderBy: { erstelltAm: "desc" },

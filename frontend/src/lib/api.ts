@@ -21,7 +21,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   const res = await fetch(`${BASE}${path}`, { ...init, headers: { ...headers, ...init.headers as Record<string, string> } });
 
-  if (res.status === 401) {
+  // 401 beim Login heißt "falsche Zugangsdaten", nicht "Sitzung abgelaufen" –
+  // dort fällt es unten durch und zeigt die Fehlermeldung des Backends.
+  if (res.status === 401 && path !== "/api/auth/login") {
     localStorage.removeItem("brdms_token");
     if (window.location.pathname !== "/login" && !redirectingToLogin) {
       redirectingToLogin = true;
