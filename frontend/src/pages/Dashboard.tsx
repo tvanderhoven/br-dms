@@ -92,7 +92,7 @@ export default function Dashboard() {
   const ungelesen      = inboxDoks.filter(d => !d.inboxGelesen).length;
   // Themen aus dem Kanban-Backlog zählen hier nicht mit – das sind Ideen, keine ToDos
   // Nur eigenständige ToDos (wie auf der "Aufgaben"-Seite) – keine Zeitraum-Einträge/-Kinder
-  const offeneAufgaben = aufgaben.filter(a => !a.erledigt && a.typ === "AUFGABE" && !a.oberProjektId && a.kanbanStatus == null);
+  const offeneAufgaben = aufgaben.filter(a => !a.erledigt && a.typ === "AUFGABE" && a.kanbanStatus == null);
   const kritischGesamt = abgelaufen.length + kritisch.length;
 
   const PRIO_SORT: Record<string, number> = { HOCH: 0, MITTEL: 1, NIEDRIG: 2 };

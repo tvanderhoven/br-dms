@@ -348,9 +348,9 @@ export default function Layout() {
 
     try {
       const aufgaben = await api.aufgaben.liste();
-      // Nur eigenständige ToDos zählen (wie auf der "Aufgaben"-Seite) – keine
-      // Zeitraum-Einträge/-Kinder und keine Themen-Backlog-Einträge.
-      const n = aufgaben.filter(a => !a.erledigt && a.typ === "AUFGABE" && !a.oberProjektId && a.kanbanStatus == null).length;
+      // Offene Aufgaben wie auf der Aufgaben-Seite – auch solche in Vorhaben,
+      // aber ohne Vorhaben selbst und ohne Themen-Backlog-Einträge.
+      const n = aufgaben.filter(a => !a.erledigt && a.typ === "AUFGABE" && a.kanbanStatus == null).length;
       if (!ersterLauf.current && n > prevCounts.current.aufgaben) {
         const neu = n - prevCounts.current.aufgaben;
         const msg = `${neu} neue Aufgabe${neu > 1 ? "n" : ""}`;
@@ -635,10 +635,6 @@ export default function Layout() {
                   )}
                 </>
               )}
-            </NavLink>
-            <NavLink to="/zeitraeume" className={linkKlasse} onClick={() => setMobileOffen(false)}>
-              <CalendarRange size={16} />
-              Zeiträume
             </NavLink>
             <NavLink to="/themen-backlog" className={linkKlasse} onClick={() => setMobileOffen(false)}>
               <Kanban size={16} />

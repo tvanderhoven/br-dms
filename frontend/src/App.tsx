@@ -1,6 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import Aufgaben from "./pages/Aufgaben";
-import Zeitraeume from "./pages/Zeitraeume";
 import ThemenBacklog from "./pages/ThemenBacklog";
 import Login from "./pages/Login";
 import PasswortVergessen from "./pages/PasswortVergessen";
@@ -70,7 +69,8 @@ export default function App() {
         <Route path="/benutzer"   element={geschuetzt(<Benutzer />)} />
         <Route path="/posteingang" element={geschuetzt(<Posteingang />)} />
         <Route path="/aufgaben"    element={geschuetzt(<Aufgaben />)} />
-        <Route path="/zeitraeume" element={geschuetzt(<Zeitraeume />)} />
+        {/* Früher eigene Seite – Vorhaben leben jetzt in den Aufgaben */}
+        <Route path="/zeitraeume" element={<Navigate to="/aufgaben?ansicht=zeitplan" replace />} />
         <Route path="/themen-backlog" element={geschuetzt(<ThemenBacklog />)} />
         <Route path="/vorlagen"      element={geschuetzt(<Vorlagen />)} />
         <Route path="/wissen"         element={geschuetzt(<Wissensarchiv />)} />

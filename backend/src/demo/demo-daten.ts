@@ -851,14 +851,27 @@ async function main() {
   });
 
   const projekt = await prisma.aufgabe.create({
-    data: { titel: "Betriebsratswahl-Vorbereitung 2030", typ: AufgabeTyp.PROJEKT, startDatum: tage(-10), endDatum: tage(160), farbe: "#C8102E", erstelltVonId: vorsitz },
+    data: { titel: "JAV-Wahl 2026", typ: AufgabeTyp.PROJEKT, startDatum: tage(-30), endDatum: tage(50), farbe: "#C8102E", erstelltVonId: vorsitz, zugewiesenAnId: user["f.albers"],
+            beschreibung: "Begleitung der JAV-Wahl durch den Betriebsrat. Den Ablauf verantwortet der Wahlvorstand." },
+  });
+  const versammlung = await prisma.aufgabe.create({
+    data: { titel: "Betriebsversammlung Q4", typ: AufgabeTyp.PROJEKT, startDatum: tage(-5), endDatum: tage(34), farbe: "#222327", erstelltVonId: vorsitz, zugewiesenAnId: vorsitz },
   });
   await prisma.aufgabe.createMany({
     data: [
-      { titel: "Betriebsversammlung Q4", typ: AufgabeTyp.PROJEKT, startDatum: tage(20), endDatum: tage(34), farbe: "#222327", erstelltVonId: vorsitz },
-      { titel: "Verhandlungsphase BV Schichtarbeit", typ: AufgabeTyp.PROJEKT, startDatum: tage(-60), endDatum: tage(45), farbe: "#86888A", erstelltVonId: stv },
-      { titel: "Wählerliste vorbereiten", typ: AufgabeTyp.AUFGABE, startDatum: tage(60), endDatum: tage(90), oberProjektId: projekt.id, erstelltVonId: vorsitz },
-      { titel: "Wahlvorstand bestellen", typ: AufgabeTyp.AUFGABE, startDatum: tage(20), endDatum: tage(40), oberProjektId: projekt.id, erstelltVonId: vorsitz },
+      { titel: "Tagesordnung mit der Geschäftsführung abstimmen", typ: AufgabeTyp.AUFGABE, oberProjektId: versammlung.id, faelligAm: tage(6), prioritaet: Prioritaet.HOCH, zugewiesenAnId: vorsitz, aufgabenStatus: AufgabenStatus.IN_BEARBEITUNG, erstelltVonId: vorsitz },
+      { titel: "Tätigkeitsbericht schreiben", typ: AufgabeTyp.AUFGABE, oberProjektId: versammlung.id, faelligAm: tage(19), startDatum: tage(8), endDatum: tage(19), zugewiesenAnId: stv, erstelltVonId: vorsitz },
+      { titel: "Kantine und Technik reservieren", typ: AufgabeTyp.AUFGABE, oberProjektId: versammlung.id, faelligAm: tage(2), prioritaet: Prioritaet.NIEDRIG, zugewiesenAnId: user["j.hoffmann"], erledigt: true, erledigtAm: tage(-1), aufgabenStatus: AufgabenStatus.ERLEDIGT, erstelltVonId: vorsitz },
+      { titel: "Fragen aus dem Kummerkasten sammeln", typ: AufgabeTyp.AUFGABE, oberProjektId: versammlung.id, faelligAm: tage(14), zugewiesenAnId: user["m.yilmaz"], erstelltVonId: vorsitz },
+    ],
+  });
+  await prisma.aufgabe.createMany({
+    data: [
+      { titel: "Verhandlungsphase BV Schichtarbeit", typ: AufgabeTyp.PROJEKT, startDatum: tage(-60), endDatum: tage(45), farbe: "#86888A", erstelltVonId: stv, zugewiesenAnId: stv },
+      { titel: "Wahlvorstand bestellen (Beschluss BR)", typ: AufgabeTyp.AUFGABE, faelligAm: tage(-21), oberProjektId: projekt.id, erledigt: true, erledigtAm: tage(-24), aufgabenStatus: AufgabenStatus.ERLEDIGT, prioritaet: Prioritaet.HOCH, erstelltVonId: vorsitz },
+      { titel: "Wahlvorstand mit Azubi-Liste unterstützen", typ: AufgabeTyp.AUFGABE, startDatum: tage(-10), endDatum: tage(10), faelligAm: tage(10), oberProjektId: projekt.id, zugewiesenAnId: user["j.hoffmann"], aufgabenStatus: AufgabenStatus.IN_BEARBEITUNG, erstelltVonId: vorsitz },
+      { titel: "Wahlversammlung/Wahltag: Freistellung der Wahlhelfer klären", typ: AufgabeTyp.AUFGABE, faelligAm: tage(25), oberProjektId: projekt.id, zugewiesenAnId: user["f.albers"], erstelltVonId: vorsitz },
+      { titel: "Konstituierende Sitzung der neuen JAV vorbereiten", typ: AufgabeTyp.AUFGABE, startDatum: tage(40), endDatum: tage(50), oberProjektId: projekt.id, prioritaet: Prioritaet.NIEDRIG, erstelltVonId: vorsitz },
     ],
   });
 
@@ -942,19 +955,6 @@ async function main() {
     ],
   });
 
-  // ── Audit-Log: ein paar Logins für die Übersicht ─────────────
-  await prisma.auditLog.createMany({
-    data: Array.from({ length: 30 }, () => ({
-      benutzerId: wahl(Object.values(user)), aktion: AuditAktion.LOGIN, ip: `192.168.10.${zahl(20, 80)}`,
-      zeitpunkt: new Date(tage(-zahl(0, 20)).getTime() + zahl(7, 17) * 36e5),
-    })),
-  });
-
-  // ── PDFs für fixierte Tagesordnungen und finale Protokolle ───
-  const versionen = await prisma.sitzungVersion.findMany({
-    where: { typ: { in: ["TAGESORDNUNG_FIXIERT", "PROTOKOLL_FINAL"] } },
-  });
-  for (const v of versionen) {
   // ── Fristen ohne Dokument (Wahl, Betriebsversammlung, Erinnerungen) ──
   await prisma.frist.createMany({
     data: [
@@ -968,6 +968,19 @@ async function main() {
     ],
   });
 
+  // ── Audit-Log: ein paar Logins für die Übersicht ─────────────
+  await prisma.auditLog.createMany({
+    data: Array.from({ length: 30 }, () => ({
+      benutzerId: wahl(Object.values(user)), aktion: AuditAktion.LOGIN, ip: `192.168.10.${zahl(20, 80)}`,
+      zeitpunkt: new Date(tage(-zahl(0, 20)).getTime() + zahl(7, 17) * 36e5),
+    })),
+  });
+
+  // ── PDFs für fixierte Tagesordnungen und finale Protokolle ───
+  const versionen = await prisma.sitzungVersion.findMany({
+    where: { typ: { in: ["TAGESORDNUNG_FIXIERT", "PROTOKOLL_FINAL"] } },
+  });
+  for (const v of versionen) {
     await pdfAutomatischGenerieren(v.sitzungId, v.id, v.versionNummer, v.typ, v.erstelltAm, v.finalisiertAm);
   }
   console.log(`[Demo] ${versionen.length} Sitzungs-PDFs erzeugt`);

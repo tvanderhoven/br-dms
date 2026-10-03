@@ -4,8 +4,8 @@ import { api } from "../lib/api";
 import SitzungsEditor from "./SitzungsEditor";
 import { tiptapZuText, textZuTiptap } from "../lib/tiptap";
 
-// ── Text/TOP-Inhalt (oder Kommentar) als vollwertige Aufgabe/Zeitraum übernehmen ──
-// Gleiches Formular wie "Neue Aufgabe" auf der Planung-Seite (Typ-Toggle, Zeiträume,
+// ── Text/TOP-Inhalt (oder Kommentar) als vollwertige Aufgabe/Vorhaben übernehmen ──
+// Gleiches Formular wie "Neue Aufgabe" auf der Aufgaben-Seite (Typ-Toggle, Vorhaben,
 // Priorität, Fälligkeit, Zuweisung) – bewusst identisch, egal ob man von einem TOP
 // oder einem Kommentar aus startet.
 export default function AufgabeUebernehmenModal({
@@ -86,7 +86,7 @@ export default function AufgabeUebernehmenModal({
         {erfolg ? (
           <div className="px-6 py-8 text-center text-emerald-600 font-medium">
             <CheckSquare size={32} className="mx-auto mb-2" />
-            {istZeitraum ? "Zeitraum wurde erstellt." : "Aufgabe wurde erstellt."}
+            {istZeitraum ? "Vorhaben wurde erstellt." : "Aufgabe wurde erstellt."}
           </div>
         ) : (
           <form onSubmit={speichern} className="px-6 py-4 space-y-4">
@@ -112,7 +112,7 @@ export default function AufgabeUebernehmenModal({
                     : "bg-white text-gray-600 hover:bg-gray-50"
                 }`}
               >
-                <Folder size={14} /> Zeitraum
+                <Folder size={14} /> Vorhaben
               </button>
             </div>
 
@@ -131,15 +131,15 @@ export default function AufgabeUebernehmenModal({
               />
             </div>
 
-            {/* Übergeordneter Zeitraum */}
+            {/* Vorhaben */}
             {zeitraeume.length > 0 && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {istZeitraum ? "Übergeordneter Zeitraum" : "Gehört zu Zeitraum"}
+                  {istZeitraum ? "Übergeordnetes Vorhaben" : "Vorhaben"}
                 </label>
                 <select value={oberProjektId} onChange={e => setOberProjektId(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
-                  <option value="">– keiner –</option>
+                  <option value="">– ohne Vorhaben –</option>
                   {zeitraeume.map(z => <option key={z.id} value={z.id}>{z.titel}</option>)}
                 </select>
               </div>
@@ -195,9 +195,9 @@ export default function AufgabeUebernehmenModal({
               <button type="button" onClick={onSchliessen}
                 className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Abbrechen</button>
               <button type="submit" disabled={laden}
-                className="flex-1 px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-lg flex items-center justify-center gap-2">
+                className="flex-1 px-4 py-2 text-sm bg-accent hover:brightness-90 disabled:opacity-60 text-white rounded-lg flex items-center justify-center gap-2">
                 {laden && <Loader2 size={14} className="animate-spin" />}
-                {istZeitraum ? "Zeitraum erstellen" : "Aufgabe erstellen"}
+                {istZeitraum ? "Vorhaben erstellen" : "Aufgabe erstellen"}
               </button>
             </div>
           </form>

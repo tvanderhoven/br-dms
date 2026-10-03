@@ -210,7 +210,7 @@ export default function Suche() {
                     key={auf.id}
                     onClick={() => navigate(
                       auf.kanbanStatus ? "/themen-backlog"
-                      : (auf.typ === "PROJEKT" || auf.oberProjektId) ? "/zeitraeume"
+                      : auf.typ === "PROJEKT" ? "/aufgaben?ansicht=liste"
                       : "/aufgaben"
                     )}
                     className="w-full text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 hover:border-[rgb(var(--accent)/0.4)] hover:shadow-sm transition-all"
