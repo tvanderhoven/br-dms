@@ -8,7 +8,7 @@
 import { Role } from "@prisma/client";
 
 // Kein separates Nachname-Feld im Schema – Nachname wird als letztes Wort
-// des "Vorname Nachname"-Strings angenähert (deckt z.B. "van der Hoven" ab,
+// des "Vorname Nachname"-Strings angenähert (deckt z.B. "van der Berg" ab,
 // da Präfixe wie "van der" konventionell nicht die Sortierposition bestimmen).
 function nachname(name: string): string {
   const teile = name.trim().split(/\s+/);

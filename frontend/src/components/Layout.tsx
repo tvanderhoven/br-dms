@@ -9,6 +9,7 @@ import { api, SuchErgebnis, KATEGORIE_LABEL, SITZUNG_STATUS_LABEL, RESSOURCE_KAT
 import GesetzModal from "./GesetzModal";
 import BrandLogo from "./BrandLogo";
 import PasswortAendernModal from "./PasswortAendernModal";
+import UeberModal from "./UeberModal";
 
 // Ordnet Routen-Präfixe den abschaltbaren Modulen zu (siehe Einstellungen → Module).
 // Bei einem deaktivierten Modul: Sidebar-Eintrag ausgeblendet + Direktaufruf der URL wird auf "/" umgeleitet.
@@ -21,7 +22,6 @@ const MODUL_PFADE: Record<string, ModuleKey> = {
   "/ressourcen":             "ressourcen",
   "/themen":                 "themensammlung",
 };
-import { useDesign } from "../lib/useDesign";
 
 function GlobaleSuche() {
   const [query, setQuery]           = useState("");
@@ -282,7 +282,6 @@ function NavGruppe({
 }
 
 export default function Layout() {
-  useDesign();
   const navigate   = useNavigate();
   const location   = useLocation();
   const [mobileOffen, setMobileOffen]             = useState(false);
@@ -294,6 +293,7 @@ export default function Layout() {
   const [module, setModule]                       = useState<Record<ModuleKey, boolean> | null>(null);
   const [toast, setToast]                         = useState<string | null>(null);
   const [pwModalOffen, setPwModalOffen]           = useState(false);
+  const [ueberOffen, setUeberOffen]               = useState(false);
   const [inaktivitaetMinuten, setInaktivitaetMinuten] = useState(0);
   const prevCounts = useRef({ inbox: 0, nachrichten: 0, aufgaben: 0 });
   const ersterLauf = useRef(true);
@@ -696,11 +696,19 @@ export default function Layout() {
           )}
         </nav>
 
+        <button
+          onClick={() => setUeberOffen(true)}
+          className="shrink-0 px-4 py-2.5 text-left text-[11px] border-t transition-opacity opacity-70 hover:opacity-100"
+          style={{ borderColor: "rgba(255,255,255,0.08)", color: "rgb(var(--sidebar-text-muted))" }}
+        >
+          Über BR-DMS · Open Source (AGPL)
+        </button>
       </aside>
 
       {pwModalOffen && (
         <PasswortAendernModal onSchliessen={() => setPwModalOffen(false)} />
       )}
+      {ueberOffen && <UeberModal onSchliessen={() => setUeberOffen(false)} />}
 
       {/* Mobile Overlay */}
       {mobileOffen && (

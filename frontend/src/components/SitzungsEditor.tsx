@@ -156,7 +156,7 @@ export default function SitzungsEditor({
       // UNC-Pfad aus der Explorer-Adressleiste kopiert (\\server\freigabe\...) – in das
       // brdmsfile://-Protokoll umwandeln. file:// wird von Browsern für Netzwerkfreigaben
       // blockiert (SMB/NTLM-Schutz, siehe tools/brdmsfile-protokoll/), brdmsfile:// läuft
-      // stattdessen über den lokal installierten Handler (wie die bekannten lbo://-Links).
+      // stattdessen über den lokal installierten Handler (wie andere interne Protokoll-Links, z.B. lbo://).
       if (/^\\\\/.test(url)) url = "brdmsfile:" + url.replace(/\\/g, "/");
       // Nur https voranstellen wenn überhaupt kein Protokoll angegeben (z.B. nicht lbo://, ftp://, mailto:)
       else if (!/^[a-zA-Z][a-zA-Z0-9+\-.]*:\/?\/?/i.test(url)) url = "https://" + url;

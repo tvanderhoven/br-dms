@@ -95,12 +95,12 @@ function pdfText(s: string | null | undefined): string {
   if (!s) return "";
   return s
     // Windows/Mac-Zeilenenden (\r\n bzw. einzelnes \r – z.B. aus Copy&Paste
-    // aus dem alten lbofficem-System) zu \n vereinheitlichen. Ein rohes \r
+    // aus Altsystemen) zu \n vereinheitlichen. Ein rohes \r
     // bringt PDFKits automatischen Zeilenumbruch durcheinander und erzeugt
     // direkt danach Zufalls-Glyphen statt eines sauberen Umbruchs.
     .replace(/\r\n?/g, "\n")
-    // Tabs & Form-Feeds (typische Copy&Paste-Reste aus dem alten lbofficem-
-    // System, z.B. "-\tBR-Seminar ...") zu einem normalen Leerzeichen
+    // Tabs & Form-Feeds (typische Copy&Paste-Reste aus Altsystemen,
+    // z.B. "-\tBR-Seminar ...") zu einem normalen Leerzeichen
     // zusammenfassen. Weder Helvetica noch DejaVu haben dafür eine Glyphe –
     // PDFKit rendert an der Stelle sonst Zufalls-Zeichen statt einfach
     // nichts darzustellen (Browser kollabieren Tabs automatisch zu einem

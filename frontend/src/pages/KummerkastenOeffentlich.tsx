@@ -120,6 +120,7 @@ export default function KummerkastenOeffentlich() {
 
         <p className="text-center text-xs text-gray-300 mt-6">
           <Link to="/login" className="hover:text-gray-400 hover:underline">Für BR-Mitglieder: Anmelden</Link>
+          {" · "}BR-DMS · Open Source (AGPL-3.0)
         </p>
       </div>
     </div>
