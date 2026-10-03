@@ -27,6 +27,7 @@ import KummerkastenVerwaltung from "./pages/KummerkastenVerwaltung";
 import Betriebsvereinbarungen from "./pages/Betriebsvereinbarungen";
 import Schulungen from "./pages/Schulungen";
 import Layout from "./components/Layout";
+import { useDesign } from "./lib/useDesign";
 
 function tokenGueltig(): boolean {
   const t = localStorage.getItem("brdms_token");
@@ -51,6 +52,8 @@ function geschuetzt(element: React.ReactElement) {
 }
 
 export default function App() {
+  // Gespeichertes Design (Einstellungen → Design) auf allen Seiten, auch vor dem Login
+  useDesign();
   return (
     <Routes>
       {/* Öffentlich, kein Login, kein Layout – Startseite für die Belegschaft */}

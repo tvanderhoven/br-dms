@@ -234,9 +234,10 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
   type DesignKey = keyof typeof DESIGN_DEFAULTS;
   const DESIGN_KEYS = Object.keys(DESIGN_DEFAULTS) as DesignKey[];
 
+  // Bewusst ohne Login: enthält nur Farben/Schriftgröße und wird schon auf
+  // Login- und Kummerkasten-Seite gebraucht, damit dort dasselbe Design gilt.
   app.get(
     "/design",
-    { preHandler: [authenticate] },
     async (_request: FastifyRequest, reply: FastifyReply) => {
       const einstellungen = await prisma.systemEinstellung.findMany({
         where: { schluessel: { startsWith: "design." } },

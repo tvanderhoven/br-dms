@@ -17,6 +17,8 @@ const FRIST_LABEL: Record<string, string> = {
   ANHOERUNG_102_ORDENTLICH:       "Anhörungsfrist § 102 ordentlich (1 Woche)",
   ANHOERUNG_102_AUSSERORDENTLICH: "Anhörungsfrist § 102 außerordentlich (3 Tage)",
   WIDERSPRUCH:                    "Widerspruchsfrist § 99/102 (1 Woche)",
+  ZEITMODELL_87_WOCHE:            "Mitbestimmung § 87 (1 Woche)",
+  BENUTZERDEFINIERT:              "Individuelle Frist",
 };
 
 // ── Stat-Karte ────────────────────────────────────────────────────
