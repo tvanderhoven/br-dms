@@ -4,6 +4,7 @@ import PDFDocument from "pdfkit";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
+import { FRIST_TYP_LABEL } from "../lib/fristen.js";
 
 const KATEGORIE_LABEL: Record<string, string> = {
   ANHOERUNG_99:         "§ 99 Anhörung",
@@ -14,13 +15,6 @@ const KATEGORIE_LABEL: Record<string, string> = {
   SONSTIGES:            "Sonstiges",
 };
 
-const FRIST_TYP_LABEL: Record<string, string> = {
-  ANHOERUNG_99_WOCHE:            "§ 99 (1 Woche)",
-  ANHOERUNG_102_ORDENTLICH:      "§ 102 ordentl.",
-  ANHOERUNG_102_AUSSERORDENTLICH:"§ 102 außerordentl.",
-  WIDERSPRUCH:                   "Widerspruch",
-  BENUTZERDEFINIERT:             "Benutzerdefiniert",
-};
 
 function pdfBuffer(cb: (doc: InstanceType<typeof PDFDocument>) => void): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -41,7 +35,7 @@ export async function exportRouten(app: FastifyInstance): Promise<void> {
     "/amtsuebergabe",
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (_request: FastifyRequest, reply: FastifyReply) => {
-      const [dokumente, beschluesse, benutzerListe] = await Promise.all([
+      const [dokumente, beschluesse, benutzerListe, fristenOhneDokument] = await Promise.all([
         prisma.dokument.findMany({
           where:   { status: { not: DokumentStatus.GELOESCHT } },
           include: { fristen: true, hochgeladenVon: { select: { name: true } } },
@@ -64,6 +58,10 @@ export async function exportRouten(app: FastifyInstance): Promise<void> {
           where:   { aktiv: true },
           select:  { name: true, email: true, rolle: true },
           orderBy: { name: "asc" },
+        }),
+        prisma.frist.findMany({
+          where:   { dokumentId: null, status: "OFFEN" },
+          orderBy: { faelligAm: "asc" },
         }),
       ]);
 
@@ -113,6 +111,16 @@ export async function exportRouten(app: FastifyInstance): Promise<void> {
           ).join(", ");
           doc.fontSize(9).font("Helvetica")
             .text(`${titel}${az}${frist ? `  |  ⏰ ${frist}` : ""}  [${d.status}]`, { indent: 20 });
+        }
+        if (fristenOhneDokument.length > 0) {
+          doc.moveDown(0.3);
+          doc.fontSize(10).font("Helvetica-Bold").text("Offene Fristen ohne Dokument", { indent: 10 });
+          for (const f of fristenOhneDokument) {
+            doc.fontSize(9).font("Helvetica").text(
+              `${f.bezeichnung ?? FRIST_TYP_LABEL[f.typ] ?? f.typ} – fällig ${new Date(f.faelligAm).toLocaleDateString("de-DE")}`,
+              { indent: 20 },
+            );
+          }
         }
         doc.moveDown(1.5);
 

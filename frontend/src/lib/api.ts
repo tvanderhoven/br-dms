@@ -391,6 +391,10 @@ export const api = {
       gesendetAn: string[];
       fehlgeschlagenAn: { email: string; fehler: string }[];
     }>("/api/fristen/erinnerung-testen", { method: "POST" }),
+    erstellen: (data: { bezeichnung?: string; faelligAm: string; typ?: string; dokumentId?: string; notiz?: string }) =>
+      request<FristMitDokument>("/api/fristen", { method: "POST", body: JSON.stringify(data) }),
+    aktualisieren: (id: string, data: { bezeichnung?: string; faelligAm?: string; notiz?: string; erledigt?: boolean }) =>
+      request<FristMitDokument>(`/api/fristen/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     loeschen: (id: string) => request<{ ok: boolean }>(`/api/fristen/${id}`, { method: "DELETE" }),
   },
 
@@ -552,11 +556,29 @@ export interface FristMitDokument {
   typ: string;
   status: string;
   faelligAm: string;
-  bezeichnung?: string;
-  erledigtAm?: string;
+  bezeichnung?: string | null;
+  notiz?: string | null;
+  erledigtAm?: string | null;
   erledigtVon?: { name: string } | null;
   erstelltAm: string;
-  dokument: { id: string; titel: string; alias?: string; kategorie: Kategorie; aktenzeichen?: string };
+  // null = Frist ohne Dokument (z. B. Wahl, Betriebsversammlung, manuell angelegt)
+  dokument: { id: string; titel: string; alias?: string; kategorie: Kategorie; aktenzeichen?: string } | null;
+}
+
+export const FRIST_TYP_LABEL: Record<string, string> = {
+  ANHOERUNG_99_WOCHE:             "Anhörung § 99 (1 Woche)",
+  ANHOERUNG_102_ORDENTLICH:       "Anhörung § 102 ordentlich (1 Woche)",
+  ANHOERUNG_102_AUSSERORDENTLICH: "Anhörung § 102 außerordentlich (3 Tage)",
+  ZEITMODELL_87_WOCHE:            "Mitbestimmung § 87 (1 Woche)",
+  WIDERSPRUCH:                    "Widerspruch § 99/102 (1 Woche)",
+  BENUTZERDEFINIERT:              "Individuelle Frist",
+};
+
+/** Anzeigename einer Frist: eigene Bezeichnung, sonst Dokumenttitel, sonst Fristtyp. */
+export function fristTitel(f: Pick<FristMitDokument, "typ" | "bezeichnung" | "dokument">): string {
+  return f.bezeichnung?.trim()
+    || (f.dokument ? (f.dokument.alias ?? f.dokument.titel) : "")
+    || (FRIST_TYP_LABEL[f.typ] ?? f.typ);
 }
 
 export interface BeschlussRegisterEintrag {

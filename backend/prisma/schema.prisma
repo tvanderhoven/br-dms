@@ -367,17 +367,22 @@ model DokumentVersion {
 
 model Frist {
   id             String      @id @default(uuid())
-  dokumentId     String      @map("dokument_id")
-  dokument       Dokument    @relation(fields: [dokumentId], references: [id], onDelete: Cascade)
+  // Optional: Fristen können auch ohne Dokument existieren (z. B. Wahl,
+  // Betriebsversammlung, ASA) – dann trägt "bezeichnung" den Titel.
+  dokumentId     String?     @map("dokument_id")
+  dokument       Dokument?   @relation(fields: [dokumentId], references: [id], onDelete: Cascade)
 
   typ            FristTyp
   status         FristStatus @default(OFFEN)
   faelligAm      DateTime    @map("faellig_am")
   bezeichnung    String?
+  notiz          String?
 
   erledigtAm     DateTime?   @map("erledigt_am")
   erledigtVonId  String?     @map("erledigt_von_id")
   erledigtVon    Benutzer?   @relation("ErlegigtVon", fields: [erledigtVonId], references: [id])
+
+  erstelltVonId  String?     @map("erstellt_von_id")
 
   erstelltAm     DateTime    @default(now()) @map("erstellt_am")
 

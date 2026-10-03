@@ -1,6 +1,7 @@
 import { PrismaClient, FristStatus, Role } from "@prisma/client";
 import cron from "node-cron";
 import { sendeFristenZusammenfassung } from "../lib/mailer.js";
+import { fristTitel } from "../lib/fristen.js";
 
 export interface FristenWorkerErgebnis {
   fristenAnzahl: number;
@@ -22,6 +23,8 @@ export class FristenWorker {
         where: {
           status: FristStatus.OFFEN,
           faelligAm: { gte: jetzt, lte: in7Tagen },
+          // Fristen gelöschter Dokumente nicht mehr melden; Fristen ohne Dokument schon
+          OR: [{ dokumentId: null }, { dokument: { status: { not: "GELOESCHT" } } }],
         },
         include: {
           dokument: { select: { titel: true, alias: true } },
@@ -45,7 +48,7 @@ export class FristenWorker {
       }
 
       const payload = fristen.map(f => ({
-        dokumentTitel: f.dokument.alias ?? f.dokument.titel,
+        titel: fristTitel(f),
         typ: f.typ,
         faelligAm: f.faelligAm,
         tageVerbleibend: Math.max(0, Math.ceil((f.faelligAm.getTime() - jetzt.getTime()) / 86_400_000)),

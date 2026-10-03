@@ -1,25 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   AlertTriangle, Clock, CheckCircle, FileText, Inbox,
   CalendarDays, FolderInput, XCircle, ClipboardList,
 } from "lucide-react";
-import { api, Dokument, Frist, SitzungListItem, Aufgabe, WatchfolderLogEintrag, fristFarbe, formatDatum, KATEGORIE_LABEL } from "../lib/api";
-
-interface FristMitDokument extends Frist {
-  dokumentTitel: string;
-  dokumentId:    string;
-  kategorie:     string;
-}
-
-const FRIST_LABEL: Record<string, string> = {
-  ANHOERUNG_99_WOCHE:             "Anhörungsfrist § 99 (1 Woche)",
-  ANHOERUNG_102_ORDENTLICH:       "Anhörungsfrist § 102 ordentlich (1 Woche)",
-  ANHOERUNG_102_AUSSERORDENTLICH: "Anhörungsfrist § 102 außerordentlich (3 Tage)",
-  WIDERSPRUCH:                    "Widerspruchsfrist § 99/102 (1 Woche)",
-  ZEITMODELL_87_WOCHE:            "Mitbestimmung § 87 (1 Woche)",
-  BENUTZERDEFINIERT:              "Individuelle Frist",
-};
+import { api, Dokument, FristMitDokument, SitzungListItem, Aufgabe, WatchfolderLogEintrag, fristFarbe, formatDatum, KATEGORIE_LABEL, FRIST_TYP_LABEL, fristTitel } from "../lib/api";
 
 // ── Stat-Karte ────────────────────────────────────────────────────
 function StatKarte({ icon, titel, wert, sub, farbe, href }: {
@@ -51,6 +36,8 @@ export default function Dashboard() {
   const [sitzungen, setSitzungen] = useState<SitzungListItem[]>([]);
   const [aufgaben, setAufgaben]   = useState<Aufgabe[]>([]);
   const [watchLog, setWatchLog]   = useState<WatchfolderLogEintrag[]>([]);
+  const [alleFristen, setAlleFristen] = useState<FristMitDokument[]>([]);
+  const navigate = useNavigate();
   const [laden, setLaden]         = useState(true);
   const [meinVorname, setMeinVorname] = useState("");
 
@@ -61,7 +48,10 @@ export default function Dashboard() {
       api.sitzungen.liste(),
       api.aufgaben.liste().catch(() => [] as Aufgabe[]),
       api.watchfolder.log().catch(() => [] as WatchfolderLogEintrag[]),
-    ]).then(([docs, inbox, sits, aufg, wlog]) => {
+      // Direkt aus der Fristen-API, damit auch Fristen ohne Dokument erscheinen
+      api.fristen.liste({ status: "OFFEN" }).catch(() => [] as FristMitDokument[]),
+    ]).then(([docs, inbox, sits, aufg, wlog, fristen]) => {
+      setAlleFristen(fristen);
       setDokumente(docs);
       setInboxDoks(inbox);
       setSitzungen(sits);
@@ -71,11 +61,14 @@ export default function Dashboard() {
     api.auth.me().then(b => setMeinVorname(b.name.split(" ")[0])).catch(() => {});
   }, []);
 
-  const alleFristen: FristMitDokument[] = dokumente.flatMap(d =>
-    (d.fristen ?? [])
-      .filter(f => f.status === "OFFEN")
-      .map(f => ({ ...f, dokumentTitel: d.titel, dokumentId: d.id, kategorie: d.kategorie }))
-  ).sort((a, b) => new Date(a.faelligAm).getTime() - new Date(b.faelligAm).getTime());
+  async function fristErledigen(id: string) {
+    try {
+      await api.fristen.aktualisieren(id, { erledigt: true });
+      setAlleFristen(prev => prev.filter(f => f.id !== id));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Speichern fehlgeschlagen");
+    }
+  }
 
   const tageVergangen = (iso: string) =>
     Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000);
@@ -199,17 +192,29 @@ export default function Dashboard() {
               {alleFristen.slice(0, 10).map(f => {
                 const tage = tageVergangen(f.faelligAm);
                 return (
-                  <li key={f.id} className="px-5 py-3 hover:bg-gray-50 transition-colors">
+                  <li key={f.id} className="px-5 py-3 hover:bg-gray-50 transition-colors group">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <Link to="/dokumente" className="text-sm font-medium text-gray-900 hover:text-[rgb(var(--accent))] truncate block">
-                          {f.dokumentTitel}
-                        </Link>
-                        <p className="text-xs text-gray-400 mt-0.5">{FRIST_LABEL[f.typ] ?? f.typ}</p>
+                        <button
+                          onClick={() => f.dokument ? navigate("/dokumente", { state: { markiere: f.dokument.id } }) : navigate("/fristen")}
+                          className="text-left text-sm font-medium text-gray-900 hover:text-[rgb(var(--accent))] truncate block max-w-full"
+                        >
+                          {fristTitel(f)}
+                        </button>
+                        <p className="text-xs text-gray-400 mt-0.5">{FRIST_TYP_LABEL[f.typ] ?? f.typ}</p>
                       </div>
-                      <span className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full border ${fristFarbe(f.faelligAm)}`}>
-                        {tage < 0 ? `${Math.abs(tage)}T übf.` : tage === 0 ? "Heute" : `${tage}T`}
-                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => fristErledigen(f.id)}
+                          title="Als erledigt markieren"
+                          className="text-gray-300 hover:text-green-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <CheckCircle size={15} />
+                        </button>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${fristFarbe(f.faelligAm)}`}>
+                          {tage < 0 ? `${Math.abs(tage)}T übf.` : tage === 0 ? "Heute" : `${tage}T`}
+                        </span>
+                      </div>
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5">{formatDatum(f.faelligAm)}</p>
                   </li>

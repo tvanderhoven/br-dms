@@ -955,6 +955,19 @@ async function main() {
     where: { typ: { in: ["TAGESORDNUNG_FIXIERT", "PROTOKOLL_FINAL"] } },
   });
   for (const v of versionen) {
+  // ── Fristen ohne Dokument (Wahl, Betriebsversammlung, Erinnerungen) ──
+  await prisma.frist.createMany({
+    data: [
+      { typ: FristTyp.BENUTZERDEFINIERT, bezeichnung: "Aushang Einladung Betriebsversammlung Q4", faelligAm: tage(9),
+        notiz: "Spätestens zwei Wochen vor der Versammlung aushängen, Tagesordnung mit GF abstimmen.", erstelltVonId: vorsitz },
+      { typ: FristTyp.BENUTZERDEFINIERT, bezeichnung: "Tätigkeitsbericht für die Betriebsversammlung fertigstellen", faelligAm: tage(19), erstelltVonId: vorsitz },
+      { typ: FristTyp.BENUTZERDEFINIERT, bezeichnung: "BV Videoüberwachung: Verlängerung verhandeln", faelligAm: tage(60),
+        notiz: "BV läuft befristet aus – Gespräch mit GF rechtzeitig terminieren.", erstelltVonId: stv },
+      { typ: FristTyp.BENUTZERDEFINIERT, bezeichnung: "JAV-Wahl: Wahlvorstand bestellen", faelligAm: tage(-21),
+        status: "ERLEDIGT", erledigtAm: tage(-24), erledigtVonId: vorsitz, erstelltVonId: vorsitz },
+    ],
+  });
+
     await pdfAutomatischGenerieren(v.sitzungId, v.id, v.versionNummer, v.typ, v.erstelltAm, v.finalisiertAm);
   }
   console.log(`[Demo] ${versionen.length} Sitzungs-PDFs erzeugt`);

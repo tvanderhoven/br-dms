@@ -1,14 +1,10 @@
-import { useState, useEffect, useMemo } from "react";
-import { CalendarRange, ChevronLeft, ChevronRight, AlertTriangle, Clock, CheckCircle2, Trash2 } from "lucide-react";
-import { api, FristMitDokument, KATEGORIE_LABEL, formatDatum } from "../lib/api";
+import { useState, useEffect, useMemo, FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { CalendarRange, ChevronLeft, ChevronRight, AlertTriangle, Clock, CheckCircle2, Trash2, Plus, X, Loader2, RotateCcw, FileText } from "lucide-react";
+import { api, FristMitDokument, KATEGORIE_LABEL, FRIST_TYP_LABEL, fristTitel, formatDatum } from "../lib/api";
 
-const FRIST_TYP_LABEL: Record<string, string> = {
-  ANHOERUNG_99_WOCHE:            "§ 99 (1 Wo.)",
-  ANHOERUNG_102_ORDENTLICH:      "§ 102 ordentl.",
-  ANHOERUNG_102_AUSSERORDENTLICH:"§ 102 a.o.",
-  WIDERSPRUCH:                   "Widerspruch",
-  BENUTZERDEFINIERT:             "Benutzerdefiniert",
-};
+const istUeberfaellig = (f: FristMitDokument) =>
+  f.status === "OFFEN" && new Date(f.faelligAm).getTime() < new Date().setHours(0, 0, 0, 0);
 
 function tagFarbe(faelligAm: string, status: string): string {
   if (status === "ERLEDIGT")  return "bg-green-100 text-green-800 border-green-200";
@@ -36,6 +32,8 @@ export default function Fristenkalender() {
   const [fristen, setFristen] = useState<FristMitDokument[]>([]);
   const [laden,   setLaden]   = useState(true);
   const [ausgewaehltTag, setAusgewaehltTag] = useState<number | null>(null);
+  const [neuOffen, setNeuOffen] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const von = new Date(jahr, monat, 1).toISOString().slice(0, 10);
@@ -79,13 +77,38 @@ export default function Fristenkalender() {
 
   async function fristLoeschen(id: string) {
     if (!confirm("Diese Frist wirklich löschen? (z.B. weil beim Upload die falsche Kündigungsart gewählt wurde)")) return;
-    await api.fristen.loeschen(id);
-    setFristen(prev => prev.filter(f => f.id !== id));
+    try {
+      await api.fristen.loeschen(id);
+      setFristen(prev => prev.filter(f => f.id !== id));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Löschen fehlgeschlagen");
+    }
   }
 
-  const offene   = fristen.filter(f => f.status === "OFFEN").length;
+  async function erledigtUmschalten(f: FristMitDokument) {
+    try {
+      const neu = await api.fristen.aktualisieren(f.id, { erledigt: f.status !== "ERLEDIGT" });
+      setFristen(prev => prev.map(x => x.id === f.id ? neu : x));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Speichern fehlgeschlagen");
+    }
+  }
+
+  function fristAngelegt(f: FristMitDokument) {
+    setNeuOffen(false);
+    const d = new Date(f.faelligAm);
+    if (d.getMonth() === monat && d.getFullYear() === jahr) {
+      setFristen(prev => [...prev, f].sort((a, b) => a.faelligAm.localeCompare(b.faelligAm)));
+    } else {
+      setMonat(d.getMonth());
+      setJahr(d.getFullYear());
+    }
+  }
+
+  // "Überfällig" ergibt sich aus dem Datum – der Status bleibt OFFEN, bis jemand die Frist erledigt
+  const ueberfaellig = fristen.filter(istUeberfaellig).length;
+  const offene   = fristen.filter(f => f.status === "OFFEN").length - ueberfaellig;
   const erledigt = fristen.filter(f => f.status === "ERLEDIGT").length;
-  const abgelaufen = fristen.filter(f => f.status === "ABGELAUFEN").length;
 
   return (
     <div className="p-6">
@@ -94,10 +117,16 @@ export default function Fristenkalender() {
         <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgb(var(--accent) / 0.1)" }}>
           <CalendarRange className="w-5 h-5" style={{ color: "rgb(var(--accent))" }} />
         </div>
-        <div>
+        <div className="flex-1">
           <h1 className="text-xl font-bold text-gray-900">Fristenkalender</h1>
           <p className="text-sm text-gray-500">Übersicht aller Fristen im Monatsraster</p>
         </div>
+        <button
+          onClick={() => setNeuOffen(true)}
+          className="flex items-center gap-1.5 bg-accent hover:brightness-90 text-white text-sm font-medium px-4 py-2 rounded-lg shadow-sm transition-all"
+        >
+          <Plus size={15} /> Neue Frist
+        </button>
       </div>
 
       {/* Statistik */}
@@ -105,7 +134,7 @@ export default function Fristenkalender() {
         {[
           { icon: <Clock className="w-4 h-4" />, label: "Offen",     wert: offene,    farbe: "text-amber-600 bg-amber-50 border-amber-200" },
           { icon: <CheckCircle2 className="w-4 h-4" />, label: "Erledigt", wert: erledigt, farbe: "text-green-600 bg-green-50 border-green-200" },
-          { icon: <AlertTriangle className="w-4 h-4" />, label: "Abgelaufen", wert: abgelaufen, farbe: "text-red-600 bg-red-50 border-red-200" },
+          { icon: <AlertTriangle className="w-4 h-4" />, label: "Überfällig", wert: ueberfaellig, farbe: "text-red-600 bg-red-50 border-red-200" },
         ].map(s => (
           <div key={s.label} className={`flex items-center gap-3 p-3 rounded-xl border ${s.farbe}`}>
             {s.icon}
@@ -196,30 +225,51 @@ export default function Fristenkalender() {
             ) : (
               <ul className="divide-y divide-gray-100">
                 {(ausgewaehltTag ? ausgewaehlteFristen : fristen).map(f => (
-                  <li key={f.id} className="px-4 py-3 group relative">
+                  <li key={f.id} className={`px-4 py-3 group relative ${f.status === "ERLEDIGT" ? "opacity-60" : ""}`}>
                     <div className="flex items-start justify-between gap-2">
                       <div className={`inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded border mb-1 ${tagFarbe(f.faelligAm, f.status)}`}>
                         {FRIST_TYP_LABEL[f.typ] ?? f.typ}
                       </div>
-                      <button
-                        onClick={() => fristLoeschen(f.id)}
-                        title="Frist löschen"
-                        className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => erledigtUmschalten(f)}
+                          title={f.status === "ERLEDIGT" ? "Wieder öffnen" : "Als erledigt markieren"}
+                          className={f.status === "ERLEDIGT" ? "text-gray-400 hover:text-gray-700" : "text-gray-300 hover:text-green-600"}
+                        >
+                          {f.status === "ERLEDIGT" ? <RotateCcw size={14} /> : <CheckCircle2 size={15} />}
+                        </button>
+                        <button
+                          onClick={() => fristLoeschen(f.id)}
+                          title="Frist löschen"
+                          className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     </div>
-                    <p className="text-sm font-medium text-gray-800 leading-snug truncate">
-                      {f.dokument.alias ?? f.dokument.titel}
+                    <p className={`text-sm font-medium text-gray-800 leading-snug ${f.status === "ERLEDIGT" ? "line-through" : ""}`}>
+                      {fristTitel(f)}
                     </p>
-                    {f.dokument.aktenzeichen && (
-                      <p className="text-xs text-gray-400">AZ: {f.dokument.aktenzeichen}</p>
+                    {f.dokument && (
+                      <button
+                        onClick={() => navigate("/dokumente", { state: { markiere: f.dokument!.id } })}
+                        className="flex items-center gap-1 text-xs text-gray-500 hover:text-accent mt-0.5 max-w-full"
+                        title="Dokument öffnen"
+                      >
+                        <FileText size={11} className="shrink-0" />
+                        <span className="truncate">
+                          {f.bezeichnung ? (f.dokument.alias ?? f.dokument.titel) : KATEGORIE_LABEL[f.dokument.kategorie]}
+                          {f.dokument.aktenzeichen && ` · AZ ${f.dokument.aktenzeichen}`}
+                        </span>
+                      </button>
                     )}
+                    {f.notiz && <p className="text-xs text-gray-500 mt-0.5 whitespace-pre-line">{f.notiz}</p>}
                     <p className="text-xs text-gray-400 mt-0.5">
-                      {formatDatum(f.faelligAm)} · {KATEGORIE_LABEL[f.dokument.kategorie]}
+                      {formatDatum(f.faelligAm)}
+                      {istUeberfaellig(f) && <span className="text-red-600 font-medium"> · überfällig</span>}
                     </p>
                     {f.status === "ERLEDIGT" && f.erledigtVon && (
-                      <p className="text-xs text-green-600 mt-0.5">✓ {f.erledigtVon.name}</p>
+                      <p className="text-xs text-green-600 mt-0.5">✓ {f.erledigtVon.name}{f.erledigtAm && `, ${formatDatum(f.erledigtAm)}`}</p>
                     )}
                   </li>
                 ))}
@@ -228,6 +278,71 @@ export default function Fristenkalender() {
           </div>
         </div>
       </div>
+
+      {neuOffen && <NeueFristModal onSchliessen={() => setNeuOffen(false)} onAngelegt={fristAngelegt} />}
+    </div>
+  );
+}
+
+// ── Neue Frist ohne Dokument (z. B. Wahl, Betriebsversammlung, Erinnerung) ──
+function NeueFristModal({ onSchliessen, onAngelegt }: {
+  onSchliessen: () => void;
+  onAngelegt: (f: FristMitDokument) => void;
+}) {
+  const [bezeichnung, setBezeichnung] = useState("");
+  const [faelligAm, setFaelligAm]     = useState("");
+  const [notiz, setNotiz]             = useState("");
+  const [laden, setLaden]             = useState(false);
+  const [fehler, setFehler]           = useState("");
+
+  async function speichern(e: FormEvent) {
+    e.preventDefault();
+    setLaden(true);
+    setFehler("");
+    try {
+      onAngelegt(await api.fristen.erstellen({ bezeichnung, faelligAm, notiz: notiz || undefined }));
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Speichern fehlgeschlagen");
+      setLaden(false);
+    }
+  }
+
+  const inputKlasse = "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent";
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onSchliessen}>
+      <form onSubmit={speichern} onClick={e => e.stopPropagation()} className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="font-semibold text-gray-900">Neue Frist</h2>
+          <button type="button" onClick={onSchliessen} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <p className="text-xs text-gray-500">
+            Für Fristen, die an keinem Dokument hängen – z. B. Wahltermine, Betriebsversammlung oder eine Erinnerung.
+            Fristen zu Anhörungen entstehen automatisch beim Upload.
+          </p>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Bezeichnung *</label>
+            <input value={bezeichnung} onChange={e => setBezeichnung(e.target.value)} required autoFocus
+              placeholder="z. B. Aushang Betriebsversammlung Q4" className={inputKlasse} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Fällig am *</label>
+            <input type="date" value={faelligAm} onChange={e => setFaelligAm(e.target.value)} required className={inputKlasse} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notiz</label>
+            <textarea value={notiz} onChange={e => setNotiz(e.target.value)} rows={3} className={`${inputKlasse} resize-y`} />
+          </div>
+          {fehler && <p className="text-sm text-red-600">{fehler}</p>}
+        </div>
+        <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
+          <button type="button" onClick={onSchliessen} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Abbrechen</button>
+          <button type="submit" disabled={laden}
+            className="flex items-center gap-2 bg-accent hover:brightness-90 disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            {laden && <Loader2 size={14} className="animate-spin" />} Frist anlegen
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

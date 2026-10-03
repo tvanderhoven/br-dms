@@ -1,3 +1,4 @@
+import { FRIST_TYP_LABEL } from "./fristen.js";
 import nodemailer from "nodemailer";
 
 // "||" statt "??": Docker Compose ersetzt ${SMTP_FROM} durch einen LEEREN
@@ -6,13 +7,6 @@ import nodemailer from "nodemailer";
 // String nicht als "fehlt" erkennt.
 const SMTP_FROM = process.env.SMTP_FROM || `"BR-DMS" <noreply@br-dms.lokal>`;
 
-const FRIST_TYP_LABEL: Record<string, string> = {
-  ANHOERUNG_99_WOCHE:            "§ 99 Anhörung (1 Woche)",
-  ANHOERUNG_102_ORDENTLICH:      "§ 102 ordentl. Kündigung",
-  ANHOERUNG_102_AUSSERORDENTLICH:"§ 102 außerordentl. Kündigung",
-  WIDERSPRUCH:                   "Widerspruch",
-  BENUTZERDEFINIERT:             "Benutzerdefiniert",
-};
 
 const transporter = nodemailer.createTransport({
   host:   process.env.SMTP_HOST!,
@@ -114,14 +108,14 @@ export async function sendeAblaufZusammenfassung(
 export async function sendeFristenZusammenfassung(
   email: string,
   name: string,
-  fristen: Array<{ dokumentTitel: string; typ: string; faelligAm: Date; tageVerbleibend: number }>
+  fristen: Array<{ titel: string; typ: string; faelligAm: Date; tageVerbleibend: number }>
 ): Promise<void> {
   const appUrl = process.env.APP_URL ?? "http://localhost:3000";
 
   const zeilen = fristen.map(f => {
     const farbe = f.tageVerbleibend <= 3 ? "#dc2626" : "#d97706";
     return `<tr>
-      <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">${f.dokumentTitel}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">${f.titel}</td>
       <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">${FRIST_TYP_LABEL[f.typ] ?? f.typ}</td>
       <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:${farbe};font-weight:bold">${f.tageVerbleibend} Tag(e)</td>
       <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">${new Date(f.faelligAm).toLocaleDateString("de-DE")}</td>
@@ -133,7 +127,7 @@ export async function sendeFristenZusammenfassung(
     to:      email,
     subject: `BR-DMS – ${fristen.length} Frist(en) laufen in 7 Tagen ab`,
     text:    fristen.map(f =>
-      `${f.dokumentTitel} – ${FRIST_TYP_LABEL[f.typ] ?? f.typ} – fällig in ${f.tageVerbleibend} Tag(en) (${new Date(f.faelligAm).toLocaleDateString("de-DE")})`
+      `${f.titel} – ${FRIST_TYP_LABEL[f.typ] ?? f.typ} – fällig in ${f.tageVerbleibend} Tag(en) (${new Date(f.faelligAm).toLocaleDateString("de-DE")})`
     ).join("\n"),
     html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
       <div style="background:#1e3a8a;color:white;padding:16px 20px;border-radius:8px 8px 0 0">
@@ -145,7 +139,7 @@ export async function sendeFristenZusammenfassung(
         <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb">
           <thead>
             <tr style="background:#dbeafe">
-              <th style="padding:10px 12px;text-align:left;font-size:12px;color:#1e40af">Dokument</th>
+              <th style="padding:10px 12px;text-align:left;font-size:12px;color:#1e40af">Frist</th>
               <th style="padding:10px 12px;text-align:left;font-size:12px;color:#1e40af">Fristtyp</th>
               <th style="padding:10px 12px;text-align:left;font-size:12px;color:#1e40af">Verbleibend</th>
               <th style="padding:10px 12px;text-align:left;font-size:12px;color:#1e40af">Fällig am</th>
