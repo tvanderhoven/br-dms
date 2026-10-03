@@ -71,7 +71,7 @@ services:
       WATCH_FOLDER_ENABLED: ${WATCH_FOLDER_ENABLED:-false}
       WATCH_INBOX_PATH:     ${WATCH_INBOX_PATH:-}
       SYSTEM_USER_ID:       ${SYSTEM_USER_ID:-}
-      # Nur fuer "npx prisma db seed" relevant (legt den ersten Admin-Account an)
+      # Erster Admin-Account – wird beim ersten Start angelegt, solange es noch keinen Benutzer gibt
       ADMIN_EMAIL:          ${ADMIN_EMAIL:-admin@br-dms.lokal}
       ADMIN_PASSWORD:       ${ADMIN_PASSWORD:-ChangeMe123!}
     volumes:

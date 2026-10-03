@@ -1,182 +1,117 @@
 #!/usr/bin/env python3
 """
 deploy_komplett.py
-Uebertraegt ALLE Quelldateien des BR-DMS auf das NAS per SSH-Pipe.
-Ziel und Pfad werden aus der lokalen .env gelesen.
+Uebertraegt alle Quelldateien aus deploy_dateien.txt per SSH auf den Host –
+plattformunabhaengig, ohne tar (der Host braucht nur python3 >= 3.8).
+Ziel und Pfad kommen aus .env.deploy (siehe _deploy_config.py).
 
 Aufruf:
-  python3 deploy_komplett.py
-  python3 deploy_komplett.py 192.168.1.100   # Host ueberschreiben
+  python3 deploy_komplett.py                    uebertragen
+  python3 deploy_komplett.py --trocken          nur anzeigen, was uebertragen wuerde
+  python3 deploy_komplett.py --bauen            uebertragen und direkt neu bauen/starten
+  python3 deploy_komplett.py 192.168.1.100      Host ueberschreiben (kombinierbar)
 """
 import base64, os, subprocess, sys, textwrap
 
-# ── Config aus .env ───────────────────────────────────────────────────────────
-from _deploy_config import NAS_USER, NAS_HOST as _NAS_HOST, DATA_PATH
+from _deploy_config import NAS_USER, NAS_HOST as _NAS_HOST, DATA_PATH, DOCKER_BIN, lies_dateiliste
 
-NAS_HOST = sys.argv[1] if len(sys.argv) > 1 else _NAS_HOST
+argumente = [a for a in sys.argv[1:] if not a.startswith("--")]
+schalter  = {a for a in sys.argv[1:] if a.startswith("--")}
+if schalter - {"--trocken", "--bauen"}:
+    sys.exit(__doc__)
+
+NAS_HOST = argumente[0] if argumente else _NAS_HOST
 NAS_BASE = DATA_PATH
 ZIEL     = f"{NAS_USER}@{NAS_HOST}"
 ROOT     = os.path.dirname(os.path.abspath(__file__))
+COMPOSE  = f"sudo {DOCKER_BIN} compose -f {NAS_BASE}/docker-compose.yml"
 
-# ── Dateien einsammeln ────────────────────────────────────────────────────────
-# Verzeichnisse: alles darin rekursiv
-SCAN_DIRS = [
-    "backend/src",
-    "backend/prisma",
-    "frontend/src",
-]
-
-# Einzelne Dateien (Konfiguration, Dockerfiles, usw.)
-EINZEL = [
-    "docker-compose.yml",
-    "start.sh",
-    "backup.sh",
-    "restore.sh",
-    ".env.example",
-    "backend/Dockerfile",
-    "backend/docker-entrypoint.sh",
-    "backend/package.json",
-    "backend/tsconfig.json",
-    "frontend/Dockerfile",
-    "frontend/package.json",
-    "frontend/index.html",
-    "frontend/nginx.conf",
-    "frontend/tailwind.config.js",
-    "frontend/postcss.config.js",
-    "frontend/tsconfig.json",
-    "frontend/vite.config.ts",
-    "proxy/nginx.conf",
-    "proxy/generate-selfsigned-cert.sh",
-]
-
-# Erweiterungen die beim Scan beruecksichtigt werden
-ERLAUBTE_EXT = {".ts", ".tsx", ".js", ".json", ".prisma", ".css", ".html", ".sh", ".conf"}
-
-# Dateien / Muster die NIEMALS uebertragen werden
-AUSSCHLUSS = {"package-lock.json", ".env", ".env.local"}
+# Wird nie uebertragen, auch wenn es in einem gelisteten Ordner liegt
+AUSSCHLUSS_ORDNER = {"node_modules", "dist", "__pycache__"}
+AUSSCHLUSS_DATEI  = {".env", ".env.local"}
 
 
-def sammle_dateien():
+def sammle_dateien(eintraege):
     dateien = []
-
-    # Verzeichnisse rekursiv scannen
-    for scandir in SCAN_DIRS:
-        abs_dir = os.path.join(ROOT, scandir)
-        if not os.path.isdir(abs_dir):
-            continue
-        for dirpath, _, filenames in os.walk(abs_dir):
-            for fname in sorted(filenames):
-                if os.path.splitext(fname)[1] not in ERLAUBTE_EXT:
-                    continue
-                if fname in AUSSCHLUSS:
-                    continue
-                abs_pfad = os.path.join(dirpath, fname)
-                rel_pfad = os.path.relpath(abs_pfad, ROOT).replace(os.sep, "/")
-                dateien.append(rel_pfad)
-
-    # Einzeldateien
-    for rel in EINZEL:
-        if rel in AUSSCHLUSS:
-            continue
+    for rel in eintraege:
         abs_pfad = os.path.join(ROOT, rel.replace("/", os.sep))
-        if os.path.isfile(abs_pfad):
+        if os.path.isdir(abs_pfad):
+            for dirpath, dirnames, filenames in os.walk(abs_pfad):
+                dirnames[:] = sorted(d for d in dirnames if d not in AUSSCHLUSS_ORDNER)
+                for fname in sorted(filenames):
+                    if fname in AUSSCHLUSS_DATEI or fname.endswith(".env"):
+                        continue
+                    dateien.append(os.path.relpath(os.path.join(dirpath, fname), ROOT).replace(os.sep, "/"))
+        elif os.path.isfile(abs_pfad):
             dateien.append(rel)
         else:
-            print(f"  ⚠  Nicht gefunden (uebersprungen): {rel}")
-
+            sys.exit(f"FEHLER: {rel} fehlt lokal (siehe deploy_dateien.txt)")
     return dateien
 
 
-# ── Python-Payload fuer das NAS bauen ────────────────────────────────────────
-def baue_payload(dateien):
+# ── Python-Payload fuer den Host bauen ───────────────────────────────────────
+def baue_payload(dateien, ersetzen):
+    # Erst alles in einen Zwischenordner schreiben; nur wenn das vollstaendig
+    # klappt, werden die markierten Ordner ersetzt – so bleibt bei einem Abbruch
+    # der alte Stand erhalten und geloeschte Dateien bleiben nicht liegen.
     lines = [
-        "import base64, os, sys",
+        "import base64, os, shutil, sys",
         f"BASE = {NAS_BASE!r}",
-        "ok = []",
-        "fehler = []",
+        "NEU  = os.path.join(BASE, '.deploy-neu')",
+        "shutil.rmtree(NEU, ignore_errors=True)",
         "",
     ]
-
     for rel in dateien:
-        abs_pfad = os.path.join(ROOT, rel.replace("/", os.sep))
-        nas_pfad = f"{NAS_BASE}/{rel}"
-
-        with open(abs_pfad, "rb") as fh:
+        with open(os.path.join(ROOT, rel.replace("/", os.sep)), "rb") as fh:
             b64 = base64.b64encode(fh.read()).decode("ascii")
-
-        chunks = textwrap.wrap(b64, 76)
-        if len(chunks) == 1:
-            b64_literal = f"    b64 = {chunks[0]!r}"
-        else:
-            b64_literal = "    b64 = (\n" + "\n".join(
-                f"        {c!r}" for c in chunks) + "\n    )"
-
-        chmod_line = ["    os.chmod(ziel, 0o755)"] if rel.endswith('.sh') else []
+        chunks = textwrap.wrap(b64, 76) or [""]
         lines += [
             f"# {rel}",
-            "try:",
-            f"    ziel = {nas_pfad!r}",
-            "    os.makedirs(os.path.dirname(ziel), exist_ok=True)",
-            b64_literal,
-            "    open(ziel, 'wb').write(base64.b64decode(b64))",
-        ] + chmod_line + [
-            f"    ok.append({rel!r})",
-            f"    print('  OK  {rel}')",
-            "except Exception as e:",
-            f"    fehler.append({rel!r})",
-            f"    print('  FEHLER  {rel}: ' + str(e), file=sys.stderr)",
-            "",
-        ]
+            f"ziel = os.path.join(NEU, {rel!r})",
+            "os.makedirs(os.path.dirname(ziel), exist_ok=True)",
+            "b64 = (\n" + "\n".join(f"    {c!r}" for c in chunks) + "\n)",
+            "open(ziel, 'wb').write(base64.b64decode(b64))",
+        ] + (["os.chmod(ziel, 0o755)"] if rel.endswith(".sh") else []) + [""]
 
-    # Abschlussmeldung + Rebuild-Befehle
-    dc = f"{NAS_BASE}/docker-compose.yml"
     lines += [
-        "print()",
-        "print('=' * 62)",
-        f"print(f'Uebertragen: {{len(ok)}} Dateien | Fehler: {{len(fehler)}}')",
-        "print('=' * 62)",
-        "",
-        "if fehler:",
-        "    print('Fehlerhafte Dateien:')",
-        "    for f in fehler: print('  - ' + f)",
-        "    sys.exit(1)",
-        "",
-        "print()",
-        "print('Naechste Schritte – Befehle auf dem NAS ausfuehren:')",
-        "print()",
-        "print('  OPTION A – Alles auf einmal (Backend + Frontend):')",
-        "print()",
-        f"print('  sudo /usr/local/bin/docker compose -f {dc} build')",
-        f"print('  sudo /usr/local/bin/docker compose -f {dc} up -d')",
-        "print()",
-        "print('  OPTION B – Nur Backend (schneller bei reinen Backend-Aenderungen):')",
-        "print()",
-        f"print('  sudo /usr/local/bin/docker compose -f {dc} build backend')",
-        f"print('  sudo /usr/local/bin/docker compose -f {dc} up -d')",
-        "print()",
-        "print('  OPTION C – Nur Frontend:')",
-        "print()",
-        f"print('  sudo /usr/local/bin/docker compose -f {dc} build --no-cache frontend')",
-        f"print('  sudo /usr/local/bin/docker compose -f {dc} up -d')",
-        "print()",
-        "print('  Logs pruefen:')",
-        "print()",
-        "print('  sudo /usr/local/bin/docker logs brdms_backend --tail 40 -f')",
-        "print('  sudo /usr/local/bin/docker logs brdms_frontend --tail 20')",
-        "print()",
-        "print('=' * 62)",
-        "print('  Backup & Restore (auf dem NAS ausfuehren):')",
-        "print('=' * 62)",
-        "print()",
-        "print('  Manuelles Backup:')",
-        f"print('  sudo bash {NAS_BASE}/backup.sh')",
-        "print()",
-        "print('  Backup wiederherstellen (interaktiv):')",
-        f"print('  sudo bash {NAS_BASE}/restore.sh')",
-        "print()",
+        f"for d in {ersetzen!r}:",
+        "    shutil.rmtree(os.path.join(BASE, d), ignore_errors=True)",
+        "shutil.copytree(NEU, BASE, dirs_exist_ok=True)",
+        "shutil.rmtree(NEU)",
+        f"print('  OK  {len(dateien)} Dateien uebertragen')",
     ]
-
     return "\n".join(lines)
+
+
+def naechste_schritte():
+    print()
+    print("=" * 62)
+    print("  Jetzt per SSH auf dem Host ausfuehren:")
+    print("=" * 62)
+    print()
+    print(f"  ssh {ZIEL}")
+    print()
+    print("  OPTION A – Alles neu bauen (Backend + Frontend):")
+    print(f"  {COMPOSE} up -d --build")
+    print()
+    print("  OPTION B – Nur Backend:")
+    print(f"  {COMPOSE} build backend && {COMPOSE} up -d")
+    print()
+    print("  OPTION C – Nur Frontend (ohne Cache):")
+    print(f"  {COMPOSE} build --no-cache frontend && {COMPOSE} up -d")
+    print()
+    print("  Logs pruefen:")
+    print(f"  sudo {DOCKER_BIN} logs brdms_backend --tail 40 -f")
+    print()
+    print("  Tipp: python3 deploy_komplett.py --bauen erledigt Uebertragung und Option A in einem Schritt.")
+    print()
+    print("=" * 62)
+    print("  Backup & Restore (auf dem Host ausfuehren):")
+    print("=" * 62)
+    print()
+    print(f"  sudo bash {NAS_BASE}/backup.sh      # manuelles Backup")
+    print(f"  sudo bash {NAS_BASE}/restore.sh     # wiederherstellen (interaktiv)")
+    print()
 
 
 # ── Hauptprogramm ─────────────────────────────────────────────────────────────
@@ -184,28 +119,39 @@ def main():
     print("=" * 62)
     print("  BR-DMS Komplett-Deploy")
     print("=" * 62)
-    print(f"  Ziel : {ZIEL}")
-    print(f"  Pfad : {NAS_BASE}")
+    print(f"  Ziel   : {ZIEL}")
+    print(f"  Pfad   : {NAS_BASE}")
+    print(f"  docker : {DOCKER_BIN}")
     print("=" * 62)
     print()
 
-    dateien = sammle_dateien()
+    eintraege, ersetzen = lies_dateiliste()
+    dateien = sammle_dateien(eintraege)
+
+    if "--trocken" in schalter:
+        print("  Probelauf – wuerde uebertragen:")
+        for d in dateien:
+            print(f"    {d}")
+        print()
+        print(f"  {len(dateien)} Dateien; auf dem Host ersetzt: {' '.join(ersetzen)}")
+        return
+
     print(f"  {len(dateien)} Dateien werden uebertragen ...\n")
-
-    payload = baue_payload(dateien)
-
     try:
-        subprocess.run(
-            ["ssh", ZIEL, "python3 -"],
-            input=payload.encode("utf-8"),
-            check=True,
-        )
+        subprocess.run(["ssh", ZIEL, "python3 -"], input=baue_payload(dateien, ersetzen).encode("utf-8"), check=True)
+        if "--bauen" in schalter:
+            print("\n  Baue und starte auf dem Host (sudo-Passwort des Hosts) ...")
+            subprocess.run(["ssh", "-t", ZIEL, f"{COMPOSE} up -d --build"], check=True)
+            print("  Container neu gebaut und gestartet")
+            return
     except subprocess.CalledProcessError as e:
-        print(f"\nFEHLER: SSH-Fehler (Exit {e.returncode})", file=sys.stderr)
+        print(f"\nFEHLER: SSH-Befehl fehlgeschlagen (Exit {e.returncode})", file=sys.stderr)
         sys.exit(e.returncode)
     except FileNotFoundError:
         print("FEHLER: 'ssh' nicht gefunden.", file=sys.stderr)
         sys.exit(1)
+
+    naechste_schritte()
 
 
 if __name__ == "__main__":
