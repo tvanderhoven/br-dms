@@ -127,7 +127,7 @@ function StatKarte({ icon, titel, wert, farbe }: {
   farbe: "blue" | "green" | "gray" | "violet" | "amber" | "teal";
 }) {
   const iconKlasse: Record<string, string> = {
-    blue:   "text-blue-600 bg-blue-50",
+    blue:   "text-accent bg-accent/5",
     green:  "text-green-600 bg-green-50",
     gray:   "text-gray-600 bg-gray-100",
     violet: "text-violet-600 bg-violet-50",
@@ -452,15 +452,15 @@ export default function MitarbeiterUebersicht() {
 
       {/* Sammel-Bearbeitung */}
       {ausgewaehlt.size > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 flex flex-wrap items-center gap-2">
-          <span className="text-sm text-blue-800 font-medium">{ausgewaehlt.size} ausgewählt</span>
+        <div className="bg-accent/5 border border-accent/25 rounded-xl p-3 mb-4 flex flex-wrap items-center gap-2">
+          <span className="text-sm text-accent font-medium">{ausgewaehlt.size} ausgewählt</span>
           <input
             type="text"
             value={standortEingabe}
             onChange={e => setStandortEingabe(e.target.value)}
             placeholder="Standort setzen auf…"
             list="standort-batch-optionen"
-            className="border border-blue-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-52"
+            className="border border-accent/40 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent w-52"
           />
           <datalist id="standort-batch-optionen">
             {standorte.map(s => <option key={s} value={s} />)}
@@ -475,7 +475,7 @@ export default function MitarbeiterUebersicht() {
           </button>
           <button
             onClick={() => setAusgewaehlt(new Set())}
-            className="text-xs text-blue-600 hover:text-blue-800"
+            className="text-xs text-accent hover:text-accent-hover"
           >
             Auswahl aufheben
           </button>
@@ -530,7 +530,7 @@ export default function MitarbeiterUebersicht() {
                   <button
                     onClick={() => setBearbeiten(m)}
                     title="Stammdaten bearbeiten (Name, Abteilung, Standort, Ein-/Austritt)"
-                    className="text-gray-300 hover:text-blue-500 transition-colors"
+                    className="text-gray-300 hover:text-accent transition-colors"
                   >
                     <Pencil size={14} />
                   </button>

@@ -1,0 +1,31 @@
+# Dateien und Ordner, die die Deploy-Skripte auf den Host übertragen
+# (deploy_update.sh, deploy_update.ps1, deploy_komplett.py lesen alle diese Liste).
+# Ordner werden vollständig übertragen; node_modules, dist und .env-Dateien nie.
+#
+# Die mit * markierten Ordner werden auf dem Host vorher ersetzt (nicht nur
+# überschrieben), damit gelöschte oder umbenannte Dateien dort nicht liegen bleiben.
+
+backend/src *
+backend/prisma *
+backend/Dockerfile
+backend/docker-entrypoint.sh
+backend/package.json
+backend/package-lock.json
+backend/tsconfig.json
+
+frontend/src *
+frontend/Dockerfile
+frontend/index.html
+frontend/nginx.conf
+frontend/package.json
+frontend/package-lock.json
+frontend/postcss.config.js
+frontend/tailwind.config.js
+frontend/tsconfig.json
+frontend/vite.config.ts
+
+proxy
+docker-compose.yml
+backup.sh
+restore.sh
+.env.example

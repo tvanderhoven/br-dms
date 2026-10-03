@@ -17,7 +17,7 @@ const QUELLE_LABEL: Record<string, string> = {
 
 const QUELLE_FARBE: Record<string, string> = {
   WATCHFOLDER: "bg-violet-100 text-violet-800",
-  UPLOAD:      "bg-blue-100 text-blue-800",
+  UPLOAD:      "bg-accent/10 text-accent",
   SYSTEM:      "bg-gray-100 text-gray-700",
 };
 
@@ -398,7 +398,7 @@ export default function Eingang() {
                         <History className="w-4 h-4" /> Als Version
                       </button>
                       <button onClick={() => { setWiedervorlageDatum(""); oeffneAktion("wiedervorlage"); }}
-                        className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors">
+                        className="flex items-center gap-2 px-3 py-2 bg-accent text-white text-sm rounded-lg hover:bg-accent-hover transition-colors">
                         <RotateCcw className="w-4 h-4" /> Wiedervorlage
                       </button>
                       {(ausgewaehlt.kategorie === "ANHOERUNG_99" || ausgewaehlt.kategorie === "ANHOERUNG_102") && (
@@ -422,9 +422,9 @@ export default function Eingang() {
 
                   {/* Aktions-Panel: Sitzung/TOP */}
                   {aktiveAktion === "sitzung-top" && (
-                    <div className="mt-4 mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl space-y-3">
+                    <div className="mt-4 mb-4 p-4 bg-accent/5 border border-accent/25 rounded-xl space-y-3">
                       <div className="flex items-center justify-between">
-                        <h3 className="font-medium text-blue-900 text-sm">Sitzung / TOP verknüpfen</h3>
+                        <h3 className="font-medium text-accent text-sm">Sitzung / TOP verknüpfen</h3>
                         <button onClick={() => setAktiveAktion(null)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -496,12 +496,12 @@ export default function Eingang() {
 
                   {/* Aktions-Panel: Wiedervorlage */}
                   {aktiveAktion === "wiedervorlage" && (
-                    <div className="mt-4 mb-4 p-4 bg-indigo-50 border border-indigo-200 rounded-xl space-y-3">
+                    <div className="mt-4 mb-4 p-4 bg-accent/5 border border-accent/25 rounded-xl space-y-3">
                       <div className="flex items-center justify-between">
-                        <h3 className="font-medium text-indigo-900 text-sm">Wiedervorlage</h3>
+                        <h3 className="font-medium text-accent text-sm">Wiedervorlage</h3>
                         <button onClick={() => setAktiveAktion(null)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
                       </div>
-                      <p className="text-xs text-indigo-700">Das Dokument erscheint am gewählten Datum erneut im Eingang.</p>
+                      <p className="text-xs text-accent">Das Dokument erscheint am gewählten Datum erneut im Eingang.</p>
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Wiedervorlage am</label>
                         <input type="date" value={wiedervorlageDatum}
@@ -510,7 +510,7 @@ export default function Eingang() {
                           className="text-sm border border-gray-300 rounded-lg px-3 py-2" />
                       </div>
                       <button onClick={sendeAktionWiedervorlage} disabled={aktionLaden || !wiedervorlageDatum}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                        className="flex items-center gap-2 px-4 py-2 bg-accent text-white text-sm rounded-lg hover:bg-accent-hover disabled:opacity-50">
                         {aktionLaden ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
                         Wiedervorlage setzen
                       </button>

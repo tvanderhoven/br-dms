@@ -59,7 +59,7 @@ export default function SitzungsEditor({
         HTMLAttributes: {
           target: "_blank",
           rel: "noopener noreferrer",
-          class: "text-blue-600 underline hover:text-blue-800 cursor-pointer",
+          class: "text-accent underline hover:text-accent-hover cursor-pointer",
         },
       }),
       DokumentReferenzExtension,
@@ -156,7 +156,7 @@ export default function SitzungsEditor({
       // UNC-Pfad aus der Explorer-Adressleiste kopiert (\\server\freigabe\...) – in das
       // brdmsfile://-Protokoll umwandeln. file:// wird von Browsern für Netzwerkfreigaben
       // blockiert (SMB/NTLM-Schutz, siehe tools/brdmsfile-protokoll/), brdmsfile:// läuft
-      // stattdessen über den lokal installierten Handler (wie die bekannten lbo://-Links).
+      // stattdessen über den lokal installierten Handler (wie andere interne Protokoll-Links, z.B. lbo://).
       if (/^\\\\/.test(url)) url = "brdmsfile:" + url.replace(/\\/g, "/");
       // Nur https voranstellen wenn überhaupt kein Protokoll angegeben (z.B. nicht lbo://, ftp://, mailto:)
       else if (!/^[a-zA-Z][a-zA-Z0-9+\-.]*:\/?\/?/i.test(url)) url = "https://" + url;
@@ -257,8 +257,8 @@ export default function SitzungsEditor({
 
       {/* Link-Eingabe-Leiste */}
       {!readonly && linkDialogOffen && (
-        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-blue-200 bg-blue-50">
-          <ExternalLink size={13} className="text-blue-500 flex-shrink-0" />
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-accent/25 bg-accent/5">
+          <ExternalLink size={13} className="text-accent/80 flex-shrink-0" />
           <input
             autoFocus
             type="url"
@@ -272,7 +272,7 @@ export default function SitzungsEditor({
             className="flex-1 text-xs bg-transparent outline-none text-gray-700 placeholder-gray-400"
           />
           <button type="button" onClick={linkSetzen}
-            className="text-xs font-medium text-blue-600 hover:text-blue-800 px-2 py-0.5 rounded hover:bg-blue-100">
+            className="text-xs font-medium text-accent hover:text-accent-hover px-2 py-0.5 rounded hover:bg-accent/10">
             OK
           </button>
           <button type="button" onClick={() => setLinkDialogOffen(false)} className="text-gray-400 hover:text-gray-600">
@@ -320,7 +320,7 @@ function ToolbarButton({
       title={title}
       className={`flex items-center px-2 py-1 rounded text-sm transition-colors ${
         aktiv
-          ? "bg-blue-100 text-blue-700"
+          ? "bg-accent/10 text-accent"
           : "text-gray-600 hover:bg-gray-200"
       }`}
     >
@@ -388,7 +388,7 @@ function DokumentPickerModal({
                   key={d.id}
                   type="button"
                   onClick={() => onEinfuegen({ dokumentId: d.id, titel: d.alias ?? d.titel, kategorie: d.kategorie })}
-                  className="w-full flex items-start gap-3 px-4 py-2.5 text-left hover:bg-blue-50 border-b border-gray-50 last:border-0 transition-colors"
+                  className="w-full flex items-start gap-3 px-4 py-2.5 text-left hover:bg-accent/5 border-b border-gray-50 last:border-0 transition-colors"
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{d.alias ?? d.titel}</p>

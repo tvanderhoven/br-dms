@@ -3,7 +3,7 @@
 ![Self-hosted](https://img.shields.io/badge/Self--hosted-NAS%20%2F%20Docker-blue)
 ![DSGVO](https://img.shields.io/badge/DSGVO-konform-green)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED)
-![License](https://img.shields.io/badge/Lizenz-Intern-lightgrey)
+![License](https://img.shields.io/badge/Lizenz-AGPL--3.0-blue)
 
 DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft vollständig im Intranet auf jedem Docker-Host (NAS wie QNAP/Synology, eigener Server, Cloud-VM) – ohne Cloud-Verbindung, ohne externen Zugriff.
 
@@ -72,7 +72,7 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 ### Editor & Verknüpfungen
 - **Einheitlicher Rich-Text-Editor** (Sitzungen, Aufgaben, Themen-Backlog, Wissensarchiv) – Formatierung (Fett/Kursiv/Unterstrichen, Überschriften, Listen, Markieren), Lesemodus für finalisierte Versionen
 - **Dokument-Referenzen** – Direkt im Editor als anklickbare Chips einfügen, öffnen authentifiziert die Dokumentenvorschau
-- **Links** – Normale Weblinks, interne `lbo://`/`lboffice://`-Links sowie NAS-Datei-Links: ein eingefügter UNC-Pfad (`\\server\freigabe\...`) wird automatisch in einen `brdmsfile://`-Link umgewandelt, der über einen lokal installierten Protokoll-Handler geöffnet wird (umgeht die Browser-Sperre für `file://`-Netzwerkfreigaben)
+- **Links** – Normale Weblinks, interne Protokoll-Links anderer Programme (z.B. `lbo://`) sowie NAS-Datei-Links: ein eingefügter UNC-Pfad (`\\server\freigabe\...`) wird automatisch in einen `brdmsfile://`-Link umgewandelt, der über einen lokal installierten Protokoll-Handler geöffnet wird (umgeht die Browser-Sperre für `file://`-Netzwerkfreigaben)
 
 ### System & Einstellungen
 - **Einheitliches Vollbreiten-Layout** – Alle Seiten responsiv und konsistent; alle Textfelder vertikal skalierbar
@@ -124,8 +124,7 @@ Im ersten Schritt wählst du das Zielsystem:
 ```bash
 mkdir -p <DATA_PATH>/{storage,postgres,logs,watch_inbox,backups,certs}
 bash proxy/generate-selfsigned-cert.sh <DATA_PATH> <Hostname> <Host-IP>   # Zertifikat MUSS vor dem ersten Start existieren
-docker compose up -d --build
-docker exec brdms_backend npx prisma db seed   # legt den ersten Admin-Account an
+docker compose up -d --build   # legt beim ersten Start automatisch den Admin aus ADMIN_EMAIL/ADMIN_PASSWORD an
 ```
 
 Browser öffnen: `https://<Host-IP>:8443` (Zertifikatswarnung beim ersten Aufruf ist normal, siehe [HTTPS aktivieren](#https-aktivieren) für Details/Alternativen). Frontend/Backend haben **keinen eigenen Host-Port** – der Proxy ist der einzige Zugriffsweg.
@@ -139,20 +138,11 @@ nano .env   # Alle Werte anpassen, siehe Tabelle unten
 ```
 
 **2. Bei NAS-Betrieb zusätzlich `.env.deploy` anlegen** (steuert nur die Deploy-Skripte, keine Secrets):
-```
-NAS_USER=<NAS-Benutzername>
-NAS_HOST=<NAS-IP oder Hostname>
-DATA_PATH=/share/Container/br-dms        # QNAP
-# DATA_PATH=/volume1/docker/br-dms      # Synology
-```
-und die `.env` per SCP auf die NAS kopieren, bzw. die Deploy-Skripte nutzen:
 ```bash
-# Windows:
-python deploy_komplett.py
-
-# Linux / macOS:
-bash deploy_update.sh
+cp .env.deploy.example .env.deploy   # NAS_USER, NAS_HOST, DATA_PATH eintragen
 ```
+Die `.env` einmalig per SCP auf die NAS kopieren, den Quellstand danach mit den Deploy-Skripten
+übertragen (siehe [Deployment-Skripte](#deployment-skripte)).
 
 **3. Zertifikat erzeugen (muss vor dem ersten Start existieren, sonst startet der Proxy-Container nicht):**
 ```bash
@@ -164,13 +154,10 @@ bash proxy/generate-selfsigned-cert.sh <DATA_PATH> <Hostname> <Host-IP>
 ```bash
 docker compose up -d --build
 ```
+Beim ersten Start legt das Backend alle Tabellen und den ersten Admin-Account aus
+`ADMIN_EMAIL`/`ADMIN_PASSWORD` an – Passwort nach dem ersten Login ändern.
 
-**5. Admin-Account anlegen (einmalig):**
-```bash
-docker exec brdms_backend npx prisma db seed
-```
-
-**6. Browser öffnen:**
+**5. Browser öffnen:**
 ```
 https://<Host-IP>:8443
 ```
@@ -191,7 +178,7 @@ Pflichtfelder:
 | `ENCRYPTION_KEY` | AES-256 Dokumentschlüssel | `openssl rand -hex 32` |
 | `NAS_IP` | IP-Adresse bzw. Hostname des Docker-Hosts | `hostname -I` |
 | `APP_URL` | URL für Passwort-Reset-Mails (muss die Proxy-HTTPS-Adresse sein, siehe unten) | `https://<Host-IP>:8443` |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Login-Daten des ersten Admin-Accounts, nur beim einmaligen `npx prisma db seed` verwendet | frei wählbar |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Login-Daten des ersten Admin-Accounts – wird beim ersten Start automatisch angelegt | frei wählbar |
 
 > **Kritisch:** Der `ENCRYPTION_KEY` muss separat gesichert werden. Bei Verlust sind alle Dokumente dauerhaft unlesbar.
 > `ADMIN_PASSWORD` nach dem ersten Login sofort in den Einstellungen ändern – wird nur beim Seed gelesen, danach nicht mehr automatisch synchronisiert.
@@ -281,13 +268,46 @@ Frontend und Backend haben keine eigenen Host-Ports mehr (`ports:`-Blöcke wurde
 
 ## Deployment-Skripte
 
-| Skript | Plattform | Beschreibung |
+| Skript | Plattform | Übertragung |
 |---|---|---|
-| `deploy_update.sh` | Linux / macOS | Überträgt Quelldateien per tar-SSH-Pipe |
-| `deploy_komplett.py` | Plattformübergreifend | Vollständiger Deploy via Python + SSH |
-| `deploy_update.ps1` | Windows | PowerShell-Variante |
+| `deploy_update.sh` | Linux / macOS | tar über SSH |
+| `deploy_update.ps1` | Windows (OpenSSH + tar sind ab Windows 10 eingebaut) | tar über SSH |
+| `deploy_komplett.py` | überall mit Python 3 (Host braucht python3 ≥ 3.8) | Python-Programm über SSH, ohne tar |
 
-Nach dem Transfer zeigt jedes Skript die Rebuild-Befehle für die NAS an.
+Alle drei übertragen dieselben Dateien aus **`deploy_dateien.txt`** und verhalten sich gleich:
+
+- `backend/src`, `backend/prisma` und `frontend/src` werden auf dem Host **ersetzt** – gelöschte
+  oder umbenannte Dateien bleiben dort nicht liegen. Übertragen wird zuerst in einen
+  Zwischenordner; bricht die Verbindung ab, bleibt der alte Stand vollständig erhalten.
+- `.env`, Datenbank, Dokumente, Zertifikate und Backups auf dem Host werden nie angefasst.
+- Das docker-Programm wird am Pfad erkannt (QNAP `/share/…`, Synology `/volume…`) oder über
+  `DOCKER_BIN` in `.env.deploy` festgelegt; die angezeigten Rebuild-Befehle passen dazu.
+
+```bash
+cp .env.deploy.example .env.deploy   # einmalig: NAS_USER, NAS_HOST, DATA_PATH
+./deploy_update.sh --trocken         # Probelauf: zeigt nur, was übertragen würde
+./deploy_update.sh                   # übertragen, danach Rebuild-Befehle anzeigen
+./deploy_update.sh --bauen           # übertragen und direkt neu bauen/starten
+```
+Unter Windows entsprechend `.\deploy_update.ps1 -Trocken` bzw. `-Bauen`, mit Python
+`python3 deploy_komplett.py --trocken` bzw. `--bauen`.
+
+---
+
+## Demo-Instanz
+
+Für Vorführungen lässt sich eine komplett getrennte Instanz mit erfundenen Demodaten auf dem
+lokalen PC starten (fiktive Firma mit ~250 Beschäftigten, 9er-Gremium, Sitzungen, Dokumente,
+Gehaltshistorie usw.):
+
+```bash
+./demo/demo.sh start   # bauen, starten, Demodaten einspielen → https://localhost:8444
+./demo/demo.sh reset   # alles löschen und frisch einspielen
+./demo/demo.sh stop    # anhalten
+```
+
+Anmeldung z.B. mit `s.kroeger` / `Demo2026!` (Vorsitz). Das Demo-Skript schreibt nur in eine
+leere Datenbank und kann eine echte Instanz daher nicht verändern.
 
 ---
 
@@ -320,10 +340,10 @@ generischen Docker-Host.
 
 ## Handbuch
 
-Das vollständige Benutzer- und Administratorhandbuch (47 Seiten) liegt als PDF im Repository:  
+Das vollständige Handbuch (41 Seiten, mit Screenshots aus der Demo) liegt als PDF im Repository:  
 [`BR-DMS_Handbuch.pdf`](BR-DMS_Handbuch.pdf)
 
-Inhalt: Installation, Modulübersicht, Prozessabläufe, Rollenmatrix, Datenbankschema, Backup & Restore.
+Aufbau: Teil I beschreibt alle Funktionen, Teil II die Administration, Teil III die Technik (Installation, Betrieb, Backup, Datenbank). Neu erzeugen: Demo starten, `node tools/handbuch-screenshots/screenshots.mjs`, dann `python3 generate_manual.py`.
 
 ---
 
@@ -336,6 +356,20 @@ Inhalt: Installation, Modulübersicht, Prozessabläufe, Rollenmatrix, Datenbanks
 | Frontend | – | Nur Docker-intern (kein eigener Host-Port) |
 | Backend | – | Nur Docker-intern (kein eigener Host-Port) |
 | PostgreSQL | – | Nur Docker-intern |
+
+---
+
+## Autor & Lizenz
+
+**BR-DMS** – entwickelt von **Tim van der Hoven** · Programmierung mit Unterstützung von
+Claude (Anthropic)
+
+Kontakt: [support@vanderhoven.eu](mailto:support@vanderhoven.eu)
+
+Copyright © 2026 Tim van der Hoven. Veröffentlicht unter der
+[GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0): Nutzung, Änderung und
+Weitergabe sind erlaubt, solange der Urheberhinweis erhalten bleibt und Änderungen – auch bei
+Bereitstellung als gehosteter Dienst – unter derselben Lizenz offengelegt werden.
 
 ---
 

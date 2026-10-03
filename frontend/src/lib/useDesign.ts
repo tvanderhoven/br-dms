@@ -44,6 +44,12 @@ function applyDesign(design: DesignEinstellungen) {
   const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
   const useDark = design.dark_mode === "dark" || (design.dark_mode === "auto" && prefersDark);
   root.classList.toggle("dark", useDark);
+
+  // Dunkler Akzent (z.B. Theme "Board") wäre im Dark Mode unsichtbar → dort die
+  // hellen Dark-Mode-Werte aus index.css verwenden statt der gespeicherten Farben.
+  if (useDark && (ar * 0.299 + ag * 0.587 + ab * 0.114) < 80) {
+    ["--accent", "--accent-hover", "--text-primary", "--bg-primary"].forEach(v => root.style.removeProperty(v));
+  }
 }
 
 export function useDesign() {

@@ -109,7 +109,7 @@ export default function BeschlussBlock({ topId, sitzungId, readonly }: Props) {
         <div className="flex items-center gap-3">
           <button
             onClick={neuerBeschluss}
-            className="flex items-center gap-2 text-xs text-[rgb(var(--accent))] hover:brightness-90 hover:bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200 border-dashed transition-colors"
+            className="flex items-center gap-2 text-xs text-[rgb(var(--accent))] hover:brightness-90 hover:bg-accent/5 px-3 py-1.5 rounded-lg border border-accent/25 border-dashed transition-colors"
           >
             <Plus size={13} /> Beschluss hinzufügen
           </button>

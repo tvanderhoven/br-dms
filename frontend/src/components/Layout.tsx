@@ -9,6 +9,7 @@ import { api, SuchErgebnis, KATEGORIE_LABEL, SITZUNG_STATUS_LABEL, RESSOURCE_KAT
 import GesetzModal from "./GesetzModal";
 import BrandLogo from "./BrandLogo";
 import PasswortAendernModal from "./PasswortAendernModal";
+import UeberModal from "./UeberModal";
 
 // Ordnet Routen-Präfixe den abschaltbaren Modulen zu (siehe Einstellungen → Module).
 // Bei einem deaktivierten Modul: Sidebar-Eintrag ausgeblendet + Direktaufruf der URL wird auf "/" umgeleitet.
@@ -21,7 +22,6 @@ const MODUL_PFADE: Record<string, ModuleKey> = {
   "/ressourcen":             "ressourcen",
   "/themen":                 "themensammlung",
 };
-import { useDesign } from "../lib/useDesign";
 
 function GlobaleSuche() {
   const [query, setQuery]           = useState("");
@@ -109,7 +109,7 @@ function GlobaleSuche() {
                     <button
                       key={dok.id}
                       onClick={() => { navigate("/dokumente", { state: { markiere: dok.id } }); reset(); }}
-                      className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-0"
+                      className="w-full text-left px-3 py-2 hover:bg-accent/5 border-b border-gray-100 last:border-0"
                     >
                       <p className="text-xs font-medium text-gray-800" title={dok.alias ?? dok.titel}>{dok.alias ?? dok.titel}</p>
                       <p className="text-xs text-gray-400">{KATEGORIE_LABEL[dok.kategorie]} · {dok.dateiname}</p>
@@ -124,7 +124,7 @@ function GlobaleSuche() {
                     <button
                       key={s.id}
                       onClick={() => { navigate("/sitzungen"); reset(); }}
-                      className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-0"
+                      className="w-full text-left px-3 py-2 hover:bg-accent/5 border-b border-gray-100 last:border-0"
                     >
                       <p className="text-xs font-medium text-gray-800 truncate">{s.titel}</p>
                       <p className="text-xs text-gray-400">{formatDatum(s.sitzungsdatum)} · {SITZUNG_STATUS_LABEL[s.status]}</p>
@@ -139,7 +139,7 @@ function GlobaleSuche() {
                     <button
                       key={w.id}
                       onClick={() => { navigate("/wissen"); reset(); }}
-                      className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-0"
+                      className="w-full text-left px-3 py-2 hover:bg-accent/5 border-b border-gray-100 last:border-0"
                     >
                       <p className="text-xs font-medium text-gray-800 truncate">{w.titel}</p>
                       <p className="text-xs text-gray-400">{w.kategorien.join(" · ") || formatDatum(w.erstelltAm)}</p>
@@ -157,7 +157,7 @@ function GlobaleSuche() {
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={reset}
-                      className="flex items-center gap-2 px-3 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-0"
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-accent/5 border-b border-gray-100 last:border-0"
                     >
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-gray-800 truncate">{r.titel}</p>
@@ -175,7 +175,7 @@ function GlobaleSuche() {
                     <button
                       key={bv.id}
                       onClick={() => { navigate("/betriebsvereinbarungen"); reset(); }}
-                      className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-0"
+                      className="w-full text-left px-3 py-2 hover:bg-accent/5 border-b border-gray-100 last:border-0"
                     >
                       <p className="text-xs font-medium text-gray-800 truncate">{bv.titel}</p>
                     </button>
@@ -189,7 +189,7 @@ function GlobaleSuche() {
                     <button
                       key={s.id}
                       onClick={() => { navigate("/schulungen"); reset(); }}
-                      className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-0"
+                      className="w-full text-left px-3 py-2 hover:bg-accent/5 border-b border-gray-100 last:border-0"
                     >
                       <p className="text-xs font-medium text-gray-800 truncate">{s.qualifikation.name}{s.titel ? ` – ${s.titel}` : ""}</p>
                       <p className="text-xs text-gray-400">{formatDatum(s.datum)}</p>
@@ -204,7 +204,7 @@ function GlobaleSuche() {
                     <button
                       key={m.id}
                       onClick={() => { navigate("/gehaltstabelle"); reset(); }}
-                      className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-0"
+                      className="w-full text-left px-3 py-2 hover:bg-accent/5 border-b border-gray-100 last:border-0"
                     >
                       <p className="text-xs font-medium text-gray-800 truncate">{m.nachname}, {m.vorname}</p>
                     </button>
@@ -218,7 +218,7 @@ function GlobaleSuche() {
                     <button
                       key={g.id}
                       onClick={() => gesetzOeffnen(g.id)}
-                      className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-0"
+                      className="w-full text-left px-3 py-2 hover:bg-accent/5 border-b border-gray-100 last:border-0"
                     >
                       <p className="text-xs font-medium text-gray-800 truncate">
                         {g.gesetz} {g.paragraph}{g.titel ? ` – ${g.titel}` : ""}
@@ -230,7 +230,7 @@ function GlobaleSuche() {
               )}
               <button
                 onClick={alleAnzeigen}
-                className="w-full text-center text-xs text-blue-600 hover:text-blue-800 py-2 border-t border-gray-100 hover:bg-blue-50 transition-colors"
+                className="w-full text-center text-xs text-accent hover:text-accent-hover py-2 border-t border-gray-100 hover:bg-accent/5 transition-colors"
               >
                 Alle Ergebnisse anzeigen →
               </button>
@@ -282,7 +282,6 @@ function NavGruppe({
 }
 
 export default function Layout() {
-  useDesign();
   const navigate   = useNavigate();
   const location   = useLocation();
   const [mobileOffen, setMobileOffen]             = useState(false);
@@ -294,6 +293,7 @@ export default function Layout() {
   const [module, setModule]                       = useState<Record<ModuleKey, boolean> | null>(null);
   const [toast, setToast]                         = useState<string | null>(null);
   const [pwModalOffen, setPwModalOffen]           = useState(false);
+  const [ueberOffen, setUeberOffen]               = useState(false);
   const [inaktivitaetMinuten, setInaktivitaetMinuten] = useState(0);
   const prevCounts = useRef({ inbox: 0, nachrichten: 0, aufgaben: 0 });
   const ersterLauf = useRef(true);
@@ -453,7 +453,7 @@ export default function Layout() {
   const linkKlasse = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-150 ${
       isActive
-        ? "bg-white/15 text-[rgb(var(--sidebar-text))] shadow-sm"
+        ? "bg-white/10 text-[rgb(var(--sidebar-text))] shadow-[inset_3px_0_0_rgb(var(--brand-red))]"
         : "text-[rgb(var(--sidebar-text)/0.65)] hover:bg-white/10 hover:text-[rgb(var(--sidebar-text))]"
     }`;
 
@@ -696,11 +696,19 @@ export default function Layout() {
           )}
         </nav>
 
+        <button
+          onClick={() => setUeberOffen(true)}
+          className="shrink-0 px-4 py-2.5 text-left text-[11px] border-t transition-opacity opacity-70 hover:opacity-100"
+          style={{ borderColor: "rgba(255,255,255,0.08)", color: "rgb(var(--sidebar-text-muted))" }}
+        >
+          Über BR-DMS · Open Source (AGPL)
+        </button>
       </aside>
 
       {pwModalOffen && (
         <PasswortAendernModal onSchliessen={() => setPwModalOffen(false)} />
       )}
+      {ueberOffen && <UeberModal onSchliessen={() => setUeberOffen(false)} />}
 
       {/* Mobile Overlay */}
       {mobileOffen && (

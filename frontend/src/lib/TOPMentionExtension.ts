@@ -68,7 +68,7 @@ export const TOPMention = Mark.create<TOPMentionOptions>({
       mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, {
         "data-top-id": mark.attrs.topId,
         "data-top-nummer": mark.attrs.topNummer,
-        class: "top-mention px-1 py-0.5 bg-blue-100 text-blue-700 rounded font-medium",
+        class: "top-mention px-1 py-0.5 bg-accent/10 text-accent rounded font-medium",
       }),
       `@TOP${mark.attrs.topNummer}`,
     ];

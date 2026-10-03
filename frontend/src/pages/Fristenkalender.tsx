@@ -17,7 +17,7 @@ function tagFarbe(faelligAm: string, status: string): string {
   if (tage < 0)  return "bg-red-100 text-red-800 border-red-200";
   if (tage <= 3) return "bg-red-50 text-red-700 border-red-200";
   if (tage <= 7) return "bg-amber-50 text-amber-700 border-amber-200";
-  return "bg-blue-50 text-blue-700 border-blue-200";
+  return "bg-accent/5 text-accent border-accent/25";
 }
 
 function punktFarbe(faelligAm: string, status: string): string {
@@ -26,7 +26,7 @@ function punktFarbe(faelligAm: string, status: string): string {
   const tage = Math.ceil((new Date(faelligAm).getTime() - Date.now()) / 86_400_000);
   if (tage <= 3) return "bg-red-500";
   if (tage <= 7) return "bg-amber-500";
-  return "bg-blue-500";
+  return "bg-accent";
 }
 
 export default function Fristenkalender() {
@@ -152,7 +152,7 @@ export default function Fristenkalender() {
                   key={tag}
                   onClick={() => setAusgewaehltTag(p => p === tag ? null : tag)}
                   className={`border-b border-r border-gray-100 h-16 p-1.5 text-left flex flex-col transition-colors ${
-                    istAusgewaehlt ? "bg-blue-50" : "hover:bg-gray-50"
+                    istAusgewaehlt ? "bg-accent/5" : "hover:bg-gray-50"
                   }`}
                 >
                   <span className={`text-xs font-medium w-5 h-5 flex items-center justify-center rounded-full ${

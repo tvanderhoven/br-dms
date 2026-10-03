@@ -56,7 +56,7 @@ function aktionFarbe(a: AuditAktion): string {
        "WATCHFOLDER_DATEI_EMPFANGEN"].includes(a))
     return "bg-green-100 text-green-700";
   if (["DOKUMENT_ANGESEHEN", "DOKUMENT_HERUNTERGELADEN", "INBOX_DOKUMENT_GELESEN"].includes(a))
-    return "bg-blue-100 text-blue-700";
+    return "bg-accent/10 text-accent";
   return "bg-gray-100 text-gray-600";
 }
 
@@ -79,7 +79,7 @@ function DetailsVorschau({ details }: { details: Record<string, unknown> | null 
     <div>
       <button
         onClick={() => setOffen(!offen)}
-        className="text-xs text-blue-500 hover:text-blue-700 underline underline-offset-2"
+        className="text-xs text-accent/80 hover:text-accent underline underline-offset-2"
       >
         {kurzText.slice(0, 50)}{kurzText.length > 50 ? "…" : ""}
       </button>

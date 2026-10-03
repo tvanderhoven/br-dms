@@ -38,8 +38,8 @@ export default function PasswortReset() {
 
   if (!token) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-800 to-blue-950 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 text-center">
+      <div className="min-h-screen bg-[rgb(var(--bg-primary))] flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow w-full max-w-sm p-8 text-center">
           <p className="text-red-600 mb-4">Ungültiger Link – kein Token vorhanden.</p>
           <Link to="/login" className="text-[rgb(var(--accent))] text-sm hover:underline">Zum Login</Link>
         </div>
@@ -48,11 +48,11 @@ export default function PasswortReset() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-800 to-blue-950 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8">
+    <div className="min-h-screen bg-[rgb(var(--bg-primary))] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow w-full max-w-sm p-8">
         <div className="flex flex-col items-center mb-8">
-          <div className="bg-blue-100 p-3 rounded-full mb-3">
-            <Shield className="text-blue-700" size={28} />
+          <div className="bg-accent/10 p-3 rounded-full mb-3">
+            <Shield className="text-accent" size={28} />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Neues Passwort</h1>
         </div>

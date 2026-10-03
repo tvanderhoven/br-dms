@@ -2,6 +2,8 @@
   "name": "brdms-backend",
   "version": "1.0.0",
   "private": true,
+  "license": "AGPL-3.0-only",
+  "author": "Tim van der Hoven <support@vanderhoven.eu>",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",

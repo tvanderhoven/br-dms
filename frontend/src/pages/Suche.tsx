@@ -26,7 +26,7 @@ const PRIORITAET_LABEL: Record<string, string> = {
 
 const SITZUNG_STATUS_STYLE: Record<string, string> = {
   ENTWURF:              "bg-gray-100 text-gray-600",
-  TAGESORDNUNG_FIXIERT: "bg-blue-100 text-blue-700",
+  TAGESORDNUNG_FIXIERT: "bg-accent/10 text-accent",
   PROTOKOLL_ENTWURF:    "bg-amber-100 text-amber-700",
   PROTOKOLL_FINAL:      "bg-green-100 text-green-700",
   ABGESAGT:             "bg-red-100 text-red-600",
@@ -178,7 +178,7 @@ export default function Suche() {
                       <p className="text-xs text-gray-400 mt-0.5">{dok.titel}</p>
                     )}
                     <div className="flex items-center flex-wrap gap-1.5 mt-2">
-                      <span className="text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-0.5 rounded-full">
+                      <span className="text-xs bg-accent/5 text-accent dark:bg-accent/10 dark:text-accent px-2 py-0.5 rounded-full">
                         {KATEGORIE_LABEL[dok.kategorie]}
                       </span>
                       {dok.tags?.map(tag => (
@@ -332,7 +332,7 @@ export default function Suche() {
                         </span>
                       </div>
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{r.titel}</p>
-                      <p className="text-xs text-blue-500 truncate mt-0.5">{r.url}</p>
+                      <p className="text-xs text-accent/80 truncate mt-0.5">{r.url}</p>
                     </div>
                     <ExternalLink className="w-4 h-4 text-gray-300 group-hover:text-[rgb(var(--accent))] flex-shrink-0 mt-0.5 transition-colors" />
                   </a>

@@ -19,8 +19,8 @@ export const ROLLEN_LABEL: Record<Rolle, string> = {
 };
 
 export const ROLLEN_FARBE: Record<Rolle, string> = {
-  VORSITZ:         "bg-blue-100 text-blue-700",
-  STELLVERTRETER:  "bg-indigo-100 text-indigo-700",
+  VORSITZ:         "bg-accent/10 text-accent",
+  STELLVERTRETER:  "bg-accent/10 text-accent",
   MITGLIED:        "bg-green-100 text-green-700",
   ERSATZMITGLIED:  "bg-amber-100 text-amber-700",
   ADMIN:           "bg-purple-100 text-purple-700",
@@ -128,7 +128,7 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
         </div>
       )}
 
-      <div className="mb-4 flex items-start gap-2 bg-blue-50 border border-blue-200 text-blue-800 text-xs px-4 py-3 rounded-lg">
+      <div className="mb-4 flex items-start gap-2 bg-accent/5 border border-accent/25 text-accent text-xs px-4 py-3 rounded-lg">
         <Info size={14} className="shrink-0 mt-0.5" />
         <span>
           Geschlecht und Wahl-Rang stammen aus dem Wahlprotokoll der letzten BR-Wahl (Rang nach Stimmenzahl, 1 = meiste Stimmen).
@@ -159,7 +159,7 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
                 <tr key={b.id} className={`hover:bg-gray-50 transition-colors ${!b.aktiv ? "opacity-50" : ""}`}>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-xs shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center text-accent font-semibold text-xs shrink-0">
                         {b.name.charAt(0).toUpperCase()}
                       </div>
                       <div>
@@ -225,7 +225,7 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
                       <button
                         onClick={() => setResetId(b.id)}
                         title="Passwort zurücksetzen"
-                        className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded transition-colors"
+                        className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
                       >
                         <KeyRound size={13} />
                         PW reset

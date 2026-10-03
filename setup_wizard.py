@@ -184,7 +184,7 @@ def main():
         data_path_def = "/share/Container/br-dms"
         puid_def      = "1000"
         pgid_def      = "100"
-        docker_cmd    = "sudo docker"
+        docker_cmd    = "sudo /share/CACHEDEV1_DATA/.qpkg/container-station/bin/docker"
 
     ok(f"Zielsystem: {c(plattform, BOLD)}")
 
@@ -304,7 +304,7 @@ def main():
     section(4, "Administrator-Konto")
     print()
     print("  Das ist der erste Login-Account nach der Installation")
-    print("  (wird beim Befehl 'npx prisma db seed' angelegt).")
+    print("  (wird beim ersten Start des Backends automatisch angelegt).")
     print()
 
     admin_email_def = defaults.get("ADMIN_EMAIL", "admin@br-dms.lokal")
@@ -487,7 +487,7 @@ ENCRYPTION_KEY={encryption_key}
 # Intern im Container – nicht ändern
 STORAGE_PATH=/data/storage
 
-# --- Erster Admin-Account (nur fuer "npx prisma db seed") -------
+# --- Erster Admin-Account (wird beim ersten Start automatisch angelegt) ---
 ADMIN_EMAIL={admin_email}
 ADMIN_PASSWORD={admin_pw}
 
@@ -553,10 +553,8 @@ FRONTEND_PORT={frontend_port}
              f"mkdir -p {data_path}/{{storage,postgres,logs,watch_inbox,backups,certs}}"),
             ("TLS-Zertifikat erzeugen (muss vor dem ersten Start existieren)",
              cert_cmd_generic),
-            ("Container bauen & starten",
+            ("Container bauen & starten (legt beim ersten Start den Admin-Account an)",
              f"{docker_cmd} compose up -d --build"),
-            ("Admin-Benutzer anlegen (einmalig)",
-             f"{docker_cmd} exec brdms_backend npx prisma db seed"),
             ("System aufrufen",
              f"https://{host_address}:{proxy_https_port}  (Zertifikatswarnung bei selbstsigniertem Zertifikat ist normal)"),
         ]
@@ -571,12 +569,8 @@ FRONTEND_PORT={frontend_port}
              f"python3 {SCRIPT_DIR}/deploy_komplett.py"),
             ("TLS-Zertifikat auf dem NAS erzeugen (muss vor dem ersten Start existieren)",
              f'ssh {nas_user}@{nas_ip} "{cert_cmd_nas}"'),
-            ("Container bauen (Erstinstallation – Option A)",
-             f"{docker_cmd} compose -f {dc_file} build"),
-            ("Container starten",
-             f"{docker_cmd} compose -f {dc_file} up -d"),
-            ("Admin-Benutzer anlegen (einmalig)",
-             f"{docker_cmd} exec brdms_backend npx prisma db seed"),
+            ("Container bauen & starten (legt beim ersten Start den Admin-Account an)",
+             f"{docker_cmd} compose -f {dc_file} up -d --build"),
             ("System aufrufen",
              f"https://{nas_ip}:{proxy_https_port}  (Zertifikatswarnung bei selbstsigniertem Zertifikat ist normal)"),
         ]

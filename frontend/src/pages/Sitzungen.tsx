@@ -41,7 +41,7 @@ function pdfInTabOeffnen(url: string) {
 // ── Status-Badges ─────────────────────────────────────────────────
 const SITZUNG_BADGE: Record<SitzungStatus, string> = {
   ENTWURF:              "bg-yellow-100 text-yellow-700 border-yellow-200",
-  TAGESORDNUNG_FIXIERT: "bg-blue-100 text-blue-700 border-blue-200",
+  TAGESORDNUNG_FIXIERT: "bg-accent/10 text-accent border-accent/25",
   PROTOKOLL_ENTWURF:    "bg-orange-100 text-orange-700 border-orange-200",
   PROTOKOLL_FINAL:      "bg-green-100 text-green-700 border-green-200",
   ABGESAGT:             "bg-gray-100 text-gray-500 border-gray-200",
@@ -52,7 +52,7 @@ const TOP_BADGE: Record<TopStatus, string> = {
   BESCHLOSSEN:  "bg-green-100 text-green-700",
   ABGELEHNT:    "bg-red-100 text-red-700",
   VERTAGT:      "bg-yellow-100 text-yellow-700",
-  ZUR_KENNTNIS: "bg-blue-100 text-blue-700",
+  ZUR_KENNTNIS: "bg-accent/10 text-accent",
 };
 
 const TOP_STATUS_ICON: Record<TopStatus, React.ReactNode> = {
@@ -560,7 +560,7 @@ function SitzungDetail({
                 <button
                   onClick={() => setBearbeitenModal(true)}
                   title="Metadaten bearbeiten"
-                  className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded transition-colors"
+                  className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
                 >
                   <Pencil size={15} />
                 </button>
@@ -594,7 +594,7 @@ function SitzungDetail({
         <div className="flex gap-2 flex-wrap">
           {sitzung.versionen.map(v => (
             <div key={v.id} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs">
-              {v.readonly ? <Lock size={11} className="text-gray-400" /> : <Unlock size={11} className="text-blue-500" />}
+              {v.readonly ? <Lock size={11} className="text-gray-400" /> : <Unlock size={11} className="text-accent/80" />}
               <span className="font-medium text-gray-700">{VERSIONS_TYP_LABEL[v.typ] ?? v.versionNummer}</span>
               {v.einladungVersendetAm && (
                 <span className="text-green-600 ml-1">· Einladung versendet {formatDatum(v.einladungVersendetAm)}</span>
@@ -932,7 +932,7 @@ function TopZeile({
                   <button
                     onClick={inhaltSpeichernFn}
                     disabled={inhaltSpeichern}
-                    className="mt-1 flex items-center gap-1 text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-2.5 py-1 rounded-lg"
+                    className="mt-1 flex items-center gap-1 text-xs bg-accent hover:bg-accent-hover disabled:opacity-50 text-white px-2.5 py-1 rounded-lg"
                   >
                     {inhaltSpeichern && <Loader2 size={10} className="animate-spin" />}
                     Inhalt speichern
@@ -1028,23 +1028,23 @@ function TopZeile({
                     key={td.id}
                     onDoubleClick={dokumentOeffnen}
                     title="Doppelklick zum Öffnen"
-                    className="flex items-center gap-1 bg-blue-50 border border-blue-100 rounded-lg pl-2 pr-1 py-1 text-xs text-blue-700 cursor-pointer hover:border-blue-300"
+                    className="flex items-center gap-1 bg-accent/5 border border-accent/15 rounded-lg pl-2 pr-1 py-1 text-xs text-accent cursor-pointer hover:border-accent/40"
                   >
                     <FileText size={11} />
                     <span className="max-w-[160px] truncate" title={td.dokument.alias ?? td.dokument.titel}>
                       {td.dokument.alias ?? td.dokument.titel}
                     </span>
-                    <span className="text-blue-400 ml-0.5">({KATEGORIE_LABEL[td.dokument.kategorie]})</span>
+                    <span className="text-accent/60 ml-0.5">({KATEGORIE_LABEL[td.dokument.kategorie]})</span>
                     <button
                       title="Dokument öffnen"
                       onClick={dokumentOeffnen}
-                      className="p-1 ml-1 text-blue-400 hover:text-blue-700 hover:bg-blue-100 rounded"
+                      className="p-1 ml-1 text-accent/60 hover:text-accent hover:bg-accent/10 rounded"
                     >
                       <Eye size={13} />
                     </button>
                     {!readonly && (imEntwurf || top.spontan) && (
                       <>
-                        <span className="w-px h-3.5 bg-blue-200 mx-0.5" />
+                        <span className="w-px h-3.5 bg-accent/20 mx-0.5" />
                         <button
                           onClick={() => {
                             if (confirm(`Verknüpfung mit „${td.dokument.titel}" wirklich trennen?`)) {
@@ -1073,7 +1073,7 @@ function TopZeile({
                 onClick={onVerschiebenHoch}
                 disabled={istErster}
                 title="Nach oben"
-                className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded transition-colors disabled:opacity-25 disabled:cursor-default"
+                className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors disabled:opacity-25 disabled:cursor-default"
               >
                 <ChevronUp size={15} />
               </button>
@@ -1081,7 +1081,7 @@ function TopZeile({
                 onClick={onVerschiebenRunter}
                 disabled={istLetzter}
                 title="Nach unten"
-                className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded transition-colors disabled:opacity-25 disabled:cursor-default"
+                className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors disabled:opacity-25 disabled:cursor-default"
               >
                 <ChevronDown size={15} />
               </button>
@@ -1899,7 +1899,7 @@ function ExtraktModal({
             {formKategorien.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {formKategorien.map(kat => (
-                  <span key={kat} className="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                  <span key={kat} className="flex items-center gap-1 text-xs bg-accent/10 text-accent px-2 py-0.5 rounded-full">
                     {kat}
                     <button type="button" onClick={() => setFormKats(k => k.filter(t => t !== kat))}>
                       <X size={11} className="hover:text-red-600" />

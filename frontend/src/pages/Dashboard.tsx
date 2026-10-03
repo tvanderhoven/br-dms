@@ -17,6 +17,8 @@ const FRIST_LABEL: Record<string, string> = {
   ANHOERUNG_102_ORDENTLICH:       "Anhörungsfrist § 102 ordentlich (1 Woche)",
   ANHOERUNG_102_AUSSERORDENTLICH: "Anhörungsfrist § 102 außerordentlich (3 Tage)",
   WIDERSPRUCH:                    "Widerspruchsfrist § 99/102 (1 Woche)",
+  ZEITMODELL_87_WOCHE:            "Mitbestimmung § 87 (1 Woche)",
+  BENUTZERDEFINIERT:              "Individuelle Frist",
 };
 
 // ── Stat-Karte ────────────────────────────────────────────────────
@@ -25,10 +27,10 @@ function StatKarte({ icon, titel, wert, sub, farbe, href }: {
   sub?: string; farbe: "blue" | "red" | "amber" | "indigo"; href?: string;
 }) {
   const iconKlasse: Record<string, string> = {
-    blue:   "text-blue-600 bg-blue-50",
+    blue:   "text-accent bg-accent/5",
     red:    "text-red-600 bg-red-50",
     amber:  "text-amber-600 bg-amber-50",
-    indigo: "text-indigo-600 bg-indigo-50",
+    indigo: "text-accent bg-accent/5",
   };
   const inner = (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 hover:shadow-md transition-shadow h-full">

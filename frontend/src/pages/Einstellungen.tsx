@@ -356,7 +356,7 @@ function ProtokollTab() {
             >
               <KopfzeileVorschau typ={wert} farbe={einstellungen.farbe} />
               <p className={`text-xs text-center mt-1.5 font-medium ${
-                einstellungen.kopfzeile_layout === wert ? "text-blue-700" : "text-gray-500"
+                einstellungen.kopfzeile_layout === wert ? "text-accent" : "text-gray-500"
               }`}>{label}</p>
             </button>
           ))}
@@ -379,7 +379,7 @@ function ProtokollTab() {
             >
               <FusszeilleVorschau typ={wert} farbe={einstellungen.farbe} />
               <p className={`text-xs text-center mt-1.5 font-medium ${
-                einstellungen.fusszeile_layout === wert ? "text-blue-700" : "text-gray-500"
+                einstellungen.fusszeile_layout === wert ? "text-accent" : "text-gray-500"
               }`}>{label}</p>
             </button>
           ))}
@@ -446,6 +446,8 @@ function ProtokollTab() {
 
 // ── Design Tab ────────────────────────────────────────────────────
 const THEMES: { name: string; sidebar: string; accent: string; text: string; bg: string }[] = [
+  { name: "Board",     sidebar: "#222327", accent: "#222327", text: "#222327", bg: "#f3f3f4" },
+  { name: "Board Rot", sidebar: "#222327", accent: "#c8102e", text: "#222327", bg: "#f3f3f4" },
   { name: "Ozean",     sidebar: "#1e3a5f", accent: "#2563eb", text: "#111827", bg: "#f9fafb" },
   { name: "Schiefer",  sidebar: "#1e293b", accent: "#0ea5e9", text: "#111827", bg: "#f8fafc" },
   { name: "Wald",      sidebar: "#14532d", accent: "#16a34a", text: "#111827", bg: "#f0fdf4" },
@@ -485,8 +487,8 @@ function ThemeKarte({ theme, aktiv, onClick }: { theme: typeof THEMES[0]; aktiv:
 
 function DesignTab() {
   const [einstellungen, setEinst] = useState<DesignEinstellungen>({
-    sidebar_farbe: "#1e3a5f", akzent_farbe: "#2563eb",
-    text_farbe: "#111827", hintergrund: "#f9fafb",
+    sidebar_farbe: "#222327", akzent_farbe: "#222327",
+    text_farbe: "#222327", hintergrund: "#f3f3f4",
     schrift_groesse: "16", dark_mode: "auto",
   });
   const [laden, setLaden] = useState(true);

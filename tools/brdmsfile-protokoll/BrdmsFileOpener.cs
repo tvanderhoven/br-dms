@@ -16,7 +16,7 @@ using System.Text.RegularExpressions;
 using System.Reflection;
 
 // Versions-Infos der .exe - Chrome/Edge zeigen den Titel im "...öffnen?"-Bestätigungsdialog an
-// (siehe intern schon bekanntes Beispiel "LBOfficeSelector öffnen?") statt des Dateinamens.
+// (wie bei anderen Protokoll-Handlern üblich) statt des Dateinamens.
 [assembly: AssemblyTitle("BR-DMS Datei-Link")]
 [assembly: AssemblyProduct("BR-DMS Datei-Link")]
 [assembly: AssemblyDescription("Öffnet NAS-Datei-Links aus dem BR-DMS-Editor")]

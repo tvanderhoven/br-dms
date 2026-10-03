@@ -11,7 +11,7 @@ const STATUS_LABEL: Record<SchulungsStatus, string> = {
 };
 
 const STATUS_FARBE: Record<SchulungsStatus, string> = {
-  GEPLANT:    "text-blue-700 bg-blue-50 border-blue-200",
+  GEPLANT:    "text-accent bg-accent/5 border-accent/25",
   ABSOLVIERT: "text-green-700 bg-green-50 border-green-200",
   ABGESAGT:   "text-gray-500 bg-gray-100 border-gray-200",
 };
@@ -190,7 +190,7 @@ function TermineTab() {
                   <td className="px-4 py-2.5 text-right whitespace-nowrap">
                     <button
                       onClick={() => { setBearbeitet(t); setModal(true); }}
-                      className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded transition-colors"
+                      className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
                       title="Bearbeiten / Teilnehmer verwalten"
                     >
                       <Edit3 size={14} />

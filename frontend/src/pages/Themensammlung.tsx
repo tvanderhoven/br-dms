@@ -235,7 +235,7 @@ export default function Themensammlung() {
       </div>
 
       {/* Hinweis */}
-      <div className="flex gap-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl px-4 py-3 mb-5 text-xs text-blue-700 dark:text-blue-300">
+      <div className="flex gap-2 bg-accent/5 dark:bg-accent/10 border border-accent/15 dark:border-accent/30 rounded-xl px-4 py-3 mb-5 text-xs text-accent dark:text-accent">
         <Info size={14} className="shrink-0 mt-0.5" />
         <span>
           Sammelt alle TOPs aus Protokollen deren Titel das Stichwort enthält.
@@ -339,7 +339,7 @@ export default function Themensammlung() {
                           {top.nummer}. {top.titel}
                         </p>
                         {top.ergebnisJson || top.ergebnis ? (
-                          <div className="text-sm text-gray-700 dark:text-gray-300 border-l-2 border-blue-100 dark:border-blue-800 pl-3 prose-like">
+                          <div className="text-sm text-gray-700 dark:text-gray-300 border-l-2 border-accent/15 dark:border-accent/30 pl-3 prose-like">
                             {top.ergebnisJson
                               ? <div dangerouslySetInnerHTML={{ __html: tiptapZuHtml(top.ergebnisJson) }} />
                               : <p>{top.ergebnis}</p>

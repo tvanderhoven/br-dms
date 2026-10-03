@@ -127,7 +127,7 @@ function NeuerTopForm({
           type="button"
           onClick={() => setMitInhalt(v => !v)}
           title="Inhalt eingeben"
-          className={`p-2 rounded-lg border text-xs transition-colors ${mitInhalt ? "border-[rgb(var(--accent))] text-[rgb(var(--accent))] bg-blue-50" : "border-gray-300 text-gray-400 hover:text-gray-600"}`}
+          className={`p-2 rounded-lg border text-xs transition-colors ${mitInhalt ? "border-[rgb(var(--accent))] text-[rgb(var(--accent))] bg-accent/5" : "border-gray-300 text-gray-400 hover:text-gray-600"}`}
         >
           <FileText size={14} />
         </button>
@@ -240,8 +240,8 @@ export default function Vorlagen() {
 
       {/* Inline – Neue Vorlage anlegen */}
       {neueFormOffen && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-5">
-          <h2 className="text-sm font-semibold text-blue-900 mb-3">Neue Vorlage anlegen</h2>
+        <div className="bg-accent/5 border border-accent/25 rounded-xl p-4 mb-5">
+          <h2 className="text-sm font-semibold text-accent mb-3">Neue Vorlage anlegen</h2>
           <form onSubmit={vorlageErstellen} className="space-y-2">
             <input
               value={neuerName}
@@ -345,7 +345,7 @@ export default function Vorlagen() {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => { setEditName(v.name); setEditBeschr(v.beschreibung ?? ""); setNameBearbeitenId(v.id); }}
-                            className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded-lg"
+                            className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-lg"
                             title="Name bearbeiten"
                           >
                             <Pencil size={14} />

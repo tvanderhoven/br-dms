@@ -1,0 +1,37 @@
+# ================================================================
+#  BR-DMS – Demo-Instanz (lokaler PC, komplett getrennt vom NAS)
+#  Ergänzt die normale docker-compose.yml: eigene Containernamen,
+#  eigene Ports, Daten in Docker-Volumes statt NAS-Pfaden.
+#  Start/Reset über demo/demo.sh – nicht direkt aufrufen.
+# ================================================================
+
+services:
+  postgres:
+    container_name: brdms_demo_postgres
+    volumes:
+      - demo_postgres:/var/lib/postgresql/data
+
+  backend:
+    container_name: brdms_demo_backend
+    environment:
+      DEMO_PASSWORD: ${DEMO_PASSWORD}
+    volumes:
+      - demo_storage:/data/storage
+      - demo_logs:/data/logs
+      - demo_inbox:/data/watch_inbox
+      - demo_backups:/data/backups:ro
+
+  frontend:
+    container_name: brdms_demo_frontend
+
+  proxy:
+    container_name: brdms_demo_proxy
+    volumes:
+      - ./demo/certs:/etc/nginx/certs:ro
+
+volumes:
+  demo_postgres:
+  demo_storage:
+  demo_logs:
+  demo_inbox:
+  demo_backups:

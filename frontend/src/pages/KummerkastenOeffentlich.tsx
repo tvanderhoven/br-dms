@@ -36,8 +36,8 @@ export default function KummerkastenOeffentlich() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-800 to-blue-950 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-8">
+    <div className="min-h-screen bg-[rgb(var(--bg-primary))] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow w-full max-w-xl p-8">
         <div className="flex flex-col items-center mb-6 text-center">
           <div className="mb-3">
             <BrandLogo size={40} textClassName="text-xl text-gray-900" />
@@ -69,7 +69,7 @@ export default function KummerkastenOeffentlich() {
                 value={nachricht}
                 onChange={e => setNachricht(e.target.value)}
                 placeholder="Was möchtest du dem Betriebsrat mitteilen?"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y min-h-[220px]"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent resize-y min-h-[220px]"
               />
             </div>
 
@@ -84,7 +84,7 @@ export default function KummerkastenOeffentlich() {
                 value={absenderName}
                 onChange={e => setAbsenderName(e.target.value)}
                 placeholder="Kannst du frei lassen, wenn du anonym bleiben möchtest"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
 
@@ -110,7 +110,7 @@ export default function KummerkastenOeffentlich() {
             <button
               type="submit"
               disabled={senden || !nachricht.trim()}
-              className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="w-full bg-accent hover:bg-accent-hover disabled:opacity-60 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
             >
               {senden && <Loader2 size={16} className="animate-spin" />}
               Absenden
@@ -120,6 +120,7 @@ export default function KummerkastenOeffentlich() {
 
         <p className="text-center text-xs text-gray-300 mt-6">
           <Link to="/login" className="hover:text-gray-400 hover:underline">Für BR-Mitglieder: Anmelden</Link>
+          {" · "}BR-DMS · Open Source (AGPL-3.0)
         </p>
       </div>
     </div>
