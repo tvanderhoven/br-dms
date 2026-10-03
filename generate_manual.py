@@ -563,6 +563,11 @@ def build():
         "vor Ablauf verschickt das System eine Erinnerung per E-Mail."
     )
     pdf.bild("fristenkalender", "Fristenkalender in der Monatsansicht", hoehe_anteil=0.62)
+    pdf.bullets([
+        "Erledigen – Häkchen an der Frist (im Kalender oder auf dem Dashboard); Name und Datum werden festgehalten, der Pfeil öffnet sie wieder",
+        "Neue Frist – Für Termine ohne Dokument, z. B. Wahl, Betriebsversammlung oder eine Erinnerung, mit Bezeichnung und Notiz",
+        "Überfällig – Offene Fristen nach ihrem Fälligkeitstag; sie bleiben offen, bis jemand sie erledigt",
+    ])
     pdf.tabelle(
         ["Fristtyp", "Dauer", "Rechtsgrundlage"],
         [
@@ -658,34 +663,43 @@ def build():
 
     # 5 ─────────────────────────────────────────────────────────────
     pdf.h1("5  Planung & Zusammenarbeit")
-    pdf.h2("5.1  Aufgaben")
+    pdf.h2("5.1  Aufgaben und Vorhaben")
     pdf.body(
-        "Aufgaben werden als Liste oder Kanban-Board (Neu, In Bearbeitung, Auf Hold, Erledigt) geführt. "
-        "Sie haben Priorität, Fälligkeit, eine verantwortliche Person und können privat oder für alle "
-        "sichtbar sein. Verknüpfungen zu Dokument oder TOP bleiben erhalten."
+        "Aufgaben haben Priorität, Fälligkeit, eine verantwortliche Person und können privat oder für "
+        "alle sichtbar sein. Größere Vorhaben – etwa eine Wahl, eine Betriebsversammlung oder eine "
+        "Verhandlungsphase – fassen mehrere Aufgaben über einen Zeitraum zusammen. Vorhaben lassen sich "
+        "verschachteln und farblich kennzeichnen. Über den Filter oben zeigt die Seite alle Aufgaben, "
+        "nur die ohne Vorhaben oder die eines bestimmten Vorhabens."
     )
-    pdf.bild("aufgaben", "Aufgaben als Kanban-Board", hoehe_anteil=0.55)
-    pdf.h2("5.2  Zeiträume")
-    pdf.body(
-        "Zeiträume stellen längere Vorhaben als Gantt-Diagramm dar – etwa Verhandlungsphasen, "
-        "die Vorbereitung einer Betriebsversammlung oder der Betriebsratswahl. Projekte lassen sich "
-        "in Unterprojekte und Aufgaben gliedern und farblich kennzeichnen."
+    pdf.tabelle(
+        ["Ansicht", "Wofür"],
+        [
+            ["Board", "Alle Aufgaben als Kanban (Neu, In Bearbeitung, Auf Hold, Erledigt), per Ziehen verschieben; das Vorhaben steht klein an der Karte"],
+            ["Liste", "Aufgaben gruppiert nach Vorhaben, dazu die Aufgaben ohne Vorhaben; mit „+“ direkt eine Aufgabe im Vorhaben anlegen"],
+            ["Zeitplan", "Vorhaben und ihre Aufgaben als Gantt-Diagramm über die Zeit"],
+        ],
+        (28, 142),
     )
-    pdf.bild("zeitraeume", "Zeiträume im Gantt-Diagramm", hoehe_anteil=0.4)
-    pdf.h2("5.3  Themen-Backlog")
+    pdf.bild("aufgaben", "Board mit Aufgaben aus verschiedenen Vorhaben", hoehe_anteil=0.55)
+    pdf.bild("aufgaben-liste", "Liste, gruppiert nach Vorhaben", hoehe_anteil=0.55)
+    pdf.bild("aufgaben-zeitplan", "Zeitplan der Vorhaben", hoehe_anteil=0.55)
+    pdf.hinweis(
+        "Wird ein Vorhaben gelöscht, bleiben seine Aufgaben erhalten und stehen danach ohne Vorhaben da.",
+        "info")
+    pdf.h2("5.2  Themen-Backlog")
     pdf.body(
         "Im Themen-Backlog sammelt der Betriebsrat Ideen und Anliegen, bevor sie in eine Sitzung "
         "kommen. Ein Klick übernimmt ein Thema als TOP in die nächste Sitzung."
     )
     pdf.bild("themen-backlog", "Themen-Backlog als Kanban-Board", hoehe_anteil=0.5)
-    pdf.h2("5.4  Nachrichten")
+    pdf.h2("5.3  Nachrichten")
     pdf.body(
         "Das interne Postfach verbindet die Mitglieder ohne externe Dienste. Nachrichten gehen an "
         "einzelne Mitglieder, an alle oder an die Teilnehmer einer Sitzung. Einladungen und Protokolle "
         "verschickt das System automatisch, auf Wunsch mit PDF-Anhang."
     )
     pdf.bild("posteingang", "Postfach mit Systemnachrichten und persönlichen Nachrichten", hoehe_anteil=0.45)
-    pdf.h2("5.5  Kummerkasten")
+    pdf.h2("5.4  Kummerkasten")
     pdf.body(
         "Der Kummerkasten ist eine öffentliche Seite ohne Anmeldung, über die Beschäftigte dem "
         "Betriebsrat Anliegen, Kritik oder Ideen schicken – anonym oder mit Namen. Intern werden die "
@@ -1165,7 +1179,7 @@ def build():
             ["Benutzer", "Benutzer, PasswortReset, AuditLog"],
             ["Dokumente", "Dokument, DokumentVersion, Frist, Kommentar"],
             ["Sitzungen", "Sitzung, SitzungVersion, TOP, TopDokument, Anwesenheit, Beschluss, Abstimmung, ProtocolBlock, SitzungsVorlage"],
-            ["Zusammenarbeit", "Aufgabe (inkl. Themen-Backlog und Zeiträume), Nachricht, KummerkastenEintrag"],
+            ["Zusammenarbeit", "Aufgabe (inkl. Vorhaben und Themen-Backlog), Nachricht, KummerkastenEintrag"],
             ["Wissen", "WissensEintrag, Ressource, GesetzParagraph"],
             ["Personal", "Mitarbeiter, Abteilung, GehaltsstufenEintrag, ZeitmodellEintrag, UeberstundenEintrag"],
             ["Weitere", "Betriebsvereinbarung, Qualifikation, Schulungstermin, SchulungsTeilnahme"],

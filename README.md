@@ -30,9 +30,9 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 - **Automatische Einladung** – Interne Nachricht an alle Mitglieder bei Fixierung der Tagesordnung
 - **Cross-Modul-Aktionen aus TOPs** – Aufgabe erstellen, ins Wissensarchiv übernehmen, Gehaltsbeschluss direkt in die Gehaltstabelle übernehmen
 
-### Aufgaben, Zeiträume & Themen
-- **Aufgaben** – Liste und Kanban-Board (Neu/In Bearbeitung/Auf Hold/Erledigt), Priorität, Fälligkeit, Zuweisung, Sichtbarkeit (privat/öffentlich), Verknüpfung zu TOP/Dokument, Doppelklick öffnet die Detailansicht
-- **Zeiträume** – Gantt-Diagramm mit Hierarchie (Ober-/Unterprojekt), Farbcodierung, sowie Listenansicht
+### Aufgaben, Vorhaben & Themen
+- **Aufgaben** – Drei Ansichten: Board (Neu/In Bearbeitung/Auf Hold/Erledigt), Liste gruppiert nach Vorhaben, Zeitplan als Gantt-Diagramm; Priorität, Fälligkeit, Zuweisung, Sichtbarkeit (privat/öffentlich), Verknüpfung zu TOP/Dokument, Doppelklick öffnet die Detailansicht
+- **Vorhaben** – Klammer um mehrere Aufgaben mit Zeitraum (z. B. Wahl, Betriebsversammlung, Verhandlung), verschachtelbar, farblich gekennzeichnet, Filter je Vorhaben
 - **Themen-Backlog** – Eigenes Kanban-Board für Themenideen, direkte Übernahme in einen Sitzungs-TOP
 - **Themensammlung** – Sammelt als "öffentlich" markierte TOPs aus Protokollen für Aushänge/Newsletter und exportiert sie formatiert
 
@@ -335,6 +335,13 @@ generischen Docker-Host.
 > muss schon *vor* dem Restore exakt dem Schlüssel des Quellsystems entsprechen – sonst lassen
 > sich die wiederhergestellten Dokumente nicht mehr entschlüsseln (siehe
 > [Umgebungsvariablen](#umgebungsvariablen)).
+
+---
+
+## Roadmap
+
+Was als Nächstes kommt (Betriebsversammlung, BR-/JAV-Wahl) und was bewusst nicht geplant ist,
+steht in der [`ROADMAP.md`](ROADMAP.md).
 
 ---
 

@@ -3,6 +3,7 @@
 // DevTools-Protokoll – keine zusätzlichen npm-Pakete nötig (Node >= 22).
 //
 // Aufruf:  node tools/handbuch-screenshots/screenshots.mjs
+//          NUR=dashboard,fristenkalender node …   (nur einzelne Bilder)
 // Ergebnis: tools/handbuch-screenshots/bilder/*.png
 
 import { spawn } from "node:child_process";
@@ -38,8 +39,9 @@ const AUFNAHMEN = [
   { datei: "sitzung-entwurf",  pfad: "/sitzungen", js: klickText("Protokoll in Bearbeitung", "tr"), warte: 2500 },
   { datei: "beschluesse",      pfad: "/beschluesse" },
   { datei: "vorlagen",         pfad: "/vorlagen" },
-  { datei: "aufgaben",         pfad: "/aufgaben" },
-  { datei: "zeitraeume",       pfad: "/zeitraeume" },
+  { datei: "aufgaben",         pfad: "/aufgaben?ansicht=board" },
+  { datei: "aufgaben-liste",   pfad: "/aufgaben?ansicht=liste" },
+  { datei: "aufgaben-zeitplan", pfad: "/aufgaben?ansicht=zeitplan" },
   { datei: "themen-backlog",   pfad: "/themen-backlog" },
   { datei: "posteingang",      pfad: "/posteingang" },
   { datei: "kummerkasten-verwaltung", pfad: "/kummerkasten-verwaltung" },
@@ -117,7 +119,9 @@ async function main() {
     await cdp("Page.navigate", { url: `${BASIS}/login` });
     await pause(1500);
 
-    for (const a of AUFNAHMEN) {
+    // NUR=dashboard,fristenkalender nimmt nur einzelne Bilder neu auf
+    const nur = process.env.NUR?.split(",").map(x => x.trim());
+    for (const a of AUFNAHMEN.filter(x => !nur || nur.includes(x.datei))) {
       await auswerten(a.ohneLogin
         ? `localStorage.removeItem("brdms_token")`
         : `localStorage.setItem("brdms_token", ${JSON.stringify(a.alsAdmin ? adminJwt : jwt)})`);
