@@ -452,7 +452,7 @@ export default function Gehaltstabelle() {
                     <td className="px-4 py-2.5 text-right whitespace-nowrap">
                       <button
                         onClick={() => { setBearbeitet(e); setModal(true); }}
-                        className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded transition-colors"
+                        className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
                         title="Bearbeiten"
                       >
                         <Edit3 size={14} />
@@ -1417,8 +1417,8 @@ function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mi
       ) : (
         <>
           {ausgewaehlt.size > 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-3 flex items-center gap-3">
-              <span className="text-sm text-blue-800 font-medium">{ausgewaehlt.size} ausgewählt</span>
+            <div className="bg-accent/5 border border-accent/25 rounded-xl p-3 mb-3 flex items-center gap-3">
+              <span className="text-sm text-accent font-medium">{ausgewaehlt.size} ausgewählt</span>
               <button
                 onClick={mehrereLoeschen}
                 className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
@@ -1427,7 +1427,7 @@ function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mi
               </button>
               <button
                 onClick={() => setAusgewaehlt(new Set())}
-                className="text-xs text-blue-600 hover:text-blue-800"
+                className="text-xs text-accent hover:text-accent-hover"
               >
                 Auswahl aufheben
               </button>
@@ -1472,7 +1472,7 @@ function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mi
                   <td className="px-4 py-2.5 text-right whitespace-nowrap">
                     <button
                       onClick={() => { setBearbeitet(z); setModal(true); }}
-                      className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded transition-colors"
+                      className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
                       title="Bearbeiten"
                     >
                       <Edit3 size={14} />
@@ -1831,7 +1831,7 @@ function UeberstundenTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: 
                   <td className="px-4 py-2.5 text-right whitespace-nowrap">
                     <button
                       onClick={() => { setBearbeitet(z); setModal(true); }}
-                      className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded transition-colors"
+                      className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
                       title="Bearbeiten"
                     >
                       <Edit3 size={14} />

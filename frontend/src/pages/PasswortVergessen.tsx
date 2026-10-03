@@ -24,11 +24,11 @@ export default function PasswortVergessen() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-800 to-blue-950 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8">
+    <div className="min-h-screen bg-[rgb(var(--bg-primary))] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow w-full max-w-sm p-8">
         <div className="flex flex-col items-center mb-8">
-          <div className="bg-blue-100 p-3 rounded-full mb-3">
-            <Shield className="text-blue-700" size={28} />
+          <div className="bg-accent/10 p-3 rounded-full mb-3">
+            <Shield className="text-accent" size={28} />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Passwort vergessen</h1>
           <p className="text-gray-500 text-sm mt-1 text-center">

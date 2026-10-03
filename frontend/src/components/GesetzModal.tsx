@@ -44,7 +44,7 @@ export default function GesetzModal({
                 href={paragraph.quelleUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                className="text-accent hover:text-accent-hover flex items-center gap-1"
               >
                 Quelle: gesetze-im-internet.de <Globe size={11} />
               </a>

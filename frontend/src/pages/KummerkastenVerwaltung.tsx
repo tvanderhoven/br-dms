@@ -8,7 +8,7 @@ const STATUS_LABEL: Record<KummerkastenStatus, string> = {
   ERLEDIGT:       "Erledigt",
 };
 const STATUS_STYLE: Record<KummerkastenStatus, string> = {
-  NEU:            "bg-blue-100 text-blue-700 border-blue-200",
+  NEU:            "bg-accent/10 text-accent border-accent/25",
   IN_BEARBEITUNG: "bg-amber-100 text-amber-700 border-amber-200",
   ERLEDIGT:       "bg-green-100 text-green-700 border-green-200",
 };

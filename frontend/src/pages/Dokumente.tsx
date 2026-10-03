@@ -303,21 +303,21 @@ export default function Dokumente() {
                           <button
                             onClick={() => dokumentInNeuemFensterOeffnen(d)}
                             title="In neuem Fenster öffnen"
-                            className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded transition-colors"
+                            className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
                           >
                             <ExternalLink size={15} />
                           </button>
                           <button
                             onClick={() => herunterladen(d)}
                             title="Herunterladen"
-                            className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded transition-colors"
+                            className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
                           >
                             <Download size={15} />
                           </button>
                           <button
                             onClick={() => setBearbeitenDok(d)}
                             title="Bearbeiten"
-                            className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                            className="p-1.5 text-gray-400 hover:text-accent hover:bg-accent/5 rounded transition-colors"
                           >
                             <Pencil size={15} />
                           </button>
@@ -397,19 +397,19 @@ export default function Dokumente() {
           <div className="px-4 py-2 border-b border-gray-100 flex gap-2">
             <button
               onClick={() => dokumentInNeuemFensterOeffnen(vorschau)}
-              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-[rgb(var(--accent))] px-2 py-1.5 rounded hover:bg-blue-50 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-[rgb(var(--accent))] px-2 py-1.5 rounded hover:bg-accent/5 transition-colors"
             >
               <ExternalLink size={13} /> Neues Fenster
             </button>
             <button
               onClick={() => herunterladen(vorschau)}
-              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-[rgb(var(--accent))] px-2 py-1.5 rounded hover:bg-blue-50 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-[rgb(var(--accent))] px-2 py-1.5 rounded hover:bg-accent/5 transition-colors"
             >
               <Download size={13} /> Herunterladen
             </button>
             <button
               onClick={() => setBearbeitenDok(vorschau)}
-              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-indigo-600 px-2 py-1.5 rounded hover:bg-indigo-50 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-accent px-2 py-1.5 rounded hover:bg-accent/5 transition-colors"
             >
               <Pencil size={13} /> Bearbeiten
             </button>
@@ -439,7 +439,7 @@ export default function Dokumente() {
                       </div>
                       <button
                         onClick={() => ladeVersionHerunter(v)}
-                        className="p-1 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded flex-shrink-0"
+                        className="p-1 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded flex-shrink-0"
                         title={`v${v.version} herunterladen`}
                       >
                         <Download size={12} />
@@ -577,7 +577,7 @@ function UploadModal({ onSchliessen, onErfolg }: { onSchliessen: () => void; onE
             <label className="block text-sm font-medium text-gray-700 mb-1">Datei</label>
             <div
               onClick={() => fileRef.current?.click()}
-              className="border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-lg p-4 text-center cursor-pointer transition-colors"
+              className="border-2 border-dashed border-gray-300 hover:border-accent/60 rounded-lg p-4 text-center cursor-pointer transition-colors"
             >
               {datei ? (
                 <p className="text-sm text-gray-700 font-medium">{datei.name}</p>
@@ -616,9 +616,9 @@ function UploadModal({ onSchliessen, onErfolg }: { onSchliessen: () => void; onE
                 Dokument auswählen *
               </label>
               {versionVonId ? (
-                <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-sm">
-                  <span className="text-blue-800 font-medium truncate">{versionVonTitel}</span>
-                  <button type="button" onClick={() => { setVersionVonId(null); setVersionVonTitel(""); }} className="text-blue-400 hover:text-blue-600 ml-2 flex-shrink-0">
+                <div className="flex items-center justify-between bg-accent/5 border border-accent/25 rounded-lg px-3 py-2 text-sm">
+                  <span className="text-accent font-medium truncate">{versionVonTitel}</span>
+                  <button type="button" onClick={() => { setVersionVonId(null); setVersionVonTitel(""); }} className="text-accent/60 hover:text-accent ml-2 flex-shrink-0">
                     <X size={14} />
                   </button>
                 </div>

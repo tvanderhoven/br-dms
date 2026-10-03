@@ -112,7 +112,7 @@ function ListenAnsicht({
             className={`mt-0.5 w-5 h-5 rounded border-2 shrink-0 flex items-center justify-center transition-colors ${
               aufgabe.erledigt
                 ? "bg-green-500 border-green-500 text-white"
-                : "border-gray-300 hover:border-blue-400"
+                : "border-gray-300 hover:border-accent/60"
             }`}
           >
             {aufgabe.erledigt && (
@@ -165,7 +165,7 @@ function ListenAnsicht({
             <button
               onClick={() => onBearbeiten(aufgabe)}
               title="Bearbeiten"
-              className="text-gray-300 hover:text-blue-500 transition-colors"
+              className="text-gray-300 hover:text-accent transition-colors"
             >
               <Pencil size={15} />
             </button>
@@ -254,7 +254,7 @@ function KanbanAnsicht({
                       {karte.titel}
                     </p>
                     <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => onBearbeiten(karte)} title="Bearbeiten" className="text-gray-300 hover:text-blue-500">
+                      <button onClick={() => onBearbeiten(karte)} title="Bearbeiten" className="text-gray-300 hover:text-accent">
                         <Pencil size={13} />
                       </button>
                       <button onClick={() => onLoeschen(karte.id)} title="Löschen" className="text-gray-300 hover:text-red-500">

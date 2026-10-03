@@ -196,7 +196,7 @@ export default function Betriebsvereinbarungen() {
                     <td className="px-4 py-2.5 text-right whitespace-nowrap">
                       <button
                         onClick={() => { setBearbeitet(bv); setModal(true); }}
-                        className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-blue-50 rounded transition-colors"
+                        className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
                         title="Bearbeiten"
                       >
                         <Edit3 size={14} />

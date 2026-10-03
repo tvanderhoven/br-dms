@@ -62,14 +62,14 @@ function TopVerknuepfenModal({
         </div>
 
         {aufgabe.top && (
-          <div className="mb-4 flex items-center justify-between gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-sm">
-            <span className="text-blue-800 truncate">
+          <div className="mb-4 flex items-center justify-between gap-2 bg-accent/5 border border-accent/25 rounded-lg px-3 py-2 text-sm">
+            <span className="text-accent truncate">
               Aktuell: {aufgabe.top.sitzung.titel} · TOP {aufgabe.top.nummer} – {aufgabe.top.titel}
             </span>
             <button
               onClick={onEntfernen}
               title="Verknüpfung entfernen"
-              className="text-blue-400 hover:text-red-500 shrink-0"
+              className="text-accent/60 hover:text-red-500 shrink-0"
             >
               <Unlink size={15} />
             </button>
@@ -316,7 +316,7 @@ function KanbanAnsicht({
                       {karte.titel}
                     </p>
                     <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => onBearbeiten(karte)} title="Bearbeiten" className="text-gray-300 hover:text-blue-500">
+                      <button onClick={() => onBearbeiten(karte)} title="Bearbeiten" className="text-gray-300 hover:text-accent">
                         <Pencil size={13} />
                       </button>
                       <button onClick={() => onLoeschen(karte.id)} title="Löschen" className="text-gray-300 hover:text-red-500">
@@ -349,7 +349,7 @@ function KanbanAnsicht({
                     title={karte.top ? "Verknüpfung anzeigen/ändern" : "Mit TOP verknüpfen"}
                     className={`mt-2 w-full text-left flex items-center gap-1.5 text-xs px-2 py-1 rounded-md border transition-colors ${
                       karte.top
-                        ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                        ? "bg-accent/5 text-accent border-accent/25 hover:bg-accent/10"
                         : "text-gray-400 border-dashed border-gray-300 hover:border-gray-400 hover:text-gray-600"
                     }`}
                   >

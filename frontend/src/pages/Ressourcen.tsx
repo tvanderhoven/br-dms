@@ -160,7 +160,7 @@ export default function Ressourcen() {
         <div className="flex flex-wrap gap-1.5">
           <button
             onClick={() => setAktivKat(null)}
-            className={`text-xs px-2 py-1 rounded-full border transition-colors ${!aktivKat ? "bg-[rgb(var(--accent))] text-white border-[rgb(var(--accent))]" : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"}`}
+            className={`text-xs px-2 py-1 rounded-full border transition-colors ${!aktivKat ? "bg-[rgb(var(--accent))] text-white border-[rgb(var(--accent))]" : "bg-white text-gray-600 border-gray-300 hover:border-accent/60"}`}
           >
             Alle
           </button>
@@ -168,7 +168,7 @@ export default function Ressourcen() {
             <button
               key={kat}
               onClick={() => setAktivKat(kat === aktivKat ? null : kat)}
-              className={`text-xs px-2 py-1 rounded-full border transition-colors flex items-center gap-1 ${aktivKat === kat ? "bg-[rgb(var(--accent))] text-white border-[rgb(var(--accent))]" : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"}`}
+              className={`text-xs px-2 py-1 rounded-full border transition-colors flex items-center gap-1 ${aktivKat === kat ? "bg-[rgb(var(--accent))] text-white border-[rgb(var(--accent))]" : "bg-white text-gray-600 border-gray-300 hover:border-accent/60"}`}
             >
               {RESSOURCE_KATEGORIE_LABEL[kat]}
             </button>
@@ -212,7 +212,7 @@ export default function Ressourcen() {
                     <Favicon url={r.url} />
                     {r.titel}
                   </p>
-                  <p className="text-xs text-blue-500 truncate mt-0.5">{r.url}</p>
+                  <p className="text-xs text-accent/80 truncate mt-0.5">{r.url}</p>
                   {r.beschreibung && (
                     <p className="text-xs text-gray-400 line-clamp-1 mt-0.5">{r.beschreibung}</p>
                   )}
@@ -347,7 +347,7 @@ export default function Ressourcen() {
                 {(form.tags ?? []).length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
                     {(form.tags ?? []).map(t => (
-                      <span key={t} className="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                      <span key={t} className="flex items-center gap-1 text-xs bg-accent/10 text-accent px-2 py-0.5 rounded-full">
                         {t}
                         <button type="button"
                           onClick={() => setForm(f => ({ ...f, tags: (f.tags ?? []).filter(x => x !== t) }))}

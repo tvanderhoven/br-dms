@@ -229,7 +229,7 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false }: Props
                     {istErsatz && !item.anwesenheit && !hasPending && (
                       <button
                         onClick={() => setPendingErsatz(prev => ({ ...prev, [item.benutzer.id]: "" }))}
-                        className="flex items-center gap-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-2 py-1 rounded-lg transition-colors"
+                        className="flex items-center gap-1 text-xs bg-accent/5 hover:bg-accent/10 text-accent border border-accent/25 px-2 py-1 rounded-lg transition-colors"
                         title="Als Ersatzmitglied nachladen"
                       >
                         <UserPlus size={12} /> Nachladen
@@ -258,14 +258,14 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false }: Props
 
               {/* Inline-Picker: Für wen vertritt dieses Ersatzmitglied? */}
               {!readonly && hasPending && (
-                <div className="px-4 pb-3 pt-1 bg-blue-50 border-t border-blue-100 flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-medium text-blue-700">Vertritt:</span>
+                <div className="px-4 pb-3 pt-1 bg-accent/5 border-t border-accent/15 flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-medium text-accent">Vertritt:</span>
                   <select
                     value={pendingErsatz[item.benutzer.id]}
                     onChange={e =>
                       setPendingErsatz(prev => ({ ...prev, [item.benutzer.id]: e.target.value }))
                     }
-                    className="border border-blue-300 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    className="border border-accent/40 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
                     autoFocus
                   >
                     <option value="">– Bitte wählen –</option>
@@ -350,15 +350,15 @@ function ErsatzVorschlagBanner({
   if (!vorschlag) return null;
 
   return (
-    <div className="px-4 pb-3 pt-1 bg-indigo-50 border-t border-indigo-100 space-y-2">
+    <div className="px-4 pb-3 pt-1 bg-accent/5 border-t border-accent/15 space-y-2">
       <div className="flex items-center gap-2 flex-wrap">
-        <UserPlus size={13} className="text-indigo-600 shrink-0" />
-        <span className="text-xs text-indigo-700">
+        <UserPlus size={13} className="text-accent shrink-0" />
+        <span className="text-xs text-accent">
           Vorschlag laut Wahlrang: <span className="font-semibold">{vorschlag.name}</span> nachladen
         </span>
         <button
           onClick={() => onUebernehmen(vorschlag.id)}
-          className="text-xs bg-indigo-600 hover:brightness-90 text-white px-3 py-1 rounded-lg font-medium transition-colors"
+          className="text-xs bg-accent hover:brightness-90 text-white px-3 py-1 rounded-lg font-medium transition-colors"
         >
           Übernehmen
         </button>

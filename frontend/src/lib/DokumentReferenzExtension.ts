@@ -47,7 +47,7 @@ export const DokumentReferenzExtension = Node.create({
       "span",
       mergeAttributes(HTMLAttributes, {
         "data-dokument-id": HTMLAttributes.dokumentId,
-        class: "inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-full border border-blue-200 cursor-pointer hover:bg-blue-200 hover:border-blue-300 mx-0.5 transition-colors select-none",
+        class: "inline-flex items-center gap-1 bg-accent/10 text-accent text-xs font-medium px-2 py-0.5 rounded-full border border-accent/25 cursor-pointer hover:bg-accent/20 hover:border-accent/40 mx-0.5 transition-colors select-none",
         contenteditable: "false",
         title: `Dokument öffnen: ${HTMLAttributes.titel}`,
       }),

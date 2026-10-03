@@ -223,10 +223,10 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
 
   // ── Design-Einstellungen ────────────────────────────────────────────
   const DESIGN_DEFAULTS = {
-    sidebar_farbe:   "#1e3a5f",
-    akzent_farbe:    "#2563eb",
-    text_farbe:      "#111827",
-    hintergrund:     "#f9fafb",
+    sidebar_farbe:   "#222327",
+    akzent_farbe:    "#222327",
+    text_farbe:      "#222327",
+    hintergrund:     "#f3f3f4",
     schrift_groesse: "16",
     dark_mode:       "auto",
   } as const;

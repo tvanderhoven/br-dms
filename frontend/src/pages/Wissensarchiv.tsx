@@ -140,7 +140,7 @@ export default function Wissensarchiv() {
           <div className="flex flex-wrap gap-1.5">
             <button
               onClick={() => setAktivKategorie(null)}
-              className={`text-xs px-2 py-1 rounded-full border transition-colors ${!aktivKategorie ? "bg-[rgb(var(--accent))] text-white border-[rgb(var(--accent))]" : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"}`}
+              className={`text-xs px-2 py-1 rounded-full border transition-colors ${!aktivKategorie ? "bg-[rgb(var(--accent))] text-white border-[rgb(var(--accent))]" : "bg-white text-gray-600 border-gray-300 hover:border-accent/60"}`}
             >
               Alle
             </button>
@@ -148,7 +148,7 @@ export default function Wissensarchiv() {
               <button
                 key={kat}
                 onClick={() => setAktivKategorie(kat === aktivKategorie ? null : kat)}
-                className={`text-xs px-2 py-1 rounded-full border transition-colors ${aktivKategorie === kat ? "bg-[rgb(var(--accent))] text-white border-[rgb(var(--accent))]" : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"}`}
+                className={`text-xs px-2 py-1 rounded-full border transition-colors ${aktivKategorie === kat ? "bg-[rgb(var(--accent))] text-white border-[rgb(var(--accent))]" : "bg-white text-gray-600 border-gray-300 hover:border-accent/60"}`}
               >
                 {kat}
               </button>
@@ -184,7 +184,7 @@ export default function Wissensarchiv() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-0.5">
                     {eintrag.kategorien.map(kat => (
-                      <span key={kat} className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">{kat}</span>
+                      <span key={kat} className="text-xs bg-accent/10 text-accent px-1.5 py-0.5 rounded font-medium">{kat}</span>
                     ))}
                     <span className="text-xs text-gray-400">
                       {formatDatum(eintrag.erstelltAm)} · {eintrag.erstelltVon.name}
@@ -314,7 +314,7 @@ export default function Wissensarchiv() {
                 {(form.kategorien ?? []).length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
                     {(form.kategorien ?? []).map(kat => (
-                      <span key={kat} className="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                      <span key={kat} className="flex items-center gap-1 text-xs bg-accent/10 text-accent px-2 py-0.5 rounded-full">
                         {kat}
                         <button type="button"
                           onClick={() => setForm(f => ({ ...f, kategorien: (f.kategorien ?? []).filter(k => k !== kat) }))}

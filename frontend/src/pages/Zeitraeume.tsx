@@ -430,7 +430,7 @@ function ListenAnsicht({
               className={`mt-0.5 w-5 h-5 rounded border-2 shrink-0 flex items-center justify-center transition-colors ${
                 aufgabe.erledigt
                   ? "bg-green-500 border-green-500 text-white"
-                  : "border-gray-300 hover:border-blue-400"
+                  : "border-gray-300 hover:border-accent/60"
               }`}
             >
               {aufgabe.erledigt && (
@@ -473,7 +473,7 @@ function ListenAnsicht({
 
             <div className="flex flex-wrap items-center gap-2 mt-2">
               {istProjekt ? (
-                <span className="text-xs px-2 py-0.5 rounded-full border font-medium bg-blue-50 text-blue-700 border-blue-200">
+                <span className="text-xs px-2 py-0.5 rounded-full border font-medium bg-accent/5 text-accent border-accent/25">
                   <CalendarRange size={10} className="inline mr-1" />
                   Zeitraum
                 </span>
@@ -508,7 +508,7 @@ function ListenAnsicht({
             <button
               onClick={() => onBearbeiten(aufgabe)}
               title="Bearbeiten"
-              className="text-gray-300 hover:text-blue-500 transition-colors"
+              className="text-gray-300 hover:text-accent transition-colors"
             >
               <Pencil size={15} />
             </button>
