@@ -1022,6 +1022,26 @@ async function main() {
     ],
   });
 
+  // ── Abgeschlossene BR-Wahl 2026 als Historie (Ergebnis = Wahlrang des Gremiums) ──
+  const brWahl = await prisma.wahl.create({
+    data: {
+      titel: "Betriebsratswahl 2026", art: WahlArt.BR, verfahren: WahlVerfahren.NORMAL,
+      stimmabgabeAm: datum(2026, 4, 30), amtszeitEnde: datum(2026, 5, 31), ausschreibenAm: datum(2026, 3, 18),
+      notiz: "Wahlvorstand: Andreas Wiese (BR), zwei Beschäftigte aus Produktion und Verwaltung.",
+      erstelltVonId: vorsitz, konstituierendeSitzungId: sitzungIds[5],
+      ergebnisUebernommenAm: datum(2026, 5, 4),
+      ergebnis: GREMIUM.filter(g => g.rang !== null).map((g, i) => ({
+        rang: g.rang, name: g.name, gewaehlt: g.rolle === Role.ERSATZMITGLIED ? "ERSATZ" : "MITGLIED",
+        stimmen: 148 - i * 9, geschlecht: g.geschlecht, benutzerId: user[g.login],
+      })),
+    },
+  });
+  await wahlFristenAbgleichen(brWahl.id, prisma);
+  await prisma.frist.updateMany({
+    where: { wahlId: brWahl.id },
+    data:  { status: "ERLEDIGT", erledigtAm: datum(2026, 5, 15), erledigtVonId: vorsitz },
+  });
+
   // ── Laufende JAV-Wahl (vereinfachtes Verfahren, 20 Auszubildende) ──
   // Fristen entstehen wie in der App über wahlFristenAbgleichen; was schon vorbei ist, gilt als erledigt
   const javWahl = await prisma.wahl.create({

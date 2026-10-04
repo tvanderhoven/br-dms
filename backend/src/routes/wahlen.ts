@@ -12,6 +12,8 @@
  * GET    /api/wahlen/:id/waehlerliste      – Vorschlag Wählerliste, Größe, Mindestsitze
  * GET    /api/wahlen/:id/waehlerliste.pdf  – Abdruck zum Aushang (ohne Geburtsdaten)
  * GET    /api/wahlen/:id/waehlerliste.csv  – vollständige Liste für den Wahlvorstand
+ *
+ * POST   /api/wahlen/:id/ergebnis?vorschau=true|false – Ergebnis übernehmen (Standard: Vorschau)
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
@@ -21,6 +23,7 @@ import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { wahlFristenAbgleichen } from "../lib/wahlFristen.js";
 import { waehlerlisteBerechnen } from "../lib/waehlerliste.js";
+import { ErgebnisEingabe, ergebnisPlanen, ergebnisUebernehmen } from "../lib/wahlErgebnis.js";
 import { waehlerlistePdfGenerieren } from "../services/pdf.service.js";
 
 interface WahlEingabe {
@@ -190,6 +193,34 @@ export async function wahlRouten(app: FastifyInstance): Promise<void> {
         .header("Content-Type", "text/csv; charset=utf-8")
         .header("Content-Disposition", `attachment; filename="waehlerliste-${dateinameTeil(wahl.titel)}.csv"`)
         .send(csv);
+    });
+
+  // ── Ergebnis übernehmen (Vorschau, dann tatsächlich) ───────────
+  app.post<{ Params: { id: string }; Querystring: { vorschau?: string }; Body: ErgebnisEingabe }>(
+    "/:id/ergebnis", { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (request, reply) => {
+      const wahl = await prisma.wahl.findUnique({ where: { id: request.params.id } });
+      if (!wahl) return reply.status(404).send({ fehler: "Wahl nicht gefunden" });
+
+      const b = request.body;
+      if (!b || !Array.isArray(b.zeilen) || b.zeilen.some(z => !z || typeof z.name !== "string" || !["MITGLIED", "ERSATZ"].includes(z.gewaehlt))) {
+        return reply.status(400).send({ fehler: "Ungültige Ergebnisliste" });
+      }
+      if (b.konstituierendeSitzungAm && isNaN(new Date(b.konstituierendeSitzungAm).getTime())) {
+        return reply.status(400).send({ fehler: "Ungültiges Datum für die konstituierende Sitzung" });
+      }
+      const eingabe: ErgebnisEingabe = {
+        zeilen: b.zeilen, nichtGewaehlteDeaktivieren: !!b.nichtGewaehlteDeaktivieren,
+        quoteUebernehmen: !!b.quoteUebernehmen, konstituierendeSitzungAm: b.konstituierendeSitzungAm || null,
+      };
+
+      if (request.query.vorschau !== "false") {
+        return reply.send(await ergebnisPlanen(wahl, eingabe, request.benutzer.sub));
+      }
+      const plan = await prisma.$transaction(tx => ergebnisUebernehmen(wahl, eingabe, request.benutzer.sub, tx));
+      if (!plan.fehlerfrei) return reply.status(422).send({ fehler: "Die Liste enthält noch Fehler", plan });
+      const aktualisiert = await prisma.wahl.findUnique({ where: { id: wahl.id }, include: WAHL_INCLUDE });
+      return reply.send({ plan, wahl: aktualisiert });
     });
 }
 

@@ -29,7 +29,8 @@ import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { pdfAutomatischGenerieren } from "./pdf.js";
-import { SITZUNGSTYPEN, STANDARD_TOPS, istBetriebsversammlung } from "../lib/sitzungstypen.js";
+import { SITZUNGSTYPEN, istBetriebsversammlung } from "../lib/sitzungstypen.js";
+import { sitzungAnlegen } from "../lib/sitzungAnlegen.js";
 import { betriebsversammlungFristAbgleichen } from "../lib/betriebsversammlungFrist.js";
 
 /** Quartals-Frist § 43 nachziehen – Fehler dürfen die eigentliche Aktion nicht scheitern lassen. */
@@ -181,67 +182,12 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
         return reply.status(400).send({ fehler: `Unbekannte Sitzungsart: ${sitzungstyp}` });
       }
 
-      const sitzung = await prisma.sitzung.create({
-        data: {
-          titel,
-          sitzungsdatum: new Date(sitzungsdatum),
-          ort:           ort ?? null,
-          sitzungstyp,
-          notizen:       notizen ?? null,
-          status:        SitzungStatus.ENTWURF,
+      const sitzung = {
+        id: await sitzungAnlegen({
+          titel, sitzungsdatum: new Date(sitzungsdatum), ort, sitzungstyp, notizen, vorlageId,
           erstelltVonId: request.benutzer.sub,
-          versionen: {
-            create: {
-              versionNummer: "1.0",
-              typ:           "TAGESORDNUNG_ENTWURF",
-              readonly:      false,
-              erstelltVonId: request.benutzer.sub,
-            },
-          },
-        },
-        select: SITZUNG_SELECT,
-      });
-
-      const standardTops = STANDARD_TOPS[sitzungstyp];
-      if (!vorlageId && standardTops) {
-        await prisma.tOP.createMany({
-          data: standardTops.map((t, i) => ({ sitzungId: sitzung.id, nummer: i + 1, titel: t })),
-        });
-      }
-
-      if (vorlageId) {
-        const vorlage = await prisma.sitzungsVorlage.findUnique({
-          where: { id: vorlageId },
-          include: { tops: { orderBy: { reihenfolge: "asc" } } },
-        });
-        if (vorlage && vorlage.tops.length > 0) {
-          await prisma.tOP.createMany({
-            data: vorlage.tops.map((t, i) => ({
-              sitzungId:   sitzung.id,
-              nummer:      i + 1,
-              titel:       t.titel,
-              inhalt:      t.inhalt ?? null,
-              inhaltsJson: t.inhaltsJson ?? undefined,
-            })),
-          });
-        }
-      }
-
-      // Alle aktiven Mitglieder als "Anwesend" vorausfüllen – nicht bei der
-      // Betriebsversammlung, dort zählt nur die Teilnehmerzahl
-      const aktive = istBetriebsversammlung(sitzungstyp) ? [] : await prisma.benutzer.findMany({
-        where: { aktiv: true },
-        select: { id: true },
-      });
-      if (aktive.length > 0) {
-        await prisma.anwesenheit.createMany({
-          data: aktive.map(b => ({
-            sitzungId: sitzung.id,
-            benutzerId: b.id,
-            status: "ANWESEND",
-          })),
-        });
-      }
+        }),
+      };
 
       await audit(sitzung.id, request.benutzer.sub, AuditAktion.SITZUNG_ERSTELLT, request, { titel, vorlageId, sitzungstyp });
       quartalsFristAbgleichen(sitzungstyp);

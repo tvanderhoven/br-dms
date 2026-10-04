@@ -387,6 +387,10 @@ export const api = {
     waehlerliste:  (id: string) => request<Waehlerliste>(`/api/wahlen/${id}/waehlerliste`),
     waehlerlistePdfUrl: (id: string) => `${BASE}/api/wahlen/${id}/waehlerliste.pdf`,
     waehlerlisteCsvUrl: (id: string) => `${BASE}/api/wahlen/${id}/waehlerliste.csv`,
+    ergebnisVorschau: (id: string, data: ErgebnisEingabe) =>
+      request<ErgebnisPlan>(`/api/wahlen/${id}/ergebnis?vorschau=true`, { method: "POST", body: JSON.stringify(data) }),
+    ergebnisUebernehmen: (id: string, data: ErgebnisEingabe) =>
+      request<{ plan: ErgebnisPlan; wahl: Wahl }>(`/api/wahlen/${id}/ergebnis?vorschau=false`, { method: "POST", body: JSON.stringify(data) }),
   },
 
   fristen: {
@@ -593,8 +597,44 @@ export interface Wahl {
   vorhabenId?: string | null;
   dualStudierendeAlsAzubis: boolean;
   ausgeschlossen: string[];
+  ergebnis?: ErgebnisEintrag[] | null;
+  ergebnisUebernommenAm?: string | null;
+  konstituierendeSitzungId?: string | null;
   fristen: (Omit<FristMitDokument, "dokument"> & { wahlSchritt?: string | null })[];
   erstelltAm: string;
+}
+
+// ── Wahlergebnis übernehmen (Backend: lib/wahlErgebnis.ts) ──
+export type Gewaehlt = "MITGLIED" | "ERSATZ";
+
+export interface ErgebnisEintrag {
+  rang: number;
+  name: string;
+  gewaehlt: Gewaehlt;
+  stimmen: number | null;
+  geschlecht: Geschlecht | null;
+  benutzerId: string | null;
+}
+
+export interface ErgebnisEingabe {
+  zeilen: { name: string; gewaehlt: Gewaehlt; stimmen?: number | null; email?: string | null; geschlecht?: Geschlecht | null }[];
+  nichtGewaehlteDeaktivieren: boolean;
+  quoteUebernehmen: boolean;
+  konstituierendeSitzungAm?: string | null;
+}
+
+export interface ErgebnisPlan {
+  zeilen: (ErgebnisEintrag & {
+    aktion: "AKTUALISIEREN" | "NEU" | "NUR_ERGEBNIS" | "FEHLER";
+    alteRolle: Rolle | null;
+    neueRolle: Rolle | null;
+    fehler?: string;
+  })[];
+  deaktivieren: { id: string; name: string; rolle: Rolle }[];
+  wahlrangWeg: { id: string; name: string }[];
+  quote: { geschlecht: Geschlecht; mindestsitze: number } | null;
+  warnungen: string[];
+  fehlerfrei: boolean;
 }
 
 export interface WaehlerEintrag {

@@ -62,6 +62,13 @@ const AUFNAHMEN = [
       setTimeout(() => b.scrollIntoView({ block: "start" }), 1500);
       return true;
     })()` },
+  { datei: "wahlen-ergebnis", pfad: "/wahlen", warte: 1500, js: `
+    (() => {
+      const b = [...document.querySelectorAll("button")].find(e => e.textContent.trim() === "Erneut übernehmen");
+      if (b) b.closest(".border-t").scrollIntoView({ block: "center" });
+      return !!b;
+    })()` },
+  { datei: "wahlen-ergebnis-uebernehmen", pfad: "/wahlen", warte: 3000, js: klickText("Erneut übernehmen", "button") },
   { datei: "posteingang",      pfad: "/posteingang" },
   { datei: "kummerkasten-verwaltung", pfad: "/kummerkasten-verwaltung" },
   { datei: "wissen",           pfad: "/wissen" },

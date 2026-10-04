@@ -2,12 +2,14 @@ import { useEffect, useState, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Vote, Plus, X, Loader2, Pencil, Trash2, CheckCircle2, RotateCcw, CalendarRange, AlertTriangle, Info,
-  Users, ChevronDown, ChevronRight, FileDown, Ban, Undo2, Search,
+  Users, ChevronDown, ChevronRight, FileDown, Ban, Undo2, Search, Trophy, ChevronUp, ExternalLink,
 } from "lucide-react";
 import {
-  api, Wahl, WahlArt, WahlVerfahren, WahlEingabe, Waehlerliste, WaehlerEintrag,
+  api, Wahl, WahlArt, WahlVerfahren, WahlEingabe, Waehlerliste, WaehlerEintrag, Gewaehlt, Geschlecht,
+  ErgebnisEingabe, ErgebnisPlan,
   WAHL_ART_LABEL, WAHL_VERFAHREN_LABEL, BESCHAEFTIGUNGSART_LABEL, formatDatum,
 } from "../lib/api";
+import { ROLLEN_LABEL } from "./Benutzer";
 
 type WahlFrist = Wahl["fristen"][number];
 
@@ -162,6 +164,7 @@ export default function Wahlen() {
               </ul>
 
               <WaehlerlisteBereich wahl={w} onWahlGeaendert={ersetzen} />
+              <ErgebnisBereich wahl={w} onWahlGeaendert={ersetzen} />
             </div>
           ))}
         </div>
@@ -511,6 +514,274 @@ function WaehlerlisteBereich({ wahl, onWahlGeaendert }: { wahl: Wahl; onWahlGeae
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Stufe 3: Ergebnis übernehmen und als Historie zeigen ──────────
+function ErgebnisBereich({ wahl, onWahlGeaendert }: { wahl: Wahl; onWahlGeaendert: (w: Wahl) => void }) {
+  const [modal, setModal] = useState(false);
+  const navigate = useNavigate();
+  const ergebnis = wahl.ergebnis ?? [];
+
+  return (
+    <div className="border-t border-gray-100 px-5 py-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        <Trophy size={15} className="text-gray-500" />
+        <span className="text-sm font-medium text-gray-700">Ergebnis</span>
+        {wahl.ergebnisUebernommenAm
+          ? <span className="text-xs text-gray-400">übernommen am {formatDatum(wahl.ergebnisUebernommenAm)}</span>
+          : <span className="text-xs text-gray-400">nach der Wahl aus dem Protokoll des Wahlvorstands übernehmen</span>}
+        <div className="ml-auto flex items-center gap-2">
+          {wahl.konstituierendeSitzungId && (
+            <button onClick={() => navigate(`/sitzungen?id=${wahl.konstituierendeSitzungId}`)}
+              className="flex items-center gap-1 text-xs text-gray-500 hover:text-accent">
+              <ExternalLink size={12} /> Konstituierende Sitzung
+            </button>
+          )}
+          <button onClick={() => setModal(true)}
+            className="text-sm px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 text-gray-700">
+            {wahl.ergebnisUebernommenAm ? "Erneut übernehmen" : "Ergebnis übernehmen"}
+          </button>
+        </div>
+      </div>
+      {ergebnis.length > 0 && (
+        <table className="w-full text-sm mt-3">
+          <thead>
+            <tr className="text-left text-xs text-gray-500 border-b border-gray-100">
+              <th className="py-1.5 pr-3 font-medium w-12">Rang</th>
+              <th className="py-1.5 pr-3 font-medium">Name</th>
+              <th className="py-1.5 pr-3 font-medium">Gewählt als</th>
+              <th className="py-1.5 pr-3 font-medium">Stimmen</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {ergebnis.map(e => (
+              <tr key={e.rang}>
+                <td className="py-1.5 pr-3 text-gray-500">{e.rang}</td>
+                <td className="py-1.5 pr-3 text-gray-900">{e.name}{e.geschlecht && <span className="text-gray-400"> ({e.geschlecht === "WEIBLICH" ? "w" : "m"})</span>}</td>
+                <td className="py-1.5 pr-3 text-gray-600">{e.gewaehlt === "MITGLIED" ? "Mitglied" : "Ersatzmitglied"}</td>
+                <td className="py-1.5 pr-3 text-gray-600">{e.stimmen ?? "–"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {modal && (
+        <ErgebnisModal wahl={wahl} onSchliessen={() => setModal(false)}
+          onUebernommen={w => { setModal(false); onWahlGeaendert(w); }} />
+      )}
+    </div>
+  );
+}
+
+interface Zeile { name: string; gewaehlt: Gewaehlt; stimmen: string; email: string; geschlecht: Geschlecht | "" }
+
+const AKTION_LABEL: Record<ErgebnisPlan["zeilen"][number]["aktion"], [string, string]> = {
+  AKTUALISIEREN: ["Konto vorhanden", "bg-gray-100 text-gray-600"],
+  NEU:           ["Neues Konto", "bg-accent/10 text-accent"],
+  NUR_ERGEBNIS:  ["Nur im Ergebnis", "bg-gray-100 text-gray-500"],
+  FEHLER:        ["Fehler", "bg-red-100 text-red-700"],
+};
+
+function ErgebnisModal({ wahl, onSchliessen, onUebernommen }: {
+  wahl: Wahl;
+  onSchliessen: () => void;
+  onUebernommen: (w: Wahl) => void;
+}) {
+  const br = wahl.art === "BR";
+  const leer = (gewaehlt: Gewaehlt): Zeile => ({ name: "", gewaehlt, stimmen: "", email: "", geschlecht: "" });
+  const [zeilen, setZeilen]   = useState<Zeile[]>(() => (wahl.ergebnis ?? []).map(e => ({
+    name: e.name, gewaehlt: e.gewaehlt, stimmen: e.stimmen?.toString() ?? "", email: "", geschlecht: e.geschlecht ?? "",
+  })));
+  const [namen, setNamen]     = useState<string[]>([]);
+  const [deaktivieren, setDeaktivieren] = useState(true);
+  const [quote, setQuote]     = useState(true);
+  const konstVorschlag = new Date(new Date(wahl.stimmabgabeAm).getTime() + 6 * 86_400_000).toISOString().slice(0, 10) + "T09:00";
+  const [mitKonst, setMitKonst] = useState(br && !wahl.konstituierendeSitzungId);
+  const [konstAm, setKonstAm]   = useState(konstVorschlag);
+  const [plan, setPlan]       = useState<ErgebnisPlan | null>(null);
+  const [laden, setLaden]     = useState(false);
+  const [fehler, setFehler]   = useState("");
+
+  // Namensvorschläge: Konten und wählbare Personen der Wählerliste; leere Zeilen nach Gremiumsgröße
+  useEffect(() => {
+    Promise.all([api.get<{ name: string }[]>("/api/benutzer").catch(() => []), api.wahlen.waehlerliste(wahl.id).catch(() => null)])
+      .then(([benutzer, liste]) => {
+        const kandidaten = liste?.waehler.filter(w => w.waehlbar).map(w => `${w.vorname} ${w.nachname}`) ?? [];
+        setNamen([...new Set([...benutzer.map(b => b.name), ...kandidaten])].sort((a, b) => a.localeCompare(b, "de")));
+        if (!wahl.ergebnis?.length) {
+          const sitze = liste?.groesse.sitze || 1;
+          setZeilen([...Array.from({ length: sitze }, () => leer("MITGLIED")), leer("ERSATZ"), leer("ERSATZ")]);
+        }
+      });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function aendern(i: number, teil: Partial<Zeile>) {
+    setPlan(null);
+    setZeilen(prev => prev.map((z, j) => j === i ? { ...z, ...teil } : z));
+  }
+  function verschieben(i: number, richtung: -1 | 1) {
+    const j = i + richtung;
+    if (j < 0 || j >= zeilen.length) return;
+    setPlan(null);
+    setZeilen(prev => { const n = [...prev]; [n[i], n[j]] = [n[j], n[i]]; return n; });
+  }
+
+  function eingabe(): ErgebnisEingabe {
+    return {
+      zeilen: zeilen.filter(z => z.name.trim()).map(z => ({
+        name: z.name, gewaehlt: z.gewaehlt, stimmen: z.stimmen === "" ? null : Number(z.stimmen),
+        email: z.email || null, geschlecht: z.geschlecht || null,
+      })),
+      nichtGewaehlteDeaktivieren: deaktivieren,
+      quoteUebernehmen: br && quote,
+      konstituierendeSitzungAm: br && mitKonst ? new Date(konstAm).toISOString() : null,
+    };
+  }
+
+  async function vorschau() {
+    setLaden(true); setFehler("");
+    try { setPlan(await api.wahlen.ergebnisVorschau(wahl.id, eingabe())); }
+    catch (err) { setFehler(err instanceof Error ? err.message : "Vorschau fehlgeschlagen"); }
+    finally { setLaden(false); }
+  }
+
+  async function uebernehmen() {
+    if (!confirm("Ergebnis jetzt übernehmen? Rollen, Wahlrang und Konten werden wie in der Vorschau geändert.")) return;
+    setLaden(true); setFehler("");
+    try { onUebernommen((await api.wahlen.ergebnisUebernehmen(wahl.id, eingabe())).wahl); }
+    catch (err) { setFehler(err instanceof Error ? err.message : "Übernahme fehlgeschlagen"); setLaden(false); }
+  }
+
+  const input = "w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]";
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onSchliessen}>
+      <div onClick={e => e.stopPropagation()} className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="font-semibold text-gray-900">Ergebnis übernehmen – {wahl.titel}</h2>
+          <button type="button" onClick={onSchliessen} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>
+        <div className="px-6 py-4 space-y-4 overflow-y-auto">
+          <p className="text-xs text-gray-500">
+            Reihenfolge wie im Protokoll des Wahlvorstands: erst die gewählten Mitglieder, dann die Ersatzmitglieder in ihrer
+            Nachrück-Reihenfolge. Die Position ist der Wahlrang{br ? " für die Nachrück-Logik" : ""}. Bestehende Konten werden über den Namen
+            erkannt; für neue Personen eine E-Mail-Adresse angeben – das Konto bekommt ein Zufallspasswort, das der Vorsitz in der
+            Benutzerverwaltung neu setzt.{!br && " JAV-Ersatzmitglieder bekommen noch keinen Zugang, sie stehen nur im Ergebnis."}
+          </p>
+
+          <datalist id="ergebnis-namen">{namen.map(n => <option key={n} value={n} />)}</datalist>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-gray-500">
+                <th className="pb-1 w-8">#</th><th className="pb-1">Name</th><th className="pb-1 w-36">Gewählt als</th>
+                <th className="pb-1 w-20">Stimmen</th><th className="pb-1 w-28">Geschlecht</th><th className="pb-1">E-Mail (nur neue Konten)</th><th className="w-20" />
+              </tr>
+            </thead>
+            <tbody>
+              {zeilen.map((z, i) => {
+                const p = plan?.zeilen.find(x => x.name.toLowerCase() === z.name.trim().replace(/\s+/g, " ").toLowerCase());
+                return (
+                  <tr key={i} className="align-top">
+                    <td className="py-1 pr-1 text-gray-400 pt-2.5">{i + 1}</td>
+                    <td className="py-1 pr-2">
+                      <input list="ergebnis-namen" value={z.name} onChange={e => aendern(i, { name: e.target.value })} placeholder="Vorname Nachname" className={input} />
+                      {p && (
+                        <p className="text-xs mt-0.5">
+                          <span className={`px-1.5 py-0.5 rounded ${AKTION_LABEL[p.aktion][1]}`}>{AKTION_LABEL[p.aktion][0]}</span>
+                          {p.fehler && <span className="text-red-600 ml-1">{p.fehler}</span>}
+                          {!p.fehler && p.neueRolle && p.alteRolle !== p.neueRolle && (
+                            <span className="text-gray-500 ml-1">{p.alteRolle ? `${ROLLEN_LABEL[p.alteRolle]} → ` : ""}{ROLLEN_LABEL[p.neueRolle]}</span>
+                          )}
+                        </p>
+                      )}
+                    </td>
+                    <td className="py-1 pr-2">
+                      <select value={z.gewaehlt} onChange={e => aendern(i, { gewaehlt: e.target.value as Gewaehlt })} className={`${input} bg-white`}>
+                        <option value="MITGLIED">Mitglied</option>
+                        <option value="ERSATZ">Ersatzmitglied</option>
+                      </select>
+                    </td>
+                    <td className="py-1 pr-2"><input type="number" min={0} value={z.stimmen} onChange={e => aendern(i, { stimmen: e.target.value })} className={input} /></td>
+                    <td className="py-1 pr-2">
+                      <select value={z.geschlecht} onChange={e => aendern(i, { geschlecht: e.target.value as Geschlecht | "" })} className={`${input} bg-white`}>
+                        <option value="">automatisch</option>
+                        <option value="WEIBLICH">weiblich</option>
+                        <option value="MAENNLICH">männlich</option>
+                      </select>
+                    </td>
+                    <td className="py-1 pr-2"><input type="email" value={z.email} onChange={e => aendern(i, { email: e.target.value })} className={input} /></td>
+                    <td className="py-1 whitespace-nowrap pt-2">
+                      <button onClick={() => verschieben(i, -1)} disabled={i === 0} title="Nach oben" className="p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-25"><ChevronUp size={15} /></button>
+                      <button onClick={() => verschieben(i, 1)} disabled={i === zeilen.length - 1} title="Nach unten" className="p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-25"><ChevronDown size={15} /></button>
+                      <button onClick={() => { setPlan(null); setZeilen(prev => prev.filter((_, j) => j !== i)); }} title="Zeile entfernen" className="p-0.5 text-gray-300 hover:text-red-600"><X size={15} /></button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <button onClick={() => { setPlan(null); setZeilen(prev => [...prev, leer("ERSATZ")]); }}
+            className="flex items-center gap-1 text-sm text-accent hover:brightness-90"><Plus size={14} /> Zeile hinzufügen</button>
+
+          <div className="space-y-2 border-t border-gray-100 pt-3">
+            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+              <input type="checkbox" checked={deaktivieren} onChange={e => { setPlan(null); setDeaktivieren(e.target.checked); }} />
+              Nicht (wieder)gewählte {br ? "Mitglieder und Ersatzmitglieder" : "JAV-Mitglieder"} deaktivieren
+            </label>
+            {br && (
+              <>
+                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <input type="checkbox" checked={quote} onChange={e => { setPlan(null); setQuote(e.target.checked); }} />
+                  Minderheitengeschlecht und Mindestsitze aus der Wählerliste in die Einstellungen übernehmen (Nachrück-Logik)
+                </label>
+                {wahl.konstituierendeSitzungId ? (
+                  <p className="text-sm text-gray-500">Die konstituierende Sitzung ist bereits angelegt.</p>
+                ) : (
+                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer flex-wrap">
+                    <input type="checkbox" checked={mitKonst} onChange={e => setMitKonst(e.target.checked)} />
+                    Konstituierende Sitzung anlegen am
+                    <input type="datetime-local" value={konstAm} onChange={e => setKonstAm(e.target.value)} disabled={!mitKonst}
+                      className="border border-gray-300 rounded-lg px-2 py-1 text-sm disabled:opacity-50" />
+                    <span className="text-xs text-gray-400">(§ 29: binnen einer Woche nach der Wahl)</span>
+                  </label>
+                )}
+              </>
+            )}
+          </div>
+
+          {plan && (
+            <div className="space-y-2">
+              {plan.warnungen.length > 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 space-y-1">
+                  {plan.warnungen.map(w => <p key={w} className="flex items-start gap-1.5"><AlertTriangle size={14} className="mt-0.5 shrink-0" />{w}</p>)}
+                </div>
+              )}
+              {plan.deaktivieren.length > 0 && (
+                <p className="text-sm text-gray-600"><strong>Wird deaktiviert:</strong> {plan.deaktivieren.map(d => `${d.name} (${ROLLEN_LABEL[d.rolle]})`).join(", ")}</p>
+              )}
+              {plan.wahlrangWeg.length > 0 && (
+                <p className="text-sm text-gray-600"><strong>Verliert den alten Wahlrang:</strong> {plan.wahlrangWeg.map(d => d.name).join(", ")}</p>
+              )}
+              {plan.quote && quote && (
+                <p className="text-sm text-gray-600"><strong>Quote:</strong> mindestens {plan.quote.mindestsitze} {plan.quote.geschlecht === "WEIBLICH" ? "Frauen" : "Männer"}</p>
+              )}
+              {!plan.fehlerfrei && <p className="text-sm text-red-600">Bitte die markierten Zeilen korrigieren und die Vorschau erneut anzeigen.</p>}
+            </div>
+          )}
+          {fehler && <p className="text-sm text-red-600">{fehler}</p>}
+        </div>
+        <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
+          <button type="button" onClick={onSchliessen} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Abbrechen</button>
+          <button onClick={vorschau} disabled={laden || !zeilen.some(z => z.name.trim())}
+            className="px-4 py-2 text-sm border border-gray-300 hover:bg-gray-50 rounded-lg disabled:opacity-50">Vorschau</button>
+          <button onClick={uebernehmen} disabled={laden || !plan?.fehlerfrei}
+            title={!plan ? "Erst die Vorschau anzeigen" : undefined}
+            className="flex items-center gap-2 bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            {laden && <Loader2 size={14} className="animate-spin" />} Übernehmen
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

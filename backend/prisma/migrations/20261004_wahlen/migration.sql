@@ -28,3 +28,9 @@ ALTER TABLE "fristen" ADD CONSTRAINT "fristen_wahl_id_fkey"
 ALTER TABLE "wahlen"
   ADD COLUMN "dual_studierende_als_azubis" BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN "ausgeschlossen" TEXT[] DEFAULT ARRAY[]::TEXT[];
+
+-- Stufe 3: Ergebnis übernehmen
+ALTER TABLE "wahlen"
+  ADD COLUMN "ergebnis" JSONB,
+  ADD COLUMN "ergebnis_uebernommen_am" TIMESTAMP(3),
+  ADD COLUMN "konstituierende_sitzung_id" TEXT;

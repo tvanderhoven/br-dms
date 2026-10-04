@@ -41,7 +41,7 @@ Wahlvorstand braucht keinen eigenen Zugang. Wahlvorschläge und Stimmauszählung
   hängt vom Vertrag ab (ausbildungsintegriert eher ja, praxisintegriert umstritten) → vorher klären
 - Gremiumsgröße (§ 9 bzw. § 62) und Mindestsitze des Minderheitengeschlechts (§ 15, d'Hondt nach § 5 WO) vorschlagen
 
-**Stufe 3 – Ergebnis übernehmen**
+**Stufe 3 – Ergebnis übernehmen** ✓ (Okt. 2026: Dialog mit Vorschau, `backend/src/lib/wahlErgebnis.ts`; nicht Wiedergewählte optional deaktivieren, Quote in die Einstellungen, konstituierende Sitzung anlegen)
 - Gewählte als Benutzer mit Wahlrang und Geschlecht → speist die Nachrück-Logik
 - Konstituierende Sitzung gleich mit anlegen (Standard-Tagesordnung gibt es schon)
 - Historie der Wahlen
