@@ -61,10 +61,17 @@ export function parseImportDatum(wert: string): Date | null {
   if (!s) return null;
 
   let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (m) return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  if (m) return gueltigesUtcDatum(+m[1], +m[2], +m[3]);
 
   m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-  if (m) return new Date(Date.UTC(+m[3], +m[2] - 1, +m[1]));
+  if (m) return gueltigesUtcDatum(+m[3], +m[2], +m[1]);
 
   return null;
+}
+
+// Date.UTC rechnet Unsinn wie den 31.13. stillschweigend in den Folgemonat um –
+// deshalb prüfen, ob Tag und Monat nach dem Erzeugen noch stimmen.
+function gueltigesUtcDatum(jahr: number, monat: number, tag: number): Date | null {
+  const d = new Date(Date.UTC(jahr, monat - 1, tag));
+  return d.getUTCFullYear() === jahr && d.getUTCMonth() === monat - 1 && d.getUTCDate() === tag ? d : null;
 }
