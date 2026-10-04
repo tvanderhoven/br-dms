@@ -36,7 +36,7 @@ export default function Login() {
           <div className="mb-3">
             <BrandLogo size={40} textClassName="text-2xl text-gray-900" />
           </div>
-          <p className="text-gray-500 text-sm">Betriebsrats-Cloud</p>
+          <p className="text-gray-500 text-sm">Dokumentenmanagement für Betriebsräte</p>
         </div>
 
         <form onSubmit={anmelden} className="space-y-4">

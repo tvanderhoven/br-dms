@@ -5,9 +5,10 @@ Die Buchstaben werden aus Noto Sans ExtraBold in Pfade umgewandelt – das SVG s
 dadurch überall gleich aus, unabhängig von installierten Schriften.
 
 Aufruf: python3 branding/logo.py
-Ergebnis (in branding/):
-  logo.svg        dunkle Schrift, für helle Hintergründe (Website, Flyer)
-  logo-hell.svg   weiße Schrift, für dunkle Hintergründe (Deckblatt Handbuch)
+Ergebnis:
+  branding/logo.svg        dunkle Schrift, für helle Hintergründe (Website, Flyer)
+  branding/logo-hell.svg   weiße Schrift, für dunkle Hintergründe (Deckblatt Handbuch)
+  frontend/src/components/BrDmsLogo.tsx   React-Komponente für die App (Schrift in currentColor)
 """
 import os
 from fontTools.ttLib import TTFont
@@ -69,3 +70,23 @@ for datei, farbe in [("logo.svg", TINTE), ("logo-hell.svg", WEISS)]:
     with open(os.path.join(HIER, datei), "w") as f:
         f.write(svg(farbe))
     print("geschrieben:", os.path.join(HIER, datei))
+
+# React-Komponente: Schriftzug in der Textfarbe der Umgebung (passt zu jedem Farbschema der Seitenleiste)
+tsx = f"""// AUTOMATISCH ERZEUGT von branding/logo.py – nicht von Hand bearbeiten.
+// BR-DMS-Logo: Schriftzug in currentColor, Punkt und Unterstrich in Rot.
+
+export default function BrDmsLogo({{ height = 32, className = "" }}: {{ height?: number; className?: string }}) {{
+  return (
+    <svg viewBox="{round(links - rand)} {round(oben)} {breite} {hoehe}" height={{height}} className={{className}}
+         role="img" aria-label="BR-DMS" style={{{{ display: "block", width: "auto" }}}}>
+      <path fill="currentColor" d="{' '.join(wort)}" />
+      <path fill="{ROT}" d="{' '.join(punkt)}" />
+      <rect fill="{ROT}" x="{round(links)}" y="{balken_y}" width="{balken_b}" height="{balken_h}" rx="{balken_h / 2}" />
+    </svg>
+  );
+}}
+"""
+ziel = os.path.join(HIER, "..", "frontend", "src", "components", "BrDmsLogo.tsx")
+with open(ziel, "w") as f:
+    f.write(tsx)
+print("geschrieben:", os.path.normpath(ziel))

@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { api } from "../lib/api";
+import BrDmsLogo from "./BrDmsLogo";
 
 /**
  * Zeigt das in Einstellungen → Design hochgeladene Logo (dieselbe Datei, die auch
- * im PDF-Kopf verwendet wird). Ist keines hochgeladen (oder lädt es nicht), fällt es
- * auf den schlichten Schriftzug "BR Board" zurück – kein eigenes Icon/Design mehr.
+ * im PDF-Kopf verwendet wird). Ist keines hochgeladen (oder lädt es nicht), erscheint
+ * das BR-DMS-Logo – der Schriftzug übernimmt die Textfarbe aus textClassName.
  */
 export default function BrandLogo({
   size = 22,
@@ -31,9 +32,5 @@ export default function BrandLogo({
     );
   }
 
-  return (
-    <span className={`font-extrabold tracking-tight ${textClassName}`}>
-      BR Board
-    </span>
-  );
+  return <BrDmsLogo height={size} className={textClassName} />;
 }

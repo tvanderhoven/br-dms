@@ -473,7 +473,7 @@ export default function Layout() {
               textClassName="text-lg text-[rgb(var(--sidebar-text))]"
             />
           </NavLink>
-          <p className="text-[rgb(var(--sidebar-text-muted))] text-xs mt-0.5">Betriebsrats-Cloud</p>
+          <p className="text-[rgb(var(--sidebar-text-muted))] text-xs mt-1.5 leading-snug">Dokumentenmanagement für Betriebsräte</p>
         </div>
 
         {/* Eingeloggter Benutzer – bewusst weit oben, damit man bei langer
