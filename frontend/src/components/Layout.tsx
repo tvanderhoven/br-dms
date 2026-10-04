@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   FileText, LayoutDashboard, CalendarDays,
   Mail, CheckSquare, Inbox, Search, X, LayoutTemplate, Settings, UserCircle, BookOpen, Menu, Newspaper, Globe, ClipboardList,
-  Gavel, CalendarRange, Wallet, Scale, GraduationCap, Users, Kanban, ChevronDown, MailPlus,
+  Gavel, CalendarRange, Wallet, Scale, GraduationCap, Users, Kanban, ChevronDown, MailPlus, Vote,
 } from "lucide-react";
 import { api, SuchErgebnis, KATEGORIE_LABEL, SITZUNG_STATUS_LABEL, RESSOURCE_KATEGORIE_LABEL, formatDatum, Rolle, ModuleKey, GesetzParagraph } from "../lib/api";
 import GesetzModal from "./GesetzModal";
@@ -639,6 +639,10 @@ export default function Layout() {
             <NavLink to="/themen-backlog" className={linkKlasse} onClick={() => setMobileOffen(false)}>
               <Kanban size={16} />
               Themen-Backlog
+            </NavLink>
+            <NavLink to="/wahlen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+              <Vote size={16} />
+              Wahlen
             </NavLink>
           </NavGruppe>
 

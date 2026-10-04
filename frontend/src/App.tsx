@@ -25,6 +25,7 @@ import KummerkastenOeffentlich from "./pages/KummerkastenOeffentlich";
 import KummerkastenVerwaltung from "./pages/KummerkastenVerwaltung";
 import Betriebsvereinbarungen from "./pages/Betriebsvereinbarungen";
 import Schulungen from "./pages/Schulungen";
+import Wahlen from "./pages/Wahlen";
 import Layout from "./components/Layout";
 import { useDesign } from "./lib/useDesign";
 
@@ -72,6 +73,7 @@ export default function App() {
         {/* Früher eigene Seite – Vorhaben leben jetzt in den Aufgaben */}
         <Route path="/zeitraeume" element={<Navigate to="/aufgaben?ansicht=zeitplan" replace />} />
         <Route path="/themen-backlog" element={geschuetzt(<ThemenBacklog />)} />
+        <Route path="/wahlen"         element={geschuetzt(<Wahlen />)} />
         <Route path="/vorlagen"      element={geschuetzt(<Vorlagen />)} />
         <Route path="/wissen"         element={geschuetzt(<Wissensarchiv />)} />
         <Route path="/ressourcen"     element={geschuetzt(<Ressourcen />)} />

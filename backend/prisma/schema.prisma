@@ -94,6 +94,7 @@ enum FristTyp {
   WIDERSPRUCH
   ZEITMODELL_87_WOCHE
   BETRIEBSVERSAMMLUNG_43
+  WAHL
   BENUTZERDEFINIERT
 }
 
@@ -385,10 +386,55 @@ model Frist {
 
   erstelltVonId  String?     @map("erstellt_von_id")
 
+  // Automatisch aus einer Wahl berechnet (siehe lib/wahlFristen.ts) – wahlSchritt
+  // identifiziert den Schritt, damit Datumsänderungen die Frist aktualisieren statt verdoppeln
+  wahlId         String?     @map("wahl_id")
+  wahl           Wahl?       @relation(fields: [wahlId], references: [id], onDelete: Cascade)
+  wahlSchritt    String?     @map("wahl_schritt")
+
   erstelltAm     DateTime    @default(now()) @map("erstellt_am")
 
   @@index([faelligAm, status])
   @@map("fristen")
+}
+
+// ================================================================
+//  WAHLEN (BR / JAV) – Werkzeug des Betriebsrats, nicht des Wahlvorstands
+// ================================================================
+
+enum WahlArt {
+  BR
+  JAV
+}
+
+enum WahlVerfahren {
+  NORMAL
+  VEREINFACHT
+}
+
+model Wahl {
+  id               String        @id @default(uuid())
+  titel            String
+  art              WahlArt
+  verfahren        WahlVerfahren
+  // Erster Tag der Stimmabgabe bzw. Tag der Wahlversammlung (vereinfachtes Verfahren)
+  stimmabgabeAm    DateTime      @map("stimmabgabe_am")
+  // Ende der Amtszeit des amtierenden Gremiums – Grundlage für die Bestellung des Wahlvorstands
+  amtszeitEnde     DateTime?     @map("amtszeit_ende")
+  // Tatsächlicher Erlass des Wahlausschreibens; ohne Angabe wird mit dem spätesten Termin gerechnet
+  ausschreibenAm   DateTime?     @map("ausschreiben_am")
+  notiz            String?
+
+  // Vorhaben im Zeitplan (Aufgabe vom Typ PROJEKT); bleibt beim Löschen der Wahl erhalten
+  vorhabenId       String?       @map("vorhaben_id")
+
+  erstelltVonId    String        @map("erstellt_von_id")
+  erstelltAm       DateTime      @default(now()) @map("erstellt_am")
+  aktualisiertAm   DateTime      @updatedAt @map("aktualisiert_am")
+
+  fristen          Frist[]
+
+  @@map("wahlen")
 }
 
 // ================================================================

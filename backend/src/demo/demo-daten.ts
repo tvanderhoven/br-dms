@@ -23,12 +23,14 @@ import {
   Prisma, Role, Geschlecht, Kategorie, FristTyp, SitzungStatus, TopStatus,
   AnwesenheitsStatus, Beschaeftigungsart, Zeitmodell, BVStatus, SchulungsStatus,
   KummerkastenStatus, AufgabenStatus, KanbanStatus, Prioritaet, AufgabeTyp, AuditAktion,
+  WahlArt, WahlVerfahren,
 } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { hashPassword } from "../lib/password.js";
 import { encryptFile } from "../lib/encryption.js";
 import { pdfAutomatischGenerieren } from "../routes/pdf.js";
 import { betriebsversammlungFristAbgleichen } from "../lib/betriebsversammlungFrist.js";
+import { wahlFristenAbgleichen } from "../lib/wahlFristen.js";
 
 const STORAGE     = process.env.STORAGE_PATH ?? "/data/storage";
 const MASTER_KEY  = process.env.ENCRYPTION_KEY!;
@@ -1017,9 +1019,22 @@ async function main() {
       { typ: FristTyp.BENUTZERDEFINIERT, bezeichnung: "Tätigkeitsbericht für die Betriebsversammlung fertigstellen", faelligAm: tage(19), erstelltVonId: vorsitz },
       { typ: FristTyp.BENUTZERDEFINIERT, bezeichnung: "BV Videoüberwachung: Verlängerung verhandeln", faelligAm: tage(60),
         notiz: "BV läuft befristet aus – Gespräch mit GF rechtzeitig terminieren.", erstelltVonId: stv },
-      { typ: FristTyp.BENUTZERDEFINIERT, bezeichnung: "JAV-Wahl: Wahlvorstand bestellen", faelligAm: tage(-21),
-        status: "ERLEDIGT", erledigtAm: tage(-24), erledigtVonId: vorsitz, erstelltVonId: vorsitz },
     ],
+  });
+
+  // ── Laufende JAV-Wahl (vereinfachtes Verfahren, 20 Auszubildende) ──
+  // Fristen entstehen wie in der App über wahlFristenAbgleichen; was schon vorbei ist, gilt als erledigt
+  const javWahl = await prisma.wahl.create({
+    data: {
+      titel: "JAV-Wahl 2026", art: WahlArt.JAV, verfahren: WahlVerfahren.VEREINFACHT,
+      stimmabgabeAm: tage(25), amtszeitEnde: tage(45), ausschreibenAm: tage(-4),
+      notiz: "Wahlvorstand: Julia Hoffmann (BR), zwei Auszubildende.", vorhabenId: projekt.id, erstelltVonId: vorsitz,
+    },
+  });
+  await wahlFristenAbgleichen(javWahl.id, prisma);
+  await prisma.frist.updateMany({
+    where: { wahlId: javWahl.id, faelligAm: { lt: HEUTE } },
+    data:  { status: "ERLEDIGT", erledigtAm: tage(-3), erledigtVonId: user["j.hoffmann"] },
   });
 
   // ── Audit-Log: ein paar Logins für die Übersicht ─────────────

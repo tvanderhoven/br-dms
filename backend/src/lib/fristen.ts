@@ -9,6 +9,7 @@ export const FRIST_TYP_LABEL: Record<string, string> = {
   ANHOERUNG_102_AUSSERORDENTLICH: "§ 102 außerordentliche Kündigung (3 Tage)",
   ZEITMODELL_87_WOCHE:            "§ 87 Mitbestimmung (1 Woche)",
   BETRIEBSVERSAMMLUNG_43:         "§ 43 Betriebsversammlung im Quartal",
+  WAHL:                           "Wahl (BR/JAV)",
   WIDERSPRUCH:                    "Widerspruch",
   BENUTZERDEFINIERT:              "Individuelle Frist",
 };

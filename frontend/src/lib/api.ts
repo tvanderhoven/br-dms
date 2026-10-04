@@ -377,6 +377,15 @@ export const api = {
       request<{ ok: boolean }>("/api/einstellungen/wahlquote", { method: "PUT", body: JSON.stringify(data) }),
   },
 
+  wahlen: {
+    liste:         () => request<Wahl[]>("/api/wahlen"),
+    erstellen:     (data: WahlEingabe & { mitVorhaben?: boolean }) =>
+      request<Wahl>("/api/wahlen", { method: "POST", body: JSON.stringify(data) }),
+    aktualisieren: (id: string, data: Partial<WahlEingabe>) =>
+      request<Wahl>(`/api/wahlen/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    loeschen:      (id: string) => request<{ ok: boolean }>(`/api/wahlen/${id}`, { method: "DELETE" }),
+  },
+
   fristen: {
     liste: (params: { von?: string; bis?: string; status?: string } = {}) => {
       const q = new URLSearchParams();
@@ -552,6 +561,37 @@ export interface Dokument {
   fristen?: Frist[];
 }
 
+// ── Wahlen (Backend: routes/wahlen.ts, Fristen: lib/wahlFristen.ts) ──
+export type WahlArt = "BR" | "JAV";
+export type WahlVerfahren = "NORMAL" | "VEREINFACHT";
+
+export const WAHL_ART_LABEL: Record<WahlArt, string> = { BR: "Betriebsratswahl", JAV: "JAV-Wahl" };
+export const WAHL_VERFAHREN_LABEL: Record<WahlVerfahren, string> = { NORMAL: "Normales Verfahren", VEREINFACHT: "Vereinfachtes Verfahren" };
+
+export interface WahlEingabe {
+  titel?: string;
+  art: WahlArt;
+  verfahren: WahlVerfahren;
+  stimmabgabeAm: string;
+  amtszeitEnde?: string | null;
+  ausschreibenAm?: string | null;
+  notiz?: string | null;
+}
+
+export interface Wahl {
+  id: string;
+  titel: string;
+  art: WahlArt;
+  verfahren: WahlVerfahren;
+  stimmabgabeAm: string;
+  amtszeitEnde?: string | null;
+  ausschreibenAm?: string | null;
+  notiz?: string | null;
+  vorhabenId?: string | null;
+  fristen: (Omit<FristMitDokument, "dokument"> & { wahlSchritt?: string | null })[];
+  erstelltAm: string;
+}
+
 export interface FristMitDokument {
   id: string;
   typ: string;
@@ -572,6 +612,7 @@ export const FRIST_TYP_LABEL: Record<string, string> = {
   ANHOERUNG_102_AUSSERORDENTLICH: "Anhörung § 102 außerordentlich (3 Tage)",
   ZEITMODELL_87_WOCHE:            "Mitbestimmung § 87 (1 Woche)",
   BETRIEBSVERSAMMLUNG_43:         "Betriebsversammlung § 43 (Quartal)",
+  WAHL:                           "Wahl (BR/JAV)",
   WIDERSPRUCH:                    "Widerspruch § 99/102 (1 Woche)",
   BENUTZERDEFINIERT:              "Individuelle Frist",
 };

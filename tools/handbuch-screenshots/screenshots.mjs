@@ -53,6 +53,7 @@ const AUFNAHMEN = [
   { datei: "aufgaben-liste",   pfad: "/aufgaben?ansicht=liste" },
   { datei: "aufgaben-zeitplan", pfad: "/aufgaben?ansicht=zeitplan" },
   { datei: "themen-backlog",   pfad: "/themen-backlog" },
+  { datei: "wahlen",           pfad: "/wahlen" },
   { datei: "posteingang",      pfad: "/posteingang" },
   { datei: "kummerkasten-verwaltung", pfad: "/kummerkasten-verwaltung" },
   { datei: "wissen",           pfad: "/wissen" },
