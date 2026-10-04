@@ -794,6 +794,18 @@ export const SITZUNG_STATUS_LABEL: Record<SitzungStatus, string> = {
   ABGESAGT:             "Abgesagt",
 };
 
+// Betriebsversammlung: Einladung statt Tagesordnung, Niederschrift statt Protokoll
+const SITZUNG_STATUS_LABEL_BV: Record<SitzungStatus, string> = {
+  ...SITZUNG_STATUS_LABEL,
+  TAGESORDNUNG_FIXIERT: "Einladung fixiert",
+  PROTOKOLL_ENTWURF:    "Niederschrift in Bearbeitung",
+  PROTOKOLL_FINAL:      "Niederschrift final",
+};
+
+export function sitzungStatusLabel(status: SitzungStatus, sitzungstyp?: string | null): string {
+  return (istBetriebsversammlung(sitzungstyp) ? SITZUNG_STATUS_LABEL_BV : SITZUNG_STATUS_LABEL)[status];
+}
+
 export const TOP_STATUS_LABEL: Record<TopStatus, string> = {
   OFFEN:         "Offen",
   BESCHLOSSEN:   "Beschlossen",

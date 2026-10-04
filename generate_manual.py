@@ -566,6 +566,8 @@ def build():
     pdf.bullets([
         "Erledigen – Häkchen an der Frist (im Kalender oder auf dem Dashboard); Name und Datum werden festgehalten, der Pfeil öffnet sie wieder",
         "Neue Frist – Für Termine ohne Dokument, z. B. Wahl, Betriebsversammlung oder eine Erinnerung, mit Bezeichnung und Notiz",
+        "Bearbeiten – Stift an der Frist: Bezeichnung, Datum und Notiz ändern; bei Fristen zu einem Dokument nur Datum und Notiz",
+        "Betriebsversammlung – Ist im laufenden Quartal noch keine angelegt, erscheint automatisch eine Frist zum Quartalsende (§ 43 Abs. 1 BetrVG); sie erledigt sich mit der ersten Versammlung",
         "Überfällig – Offene Fristen nach ihrem Fälligkeitstag; sie bleiben offen, bis jemand sie erledigt",
     ])
     pdf.tabelle(
@@ -576,6 +578,7 @@ def build():
             ["Anhörung § 102, außerordentliche Kündigung", "3 Tage", "§ 102 Abs. 2 BetrVG"],
             ["Mitbestimmung § 87 (z. B. Mehrarbeit)", "1 Woche", "§ 87 BetrVG"],
             ["Widerspruch", "1 Woche", "§ 99 / § 102 BetrVG"],
+            ["Betriebsversammlung im Quartal", "bis Quartalsende", "§ 43 Abs. 1 BetrVG"],
             ["Individuelle Frist", "frei wählbar", "–"],
         ],
         (92, 28, 50),
@@ -604,8 +607,9 @@ def build():
 
     pdf.h2("4.2  Sitzung vorbereiten")
     pdf.schritt(1, "Sitzung anlegen",
-                "Sitzungen → „Neue Sitzung“: Titel, Datum, Ort und Art angeben. Mit einer Vorlage "
-                "werden Standard-TOPs gleich mit angelegt; alle aktiven Mitglieder stehen bereits auf der Anwesenheitsliste.")
+                "Sitzungen → „Neue Sitzung“: Titel, Datum, Ort und Art angeben (ordentlich, außerordentlich, "
+                "konstituierend oder Betriebsversammlung). Mit einer Vorlage werden Standard-TOPs gleich mit angelegt; "
+                "alle aktiven Mitglieder stehen bereits auf der Anwesenheitsliste.")
     pdf.schritt(2, "Tagesordnung aufbauen",
                 "TOPs hinzufügen, per Rich-Text beschreiben, Dokumente anhängen. Themen aus dem "
                 "Themen-Backlog lassen sich direkt als TOP übernehmen. TOPs können als vertraulich markiert werden.")
@@ -661,6 +665,44 @@ def build():
     )
     pdf.bild("beschluesse", "Beschlussregister über alle Sitzungen", hoehe_anteil=0.55)
 
+    pdf.h2("4.6  Konstituierende Sitzung und Betriebsversammlung")
+    pdf.body(
+        "Beide Arten nutzen denselben Ablauf von der Tagesordnung bis zum PDF. Wird beim Anlegen keine "
+        "Vorlage gewählt, bringen sie eine passende Standard-Tagesordnung mit, die sich wie gewohnt "
+        "anpassen lässt."
+    )
+    pdf.h3("Konstituierende Sitzung (§ 29 BetrVG)")
+    pdf.body(
+        "Die erste Sitzung nach der Wahl. Die Standard-Tagesordnung enthält Eröffnung durch den "
+        "Wahlvorstand, Wahl einer Wahlleitung, Wahl von Vorsitz und Stellvertretung (§ 26) und die "
+        "Bildung des Betriebsausschusses (§ 27). Anwesenheit und Beschlüsse funktionieren wie bei jeder BR-Sitzung."
+    )
+    pdf.h3("Betriebsversammlung (§§ 42–46 BetrVG)")
+    pdf.body(
+        "Die Standard-Tagesordnung enthält Tätigkeitsbericht des Betriebsrats, Bericht des Arbeitgebers, "
+        "Fragen aus der Belegschaft und Anträge an den Betriebsrat. Gegenüber einer BR-Sitzung ändert sich:"
+    )
+    pdf.tabelle(
+        ["", "BR-Sitzung", "Betriebsversammlung"],
+        [
+            ["Anwesenheit", "Anwesenheitsliste mit Ersatz-Nachrücken", "Nur die Teilnehmerzahl"],
+            ["Beschlüsse", "Mit Abstimmung", "Keine – Anträge an den BR (§ 45) gehen ins Themen-Backlog"],
+            ["Tagesordnungs-PDF", "Tagesordnung", "Einladung zum Aushang (nicht öffentlich, Teilnahme gilt als Arbeitszeit)"],
+            ["Protokoll-PDF", "Protokoll", "Niederschrift mit Teilnehmerzahl"],
+        ],
+        (34, 58, 78),
+    )
+    pdf.bullets([
+        "Fragen aus dem Kummerkasten – Im Entwurf übernimmt der Knopf über der Tagesordnung ausgewählte Nachrichten ohne Absendernamen als Liste in einen TOP",
+        "Antrag – Im Protokollmodus legt der Knopf am TOP einen Antrag der Versammlung als Thema im Backlog an",
+        "Quartals-Erinnerung – Ohne Versammlung im laufenden Quartal erscheint eine Frist zum Quartalsende (Kapitel 3.3)",
+    ])
+    pdf.bild("sitzung-betriebsversammlung", "Betriebsversammlung mit Teilnehmerzahl statt Anwesenheitsliste")
+    pdf.hinweis(
+        "Eine Betriebsversammlung lässt sich nicht nachträglich in eine BR-Sitzung umwandeln (und umgekehrt), "
+        "weil Anwesenheitsliste und Beschlüsse sonst verwaist zurückblieben. Im Zweifel neu anlegen.",
+        "info")
+
     # 5 ─────────────────────────────────────────────────────────────
     pdf.h1("5  Planung & Zusammenarbeit")
     pdf.h2("5.1  Aufgaben und Vorhaben")
@@ -689,7 +731,8 @@ def build():
     pdf.h2("5.2  Themen-Backlog")
     pdf.body(
         "Im Themen-Backlog sammelt der Betriebsrat Ideen und Anliegen, bevor sie in eine Sitzung "
-        "kommen. Ein Klick übernimmt ein Thema als TOP in die nächste Sitzung."
+        "kommen. Ein Klick übernimmt ein Thema als TOP in die nächste Sitzung. Auch Anträge aus der "
+        "Betriebsversammlung landen hier (Kapitel 4.6)."
     )
     pdf.bild("themen-backlog", "Themen-Backlog als Kanban-Board", hoehe_anteil=0.5)
     pdf.h2("5.3  Nachrichten")
@@ -703,7 +746,8 @@ def build():
     pdf.body(
         "Der Kummerkasten ist eine öffentliche Seite ohne Anmeldung, über die Beschäftigte dem "
         "Betriebsrat Anliegen, Kritik oder Ideen schicken – anonym oder mit Namen. Intern werden die "
-        "Einträge mit Status und einer nur für den Betriebsrat sichtbaren Notiz bearbeitet."
+        "Einträge mit Status und einer nur für den Betriebsrat sichtbaren Notiz bearbeitet. Für die "
+        "Betriebsversammlung lassen sich Einträge als Fragen in die Tagesordnung übernehmen (Kapitel 4.6)."
     )
     pdf.bild("kummerkasten-oeffentlich", "Öffentliches Formular (ohne Login erreichbar)", ausschnitt="mitte")
     pdf.bild("kummerkasten-verwaltung", "Interne Bearbeitung der Kummerkasten-Einträge", hoehe_anteil=0.55)
@@ -910,7 +954,7 @@ def build():
         (100, 70),
     )
     pdf.bullets([
-        "Protokoll-Layout – Logo hochladen, Kopf- und Fußzeile, Akzentfarbe und Unterschriftszeilen der Sitzungs-PDFs",
+        "Protokoll-Layout – Logo hochladen, Kopf- und Fußzeile, Akzentfarbe, Unterschriftszeilen und der Ort vor dem Datum an den Unterschriften (leer = nur Datum)",
         "System – Status des Watch-Folders und Übersicht der Backups (Anzahl, Alter, Größe, Vollständigkeit)",
         "Automatisches Abmelden – Nach 0 bis 480 Minuten Inaktivität (0 = aus)",
     ])

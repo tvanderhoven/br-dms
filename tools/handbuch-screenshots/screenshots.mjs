@@ -29,14 +29,24 @@ const klickText = (text, selektor = "button, a, tr, div[role=button], li") => `
     return !!el;
   })()`;
 
+// Tabellenzeile anklicken, die alle Texte enthält (z. B. Sitzungsart + Status)
+const klickZeile = (...texte) => `
+  (() => {
+    const tr = [...document.querySelectorAll("tr")]
+      .find(e => ${JSON.stringify(texte)}.every(t => e.textContent.includes(t)));
+    if (tr) tr.click();
+    return !!tr;
+  })()`;
+
 const AUFNAHMEN = [
   { datei: "dashboard",        pfad: "/dashboard" },
   { datei: "eingang",          pfad: "/eingang" },
   { datei: "dokumente",        pfad: "/dokumente" },
   { datei: "fristenkalender",  pfad: "/fristen" },
   { datei: "sitzungen",        pfad: "/sitzungen" },
-  { datei: "sitzung-protokoll", pfad: "/sitzungen", js: klickText("Protokoll final", "tr"), warte: 2500 },
+  { datei: "sitzung-protokoll", pfad: "/sitzungen", js: klickZeile("Ordentliche Sitzung", "Protokoll final"), warte: 2500 },
   { datei: "sitzung-entwurf",  pfad: "/sitzungen", js: klickText("Protokoll in Bearbeitung", "tr"), warte: 2500 },
+  { datei: "sitzung-betriebsversammlung", pfad: "/sitzungen", js: klickZeile("Betriebsversammlung", "Niederschrift final"), warte: 2500 },
   { datei: "beschluesse",      pfad: "/beschluesse" },
   { datei: "vorlagen",         pfad: "/vorlagen" },
   { datei: "aufgaben",         pfad: "/aufgaben?ansicht=board" },

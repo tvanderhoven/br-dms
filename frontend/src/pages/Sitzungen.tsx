@@ -9,8 +9,8 @@ import {
 } from "lucide-react";
 import {
   api, Sitzung, SitzungListItem, SitzungStatus, TOP, TopStatus, Dokument, Mitarbeiter, Abteilung, Zeitmodell, Rolle,
-  SITZUNG_STATUS_LABEL, TOP_STATUS_LABEL, KATEGORIE_LABEL, SITZUNGSTYP_LABEL, KummerkastenEintrag,
-  istBetriebsversammlung, formatDatum,
+  TOP_STATUS_LABEL, KATEGORIE_LABEL, SITZUNGSTYP_LABEL, KummerkastenEintrag,
+  istBetriebsversammlung, sitzungStatusLabel, formatDatum,
 } from "../lib/api";
 import SitzungsEditor from "../components/SitzungsEditor";
 import AnwesenheitsListe from "../components/AnwesenheitsListe";
@@ -247,7 +247,7 @@ export default function Sitzungen() {
                   </td>
                   <td className="px-4 py-3 hidden sm:table-cell">
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${SITZUNG_BADGE[s.status]}`}>
-                      {SITZUNG_STATUS_LABEL[s.status]}
+                      {sitzungStatusLabel(s.status, s.sitzungstyp)}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{s._count.tops}</td>
@@ -576,7 +576,7 @@ function SitzungDetail({
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold text-gray-900">{sitzung.titel}</h1>
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${SITZUNG_BADGE[sitzung.status]}`}>
-              {SITZUNG_STATUS_LABEL[sitzung.status]}
+              {sitzungStatusLabel(sitzung.status, sitzung.sitzungstyp)}
             </span>
             <button
               onClick={linkKopieren}
@@ -628,7 +628,7 @@ function SitzungDetail({
               {v.readonly ? <Lock size={11} className="text-gray-400" /> : <Unlock size={11} className="text-accent/80" />}
               <span className="font-medium text-gray-700">{versionLabel(v.typ, sitzung.sitzungstyp) ?? v.versionNummer}</span>
               {v.einladungVersendetAm && (
-                <span className="text-green-600 ml-1">· Einladung versendet {formatDatum(v.einladungVersendetAm)}</span>
+                <span className="text-green-600 ml-1">· Einladung {istBV ? "ausgehängt" : "versendet"} {formatDatum(v.einladungVersendetAm)}</span>
               )}
               {v.finalisiertAm && (
                 <span className="text-green-600 ml-1">· Finalisiert {formatDatum(v.finalisiertAm)}</span>
