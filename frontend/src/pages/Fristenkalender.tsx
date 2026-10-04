@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { CalendarRange, ChevronLeft, ChevronRight, AlertTriangle, Clock, CheckCircle2, Trash2, Plus, X, Loader2, RotateCcw, FileText } from "lucide-react";
+import { CalendarRange, ChevronLeft, ChevronRight, AlertTriangle, Clock, CheckCircle2, Trash2, Plus, X, Loader2, RotateCcw, FileText, Pencil } from "lucide-react";
 import { api, FristMitDokument, KATEGORIE_LABEL, FRIST_TYP_LABEL, fristTitel, formatDatum } from "../lib/api";
 
 const istUeberfaellig = (f: FristMitDokument) =>
@@ -33,6 +33,7 @@ export default function Fristenkalender() {
   const [laden,   setLaden]   = useState(true);
   const [ausgewaehltTag, setAusgewaehltTag] = useState<number | null>(null);
   const [neuOffen, setNeuOffen] = useState(false);
+  const [bearbeiten, setBearbeiten] = useState<FristMitDokument | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -92,6 +93,16 @@ export default function Fristenkalender() {
     } catch (err) {
       alert(err instanceof Error ? err.message : "Speichern fehlgeschlagen");
     }
+  }
+
+  function fristGeaendert(f: FristMitDokument) {
+    setBearbeiten(null);
+    const d = new Date(f.faelligAm);
+    // In einen anderen Monat verschoben → aus der Monatsansicht nehmen
+    setFristen(prev => (d.getMonth() === monat && d.getFullYear() === jahr
+      ? prev.map(x => x.id === f.id ? f : x)
+      : prev.filter(x => x.id !== f.id)
+    ).sort((a, b) => a.faelligAm.localeCompare(b.faelligAm)));
   }
 
   function fristAngelegt(f: FristMitDokument) {
@@ -232,6 +243,13 @@ export default function Fristenkalender() {
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <button
+                          onClick={() => setBearbeiten(f)}
+                          title="Frist bearbeiten"
+                          className="text-gray-300 hover:text-accent opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button
                           onClick={() => erledigtUmschalten(f)}
                           title={f.status === "ERLEDIGT" ? "Wieder öffnen" : "Als erledigt markieren"}
                           className={f.status === "ERLEDIGT" ? "text-gray-400 hover:text-gray-700" : "text-gray-300 hover:text-green-600"}
@@ -279,19 +297,23 @@ export default function Fristenkalender() {
         </div>
       </div>
 
-      {neuOffen && <NeueFristModal onSchliessen={() => setNeuOffen(false)} onAngelegt={fristAngelegt} />}
+      {neuOffen && <FristModal onSchliessen={() => setNeuOffen(false)} onGespeichert={fristAngelegt} />}
+      {bearbeiten && <FristModal frist={bearbeiten} onSchliessen={() => setBearbeiten(null)} onGespeichert={fristGeaendert} />}
     </div>
   );
 }
 
-// ── Neue Frist ohne Dokument (z. B. Wahl, Betriebsversammlung, Erinnerung) ──
-function NeueFristModal({ onSchliessen, onAngelegt }: {
+// ── Frist anlegen (ohne Dokument, z. B. Wahl, Betriebsversammlung, Erinnerung) oder bearbeiten ──
+// Bei Fristen mit Dokument kommt der Titel vom Dokument – dort nur Datum und Notiz änderbar.
+function FristModal({ frist, onSchliessen, onGespeichert }: {
+  frist?: FristMitDokument;
   onSchliessen: () => void;
-  onAngelegt: (f: FristMitDokument) => void;
+  onGespeichert: (f: FristMitDokument) => void;
 }) {
-  const [bezeichnung, setBezeichnung] = useState("");
-  const [faelligAm, setFaelligAm]     = useState("");
-  const [notiz, setNotiz]             = useState("");
+  const mitDokument = !!frist?.dokument;
+  const [bezeichnung, setBezeichnung] = useState(frist?.bezeichnung ?? "");
+  const [faelligAm, setFaelligAm]     = useState(frist?.faelligAm.slice(0, 10) ?? "");
+  const [notiz, setNotiz]             = useState(frist?.notiz ?? "");
   const [laden, setLaden]             = useState(false);
   const [fehler, setFehler]           = useState("");
 
@@ -300,7 +322,13 @@ function NeueFristModal({ onSchliessen, onAngelegt }: {
     setLaden(true);
     setFehler("");
     try {
-      onAngelegt(await api.fristen.erstellen({ bezeichnung, faelligAm, notiz: notiz || undefined }));
+      onGespeichert(frist
+        ? await api.fristen.aktualisieren(frist.id, {
+            ...(!mitDokument && { bezeichnung }),
+            ...(faelligAm !== frist.faelligAm.slice(0, 10) && { faelligAm }),
+            notiz,
+          })
+        : await api.fristen.erstellen({ bezeichnung, faelligAm, notiz: notiz || undefined }));
     } catch (err) {
       setFehler(err instanceof Error ? err.message : "Speichern fehlgeschlagen");
       setLaden(false);
@@ -312,19 +340,30 @@ function NeueFristModal({ onSchliessen, onAngelegt }: {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onSchliessen}>
       <form onSubmit={speichern} onClick={e => e.stopPropagation()} className="bg-white rounded-xl shadow-2xl w-full max-w-md">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900">Neue Frist</h2>
+          <h2 className="font-semibold text-gray-900">{frist ? "Frist bearbeiten" : "Neue Frist"}</h2>
           <button type="button" onClick={onSchliessen} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
         </div>
         <div className="px-6 py-5 space-y-4">
-          <p className="text-xs text-gray-500">
-            Für Fristen, die an keinem Dokument hängen – z. B. Wahltermine, Betriebsversammlung oder eine Erinnerung.
-            Fristen zu Anhörungen entstehen automatisch beim Upload.
-          </p>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Bezeichnung *</label>
-            <input value={bezeichnung} onChange={e => setBezeichnung(e.target.value)} required autoFocus
-              placeholder="z. B. Aushang Betriebsversammlung Q4" className={inputKlasse} />
-          </div>
+          {!frist && (
+            <p className="text-xs text-gray-500">
+              Für Fristen, die an keinem Dokument hängen – z. B. Wahltermine, Betriebsversammlung oder eine Erinnerung.
+              Fristen zu Anhörungen entstehen automatisch beim Upload.
+            </p>
+          )}
+          {mitDokument ? (
+            <div>
+              <p className="text-sm font-medium text-gray-800">{fristTitel(frist!)}</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {FRIST_TYP_LABEL[frist!.typ] ?? frist!.typ} · Die Bezeichnung kommt vom Dokument.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Bezeichnung *</label>
+              <input value={bezeichnung} onChange={e => setBezeichnung(e.target.value)} required autoFocus
+                placeholder="z. B. Aushang Betriebsversammlung Q4" className={inputKlasse} />
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Fällig am *</label>
             <input type="date" value={faelligAm} onChange={e => setFaelligAm(e.target.value)} required className={inputKlasse} />
@@ -339,7 +378,7 @@ function NeueFristModal({ onSchliessen, onAngelegt }: {
           <button type="button" onClick={onSchliessen} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Abbrechen</button>
           <button type="submit" disabled={laden}
             className="flex items-center gap-2 bg-accent hover:brightness-90 disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium">
-            {laden && <Loader2 size={14} className="animate-spin" />} Frist anlegen
+            {laden && <Loader2 size={14} className="animate-spin" />} {frist ? "Speichern" : "Frist anlegen"}
           </button>
         </div>
       </form>
