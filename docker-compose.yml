@@ -121,11 +121,13 @@ services:
     restart: unless-stopped
     networks:
       - brdms_net
+    environment:
+      PROXY_HTTPS_PORT: ${PROXY_HTTPS_PORT:-8443}
     ports:
       - "${PROXY_HTTPS_PORT:-8443}:443"
       - "${PROXY_HTTP_PORT:-8080}:80"
     volumes:
-      - ./proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./proxy/nginx.conf:/etc/nginx/templates/default.conf.template:ro
       - ${DATA_PATH}/certs:/etc/nginx/certs:ro
     depends_on:
       - frontend
