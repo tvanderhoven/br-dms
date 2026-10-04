@@ -1207,3 +1207,75 @@ export async function topAuszugPdfGenerieren(
     doc.end();
   });
 }
+
+// ── Wählerliste (Abdruck zum Aushang, § 2 WO) ─────────────────────
+// Getrennt nach Geschlechtern, alphabetisch, bewusst OHNE Geburtsdaten –
+// die vollständige Liste bekommt der Wahlvorstand als CSV.
+export async function waehlerlistePdfGenerieren(
+  wahl:  { titel: string; art: string; stimmabgabeAm: Date },
+  liste: { waehler: { nachname: string; vorname: string; abteilung: string | null; geschlecht: string | null }[] },
+): Promise<Buffer> {
+  const layout     = await layoutLaden();
+  const logoBuffer = layout.logo_pfad ? await fs.readFile(layout.logo_pfad).catch(() => null) : null;
+
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: "A4", margin: 60, bufferPages: true });
+    registriereSchriften(doc);
+    const chunks: Buffer[] = [];
+    doc.on("data",  c => chunks.push(c));
+    doc.on("error", reject);
+    doc.on("end",   () => resolve(Buffer.concat(chunks)));
+
+    const y0 = doc.y;
+    const textBreite = logoBuffer ? 350 : BREITE;
+    doc.fontSize(14).font("Helvetica-Bold").fillColor("#111827")
+       .text(`Wählerliste – ${pdfText(wahl.titel)}`, RAND_LINKS, y0, { width: textBreite });
+    doc.fontSize(9).font("Helvetica").fillColor(FARBE_GRAU)
+       .text(`Wahltag: ${formatDatum(wahl.stimmabgabeAm)}`, RAND_LINKS, y0 + 18, { width: textBreite });
+    if (logoBuffer) doc.image(logoBuffer, 463, y0, { height: 38, fit: [72, 38] });
+    doc.y = y0 + 44;
+    doc.moveTo(RAND_LINKS, doc.y).lineTo(RAND_RECHTS, doc.y).strokeColor(layout.farbe).lineWidth(1.5).stroke();
+    doc.moveDown(0.8);
+
+    doc.fontSize(9).font("Helvetica").fillColor("#374151")
+       .text(
+         `Wahlberechtigt zur ${wahl.art === "JAV" ? "Wahl der Jugend- und Auszubildendenvertretung" : "Betriebsratswahl"} ` +
+         `(${liste.waehler.length} Personen). Einsprüche gegen die Richtigkeit der Wählerliste sind schriftlich beim ` +
+         "Wahlvorstand einzulegen – die Frist steht im Wahlausschreiben.",
+         RAND_LINKS, doc.y, { width: BREITE },
+       );
+    doc.moveDown(0.8);
+
+    const gruppen: [string, typeof liste.waehler][] = [
+      ["Frauen",  liste.waehler.filter(w => w.geschlecht === "WEIBLICH")],
+      ["Männer",  liste.waehler.filter(w => w.geschlecht === "MAENNLICH")],
+      ["Ohne Angabe / divers", liste.waehler.filter(w => !w.geschlecht)],
+    ];
+    const COL_NR = RAND_LINKS, COL_NAME = RAND_LINKS + 28, COL_ABT = RAND_LINKS + 290;
+
+    for (const [titel, personen] of gruppen) {
+      if (personen.length === 0) continue;
+      if (doc.y > 660) doc.addPage();
+      abschnittUeberschrift(doc, `${titel} (${personen.length})`, layout);
+      personen.forEach((p, i) => {
+        if (doc.y > 735) doc.addPage();
+        const y = doc.y;
+        doc.fontSize(9).font("Helvetica").fillColor(FARBE_GRAU).text(`${i + 1}.`, COL_NR, y, { width: 24 });
+        doc.fillColor("#111827").text(pdfText(`${p.nachname}, ${p.vorname}`), COL_NAME, y, { width: COL_ABT - COL_NAME - 10 });
+        doc.fillColor(FARBE_GRAU).text(pdfText(p.abteilung ?? ""), COL_ABT, y, { width: RAND_RECHTS - COL_ABT });
+        doc.y = y + 14;
+      });
+      doc.moveDown(0.6);
+    }
+
+    const seiten = (doc as any).bufferedPageRange().count;
+    for (let i = 0; i < seiten; i++) {
+      doc.switchToPage(i);
+      const y = 760;
+      doc.moveTo(RAND_LINKS, y).lineTo(RAND_RECHTS, y).strokeColor("#e5e7eb").lineWidth(0.5).stroke();
+      doc.fontSize(7.5).font("Helvetica").fillColor(FARBE_GRAU)
+         .text(`Abdruck ohne Geburtsdaten (§ 2 Abs. 4 WO)  ·  Seite ${i + 1} von ${seiten}`, RAND_LINKS, y + 5, { width: BREITE, lineBreak: false });
+    }
+    doc.end();
+  });
+}

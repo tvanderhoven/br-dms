@@ -425,6 +425,12 @@ model Wahl {
   ausschreibenAm   DateTime?     @map("ausschreiben_am")
   notiz            String?
 
+  // Wählerliste (lib/waehlerliste.ts): nur JAV – dual Studierende als "zur Berufsausbildung
+  // Beschäftigte" zählen (hängt vom Vertrag ab, daher je Wahl entscheidbar)
+  dualStudierendeAlsAzubis Boolean @default(false) @map("dual_studierende_als_azubis")
+  // Von Hand aus der Wählerliste genommene Mitarbeiter-IDs (z. B. leitende Angestellte)
+  ausgeschlossen   String[]      @default([])
+
   // Vorhaben im Zeitplan (Aufgabe vom Typ PROJEKT); bleibt beim Löschen der Wahl erhalten
   vorhabenId       String?       @map("vorhaben_id")
 

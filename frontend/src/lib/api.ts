@@ -381,9 +381,12 @@ export const api = {
     liste:         () => request<Wahl[]>("/api/wahlen"),
     erstellen:     (data: WahlEingabe & { mitVorhaben?: boolean }) =>
       request<Wahl>("/api/wahlen", { method: "POST", body: JSON.stringify(data) }),
-    aktualisieren: (id: string, data: Partial<WahlEingabe>) =>
+    aktualisieren: (id: string, data: Partial<WahlEingabe & { dualStudierendeAlsAzubis: boolean; ausgeschlossen: string[] }>) =>
       request<Wahl>(`/api/wahlen/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     loeschen:      (id: string) => request<{ ok: boolean }>(`/api/wahlen/${id}`, { method: "DELETE" }),
+    waehlerliste:  (id: string) => request<Waehlerliste>(`/api/wahlen/${id}/waehlerliste`),
+    waehlerlistePdfUrl: (id: string) => `${BASE}/api/wahlen/${id}/waehlerliste.pdf`,
+    waehlerlisteCsvUrl: (id: string) => `${BASE}/api/wahlen/${id}/waehlerliste.csv`,
   },
 
   fristen: {
@@ -588,8 +591,37 @@ export interface Wahl {
   ausschreibenAm?: string | null;
   notiz?: string | null;
   vorhabenId?: string | null;
+  dualStudierendeAlsAzubis: boolean;
+  ausgeschlossen: string[];
   fristen: (Omit<FristMitDokument, "dokument"> & { wahlSchritt?: string | null })[];
   erstelltAm: string;
+}
+
+export interface WaehlerEintrag {
+  id: string;
+  nachname: string;
+  vorname: string;
+  geburtsdatum?: string | null;
+  geschlecht?: Geschlecht | null;
+  abteilung?: string | null;
+  beschaeftigungsart: Beschaeftigungsart;
+  wahlberechtigt: boolean;
+  waehlbar: boolean;
+  hinweise: string[];
+}
+
+// Vorschlag aus den Mitarbeiterdaten (Backend: lib/waehlerliste.ts)
+export interface Waehlerliste {
+  stichtag: string;
+  waehler: WaehlerEintrag[];
+  pruefen: WaehlerEintrag[];
+  ausgeschlossen: WaehlerEintrag[];
+  anzahl: { gesamt: number; weiblich: number; maennlich: number; ohneAngabe: number };
+  belegschaft: number;
+  groesse: { sitze: number; grundlage: string };
+  minderheit: { geschlecht: Geschlecht; mindestsitze: number; frauen: number; maenner: number; losentscheid: boolean } | null;
+  verfahren: { empfehlung: WahlVerfahren; pflicht: boolean; text: string };
+  dualNichtGezaehlt: number;
 }
 
 export interface FristMitDokument {

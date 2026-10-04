@@ -32,7 +32,7 @@ Wahlvorstand braucht keinen eigenen Zugang. Wahlvorschläge und Stimmauszählung
   der Regelfall bei der JAV** (18 Azubis)
 - Die laufende JAV-Wahl 2026 lässt sich dann sofort eintragen
 
-**Stufe 2 – Wählerliste und Gremiumsgröße**
+**Stufe 2 – Wählerliste und Gremiumsgröße** ✓ (Okt. 2026: Bereich auf der Seite „Wahlen“, Berechnung in `backend/src/lib/waehlerliste.ts`; PDF zum Aushang ohne Geburtsdaten, CSV für den Wahlvorstand, Ausschluss von Hand je Wahl)
 - Wählerliste aus den Mitarbeiterdaten zum Stichtag: BR ab 16 (§ 7), JAV unter 18 bzw. Azubis unter 25
   (§§ 60, 61); Zeitarbeit markieren (wahlberechtigt erst nach > 3 Monaten Einsatz)
 - Getrennt nach Geschlechtern (§ 2 WO), Abdruck zum Aushang ohne Geburtsdaten

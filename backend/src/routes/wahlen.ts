@@ -8,14 +8,20 @@
  * POST   /api/wahlen        – Wahl anlegen (VORSITZ/STELLVERTRETER)
  * PATCH  /api/wahlen/:id    – Eckdaten ändern, Fristen werden nachgezogen
  * DELETE /api/wahlen/:id    – Wahl samt Fristen löschen (Vorhaben bleibt)
+ *
+ * GET    /api/wahlen/:id/waehlerliste      – Vorschlag Wählerliste, Größe, Mindestsitze
+ * GET    /api/wahlen/:id/waehlerliste.pdf  – Abdruck zum Aushang (ohne Geburtsdaten)
+ * GET    /api/wahlen/:id/waehlerliste.csv  – vollständige Liste für den Wahlvorstand
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { AufgabeTyp, Role, WahlArt, WahlVerfahren } from "@prisma/client";
+import { AufgabeTyp, Beschaeftigungsart, Role, WahlArt, WahlVerfahren } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { wahlFristenAbgleichen } from "../lib/wahlFristen.js";
+import { waehlerlisteBerechnen } from "../lib/waehlerliste.js";
+import { waehlerlistePdfGenerieren } from "../services/pdf.service.js";
 
 interface WahlEingabe {
   titel?:          string;
@@ -26,6 +32,8 @@ interface WahlEingabe {
   ausschreibenAm?: string | null;
   notiz?:          string | null;
   mitVorhaben?:    boolean;
+  dualStudierendeAlsAzubis?: boolean;
+  ausgeschlossen?: string[];
 }
 
 const WAHL_INCLUDE = {
@@ -107,6 +115,9 @@ export async function wahlRouten(app: FastifyInstance): Promise<void> {
       if (stimmabgabeAm === null) return reply.status(400).send({ fehler: "Tag der Stimmabgabe darf nicht leer sein" });
       if ([stimmabgabeAm, amtszeitEnde, ausschreibenAm].includes("ungueltig")) return reply.status(400).send({ fehler: "Ungültiges Datum" });
       if (b.titel !== undefined && !b.titel.trim()) return reply.status(400).send({ fehler: "Titel darf nicht leer sein" });
+      if (b.ausgeschlossen !== undefined && (!Array.isArray(b.ausgeschlossen) || b.ausgeschlossen.some(x => typeof x !== "string"))) {
+        return reply.status(400).send({ fehler: "ausgeschlossen muss eine Liste von Mitarbeiter-IDs sein" });
+      }
 
       const wahl = await prisma.$transaction(async tx => {
         await tx.wahl.update({
@@ -119,6 +130,8 @@ export async function wahlRouten(app: FastifyInstance): Promise<void> {
             ...(amtszeitEnde !== undefined && { amtszeitEnde: amtszeitEnde as Date | null }),
             ...(ausschreibenAm !== undefined && { ausschreibenAm: ausschreibenAm as Date | null }),
             ...(b.notiz !== undefined && { notiz: b.notiz?.trim() || null }),
+            ...(b.dualStudierendeAlsAzubis !== undefined && { dualStudierendeAlsAzubis: !!b.dualStudierendeAlsAzubis }),
+            ...(b.ausgeschlossen !== undefined && { ausgeschlossen: [...new Set(b.ausgeschlossen)] }),
           },
         });
         await wahlFristenAbgleichen(alt.id, tx);
@@ -135,4 +148,56 @@ export async function wahlRouten(app: FastifyInstance): Promise<void> {
       await prisma.wahl.delete({ where: { id: wahl.id } });
       return reply.send({ ok: true });
     });
+
+  // ── Wählerliste ────────────────────────────────────────────────
+  app.get<{ Params: { id: string } }>("/:id/waehlerliste", { preHandler: [authenticate] },
+    async (request, reply) => {
+      const wahl = await prisma.wahl.findUnique({ where: { id: request.params.id } });
+      if (!wahl) return reply.status(404).send({ fehler: "Wahl nicht gefunden" });
+      return reply.send(await waehlerlisteBerechnen(wahl));
+    });
+
+  app.get<{ Params: { id: string } }>("/:id/waehlerliste.pdf", { preHandler: [authenticate] },
+    async (request, reply) => {
+      const wahl = await prisma.wahl.findUnique({ where: { id: request.params.id } });
+      if (!wahl) return reply.status(404).send({ fehler: "Wahl nicht gefunden" });
+      const liste = await waehlerlisteBerechnen(wahl);
+      const buffer = await waehlerlistePdfGenerieren(wahl, liste);
+      return reply
+        .header("Content-Type", "application/pdf")
+        .header("Content-Disposition", `attachment; filename="waehlerliste-${dateinameTeil(wahl.titel)}.pdf"`)
+        .send(buffer);
+    });
+
+  app.get<{ Params: { id: string } }>("/:id/waehlerliste.csv", { preHandler: [authenticate] },
+    async (request, reply) => {
+      const wahl = await prisma.wahl.findUnique({ where: { id: request.params.id } });
+      if (!wahl) return reply.status(404).send({ fehler: "Wahl nicht gefunden" });
+      const liste = await waehlerlisteBerechnen(wahl);
+      const zelle = (v: string) => /[;"\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+      const datumDe = (d: Date | null) => d ? d.toISOString().slice(0, 10).split("-").reverse().join(".") : "";
+      const zeilen = [
+        ["Nachname", "Vorname", "Geburtsdatum", "Geschlecht", "Abteilung", "Beschäftigungsart", "Wählbar", "Hinweise"],
+        ...liste.waehler.map(w => [
+          w.nachname, w.vorname, datumDe(w.geburtsdatum),
+          w.geschlecht === "WEIBLICH" ? "w" : w.geschlecht === "MAENNLICH" ? "m" : "",
+          w.abteilung ?? "", ART_LABEL[w.beschaeftigungsart], w.waehlbar ? "ja" : "nein", w.hinweise.join(" | "),
+        ]),
+      ];
+      // BOM, damit Excel die Umlaute richtig liest
+      const csv = "\uFEFF" + zeilen.map(z => z.map(zelle).join(";")).join("\r\n");
+      return reply
+        .header("Content-Type", "text/csv; charset=utf-8")
+        .header("Content-Disposition", `attachment; filename="waehlerliste-${dateinameTeil(wahl.titel)}.csv"`)
+        .send(csv);
+    });
+}
+
+const ART_LABEL: Record<Beschaeftigungsart, string> = {
+  MITARBEITER: "Mitarbeiter/in", AZUBI: "Auszubildende/r", STUDENT: "Studentische Hilfskraft",
+  DUALER_STUDENT: "Dual Studierende/r", ZEITARBEITER: "Zeitarbeit",
+};
+
+function dateinameTeil(titel: string): string {
+  return titel.replace(/[^a-zA-Z0-9äöüÄÖÜß]+/g, "-").replace(/^-|-$/g, "");
 }

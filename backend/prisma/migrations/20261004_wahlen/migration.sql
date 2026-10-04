@@ -23,3 +23,8 @@ CREATE TABLE "wahlen" (
 ALTER TABLE "fristen" ADD COLUMN "wahl_id" TEXT, ADD COLUMN "wahl_schritt" TEXT;
 ALTER TABLE "fristen" ADD CONSTRAINT "fristen_wahl_id_fkey"
   FOREIGN KEY ("wahl_id") REFERENCES "wahlen"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Stufe 2: Wählerliste
+ALTER TABLE "wahlen"
+  ADD COLUMN "dual_studierende_als_azubis" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN "ausgeschlossen" TEXT[] DEFAULT ARRAY[]::TEXT[];

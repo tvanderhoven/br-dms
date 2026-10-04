@@ -54,6 +54,14 @@ const AUFNAHMEN = [
   { datei: "aufgaben-zeitplan", pfad: "/aufgaben?ansicht=zeitplan" },
   { datei: "themen-backlog",   pfad: "/themen-backlog" },
   { datei: "wahlen",           pfad: "/wahlen" },
+  { datei: "wahlen-waehlerliste", pfad: "/wahlen", warte: 2500, js: `
+    (() => {
+      const b = [...document.querySelectorAll("button")].find(e => e.textContent.includes("Wählerliste & Gremiumsgröße"));
+      if (!b) return false;
+      b.click();
+      setTimeout(() => b.scrollIntoView({ block: "start" }), 1500);
+      return true;
+    })()` },
   { datei: "posteingang",      pfad: "/posteingang" },
   { datei: "kummerkasten-verwaltung", pfad: "/kummerkasten-verwaltung" },
   { datei: "wissen",           pfad: "/wissen" },

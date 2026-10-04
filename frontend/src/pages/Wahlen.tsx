@@ -1,8 +1,12 @@
 import { useEffect, useState, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { Vote, Plus, X, Loader2, Pencil, Trash2, CheckCircle2, RotateCcw, CalendarRange, AlertTriangle, Info } from "lucide-react";
 import {
-  api, Wahl, WahlArt, WahlVerfahren, WahlEingabe, WAHL_ART_LABEL, WAHL_VERFAHREN_LABEL, formatDatum,
+  Vote, Plus, X, Loader2, Pencil, Trash2, CheckCircle2, RotateCcw, CalendarRange, AlertTriangle, Info,
+  Users, ChevronDown, ChevronRight, FileDown, Ban, Undo2, Search,
+} from "lucide-react";
+import {
+  api, Wahl, WahlArt, WahlVerfahren, WahlEingabe, Waehlerliste, WaehlerEintrag,
+  WAHL_ART_LABEL, WAHL_VERFAHREN_LABEL, BESCHAEFTIGUNGSART_LABEL, formatDatum,
 } from "../lib/api";
 
 type WahlFrist = Wahl["fristen"][number];
@@ -156,6 +160,8 @@ export default function Wahlen() {
                   );
                 })}
               </ul>
+
+              <WaehlerlisteBereich wahl={w} onWahlGeaendert={ersetzen} />
             </div>
           ))}
         </div>
@@ -280,6 +286,231 @@ function WahlModal({ wahl, onSchliessen, onGespeichert }: {
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+// ── Stufe 2: Wählerliste, Gremiumsgröße, Minderheitengeschlecht ───
+// PDF/CSV mit Token holen (geschützte Route) – PDF im neuen Tab, CSV als Datei
+function herunterladen(url: string, dateiname?: string) {
+  const tab = dateiname ? null : window.open("", "_blank");
+  const token = localStorage.getItem("brdms_token");
+  fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.blob(); })
+    .then(blob => {
+      const objectUrl = URL.createObjectURL(blob);
+      if (tab) {
+        tab.location.href = objectUrl;
+      } else {
+        const a = document.createElement("a");
+        a.href = objectUrl; a.download = dateiname!;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      }
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    })
+    .catch(() => { tab?.close(); alert("Download fehlgeschlagen"); });
+}
+
+function alterText(e: WaehlerEintrag, stichtag: string): string {
+  if (!e.geburtsdatum) return "–";
+  const g = new Date(e.geburtsdatum), s = new Date(stichtag);
+  let alter = s.getUTCFullYear() - g.getUTCFullYear();
+  if (s.getUTCMonth() < g.getUTCMonth() || (s.getUTCMonth() === g.getUTCMonth() && s.getUTCDate() < g.getUTCDate())) alter--;
+  return String(alter);
+}
+
+const GESCHLECHT_KURZ = { WEIBLICH: "w", MAENNLICH: "m" } as const;
+
+function WaehlerlisteBereich({ wahl, onWahlGeaendert }: { wahl: Wahl; onWahlGeaendert: (w: Wahl) => void }) {
+  const [offen, setOffen]   = useState(false);
+  const [liste, setListe]   = useState<Waehlerliste | null>(null);
+  const [laden, setLaden]   = useState(false);
+  const [fehler, setFehler] = useState("");
+  const [suche, setSuche]   = useState("");
+
+  function ladenFn() {
+    setLaden(true); setFehler("");
+    api.wahlen.waehlerliste(wahl.id)
+      .then(setListe)
+      .catch(err => setFehler(err instanceof Error ? err.message : "Laden fehlgeschlagen"))
+      .finally(() => setLaden(false));
+  }
+  // Neu laden, wenn sich die Wahl ändert (Wahltag, Schalter, Ausschlüsse)
+  useEffect(() => { if (offen) ladenFn(); }, [offen, wahl.stimmabgabeAm, wahl.art, wahl.dualStudierendeAlsAzubis, wahl.ausgeschlossen.join()]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function aendern(daten: { dualStudierendeAlsAzubis?: boolean; ausgeschlossen?: string[] }) {
+    try {
+      onWahlGeaendert(await api.wahlen.aktualisieren(wahl.id, daten));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Speichern fehlgeschlagen");
+    }
+  }
+  const ausschliessen = (id: string) => aendern({ ausgeschlossen: [...wahl.ausgeschlossen, id] });
+  const aufnehmen     = (id: string) => aendern({ ausgeschlossen: wahl.ausgeschlossen.filter(x => x !== id) });
+
+  const gefiltert = liste?.waehler.filter(w =>
+    !suche || `${w.nachname} ${w.vorname} ${w.abteilung ?? ""}`.toLowerCase().includes(suche.toLowerCase())) ?? [];
+  const dateiTeil = wahl.titel.replace(/[^a-zA-Z0-9äöüÄÖÜß]+/g, "-");
+
+  return (
+    <div className="border-t border-gray-100">
+      <button onClick={() => setOffen(o => !o)} className="w-full flex items-center gap-2 px-5 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50">
+        {offen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+        <Users size={15} /> Wählerliste & Gremiumsgröße
+        <span className="text-xs font-normal text-gray-400">Vorschlag aus den Mitarbeiterdaten zum Wahltag</span>
+      </button>
+
+      {offen && (
+        <div className="px-5 pb-5 space-y-4">
+          {fehler && <p className="text-sm text-red-600">{fehler}</p>}
+          {laden && !liste && <div className="flex items-center text-gray-400 text-sm"><Loader2 className="animate-spin mr-2" size={14} /> Berechne…</div>}
+          {liste && (
+            <>
+              {/* Kennzahlen */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="rounded-lg border border-gray-200 p-3">
+                  <p className="text-xs text-gray-500">Wahlberechtigt</p>
+                  <p className="text-2xl font-bold text-gray-900">{liste.anzahl.gesamt}</p>
+                  <p className="text-xs text-gray-500">{liste.anzahl.weiblich} w · {liste.anzahl.maennlich} m{liste.anzahl.ohneAngabe > 0 && ` · ${liste.anzahl.ohneAngabe} ohne Angabe`}</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 p-3">
+                  <p className="text-xs text-gray-500">Größe des Gremiums</p>
+                  <p className="text-2xl font-bold text-gray-900">{liste.groesse.sitze} {liste.groesse.sitze === 1 ? "Sitz" : "Sitze"}</p>
+                  <p className="text-xs text-gray-500">{liste.groesse.grundlage}</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 p-3">
+                  <p className="text-xs text-gray-500">Minderheitengeschlecht</p>
+                  {liste.minderheit ? (
+                    <>
+                      <p className="text-2xl font-bold text-gray-900">≥ {liste.minderheit.mindestsitze} {liste.minderheit.geschlecht === "WEIBLICH" ? "Frauen" : "Männer"}</p>
+                      <p className="text-xs text-gray-500">
+                        {liste.minderheit.frauen} Frauen, {liste.minderheit.maenner} Männer in der {wahl.art === "JAV" ? "§ 60-Gruppe" : "Belegschaft"} · Höchstzahlverfahren (§ 5 WO)
+                        {liste.minderheit.losentscheid && <span className="text-amber-700"> · Gleichstand am letzten Sitz – Los entscheidet</span>}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-2xl font-bold text-gray-400">entfällt</p>
+                      <p className="text-xs text-gray-500">Erst ab 3 Sitzen und bei echter Minderheit (§ 15 Abs. 2{wahl.art === "JAV" ? ", § 62 Abs. 3" : ""})</p>
+                    </>
+                  )}
+                </div>
+                <div className={`rounded-lg border p-3 ${liste.verfahren.empfehlung !== wahl.verfahren && liste.verfahren.pflicht ? "border-amber-300 bg-amber-50" : "border-gray-200"}`}>
+                  <p className="text-xs text-gray-500">Verfahren</p>
+                  <p className="text-sm font-semibold text-gray-900 mt-1">{WAHL_VERFAHREN_LABEL[liste.verfahren.empfehlung]}</p>
+                  <p className="text-xs text-gray-500">{liste.verfahren.text}</p>
+                  {liste.verfahren.empfehlung !== wahl.verfahren && liste.verfahren.pflicht && (
+                    <p className="text-xs text-amber-700 mt-1">Bei der Wahl ist „{WAHL_VERFAHREN_LABEL[wahl.verfahren]}“ eingestellt – bitte prüfen.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Schalter und Export */}
+              <div className="flex items-center gap-3 flex-wrap">
+                {wahl.art === "JAV" && (
+                  <label className="flex items-center gap-2 flex-wrap text-sm text-gray-700 cursor-pointer">
+                    <input type="checkbox" checked={wahl.dualStudierendeAlsAzubis}
+                      onChange={e => aendern({ dualStudierendeAlsAzubis: e.target.checked })} />
+                    Dual Studierende als Auszubildende zählen
+                    <span className="text-xs text-gray-400" title="Ausbildungsintegriert (mit IHK-Abschluss) gilt eher als Berufsausbildung, praxisintegriert ist umstritten – vorher klären.">(hängt vom Vertrag ab)</span>
+                    {!wahl.dualStudierendeAlsAzubis && liste.dualNichtGezaehlt > 0 && (
+                      <span className="text-xs text-amber-700">
+                        – {liste.dualNichtGezaehlt} dual Studierende zählen nicht mit; eingeschaltet wären es {liste.anzahl.gesamt + liste.dualNichtGezaehlt} Wahlberechtigte
+                      </span>
+                    )}
+                  </label>
+                )}
+                <div className="flex items-center gap-2 ml-auto shrink-0">
+                  <button onClick={() => herunterladen(api.wahlen.waehlerlistePdfUrl(wahl.id))}
+                    className="flex items-center gap-1.5 border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm px-3 py-1.5 rounded-lg">
+                    <FileDown size={14} /> PDF zum Aushang
+                  </button>
+                  <button onClick={() => herunterladen(api.wahlen.waehlerlisteCsvUrl(wahl.id), `waehlerliste-${dateiTeil}.csv`)}
+                    className="flex items-center gap-1.5 border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm px-3 py-1.5 rounded-lg">
+                    <FileDown size={14} /> CSV für den Wahlvorstand
+                  </button>
+                </div>
+              </div>
+              <p className="text-xs text-gray-400 -mt-2">
+                Das PDF enthält keine Geburtsdaten (Abdruck zum Aushang). Die CSV mit Geburtsdaten ist nur für den Wahlvorstand bestimmt.
+              </p>
+
+              {/* Nicht entscheidbar */}
+              {liste.pruefen.length > 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <p className="text-sm font-medium text-amber-900 mb-1">Bitte prüfen – nicht in der Liste ({liste.pruefen.length})</p>
+                  <ul className="text-xs text-amber-800 space-y-0.5">
+                    {liste.pruefen.map(p => <li key={p.id}>{p.nachname}, {p.vorname} – {p.hinweise.join("; ")}</li>)}
+                  </ul>
+                  <p className="text-xs text-amber-700 mt-1">Geburtsdatum in der Mitarbeiterübersicht nachtragen oder per CSV-Import übernehmen.</p>
+                </div>
+              )}
+
+              {/* Liste */}
+              <div className="rounded-lg border border-gray-200 overflow-hidden">
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 bg-gray-50">
+                  <Search size={14} className="text-gray-400" />
+                  <input value={suche} onChange={e => setSuche(e.target.value)} placeholder="Name oder Abteilung filtern"
+                    className="flex-1 bg-transparent text-sm focus:outline-none" />
+                  {laden && <Loader2 size={14} className="animate-spin text-gray-400" />}
+                </div>
+                <div className="max-h-96 overflow-y-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-white">
+                      <tr className="text-left text-xs text-gray-500 border-b border-gray-100">
+                        <th className="px-3 py-2 font-medium">Name</th>
+                        <th className="px-3 py-2 font-medium hidden md:table-cell">Abteilung</th>
+                        <th className="px-3 py-2 font-medium">Alter</th>
+                        <th className="px-3 py-2 font-medium hidden sm:table-cell">Geschl.</th>
+                        <th className="px-3 py-2 font-medium hidden lg:table-cell">Art</th>
+                        <th className="px-3 py-2 font-medium">Wählbar</th>
+                        <th className="px-3 py-2" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {gefiltert.map(e => (
+                        <tr key={e.id} className="align-top">
+                          <td className="px-3 py-1.5">
+                            <span className="text-gray-900">{e.nachname}, {e.vorname}</span>
+                            {e.hinweise.map(h => <p key={h} className="text-xs text-amber-700">{h}</p>)}
+                          </td>
+                          <td className="px-3 py-1.5 text-gray-500 hidden md:table-cell">{e.abteilung ?? "–"}</td>
+                          <td className="px-3 py-1.5 text-gray-500">{alterText(e, liste.stichtag)}</td>
+                          <td className="px-3 py-1.5 text-gray-500 hidden sm:table-cell">{e.geschlecht ? GESCHLECHT_KURZ[e.geschlecht] : "–"}</td>
+                          <td className="px-3 py-1.5 text-gray-500 hidden lg:table-cell">{BESCHAEFTIGUNGSART_LABEL[e.beschaeftigungsart]}</td>
+                          <td className="px-3 py-1.5 text-gray-500">{e.waehlbar ? "ja" : "nein"}</td>
+                          <td className="px-3 py-1.5 text-right">
+                            <button onClick={() => ausschliessen(e.id)} title="Aus der Wählerliste nehmen (z. B. leitende Angestellte)"
+                              className="p-1 text-gray-300 hover:text-red-600"><Ban size={14} /></button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {gefiltert.length === 0 && <p className="text-sm text-gray-400 text-center py-6">Niemand gefunden</p>}
+                </div>
+              </div>
+              <p className="text-xs text-gray-400 -mt-2">
+                Wählbarkeit {wahl.art === "BR" ? "nach § 8 (ab 18, 6 Monate im Betrieb, nicht Zeitarbeit)" : "nach § 61 Abs. 2 (unter 25) – BR-Mitglieder sind nicht wählbar, das prüft das Programm nicht"}.
+              </p>
+
+              {liste.ausgeschlossen.length > 0 && (
+                <div className="rounded-lg border border-gray-200 p-3">
+                  <p className="text-sm font-medium text-gray-700 mb-1">Von Hand ausgeschlossen ({liste.ausgeschlossen.length})</p>
+                  <ul className="space-y-0.5">
+                    {liste.ausgeschlossen.map(a => (
+                      <li key={a.id} className="flex items-center gap-2 text-sm text-gray-600">
+                        {a.nachname}, {a.vorname}
+                        <button onClick={() => aufnehmen(a.id)} title="Wieder aufnehmen" className="text-gray-400 hover:text-accent"><Undo2 size={13} /></button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
