@@ -995,7 +995,10 @@ async function main() {
         { titel: "Genehmigung des Protokolls der letzten Sitzung", reihenfolge: 1 },
         { titel: "Personelle Einzelmaßnahmen nach § 99 BetrVG", reihenfolge: 2 },
         { titel: "Berichte aus den Ausschüssen", reihenfolge: 3 },
-        { titel: "Verschiedenes", reihenfolge: 4 },
+        // Statt eines eigenen ASA-Bereichs (siehe ROADMAP.md): Bericht des BR-Mitglieds im Arbeitsschutzausschuss
+        { titel: "Bericht aus dem Arbeitsschutzausschuss", reihenfolge: 4,
+          inhalt: "Bericht des BR-Mitglieds aus der letzten Sitzung des Arbeitsschutzausschusses (§ 11 ASiG): Gefährdungsbeurteilungen, Unfälle, Maßnahmen." },
+        { titel: "Verschiedenes", reihenfolge: 5 },
       ] },
     },
   });

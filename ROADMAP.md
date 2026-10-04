@@ -71,7 +71,8 @@ Personalabteilung aktuelle Listen; der Import gleicht über die PNR ab und korri
 
 - **Arbeitsschutzausschuss als eigener Bereich:** wird vom Arbeitgeber/HR geleitet; die Infos kommen
   über das ASA-Mitglied als Bericht in die BR-Sitzung. Abbildung über einen Standard-TOP
-  „Bericht aus dem Arbeitsschutzausschuss“ in der Sitzungsvorlage.
+  „Bericht aus dem Arbeitsschutzausschuss“ in der Sitzungsvorlage (in der Demo-Vorlage „Ordentliche
+  Sitzung“ als Beispiel enthalten).
 
 ## Bekannte Kleinigkeiten
 
