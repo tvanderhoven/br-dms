@@ -1,6 +1,6 @@
 import { useState, FormEvent } from "react";
 import { X, Loader2 } from "lucide-react";
-import { api, Abteilung, Mitarbeiter, Beschaeftigungsart, ALLE_BESCHAEFTIGUNGSARTEN, BESCHAEFTIGUNGSART_LABEL } from "../lib/api";
+import { api, Abteilung, Mitarbeiter, Beschaeftigungsart, Geschlecht, ALLE_BESCHAEFTIGUNGSARTEN, BESCHAEFTIGUNGSART_LABEL } from "../lib/api";
 
 // ── Modal: Mitarbeiter-Stammdaten bearbeiten ───────────────────────
 // Gemeinsam genutzt von Gehaltstabelle.tsx (Bearbeiten-Icon neben dem Eintrag)
@@ -21,6 +21,8 @@ export default function MitarbeiterBearbeitenModal({
   const [eintritt, setEintritt]       = useState(mitarbeiter.eintritt?.slice(0, 10) ?? "");
   const [austritt, setAustritt]       = useState(mitarbeiter.austritt?.slice(0, 10) ?? "");
   const [standort, setStandort]       = useState(mitarbeiter.standort ?? "");
+  const [geburtsdatum, setGeburtsdatum] = useState(mitarbeiter.geburtsdatum?.slice(0, 10) ?? "");
+  const [geschlecht, setGeschlecht]   = useState<Geschlecht | "">(mitarbeiter.geschlecht ?? "");
   const [gehaltIgnorieren, setGehaltIgnorieren] = useState(mitarbeiter.gehaltIgnorieren ?? false);
   const [beschaeftigungsart, setBeschaeftigungsart] = useState<Beschaeftigungsart>(mitarbeiter.beschaeftigungsart ?? "MITARBEITER");
   const [laden, setLaden]             = useState(false);
@@ -43,6 +45,8 @@ export default function MitarbeiterBearbeitenModal({
         eintritt,
         austritt,
         standort:    standort.trim() || null,
+        geburtsdatum,
+        geschlecht:  geschlecht || null,
         gehaltIgnorieren,
         beschaeftigungsart,
       });
@@ -125,11 +129,37 @@ export default function MitarbeiterBearbeitenModal({
             </div>
           </div>
 
+          <div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Geburtsdatum</label>
+                <input
+                  type="date" value={geburtsdatum}
+                  onChange={e => setGeburtsdatum(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Geschlecht</label>
+                <select
+                  value={geschlecht}
+                  onChange={e => setGeschlecht(e.target.value as Geschlecht | "")}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                >
+                  <option value="">nicht angegeben / divers</option>
+                  <option value="WEIBLICH">Weiblich</option>
+                  <option value="MAENNLICH">Männlich</option>
+                </select>
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Nur für Wahlen (Wahlberechtigung, Wählerliste, Minderheitengeschlecht) – kommt normalerweise per CSV-Import aus der Personalabteilung.</p>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Standort</label>
               <input
-                type="text" value={standort} placeholder="z.B. Oberhausen" list="standort-optionen"
+                type="text" value={standort} placeholder="z.B. Werk 1" list="standort-optionen"
                 onChange={e => setStandort(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
               />

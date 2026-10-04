@@ -16,18 +16,41 @@ damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 
 ### 1 · BR- und JAV-Wahl
 
-- Wahl anlegen: Art (BR/JAV), Verfahren (normal/vereinfacht), Wahltag, Ende der Amtszeit
-- Fristen der Wahlordnung rückwärts vom Wahltag berechnen (Wahlvorstand, Wahlausschreiben,
-  Einspruch Wählerliste, Wahlvorschläge, Bekanntmachung, konstituierende Sitzung) → als Fristen
-  und als Vorhaben im Zeitplan. **Fristen vor dem Einsatz juristisch gegenlesen lassen.**
-- Gremiumsgröße (§ 9) und Mindestsitze des Minderheitengeschlechts (§ 15) aus den Mitarbeiterdaten vorschlagen
-- Wahlergebnis übernehmen: Gewählte als Benutzer mit Wahlrang und Geschlecht → speist die Nachrück-Logik
-- Historie der Wahlen
-- Regelwahlen: BR alle 4 Jahre 1.3.–31.5. (2026, 2030); JAV alle 2 Jahre 1.10.–30.11. (2026, 2028)
-- Erfahrungen aus der laufenden JAV-Wahl 2026 (Wahlvorstand) vorher einsammeln
+Werkzeug des **Betriebsrats**, nicht des Wahlvorstands: Wahlvorstand bestellen, Fristen überwachen,
+Wählerliste vorbereiten, Ergebnis übernehmen. Im Wahlvorstand sitzt jeweils ein BR-Mitglied – der
+Wahlvorstand braucht keinen eigenen Zugang. Wahlvorschläge und Stimmauszählung bleiben beim Wahlvorstand.
+**Alle Fristen und Paragrafen vor dem Einsatz juristisch gegenlesen lassen.**
 
-Offene Frage: Wählerliste aus den Mitarbeiterdaten erzeugen? Für die JAV wäre ein Geburtsdatum
-nötig (neues, datenschutzrelevantes Feld) – alternativ Liste von Hand pflegen.
+**Stufe 1 – Wahl anlegen, Fristen überwachen**
+- Wahl anlegen: Art (BR/JAV), Verfahren (normal/vereinfacht), erster Tag der Stimmabgabe, Ende der Amtszeit
+- Fristen rückwärts berechnen → Fristen ohne Dokument + Vorhaben im Zeitplan, z. B. (normales Verfahren):
+  Wahlvorstand bestellen (BR: 10 Wochen vor Amtszeitende, § 16; JAV: 8 Wochen, § 63 Abs. 2),
+  Wahlausschreiben (6 Wochen vor Stimmabgabe, § 3 WO), Einspruch Wählerliste und Wahlvorschläge
+  (2 Wochen nach Ausschreiben, §§ 4, 6 WO), Bekanntmachung der Vorschläge (1 Woche vor Stimmabgabe, § 10 WO),
+  konstituierende Sitzung (1 Woche nach der Wahl, § 29), Ende der Anfechtungsfrist (2 Wochen, § 19)
+- Vereinfachtes Verfahren (§ 14a, für die JAV § 63 Abs. 4) mit eigenen, kürzeren Fristen – **für uns
+  der Regelfall bei der JAV** (18 Azubis)
+- Die laufende JAV-Wahl 2026 lässt sich dann sofort eintragen
+
+**Stufe 2 – Wählerliste und Gremiumsgröße**
+- Wählerliste aus den Mitarbeiterdaten zum Stichtag: BR ab 16 (§ 7), JAV unter 18 bzw. Azubis unter 25
+  (§§ 60, 61); Zeitarbeit markieren (wahlberechtigt erst nach > 3 Monaten Einsatz)
+- Getrennt nach Geschlechtern (§ 2 WO), Abdruck zum Aushang ohne Geburtsdaten
+- Schalter je Wahl: **dual Studierende als Auszubildende zählen** (Standard: aus). Entscheidet bei uns
+  über 1 oder 3 JAV-Sitze (18 Azubis + 3 dual Studierende, Grenze 20/21 nach § 62) – ob sie mitzählen,
+  hängt vom Vertrag ab (ausbildungsintegriert eher ja, praxisintegriert umstritten) → vorher klären
+- Gremiumsgröße (§ 9 bzw. § 62) und Mindestsitze des Minderheitengeschlechts (§ 15, d'Hondt nach § 5 WO) vorschlagen
+
+**Stufe 3 – Ergebnis übernehmen**
+- Gewählte als Benutzer mit Wahlrang und Geschlecht → speist die Nachrück-Logik
+- Konstituierende Sitzung gleich mit anlegen (Standard-Tagesordnung gibt es schon)
+- Historie der Wahlen
+
+Regelwahlen: BR alle 4 Jahre 1.3.–31.5. (2026, 2030); JAV alle 2 Jahre 1.10.–30.11. (2026, 2028).
+
+**Schon erledigt (Okt. 2026):** Mitarbeiter haben Geburtsdatum und Geschlecht, beides im Bearbeiten-Dialog
+und im CSV-Import (Spalten „Geburtsdatum“, „Geschlecht“ oder „Anrede“). Vor jeder Wahl liefert die
+Personalabteilung aktuelle Listen; der Import gleicht über die PNR ab und korrigiert abweichende Werte.
 
 ## Später (unpriorisiert)
 

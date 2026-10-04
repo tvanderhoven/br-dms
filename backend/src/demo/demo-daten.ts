@@ -351,12 +351,23 @@ async function main() {
       : datum(zahl(1992, 2025), zahl(1, 12), wahl([1, 1, 15]));
     if (eintritt > HEUTE) eintritt.setUTCFullYear(eintritt.getUTCFullYear() - 1);
 
+    // Geburtsdatum passend zum Alter beim Eintritt; heute höchstens 65 (für JAV-/BR-Wahlberechtigung)
+    const alterBeiEintritt = art === Beschaeftigungsart.AZUBI ? zahl(16, 21)
+      : art === Beschaeftigungsart.DUALER_STUDENT ? zahl(18, 22)
+      : art === Beschaeftigungsart.STUDENT ? zahl(20, 26)
+      : zahl(18, 38);
+    const geburtsdatum = datum(eintritt.getUTCFullYear() - alterBeiEintritt, zahl(1, 12), zahl(1, 28));
+    const aeltestesJahr = HEUTE.getUTCFullYear() - 65;
+    if (geburtsdatum.getUTCFullYear() < aeltestesJahr) geburtsdatum.setUTCFullYear(aeltestesJahr + zahl(0, 4));
+
     const ma = await prisma.mitarbeiter.create({
       data: {
         vorname, nachname,
         pnr: String(pnr++),
         eintritt,
         standort: def.standort,
+        geburtsdatum,
+        geschlecht: VORNAMEN_W.includes(vorname) ? Geschlecht.WEIBLICH : Geschlecht.MAENNLICH,
         abteilungId: abteilungIds[abteilung],
         beschaeftigungsart: art,
         gehaltIgnorieren: tarifIgnoriert,
@@ -836,7 +847,7 @@ async function main() {
     const [vn, nn] = neuerName();
     const start = monatsErster(tage(40, plan[2].datum));
     const ma = await prisma.mitarbeiter.create({
-      data: { vorname: vn, nachname: nn, pnr: String(pnr++), eintritt: start, standort: abt === "Logistik" ? "Werk 1" : "Verwaltung", abteilungId: abteilungIds[abt] },
+      data: { vorname: vn, nachname: nn, pnr: String(pnr++), eintritt: start, geburtsdatum: datum(zahl(1984, 2001), zahl(1, 12), zahl(1, 28)), geschlecht: VORNAMEN_W.includes(vn) ? Geschlecht.WEIBLICH : Geschlecht.MAENNLICH, standort: abt === "Logistik" ? "Werk 1" : "Verwaltung", abteilungId: abteilungIds[abt] },
     });
     await prisma.gehaltsstufenEintrag.create({ data: { mitarbeiterId: ma.id, gruppe, stufe: 1, gueltigAb: start, bemerkung: `Einstellung ${titel} – Zustimmung BR`, sitzungId: sitzungIds[2] } });
     await prisma.zeitmodellEintrag.create({ data: { mitarbeiterId: ma.id, zeitmodell: Zeitmodell.A, gueltigVon: start, sitzungId: sitzungIds[2] } });

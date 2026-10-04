@@ -333,6 +333,9 @@ export default function MitarbeiterUebersicht() {
           <button
             onClick={() => importInputRef.current?.click()}
             disabled={importLaden}
+            title={"CSV (Semikolon oder Komma), Kopfzeile z. B.: PNR;Nachname;Vorname;Abteilung;Eintritt;Austritt;Standort;Geburtsdatum;Geschlecht\n" +
+              "Pflicht sind nur Nachname und Vorname, Reihenfolge beliebig. Vorhandene Mitarbeiter werden über die PNR erkannt " +
+              "und ergänzt – Geburtsdatum und Geschlecht (m/w/d oder Anrede) aus der Liste der Personalabteilung ersetzen abweichende Werte."}
             className="flex items-center gap-2 border border-gray-300 hover:bg-gray-50 disabled:opacity-60 text-gray-700 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
           >
             {importLaden ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}

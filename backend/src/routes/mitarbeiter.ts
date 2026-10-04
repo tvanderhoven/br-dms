@@ -12,12 +12,23 @@
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { Prisma, Mitarbeiter as MitarbeiterModell, Beschaeftigungsart } from "@prisma/client";
+import { Prisma, Mitarbeiter as MitarbeiterModell, Beschaeftigungsart, Geschlecht } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { decodeCsvBuffer, parseCsv, parseImportDatum } from "../lib/csv.js";
 
 const BESCHAEFTIGUNGSARTEN = Object.values(Beschaeftigungsart);
+const GESCHLECHTER = Object.values(Geschlecht);
+
+// Personallisten schreiben das Geschlecht sehr unterschiedlich (m/w, männlich, Herr/Frau …).
+// undefined = nicht erkannt (Fehler), null = leer oder divers (bewusst ohne Zuordnung).
+function parseGeschlecht(wert: string): Geschlecht | null | undefined {
+  const s = wert.trim().toLowerCase().replace(/\.$/, "");
+  if (!s || ["d", "divers", "x", "o", "ohne angabe"].includes(s)) return null;
+  if (["m", "männlich", "maennlich", "mann", "herr", "hr"].includes(s)) return Geschlecht.MAENNLICH;
+  if (["w", "weiblich", "frau", "fr", "f"].includes(s)) return Geschlecht.WEIBLICH;
+  return undefined;
+}
 
 interface NeuerMitarbeiter {
   vorname:     string;
@@ -27,6 +38,8 @@ interface NeuerMitarbeiter {
   eintritt?:   string | null;
   austritt?:   string | null;
   standort?:   string | null;
+  geburtsdatum?: string | null;
+  geschlecht?:  Geschlecht | null;
   beschaeftigungsart?: Beschaeftigungsart;
 }
 
@@ -38,6 +51,8 @@ interface MitarbeiterUpdate {
   eintritt?:    string | null;
   austritt?:    string | null;
   standort?:    string | null;
+  geburtsdatum?: string | null;
+  geschlecht?:  Geschlecht | null;
   gehaltIgnorieren?: boolean;
   beschaeftigungsart?: Beschaeftigungsart;
 }
@@ -69,7 +84,8 @@ interface MitarbeiterImportZusammenfassung {
   fehler:           ImportFehler[];
 }
 
-// Erwartete Kopfzeile: PNR;Nachname;Vorname;Abteilung;Eintritt;Austritt;Standort
+// Erwartete Kopfzeile: PNR;Nachname;Vorname;Abteilung;Eintritt;Austritt;Standort;Geburtsdatum;Geschlecht
+// (nur Nachname und Vorname sind Pflicht, die Reihenfolge ist egal)
 const IMPORT_SPALTEN: Record<string, string> = {
   "pnr":       "pnr",
   "nachname":  "nachname",
@@ -78,6 +94,12 @@ const IMPORT_SPALTEN: Record<string, string> = {
   "eintritt":  "eintritt",
   "austritt":  "austritt",
   "standort":  "standort",
+  "geburtsdatum": "geburtsdatum",
+  "geburtstag":   "geburtsdatum",
+  "geb.-datum":   "geburtsdatum",
+  "geb. datum":   "geburtsdatum",
+  "geschlecht":   "geschlecht",
+  "anrede":       "geschlecht",
 };
 
 type ImportClient = Prisma.TransactionClient;
@@ -144,6 +166,8 @@ async function verarbeiteMitarbeiterImport(
     const eintrittRoh    = spalte(zeile, "eintritt");
     const austrittRoh    = spalte(zeile, "austritt");
     const standort      = spalte(zeile, "standort") || null;
+    const geburtsdatumRoh = spalte(zeile, "geburtsdatum");
+    const geschlechtRoh   = spalte(zeile, "geschlecht");
 
     // Name ist NICHT zwingend erforderlich – verbindende ID ist die PNR. Nur
     // wenn die PNR fehlt oder zu keinem bestehenden Mitarbeiter passt (also
@@ -176,6 +200,21 @@ async function verarbeiteMitarbeiterImport(
         zusammenfassung.fehler.push({ zeile: zeileNr, grund: `Ungültiges Datum in Spalte "Austritt": "${austrittRoh}"` });
         continue;
       }
+    }
+
+    let geburtsdatum: Date | null = null;
+    if (geburtsdatumRoh) {
+      geburtsdatum = parseImportDatum(geburtsdatumRoh);
+      if (!geburtsdatum) {
+        zusammenfassung.fehler.push({ zeile: zeileNr, grund: `Ungültiges Datum in Spalte "Geburtsdatum": "${geburtsdatumRoh}"` });
+        continue;
+      }
+    }
+
+    const geschlecht = parseGeschlecht(geschlechtRoh);
+    if (geschlecht === undefined) {
+      zusammenfassung.fehler.push({ zeile: zeileNr, grund: `Unbekannter Wert in Spalte "Geschlecht": "${geschlechtRoh}" (erwartet z. B. m/w/d oder Herr/Frau)` });
+      continue;
     }
 
     // ── Abteilung auflösen (anlegen falls nötig) ──────────────────────
@@ -212,12 +251,12 @@ async function verarbeiteMitarbeiterImport(
       if (dryRun) {
         mitarbeiter = {
           id: `__neu__${meldeSchluessel}`,
-          vorname, nachname, pnr, eintritt, austritt, standort,
+          vorname, nachname, pnr, eintritt, austritt, standort, geburtsdatum, geschlecht,
           abteilungId, erstelltAm: new Date(), aktualisiertAm: new Date(),
         } as MitarbeiterModell;
       } else {
         mitarbeiter = await client.mitarbeiter.create({
-          data: { vorname, nachname, pnr, eintritt, austritt, standort, abteilungId },
+          data: { vorname, nachname, pnr, eintritt, austritt, standort, geburtsdatum, geschlecht, abteilungId },
         });
       }
 
@@ -240,7 +279,7 @@ async function verarbeiteMitarbeiterImport(
         zusammenfassung.bereitsVorhanden.push({ pnr: mitarbeiter.pnr, name: `${mitarbeiter.nachname}, ${mitarbeiter.vorname}` });
       }
 
-      const updates: { abteilungId?: string; eintritt?: Date; austritt?: Date; pnr?: string; standort?: string } = {};
+      const updates: { abteilungId?: string; eintritt?: Date; austritt?: Date; pnr?: string; standort?: string; geburtsdatum?: Date; geschlecht?: Geschlecht } = {};
 
       if (abteilungId && abteilungId !== mitarbeiter.abteilungId) {
         if (mitarbeiter.abteilungId) {
@@ -257,6 +296,20 @@ async function verarbeiteMitarbeiterImport(
       if (austritt && !mitarbeiter.austritt) updates.austritt = austritt;
       if (pnr && !mitarbeiter.pnr) updates.pnr = pnr;
       if (standort && !mitarbeiter.standort) updates.standort = standort;
+      // Geburtsdatum: Die Liste der Personalabteilung gilt als richtig – Abweichungen werden korrigiert und gemeldet
+      if (geburtsdatum && mitarbeiter.geburtsdatum?.getTime() !== geburtsdatum.getTime()) {
+        if (mitarbeiter.geburtsdatum) {
+          zusammenfassung.geaendert.push({ zeile: zeileNr, grund: `${anzeigeName}: Geburtsdatum korrigiert` });
+        }
+        updates.geburtsdatum = geburtsdatum;
+      }
+      // Geschlecht: ebenso – eine leere Zelle oder "divers" löscht aber kein vorhandenes
+      if (geschlecht && geschlecht !== mitarbeiter.geschlecht) {
+        if (mitarbeiter.geschlecht) {
+          zusammenfassung.geaendert.push({ zeile: zeileNr, grund: `${anzeigeName}: Geschlecht korrigiert` });
+        }
+        updates.geschlecht = geschlecht;
+      }
 
       if (Object.keys(updates).length > 0) {
         if (dryRun) {
@@ -324,10 +377,13 @@ export async function mitarbeiterRouten(app: FastifyInstance): Promise<void> {
     "/",
     { preHandler: [authenticate] },
     async (request: FastifyRequest<{ Body: NeuerMitarbeiter }>, reply: FastifyReply) => {
-      const { vorname, nachname, abteilungId, pnr, eintritt, austritt, standort, beschaeftigungsart } = request.body;
+      const { vorname, nachname, abteilungId, pnr, eintritt, austritt, standort, geburtsdatum, geschlecht, beschaeftigungsart } = request.body;
 
       if (!vorname?.trim() || !nachname?.trim()) {
         return reply.status(400).send({ fehler: "Vorname und Nachname sind Pflicht" });
+      }
+      if (geschlecht != null && !GESCHLECHTER.includes(geschlecht)) {
+        return reply.status(400).send({ fehler: "Ungültiges Geschlecht" });
       }
 
       if (beschaeftigungsart !== undefined && !BESCHAEFTIGUNGSARTEN.includes(beschaeftigungsart)) {
@@ -348,6 +404,8 @@ export async function mitarbeiterRouten(app: FastifyInstance): Promise<void> {
           eintritt:    eintritt ? new Date(eintritt) : null,
           austritt:    austritt ? new Date(austritt) : null,
           standort:    standort?.trim() || null,
+          geburtsdatum: geburtsdatum ? new Date(geburtsdatum) : null,
+          geschlecht:  geschlecht ?? null,
           beschaeftigungsart: beschaeftigungsart ?? Beschaeftigungsart.MITARBEITER,
         },
         include: { abteilung: { select: ABTEILUNG_SELECT } },
@@ -363,10 +421,13 @@ export async function mitarbeiterRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate] },
     async (request: FastifyRequest<{ Params: { id: string }; Body: MitarbeiterUpdate }>, reply: FastifyReply) => {
       const { id } = request.params;
-      const { vorname, nachname, abteilungId, pnr, eintritt, austritt, standort, gehaltIgnorieren, beschaeftigungsart } = request.body;
+      const { vorname, nachname, abteilungId, pnr, eintritt, austritt, standort, geburtsdatum, geschlecht, gehaltIgnorieren, beschaeftigungsart } = request.body;
 
       if (beschaeftigungsart !== undefined && !BESCHAEFTIGUNGSARTEN.includes(beschaeftigungsart)) {
         return reply.status(400).send({ fehler: "Ungültige Beschäftigungsart" });
+      }
+      if (geschlecht != null && !GESCHLECHTER.includes(geschlecht)) {
+        return reply.status(400).send({ fehler: "Ungültiges Geschlecht" });
       }
 
       const vorhandener = await prisma.mitarbeiter.findUnique({ where: { id } });
@@ -387,6 +448,8 @@ export async function mitarbeiterRouten(app: FastifyInstance): Promise<void> {
           ...(eintritt    !== undefined ? { eintritt: eintritt ? new Date(eintritt) : null } : {}),
           ...(austritt    !== undefined ? { austritt: austritt ? new Date(austritt) : null } : {}),
           ...(standort    !== undefined ? { standort: standort?.trim() || null } : {}),
+          ...(geburtsdatum !== undefined ? { geburtsdatum: geburtsdatum ? new Date(geburtsdatum) : null } : {}),
+          ...(geschlecht  !== undefined ? { geschlecht: geschlecht || null } : {}),
           ...(gehaltIgnorieren !== undefined ? { gehaltIgnorieren } : {}),
           ...(beschaeftigungsart !== undefined ? { beschaeftigungsart } : {}),
         },

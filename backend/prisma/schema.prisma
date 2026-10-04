@@ -898,6 +898,12 @@ model Mitarbeiter {
   eintritt       DateTime?
   austritt       DateTime?
   standort       String?
+  // Für Wahlen: Wahlberechtigung JAV (unter 18 bzw. Azubis unter 25, § 60 BetrVG) und BR (ab 16, § 7).
+  // Kommt aus den Listen der Personalabteilung (CSV-Import, Spalte "Geburtsdatum").
+  geburtsdatum   DateTime?
+  // Für Wahlen: Wählerliste getrennt nach Geschlechtern (§ 2 WO), Minderheitengeschlecht (§ 15 BetrVG).
+  // null = nicht angegeben bzw. divers. Kommt aus der Personalliste (CSV-Spalte "Geschlecht" oder "Anrede").
+  geschlecht     Geschlecht?
 
   // z.B. Geschäftsführung, Ausbildung – bewusst ohne Gehaltsstufen-Tracking,
   // wird deshalb nicht in der "Mitarbeiter ohne Gehaltseintrag"-Warnung gezeigt
