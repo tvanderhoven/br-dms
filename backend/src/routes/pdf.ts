@@ -27,6 +27,7 @@ async function sitzungFuerPdf(id: string) {
       ort:           true,
       sitzungstyp:   true,
       notizen:       true,
+      teilnehmerzahl: true,
       erstelltVon:   { select: { name: true } },
       anwesenheiten: {
         select: {

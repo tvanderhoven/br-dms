@@ -93,6 +93,7 @@ enum FristTyp {
   ANHOERUNG_102_AUSSERORDENTLICH
   WIDERSPRUCH
   ZEITMODELL_87_WOCHE
+  BETRIEBSVERSAMMLUNG_43
   BENUTZERDEFINIERT
 }
 
@@ -399,9 +400,12 @@ model Sitzung {
   titel          String
   sitzungsdatum  DateTime      @map("sitzungsdatum")
   ort            String?
+  // ORDENTLICH | AUSSERORDENTLICH | KONSTITUIEREND | BETRIEBSVERSAMMLUNG (siehe lib/sitzungstypen.ts)
   sitzungstyp    String        @default("ORDENTLICH")
   status         SitzungStatus @default(ENTWURF)
   notizen        String?
+  // Nur Betriebsversammlung: Teilnehmerzahl statt Anwesenheitsliste
+  teilnehmerzahl Int?
 
   erstelltVonId  String        @map("erstellt_von_id")
   erstelltVon    Benutzer      @relation("SitzungenErstellt", fields: [erstelltVonId], references: [id])

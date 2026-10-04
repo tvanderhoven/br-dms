@@ -5,17 +5,19 @@ import {
   CalendarDays, Plus, ChevronLeft, ChevronUp, ChevronDown, Lock, Unlock, FileCheck, FileText,
   Trash2, Link, Unlink, X, Loader2, CheckCircle, Clock, XCircle, RotateCcw, Eye,
   Send, ClipboardList, Download, MessageSquare, Zap, Pencil, RefreshCw, BookmarkPlus, Tag, CheckSquare, Folder, Wallet, MoreHorizontal, Copy, Timer,
+  Users, Inbox, ListPlus,
 } from "lucide-react";
 import {
   api, Sitzung, SitzungListItem, SitzungStatus, TOP, TopStatus, Dokument, Mitarbeiter, Abteilung, Zeitmodell, Rolle,
-  SITZUNG_STATUS_LABEL, TOP_STATUS_LABEL, KATEGORIE_LABEL, formatDatum,
+  SITZUNG_STATUS_LABEL, TOP_STATUS_LABEL, KATEGORIE_LABEL, SITZUNGSTYP_LABEL, KummerkastenEintrag,
+  istBetriebsversammlung, formatDatum,
 } from "../lib/api";
 import SitzungsEditor from "../components/SitzungsEditor";
 import AnwesenheitsListe from "../components/AnwesenheitsListe";
 import BeschlussBlock from "../components/BeschlussBlock";
 import KommentarBlock from "../components/KommentarBlock";
 import AufgabeUebernehmenModal from "../components/AufgabeUebernehmenModal";
-import { tiptapZuText, tiptapZuHtml } from "../lib/tiptap";
+import { tiptapZuText, tiptapZuHtml, textZuTiptap } from "../lib/tiptap";
 
 // PDF direkt im Browser-eigenen Viewer als neuen Tab öffnen statt als Datei
 // zu erzwingen – vermeidet Chromes "nicht sicher"-Downloadwarnung bei HTTP-
@@ -68,6 +70,27 @@ const VERSIONS_TYP_LABEL: Record<string, string> = {
   TAGESORDNUNG_FIXIERT:  "V1.1 – Tagesordnung (Fixiert)",
   PROTOKOLL_ENTWURF:     "V2.0 – Protokoll (Entwurf)",
   PROTOKOLL_FINAL:       "V2.1 – Protokoll (Final)",
+};
+
+// Betriebsversammlung: Tagesordnung = Einladung/Aushang, Protokoll = Niederschrift
+const VERSIONS_TYP_LABEL_BV: Record<string, string> = {
+  TAGESORDNUNG_ENTWURF:  "V1.0 – Einladung (Entwurf)",
+  TAGESORDNUNG_FIXIERT:  "V1.1 – Einladung (Fixiert)",
+  PROTOKOLL_ENTWURF:     "V2.0 – Niederschrift (Entwurf)",
+  PROTOKOLL_FINAL:       "V2.1 – Niederschrift (Final)",
+};
+
+function versionLabel(typ: string, sitzungstyp: string): string | undefined {
+  return (istBetriebsversammlung(sitzungstyp) ? VERSIONS_TYP_LABEL_BV : VERSIONS_TYP_LABEL)[typ];
+}
+
+// TOP-Status, die bei einer Betriebsversammlung Sinn ergeben (sie beschließt nicht)
+const TOP_STATUS_BV: TopStatus[] = ["OFFEN", "ZUR_KENNTNIS", "VERTAGT"];
+
+// Konstituierende Sitzung und Betriebsversammlung bringen ohne Vorlage eine Standard-Tagesordnung mit (Backend: STANDARD_TOPS)
+const STANDARD_TOP_HINWEIS: Record<string, string> = {
+  KONSTITUIEREND:      "Ohne Vorlage wird die Tagesordnung nach § 29 BetrVG angelegt (Wahlleitung, Vorsitz, Stellvertretung, Betriebsausschuss).",
+  BETRIEBSVERSAMMLUNG: "Ohne Vorlage wird die Tagesordnung nach § 43 BetrVG angelegt (Tätigkeitsbericht, Bericht des Arbeitgebers, Fragen, Anträge an den BR).",
 };
 
 // ── Hauptkomponente ───────────────────────────────────────────────
@@ -220,7 +243,7 @@ export default function Sitzungen() {
                     {formatDatum(s.sitzungsdatum)}
                   </td>
                   <td className="px-4 py-3 text-xs text-gray-500 hidden sm:table-cell">
-                    {s.sitzungstyp === "ORDENTLICH" ? "Ordentlich" : "Außerordentlich"}
+                    {SITZUNGSTYP_LABEL[s.sitzungstyp] ?? s.sitzungstyp}
                   </td>
                   <td className="px-4 py-3 hidden sm:table-cell">
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${SITZUNG_BADGE[s.status]}`}>
@@ -229,7 +252,7 @@ export default function Sitzungen() {
                   </td>
                   <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{s._count.tops}</td>
                   <td className="px-4 py-3 text-xs text-gray-500 hidden md:table-cell">
-                    {s.versionen[0] ? VERSIONS_TYP_LABEL[s.versionen[0].typ] ?? s.versionen[0].versionNummer : "–"}
+                    {s.versionen[0] ? versionLabel(s.versionen[0].typ, s.sitzungstyp) ?? s.versionen[0].versionNummer : "–"}
                   </td>
                 </tr>
               ))}
@@ -307,8 +330,10 @@ function SitzungBearbeitenModal({
             <label className="block text-sm font-medium text-gray-700 mb-1">Typ</label>
             <select value={typ} onChange={e => setTyp(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
-              <option value="ORDENTLICH">Ordentliche Sitzung</option>
-              <option value="AUSSERORDENTLICH">Außerordentliche Sitzung</option>
+              {/* Betriebsversammlung ↔ BR-Sitzung lässt sich nicht umwandeln (Anwesenheit/Beschlüsse) */}
+              {Object.entries(SITZUNGSTYP_LABEL)
+                .filter(([wert]) => istBetriebsversammlung(wert) === istBetriebsversammlung(sitzung.sitzungstyp))
+                .map(([wert, label]) => <option key={wert} value={wert}>{label}</option>)}
             </select>
           </div>
           <div>
@@ -394,11 +419,15 @@ function NeueSitzungModal({
               <label className="block text-sm font-medium text-gray-700 mb-1">Typ</label>
               <select value={typ} onChange={e => setTyp(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
-                <option value="ORDENTLICH">Ordentlich</option>
-                <option value="AUSSERORDENTLICH">Außerordentlich</option>
+                {Object.entries(SITZUNGSTYP_LABEL).map(([wert, label]) => (
+                  <option key={wert} value={wert}>{label}</option>
+                ))}
               </select>
             </div>
           </div>
+          {STANDARD_TOP_HINWEIS[typ] && !vorlageId && (
+            <p className="text-xs text-gray-500 -mt-2">{STANDARD_TOP_HINWEIS[typ]}</p>
+          )}
           {vorlagen.length > 0 && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Vorlage</label>
@@ -471,6 +500,8 @@ function SitzungDetail({
 
   const readonly    = sitzung.status === "PROTOKOLL_FINAL" || sitzung.status === "ABGESAGT";
   const imEntwurf   = sitzung.status === "ENTWURF";
+  const istBV       = istBetriebsversammlung(sitzung.sitzungstyp);
+  const [kummerkastenModal, setKummerkastenModal] = useState(false);
   const imProtokoll = sitzung.status === "PROTOKOLL_ENTWURF";
   // Vorsitz/Stellvertretung dürfen auch nach Finalisierung noch Zeitmodell-/
   // Überstunden-/Gehaltsänderungen aus einem TOP heraus nachtragen (Erprobungsphase) –
@@ -577,7 +608,7 @@ function SitzungDetail({
           <div className="flex gap-4 mt-1 text-sm text-gray-500 flex-wrap">
             <span>{formatDatum(sitzung.sitzungsdatum)}</span>
             {sitzung.ort && <span>{sitzung.ort}</span>}
-            <span>{sitzung.sitzungstyp === "ORDENTLICH" ? "Ordentliche Sitzung" : "Außerordentliche Sitzung"}</span>
+            <span>{SITZUNGSTYP_LABEL[sitzung.sitzungstyp] ?? sitzung.sitzungstyp}</span>
           </div>
         </div>
       </div>
@@ -595,7 +626,7 @@ function SitzungDetail({
           {sitzung.versionen.map(v => (
             <div key={v.id} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs">
               {v.readonly ? <Lock size={11} className="text-gray-400" /> : <Unlock size={11} className="text-accent/80" />}
-              <span className="font-medium text-gray-700">{VERSIONS_TYP_LABEL[v.typ] ?? v.versionNummer}</span>
+              <span className="font-medium text-gray-700">{versionLabel(v.typ, sitzung.sitzungstyp) ?? v.versionNummer}</span>
               {v.einladungVersendetAm && (
                 <span className="text-green-600 ml-1">· Einladung versendet {formatDatum(v.einladungVersendetAm)}</span>
               )}
@@ -634,7 +665,7 @@ function SitzungDetail({
               className="flex items-center gap-2 bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
             >
               {aktion ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
-              Tagesordnung fixieren (→ V1.1)
+              {istBV ? "Einladung fixieren (→ V1.1)" : "Tagesordnung fixieren (→ V1.1)"}
             </button>
           )}
           {sitzung.status === "TAGESORDNUNG_FIXIERT" && (
@@ -645,7 +676,7 @@ function SitzungDetail({
                 className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
               >
                 <Send size={14} />
-                Einladung als versendet markieren
+                {istBV ? "Einladung als ausgehängt markieren" : "Einladung als versendet markieren"}
               </button>
               <button
                 onClick={() => statusAktion(() => api.sitzungen.protokollStarten(sitzung.id))}
@@ -653,7 +684,7 @@ function SitzungDetail({
                 className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
               >
                 {aktion ? <Loader2 size={14} className="animate-spin" /> : <ClipboardList size={14} />}
-                Protokoll starten (→ V2.0)
+                {istBV ? "Niederschrift starten (→ V2.0)" : "Protokoll starten (→ V2.0)"}
               </button>
             </>
           )}
@@ -664,14 +695,19 @@ function SitzungDetail({
               className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
             >
               {aktion ? <Loader2 size={14} className="animate-spin" /> : <FileCheck size={14} />}
-              Protokoll finalisieren (→ V2.1 Final)
+              {istBV ? "Niederschrift finalisieren (→ V2.1 Final)" : "Protokoll finalisieren (→ V2.1 Final)"}
             </button>
           )}
         </div>
       )}
 
+      {/* Betriebsversammlung: Teilnehmerzahl statt Anwesenheitsliste */}
+      {istBV && sitzung.status !== "ENTWURF" && sitzung.status !== "ABGESAGT" && (
+        <TeilnahmeKarte sitzung={sitzung} onAktualisieren={onAktualisieren} />
+      )}
+
       {/* Anwesenheitsliste */}
-      {(sitzung.status === "TAGESORDNUNG_FIXIERT" || sitzung.status === "PROTOKOLL_ENTWURF" || sitzung.status === "PROTOKOLL_FINAL") && (
+      {!istBV && (sitzung.status === "TAGESORDNUNG_FIXIERT" || sitzung.status === "PROTOKOLL_ENTWURF" || sitzung.status === "PROTOKOLL_FINAL") && (
         <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5">
           <div>
             <p className="text-sm font-medium text-amber-900">Anwesenheitsliste</p>
@@ -696,6 +732,15 @@ function SitzungDetail({
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
           <h2 className="font-semibold text-gray-800 text-sm">Tagesordnungspunkte ({sitzung.tops.length})</h2>
           <div className="flex items-center gap-2">
+            {istBV && imEntwurf && sitzung.tops.length > 0 && (
+              <button
+                onClick={() => setKummerkastenModal(true)}
+                title="Fragen aus dem Kummerkasten in einen TOP übernehmen"
+                className="flex items-center gap-1 text-gray-500 hover:text-[rgb(var(--accent))] text-sm font-medium mr-2"
+              >
+                <Inbox size={15} /> Fragen aus dem Kummerkasten
+              </button>
+            )}
             {imEntwurf && (
               <button
                 onClick={() => setTopModal({})}
@@ -727,8 +772,10 @@ function SitzungDetail({
                 key={top.id}
                 top={top}
                 sitzungId={sitzung.id}
+                sitzungTitel={sitzung.titel}
                 sitzungsdatum={sitzung.sitzungsdatum}
                 sitzungStatus={sitzung.status}
+                istBV={istBV}
                 readonly={readonly}
                 imEntwurf={imEntwurf}
                 imProtokoll={imProtokoll}
@@ -757,9 +804,11 @@ function SitzungDetail({
       )}
 
       {/* Anwesenheitsliste */}
-      <div className="mt-5">
-        <AnwesenheitsListe sitzungId={sitzung.id} readonly={sitzung.status === "PROTOKOLL_FINAL"} />
-      </div>
+      {!istBV && (
+        <div className="mt-5">
+          <AnwesenheitsListe sitzungId={sitzung.id} readonly={sitzung.status === "PROTOKOLL_FINAL"} />
+        </div>
+      )}
 
       {/* Kommentare */}
       <KommentareSection sitzungId={sitzung.id} />
@@ -770,6 +819,13 @@ function SitzungDetail({
           sitzung={sitzung}
           onSchliessen={() => setBearbeitenModal(false)}
           onErfolg={() => { setBearbeitenModal(false); onAktualisieren(); }}
+        />
+      )}
+      {kummerkastenModal && (
+        <KummerkastenFragenModal
+          sitzung={sitzung}
+          onSchliessen={() => setKummerkastenModal(false)}
+          onErfolg={() => { setKummerkastenModal(false); onAktualisieren(); }}
         />
       )}
       {spontanModal && (
@@ -803,15 +859,17 @@ function SitzungDetail({
 
 // ── TOP-Zeile ─────────────────────────────────────────────────────
 function TopZeile({
-  top, sitzungId, sitzungsdatum, sitzungStatus, readonly, imEntwurf, imProtokoll, kannRetroaktivUebertragen,
+  top, sitzungId, sitzungTitel, sitzungsdatum, sitzungStatus, istBV, readonly, imEntwurf, imProtokoll, kannRetroaktivUebertragen,
   istErster, istLetzter,
   onBearbeiten, onLoeschen, onVerschiebenHoch, onVerschiebenRunter,
   onDokumentVerknuepfen, onDokumentEntknuepfen, onAktualisieren,
 }: {
   top: TOP;
   sitzungId: string;
+  sitzungTitel: string;
   sitzungsdatum: string;
   sitzungStatus: SitzungStatus;
+  istBV: boolean;
   readonly: boolean;
   imEntwurf: boolean;
   imProtokoll: boolean;
@@ -844,6 +902,7 @@ function TopZeile({
   const [extraktModal, setExtraktModal]         = useState(false);
   const [aufgabeModal, setAufgabeModal]         = useState(false);
   const [gehaltModal, setGehaltModal]           = useState(false);
+  const [antragModal, setAntragModal]           = useState(false);
   const [mehrOffen, setMehrOffen]               = useState(false);
   const mehrRef = useRef<HTMLDivElement>(null);
 
@@ -955,7 +1014,7 @@ function TopZeile({
           {/* Beschlüsse (Abstimmungsmatrix) – auch nach dem Finalisieren sichtbar,
               nur eben schreibgeschützt. Vorher verschwand der ganze Block, sobald
               die Sitzung PROTOKOLL_FINAL erreichte. */}
-          {(imProtokoll || sitzungStatus === "PROTOKOLL_FINAL") && (
+          {!istBV && (imProtokoll || sitzungStatus === "PROTOKOLL_FINAL") && (
             <BeschlussBlock
               topId={top.id}
               sitzungId={sitzungId}
@@ -971,14 +1030,14 @@ function TopZeile({
                 onChange={e => setTopStatus(e.target.value as TopStatus)}
                 className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
               >
-                {(Object.keys(TOP_STATUS_LABEL) as TopStatus[]).map(s => (
+                {(istBV ? TOP_STATUS_BV : Object.keys(TOP_STATUS_LABEL) as TopStatus[]).map(s => (
                   <option key={s} value={s}>{TOP_STATUS_LABEL[s]}</option>
                 ))}
               </select>
               <SitzungsEditor
                 content={ergebnisJson}
                 onChange={json => { setErgebnisJson(json); setErgebnis(tiptapZuText(json)); }}
-                placeholder="Ergebnis / Beschluss eintragen…"
+                placeholder={istBV ? "Verlauf / Ergebnis eintragen…" : "Ergebnis / Beschluss eintragen…"}
                 minHeight="80px"
               />
               <div className="flex gap-2">
@@ -1113,10 +1172,20 @@ function TopZeile({
           {imProtokoll && !ergebnisOffen && (
             <button
               onClick={() => setErgebnisOffen(true)}
-              title="Ergebnis / Beschluss eintragen"
+              title={istBV ? "Verlauf / Ergebnis eintragen" : "Ergebnis / Beschluss eintragen"}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium text-gray-500 hover:text-orange-600 hover:bg-orange-50 transition-colors"
             >
-              <ClipboardList size={14} /> Beschluss
+              <ClipboardList size={14} /> {istBV ? "Ergebnis" : "Beschluss"}
+            </button>
+          )}
+          {/* § 45 BetrVG: Anträge der Versammlung gehen an den BR → Themen-Backlog */}
+          {istBV && (imProtokoll || sitzungStatus === "PROTOKOLL_FINAL") && (
+            <button
+              onClick={() => setAntragModal(true)}
+              title="Antrag an den Betriebsrat ins Themen-Backlog übernehmen"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium text-gray-500 hover:text-[rgb(var(--accent))] hover:bg-accent/5 transition-colors"
+            >
+              <ListPlus size={14} /> Antrag
             </button>
           )}
 
@@ -1131,7 +1200,7 @@ function TopZeile({
             </button>
             {mehrOffen && (
               <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 min-w-[200px]">
-                {(!readonly || kannRetroaktivUebertragen) && (
+                {!istBV && (!readonly || kannRetroaktivUebertragen) && (
                   <button
                     onClick={() => { setGehaltModal(true); setMehrOffen(false); }}
                     title={readonly ? "Protokoll ist finalisiert – nachträgliche Übertragung nur für Vorsitz/Stellvertretung" : undefined}
@@ -1217,6 +1286,13 @@ function TopZeile({
           beschreibungVorschlag={top.inhaltsJson ? tiptapZuText(top.inhaltsJson as object) : (top.inhalt ?? "")}
           onSchliessen={() => setAufgabeModal(false)}
           onErfolg={() => setAufgabeModal(false)}
+        />
+      )}
+      {antragModal && (
+        <AntragBacklogModal
+          sitzungTitel={sitzungTitel}
+          sitzungsdatum={sitzungsdatum}
+          onSchliessen={() => setAntragModal(false)}
         />
       )}
       {gehaltModal && (
@@ -2136,6 +2212,245 @@ function SpontanTopModal({
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Betriebsversammlung: Teilnehmerzahl ──────────────────────────
+function TeilnahmeKarte({ sitzung, onAktualisieren }: { sitzung: Sitzung; onAktualisieren: () => void }) {
+  const [wert, setWert]       = useState(sitzung.teilnehmerzahl?.toString() ?? "");
+  const [laden, setLaden]     = useState(false);
+  const readonly = sitzung.status === "PROTOKOLL_FINAL";
+  const geaendert = wert !== (sitzung.teilnehmerzahl?.toString() ?? "");
+
+  async function speichern() {
+    setLaden(true);
+    try {
+      await api.sitzungen.aktualisieren(sitzung.id, { teilnehmerzahl: wert === "" ? null : Number(wert) });
+      onAktualisieren();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Fehler beim Speichern");
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-4 flex-wrap bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5">
+      <div>
+        <p className="text-sm font-medium text-amber-900 flex items-center gap-1.5"><Users size={14} /> Teilnahme</p>
+        <p className="text-xs text-amber-700">
+          Bei der Betriebsversammlung gibt es keine Anwesenheitsliste – die Teilnehmerzahl erscheint in der Niederschrift.
+          Weitere Angaben (z. B. Gäste, Arbeitgebervertretung) gehören in die Notizen.
+        </p>
+      </div>
+      {readonly ? (
+        <span className="text-sm font-semibold text-amber-900">
+          {sitzung.teilnehmerzahl != null ? `${sitzung.teilnehmerzahl} Teilnehmende` : "nicht erfasst"}
+        </span>
+      ) : (
+        <div className="flex items-center gap-2">
+          <input
+            type="number" min={0} value={wert} onChange={e => setWert(e.target.value)} placeholder="Anzahl"
+            className="w-24 border border-amber-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+          />
+          <button
+            onClick={speichern} disabled={laden || !geaendert}
+            className="flex items-center gap-1 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-sm font-medium px-3 py-1.5 rounded-lg"
+          >
+            {laden && <Loader2 size={13} className="animate-spin" />}
+            Speichern
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Betriebsversammlung: Fragen aus dem Kummerkasten übernehmen ──
+function KummerkastenFragenModal({
+  sitzung, onSchliessen, onErfolg,
+}: { sitzung: Sitzung; onSchliessen: () => void; onErfolg: () => void }) {
+  const [eintraege, setEintraege] = useState<KummerkastenEintrag[] | null>(null);
+  const [gewaehlt, setGewaehlt]   = useState<Set<string>>(new Set());
+  const [zielTopId, setZielTopId] = useState(
+    (sitzung.tops.find(t => /frage/i.test(t.titel)) ?? sitzung.tops[0])?.id ?? "",
+  );
+  const [laden, setLaden]   = useState(false);
+  const [fehler, setFehler] = useState("");
+
+  useEffect(() => {
+    api.kummerkasten.liste()
+      .then(l => setEintraege(l.filter(e => e.status !== "ERLEDIGT")))
+      .catch(err => setFehler(err instanceof Error ? err.message : "Kummerkasten konnte nicht geladen werden"));
+  }, []);
+
+  function umschalten(id: string) {
+    setGewaehlt(prev => {
+      const neu = new Set(prev);
+      if (neu.has(id)) neu.delete(id); else neu.add(id);
+      return neu;
+    });
+  }
+
+  async function uebernehmen() {
+    const top = sitzung.tops.find(t => t.id === zielTopId);
+    if (!top || !eintraege) return;
+    setLaden(true); setFehler("");
+    try {
+      // Als Aufzählung an den bisherigen TOP-Inhalt anhängen – anonym, ohne Absendernamen
+      const fragen = eintraege.filter(e => gewaehlt.has(e.id));
+      const liste = {
+        type: "bulletList",
+        content: fragen.map(f => ({
+          type: "listItem",
+          content: [{ type: "paragraph", content: [{ type: "text", text: f.nachricht.trim().replace(/\s+/g, " ") }] }],
+        })),
+      };
+      const alt = (top.inhaltsJson as { content?: object[] } | null) ?? textZuTiptap(top.inhalt ?? "") as { content?: object[] } | null;
+      const inhaltsJson = { type: "doc", content: [...(alt?.content ?? []), liste] };
+      await api.sitzungen.topAktualisieren(sitzung.id, top.id, {
+        inhaltsJson,
+        inhalt: tiptapZuText(inhaltsJson),
+      });
+      // Neue Einträge als "in Bearbeitung" markieren, damit sie im Kummerkasten nicht untergehen
+      await Promise.all(fragen.filter(f => f.status === "NEU")
+        .map(f => api.kummerkasten.aktualisieren(f.id, { status: "IN_BEARBEITUNG" }).catch(() => {})));
+      onErfolg();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler beim Übernehmen");
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="font-semibold text-gray-900">Fragen aus dem Kummerkasten</h2>
+          <button onClick={onSchliessen} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>
+        <div className="px-6 py-4 space-y-4 overflow-y-auto">
+          <p className="text-xs text-gray-500">
+            Die ausgewählten Nachrichten werden ohne Absendernamen als Aufzählung an den TOP angehängt.
+            Bitte vorher prüfen, ob sie für die Versammlung geeignet sind.
+          </p>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">In TOP übernehmen</label>
+            <select value={zielTopId} onChange={e => setZielTopId(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]">
+              {sitzung.tops.map(t => <option key={t.id} value={t.id}>{t.nummer}. {t.titel}</option>)}
+            </select>
+          </div>
+          {eintraege === null && !fehler ? (
+            <div className="flex items-center justify-center h-24 text-gray-400 text-sm">
+              <Loader2 className="animate-spin mr-2" size={16} /> Laden…
+            </div>
+          ) : eintraege && eintraege.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">Keine offenen Nachrichten im Kummerkasten</p>
+          ) : (
+            <div className="space-y-2">
+              {eintraege?.map(e => (
+                <label key={e.id}
+                  className={`flex items-start gap-2 p-3 rounded-lg border cursor-pointer text-sm ${gewaehlt.has(e.id) ? "border-accent/40 bg-accent/5" : "border-gray-200 hover:bg-gray-50"}`}>
+                  <input type="checkbox" checked={gewaehlt.has(e.id)} onChange={() => umschalten(e.id)} className="mt-0.5" />
+                  <span className="flex-1">
+                    <span className="block text-gray-800 whitespace-pre-wrap">{e.nachricht}</span>
+                    <span className="block text-xs text-gray-400 mt-1">{formatDatum(e.erstelltAm)}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+          {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
+        </div>
+        <div className="flex gap-3 px-6 py-4 border-t border-gray-100">
+          <button type="button" onClick={onSchliessen} className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Abbrechen</button>
+          <button onClick={uebernehmen} disabled={laden || gewaehlt.size === 0 || !zielTopId}
+            className="flex-1 px-4 py-2 text-sm bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white rounded-lg flex items-center justify-center gap-2">
+            {laden && <Loader2 size={14} className="animate-spin" />}
+            {gewaehlt.size > 0 ? `${gewaehlt.size} übernehmen` : "Übernehmen"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Betriebsversammlung: Antrag an den BR ins Themen-Backlog (§ 45 BetrVG) ──
+function AntragBacklogModal({
+  sitzungTitel, sitzungsdatum, onSchliessen,
+}: { sitzungTitel: string; sitzungsdatum: string; onSchliessen: () => void }) {
+  const [titel, setTitel]   = useState("");
+  const [text, setText]     = useState("");
+  const [laden, setLaden]   = useState(false);
+  const [fehler, setFehler] = useState("");
+  const [erfolg, setErfolg] = useState(false);
+
+  async function speichern(e: FormEvent) {
+    e.preventDefault();
+    if (!titel.trim()) return;
+    setLaden(true); setFehler("");
+    try {
+      const herkunft = `Antrag aus der Betriebsversammlung „${sitzungTitel}“ vom ${formatDatum(sitzungsdatum)} (§ 45 BetrVG)`;
+      const beschreibung = text.trim() ? `${herkunft}\n\n${text.trim()}` : herkunft;
+      await api.aufgaben.erstellen({
+        titel: titel.trim(),
+        beschreibung,
+        beschreibungJson: textZuTiptap(beschreibung) ?? undefined,
+        kanbanStatus: "BACKLOG",
+      });
+      setErfolg(true);
+      setTimeout(onSchliessen, 1200);
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler beim Anlegen");
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="font-semibold text-gray-900">Antrag an den Betriebsrat</h2>
+          <button onClick={onSchliessen} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>
+        {erfolg ? (
+          <div className="px-6 py-10 flex flex-col items-center text-green-700 text-sm">
+            <CheckCircle size={28} className="mb-2" />
+            Antrag ins Themen-Backlog übernommen
+          </div>
+        ) : (
+          <form onSubmit={speichern} className="px-6 py-4 space-y-4">
+            <p className="text-xs text-gray-500">
+              Die Betriebsversammlung kann dem Betriebsrat Anträge unterbreiten (§ 45 BetrVG). Der Antrag landet als
+              Thema im Backlog und kann von dort in eine BR-Sitzung übernommen werden.
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Antrag (Kurztitel) *</label>
+              <input value={titel} onChange={e => setTitel(e.target.value)} required autoFocus
+                placeholder="z. B. Überdachte Fahrradstellplätze"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Wortlaut / Begründung</label>
+              <textarea value={text} onChange={e => setText(e.target.value)} rows={4} placeholder="Optional"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
+            </div>
+            {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={onSchliessen} className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Abbrechen</button>
+              <button type="submit" disabled={laden || !titel.trim()}
+                className="flex-1 px-4 py-2 text-sm bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white rounded-lg flex items-center justify-center gap-2">
+                {laden && <Loader2 size={14} className="animate-spin" />}
+                Ins Backlog
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

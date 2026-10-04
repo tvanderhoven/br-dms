@@ -28,6 +28,7 @@ import prisma from "../lib/prisma.js";
 import { hashPassword } from "../lib/password.js";
 import { encryptFile } from "../lib/encryption.js";
 import { pdfAutomatischGenerieren } from "../routes/pdf.js";
+import { betriebsversammlungFristAbgleichen } from "../lib/betriebsversammlungFrist.js";
 
 const STORAGE     = process.env.STORAGE_PATH ?? "/data/storage";
 const MASTER_KEY  = process.env.ENCRYPTION_KEY!;
@@ -612,6 +613,12 @@ async function main() {
     { titel: "Ordentliche Betriebsratssitzung", datum: donnerstag(tage(-28)), status: SitzungStatus.PROTOKOLL_FINAL },
     { titel: "Ordentliche Betriebsratssitzung", datum: donnerstag(tage(-8)),  status: SitzungStatus.PROTOKOLL_ENTWURF },
     { titel: "Ordentliche Betriebsratssitzung", datum: donnerstag(tage(6)),   status: SitzungStatus.TAGESORDNUNG_FIXIERT },
+    // Weitere Sitzungsarten – hinten angehängt, damit die Indizes oben (sitzungIds[3] usw.) stabil bleiben
+    { titel: "Konstituierende Sitzung", datum: datum(2026, 5, 7), status: SitzungStatus.PROTOKOLL_FINAL, sitzungstyp: "KONSTITUIEREND" },
+    { titel: "Betriebsversammlung", datum: donnerstag(tage(-70)), status: SitzungStatus.PROTOKOLL_FINAL, sitzungstyp: "BETRIEBSVERSAMMLUNG",
+      ort: "Kantine Werk 1", teilnehmerzahl: 164 },
+    { titel: "Betriebsversammlung", datum: donnerstag(tage(23)), status: SitzungStatus.ENTWURF, sitzungstyp: "BETRIEBSVERSAMMLUNG",
+      ort: "Kantine Werk 1" },
   ];
 
   type TopDef = {
@@ -672,6 +679,34 @@ async function main() {
       { titel: "Neue Prämienregelung – Gegenvorschlag des Betriebsrats", inhalt: ["Beratung des Gegenvorschlags (Entwurf Kröger/Brandt)."] },
       { titel: "Verschiedenes", inhalt: ["Termine, Informationen, Sonstiges."] },
     ],
+    [
+      { titel: "Eröffnung durch den Vorsitz des Wahlvorstands", inhalt: ["Der Vorsitzende des Wahlvorstands eröffnet die Sitzung und stellt die Beschlussfähigkeit fest."], ergebnis: ["Alle neun gewählten Mitglieder sind anwesend."], status: TopStatus.ZUR_KENNTNIS },
+      { titel: "Wahl einer Wahlleitung", inhalt: ["Aus der Mitte des Betriebsrats wird eine Wahlleitung bestimmt (§ 29 Abs. 1 BetrVG)."], ergebnis: ["Andreas Wiese übernimmt die Wahlleitung."],
+        beschluesse: [{ antrag: "Andreas Wiese wird zum Wahlleiter für die Wahl des Vorsitzes bestimmt.", grundlage: "Sonstige Beschlussfassung", ja: 8, nein: 0, enth: 1 }] },
+      { titel: "Wahl der/des Vorsitzenden (§ 26 Abs. 1 BetrVG)", inhalt: ["Vorgeschlagen: Sabine Kröger."], ergebnis: ["Sabine Kröger ist zur Vorsitzenden gewählt und nimmt die Wahl an."],
+        beschluesse: [{ antrag: "Sabine Kröger wird zur Vorsitzenden des Betriebsrats gewählt.", grundlage: "§ 26 BetrVG – Vorsitz", ja: 8, nein: 0, enth: 1 }] },
+      { titel: "Wahl der/des stellvertretenden Vorsitzenden (§ 26 Abs. 1 BetrVG)", inhalt: ["Vorgeschlagen: Thomas Brandt."], ergebnis: ["Thomas Brandt ist zum Stellvertreter gewählt und nimmt die Wahl an."],
+        beschluesse: [{ antrag: "Thomas Brandt wird zum stellvertretenden Vorsitzenden gewählt.", grundlage: "§ 26 BetrVG – Vorsitz", ja: 8, nein: 0, enth: 1 }] },
+      { titel: "Bildung des Betriebsausschusses (§ 27 BetrVG)", inhalt: ["Bei neun Mitgliedern ist ein Betriebsausschuss zu bilden: Vorsitz, Stellvertretung und drei weitere Mitglieder."], ergebnis: ["Gewählt: Mehmet Yılmaz, Julia Hoffmann, Katrin Lehmann."],
+        beschluesse: [{ antrag: "Mehmet Yılmaz, Julia Hoffmann und Katrin Lehmann werden in den Betriebsausschuss gewählt.", grundlage: "Sonstige Beschlussfassung", ja: 9, nein: 0, enth: 0 }] },
+      { titel: "Verschiedenes", inhalt: ["Termine, Informationen, Sonstiges."], ergebnis: ["Erste ordentliche Sitzung in zwei Wochen; Schulungsbedarf wird gesammelt."], status: TopStatus.ZUR_KENNTNIS },
+    ],
+    [
+      { titel: "Eröffnung und Begrüßung", inhalt: ["Sabine Kröger eröffnet die Versammlung und begrüßt die Beschäftigten sowie die Geschäftsführung."], ergebnis: ["Die Versammlung wurde um 9:05 Uhr eröffnet."], status: TopStatus.ZUR_KENNTNIS },
+      { titel: "Tätigkeitsbericht des Betriebsrats (§ 43 Abs. 1 BetrVG)", inhalt: ["Rückblick auf die ersten Monate der Amtszeit", "Stand der Verhandlungen BV Schichtarbeit", "Auswertung Mobiles Arbeiten"], ergebnis: ["Bericht vorgetragen; Nachfragen zur Schichtplanung und zu den Vorlaufzeiten."], status: TopStatus.ZUR_KENNTNIS },
+      { titel: "Bericht des Arbeitgebers (§ 43 Abs. 2 BetrVG)", inhalt: ["Wirtschaftliche Lage und Auftragsentwicklung, Personalplanung, Arbeitsschutz."], ergebnis: ["Auftragslage stabil, zwei Neueinstellungen in der Konstruktion geplant. Hitzeschutz Halle 3 wird umgesetzt."], status: TopStatus.ZUR_KENNTNIS },
+      { titel: "Fragen aus der Belegschaft", inhalt: ["Hitze in Halle 3", "Aushang der Schichtpläne"], ergebnis: ["Fragen wurden von Betriebsrat und Werksleitung beantwortet."], status: TopStatus.ZUR_KENNTNIS },
+      { titel: "Anträge an den Betriebsrat (§ 45 BetrVG)", inhalt: ["Anträge aus der Versammlung."], ergebnis: ["Antrag: überdachte Fahrradstellplätze an Werk 1 – vom Betriebsrat ins Themen-Backlog übernommen."], status: TopStatus.ZUR_KENNTNIS },
+      { titel: "Verschiedenes", inhalt: ["Termine, Informationen, Sonstiges."], ergebnis: ["Nächste Betriebsversammlung im vierten Quartal."], status: TopStatus.ZUR_KENNTNIS },
+    ],
+    [
+      { titel: "Eröffnung und Begrüßung", inhalt: ["Begrüßung durch die Vorsitzende."] },
+      { titel: "Tätigkeitsbericht des Betriebsrats (§ 43 Abs. 1 BetrVG)", inhalt: ["Neue Prämienregelung", "BV Schichtarbeit", "JAV-Wahl 2026"] },
+      { titel: "Bericht des Arbeitgebers (§ 43 Abs. 2 BetrVG)", inhalt: ["Wirtschaftliche Lage, Personalentwicklung, Arbeitsschutz."] },
+      { titel: "Fragen aus der Belegschaft", inhalt: ["Vorab eingereichte Fragen (Kummerkasten) und Fragen aus der Versammlung."] },
+      { titel: "Anträge an den Betriebsrat (§ 45 BetrVG)", inhalt: ["Anträge aus der Versammlung."] },
+      { titel: "Verschiedenes", inhalt: ["Termine, Informationen, Sonstiges."] },
+    ],
   ];
 
   const sitzungIds: string[] = [];
@@ -683,7 +718,9 @@ async function main() {
       data: {
         titel: `${p.titel} am ${fmt(p.datum)}`,
         sitzungsdatum: p.datum,
-        ort: "Besprechungsraum BR, Verwaltungsgebäude",
+        ort: p.ort ?? "Besprechungsraum BR, Verwaltungsgebäude",
+        sitzungstyp: p.sitzungstyp ?? "ORDENTLICH",
+        teilnehmerzahl: p.teilnehmerzahl ?? null,
         status: p.status,
         erstelltVonId: vorsitz,
         erstelltAm: erstellt,
@@ -692,10 +729,13 @@ async function main() {
     sitzungIds.push(sitzung.id);
 
     // Versionen gemäß Status (wie die echten Status-Übergänge)
-    const versionen: Prisma.SitzungVersionCreateManyInput[] = [
-      { sitzungId: sitzung.id, versionNummer: "1.0", typ: "TAGESORDNUNG_ENTWURF", readonly: true, erstelltVonId: vorsitz, erstelltAm: erstellt },
-      { sitzungId: sitzung.id, versionNummer: "1.1", typ: "TAGESORDNUNG_FIXIERT", readonly: true, erstelltVonId: vorsitz, erstelltAm: tage(-8, p.datum), einladungVersendetAm: tage(-7, p.datum) },
-    ];
+    const imEntwurf = p.status === SitzungStatus.ENTWURF;
+    const versionen: Prisma.SitzungVersionCreateManyInput[] = imEntwurf
+      ? [{ sitzungId: sitzung.id, versionNummer: "1.0", typ: "TAGESORDNUNG_ENTWURF", readonly: false, erstelltVonId: vorsitz, erstelltAm: erstellt }]
+      : [
+          { sitzungId: sitzung.id, versionNummer: "1.0", typ: "TAGESORDNUNG_ENTWURF", readonly: true, erstelltVonId: vorsitz, erstelltAm: erstellt },
+          { sitzungId: sitzung.id, versionNummer: "1.1", typ: "TAGESORDNUNG_FIXIERT", readonly: true, erstelltVonId: vorsitz, erstelltAm: tage(-8, p.datum), einladungVersendetAm: tage(-7, p.datum) },
+        ];
     if (p.status === SitzungStatus.PROTOKOLL_ENTWURF || p.status === SitzungStatus.PROTOKOLL_FINAL) {
       const final = p.status === SitzungStatus.PROTOKOLL_FINAL;
       versionen.push({ sitzungId: sitzung.id, versionNummer: "2.0", typ: "PROTOKOLL_ENTWURF", readonly: final, erstelltVonId: vorsitz, erstelltAm: p.datum, finalisiertAm: final ? tage(3, p.datum) : null, finalisiertVonId: final ? vorsitz : null });
@@ -704,7 +744,8 @@ async function main() {
     await prisma.sitzungVersion.createMany({ data: versionen });
 
     // Anwesenheit: gelegentlich fehlt jemand entschuldigt, Ersatz rückt nach Wahlrang nach
-    const istVergangen = p.status !== SitzungStatus.TAGESORDNUNG_FIXIERT;
+    const istVergangen = p.status !== SitzungStatus.TAGESORDNUNG_FIXIERT && !imEntwurf;
+    const istBV = p.sitzungstyp === "BETRIEBSVERSAMMLUNG";
     const abwesend = istVergangen ? ([[], [user["a.wiese"]], [], [user["k.lehmann"], user["s.pohl"]]][si] ?? []) : [];
     const ersatzReihenfolge = [user["m.engel"], user["l.vogt"], user["p.krause"]];
     const anwesenheiten: Prisma.AnwesenheitCreateManyInput[] = [];
@@ -715,7 +756,8 @@ async function main() {
       anwesenheiten.push({ sitzungId: sitzung.id, benutzerId: ersatzReihenfolge[i], status: AnwesenheitsStatus.ERSATZ_FUER, vertretungFuerId: fehlt });
     });
     if (istVergangen) anwesenheiten.push({ sitzungId: sitzung.id, benutzerId: user["f.albers"], status: si % 2 === 0 ? AnwesenheitsStatus.ANWESEND : AnwesenheitsStatus.ABWESEND_ENTSCHULDIGT });
-    await prisma.anwesenheit.createMany({ data: anwesenheiten });
+    // Betriebsversammlung: keine Anwesenheitsliste, nur die Teilnehmerzahl
+    if (!istBV) await prisma.anwesenheit.createMany({ data: anwesenheiten });
     const stimmberechtigt = mitgliederOhne(abwesend).length + abwesend.length;
 
     // TOPs + Beschlüsse
@@ -758,7 +800,7 @@ async function main() {
     await prisma.auditLog.createMany({
       data: [
         { benutzerId: vorsitz, sitzungId: sitzung.id, aktion: AuditAktion.SITZUNG_ERSTELLT, zeitpunkt: erstellt },
-        { benutzerId: vorsitz, sitzungId: sitzung.id, aktion: AuditAktion.SITZUNG_FIXIERT, zeitpunkt: tage(-8, p.datum) },
+        ...(imEntwurf ? [] : [{ benutzerId: vorsitz, sitzungId: sitzung.id, aktion: AuditAktion.SITZUNG_FIXIERT, zeitpunkt: tage(-8, p.datum) }]),
         ...(p.status === SitzungStatus.PROTOKOLL_FINAL
           ? [{ benutzerId: vorsitz, sitzungId: sitzung.id, aktion: AuditAktion.SITZUNG_FINALISIERT, zeitpunkt: tage(3, p.datum) }]
           : []),
@@ -799,7 +841,7 @@ async function main() {
     await prisma.gehaltsstufenEintrag.create({ data: { mitarbeiterId: ma.id, gruppe, stufe: 1, gueltigAb: start, bemerkung: `Einstellung ${titel} – Zustimmung BR`, sitzungId: sitzungIds[2] } });
     await prisma.zeitmodellEintrag.create({ data: { mitarbeiterId: ma.id, zeitmodell: Zeitmodell.A, gueltigVon: start, sitzungId: sitzungIds[2] } });
   }
-  console.log("[Demo] 5 Sitzungen mit TOPs, Anwesenheit, Beschlüssen und Gehalts-Verknüpfungen angelegt");
+  console.log(`[Demo] ${plan.length} Sitzungen mit TOPs, Anwesenheit, Beschlüssen und Gehalts-Verknüpfungen angelegt`);
 
   // ── Nachrichten ──────────────────────────────────────────────
   const empfaenger = Object.values(user);
@@ -840,6 +882,7 @@ async function main() {
     ["Ruhezonen Werk 2 (aus GBU Psyche)", KanbanStatus.BACKLOG, user["k.lehmann"], Prioritaet.MITTEL],
     ["E-Bike-Leasing für Beschäftigte", KanbanStatus.BACKLOG, user["m.yilmaz"], Prioritaet.NIEDRIG],
     ["KI-Einsatz im Vertrieb – Rahmen-BV prüfen", KanbanStatus.BACKLOG, user["a.wiese"], Prioritaet.MITTEL],
+    ["Überdachte Fahrradstellplätze Werk 1 (Antrag Betriebsversammlung)", KanbanStatus.BACKLOG, user["d.meyer"], Prioritaet.NIEDRIG],
     ["Arbeitskreis psychische Belastung einrichten", KanbanStatus.ERLEDIGT, vorsitz, Prioritaet.MITTEL],
   ];
   await prisma.aufgabe.createMany({
@@ -984,6 +1027,9 @@ async function main() {
     await pdfAutomatischGenerieren(v.sitzungId, v.id, v.versionNummer, v.typ, v.erstelltAm, v.finalisiertAm);
   }
   console.log(`[Demo] ${versionen.length} Sitzungs-PDFs erzeugt`);
+
+  // Quartals-Frist § 43: beim Backend-Start schon angelegt, jetzt gibt es eine Betriebsversammlung im Quartal
+  await betriebsversammlungFristAbgleichen(prisma);
 
   console.log("\n[Demo] Fertig. Anmeldung z.B. als Vorsitzende:");
   console.log(`[Demo]   Benutzer: s.kroeger   Passwort: ${DEMO_PW}`);

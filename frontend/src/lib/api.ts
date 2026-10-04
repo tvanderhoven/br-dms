@@ -120,7 +120,7 @@ export const api = {
     einzel: (id: string) => request<Sitzung>(`/api/sitzungen/${id}`),
     erstellen: (data: { titel: string; sitzungsdatum: string; ort?: string; sitzungstyp?: string; notizen?: string; vorlageId?: string }) =>
       request<Sitzung>("/api/sitzungen", { method: "POST", body: JSON.stringify(data) }),
-    aktualisieren: (id: string, data: Partial<{ titel: string; sitzungsdatum: string; ort: string; sitzungstyp: string; notizen: string }>) =>
+    aktualisieren: (id: string, data: Partial<{ titel: string; sitzungsdatum: string; ort: string; sitzungstyp: string; notizen: string; teilnehmerzahl: number | null }>) =>
       request<Sitzung>(`/api/sitzungen/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     absagen: (id: string) =>
       request<{ nachricht: string }>(`/api/sitzungen/${id}`, { method: "DELETE" }),
@@ -451,6 +451,7 @@ export interface ProtokollEinstellungen {
   fusszeile:            string;
   unterschrift_vorsitz: string;
   unterschrift_zeuge:   string;
+  unterschrift_ort:     string; // Ort vor dem Datum an den Unterschriftslinien, leer = nur Datum
   kopfzeile_layout:     string; // "logo_links" | "logo_rechts" | "balken"
   fusszeile_layout:     string; // "text_links" | "text_rechts"
   hat_logo:             string; // "true" | "false"
@@ -570,6 +571,7 @@ export const FRIST_TYP_LABEL: Record<string, string> = {
   ANHOERUNG_102_ORDENTLICH:       "Anhörung § 102 ordentlich (1 Woche)",
   ANHOERUNG_102_AUSSERORDENTLICH: "Anhörung § 102 außerordentlich (3 Tage)",
   ZEITMODELL_87_WOCHE:            "Mitbestimmung § 87 (1 Woche)",
+  BETRIEBSVERSAMMLUNG_43:         "Betriebsversammlung § 43 (Quartal)",
   WIDERSPRUCH:                    "Widerspruch § 99/102 (1 Woche)",
   BENUTZERDEFINIERT:              "Individuelle Frist",
 };
@@ -662,6 +664,19 @@ export interface SitzungVersion {
   erstelltAm: string;
 }
 
+// Sitzungsarten (Backend: lib/sitzungstypen.ts)
+export const SITZUNGSTYP_LABEL: Record<string, string> = {
+  ORDENTLICH:          "Ordentliche Sitzung",
+  AUSSERORDENTLICH:    "Außerordentliche Sitzung",
+  KONSTITUIEREND:      "Konstituierende Sitzung",
+  BETRIEBSVERSAMMLUNG: "Betriebsversammlung",
+};
+
+/** Betriebsversammlung: Teilnehmerzahl statt Anwesenheitsliste, keine Beschlüsse, „Niederschrift“ statt „Protokoll“. */
+export function istBetriebsversammlung(sitzungstyp: string | null | undefined): boolean {
+  return sitzungstyp === "BETRIEBSVERSAMMLUNG";
+}
+
 export interface Sitzung {
   id: string;
   titel: string;
@@ -670,6 +685,7 @@ export interface Sitzung {
   sitzungstyp: string;
   status: SitzungStatus;
   notizen?: string;
+  teilnehmerzahl?: number | null;
   erstelltVon?: { id: string; name: string };
   versionen: SitzungVersion[];
   tops: TOP[];

@@ -9,6 +9,7 @@
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { SitzungStatus, AuditAktion, Role } from "@prisma/client";
+import { istBetriebsversammlung } from "../lib/sitzungstypen.js";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
@@ -80,11 +81,15 @@ export async function beschlussRouten(app: FastifyInstance): Promise<void> {
 
       const sitzung = await prisma.sitzung.findUnique({
         where: { id: sitzungId },
-        select: { status: true },
+        select: { status: true, sitzungstyp: true },
       });
       if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
       if (sitzung.status !== SitzungStatus.PROTOKOLL_ENTWURF) {
         return reply.status(409).send({ fehler: "Beschlüsse sind nur im Status PROTOKOLL_ENTWURF möglich" });
+      }
+      // § 45 BetrVG: Die Betriebsversammlung beschließt nicht, sie richtet Anträge an den BR
+      if (istBetriebsversammlung(sitzung.sitzungstyp)) {
+        return reply.status(409).send({ fehler: "Eine Betriebsversammlung fasst keine Beschlüsse – Anträge an den Betriebsrat bitte ins Themen-Backlog übernehmen" });
       }
 
       const top = await prisma.tOP.findFirst({

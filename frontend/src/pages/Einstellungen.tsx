@@ -147,6 +147,7 @@ const PROTOKOLL_DEFAULTS: ProtokollEinstellungen = {
   fusszeile:            "BR-DMS – Vertraulich",
   unterschrift_vorsitz: "Vorsitzende/r des Betriebsrats",
   unterschrift_zeuge:   "Betriebsratsmitglied (Protokollzeugin/-zeuge)",
+  unterschrift_ort:     "",
   kopfzeile_layout:     "logo_links",
   fusszeile_layout:     "text_links",
   hat_logo:             "false",
@@ -425,6 +426,7 @@ function ProtokollTab() {
           {feld("Fußzeilen-Text", "fusszeile", "z. B. BR-DMS – Vertraulich")}
           {feld("Unterschrift Vorsitz", "unterschrift_vorsitz", "z. B. Vorsitzende/r des Betriebsrats")}
           {feld("Unterschrift Zeuge/Zeugin", "unterschrift_zeuge", "z. B. Betriebsratsmitglied (Protokollzeugin/-zeuge)")}
+          {feld("Ort bei der Unterschrift", "unterschrift_ort", "z. B. Musterstadt – leer lassen für nur das Datum")}
         </div>
       </div>
 

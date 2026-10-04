@@ -26,6 +26,7 @@ const PROTOKOLL_DEFAULTS = {
   fusszeile:            "BR-DMS – Vertraulich",
   unterschrift_vorsitz: "Vorsitzende/r des Betriebsrats",
   unterschrift_zeuge:   "Betriebsratsmitglied (Protokollzeugin/-zeuge)",
+  unterschrift_ort:     "",
   kopfzeile_layout:     "logo_links",
   fusszeile_layout:     "text_links",
 } as const;

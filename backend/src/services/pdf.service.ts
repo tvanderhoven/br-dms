@@ -10,6 +10,7 @@ import { createHash } from "node:crypto";
 import { Readable } from "node:stream";
 import fs from "node:fs/promises";
 import fsSync from "node:fs";
+import { istBetriebsversammlung } from "../lib/sitzungstypen.js";
 import prisma from "../lib/prisma.js";
 
 // ── Typen (Subset aus Prisma) ─────────────────────────────────────
@@ -66,6 +67,7 @@ interface PdfSitzung {
   ort?:         string | null;
   sitzungstyp:  string;
   notizen?:     string | null;
+  teilnehmerzahl?: number | null;
   erstelltVon:  { name: string };
   anwesenheiten?: PdfAnwesenheit[];
   tops:         PdfTop[];
@@ -150,6 +152,7 @@ interface ProtokollLayout {
   fusszeile:            string;
   unterschrift_vorsitz: string;
   unterschrift_zeuge:   string;
+  unterschrift_ort:     string;
   kopfzeile_layout:     string; // "logo_links" | "logo_rechts" | "balken"
   fusszeile_layout:     string; // "text_links" | "text_rechts"
   logo_pfad:            string | null;
@@ -162,6 +165,7 @@ const LAYOUT_DEFAULTS: ProtokollLayout = {
   fusszeile:            "BR-DMS – Vertraulich",
   unterschrift_vorsitz: "Vorsitzende/r des Betriebsrats",
   unterschrift_zeuge:   "Betriebsratsmitglied (Protokollzeugin/-zeuge)",
+  unterschrift_ort:     "",
   kopfzeile_layout:     "logo_links",
   fusszeile_layout:     "text_links",
   logo_pfad:            null,
@@ -179,6 +183,7 @@ async function layoutLaden(): Promise<ProtokollLayout> {
     fusszeile:            m.get("fusszeile")            ?? LAYOUT_DEFAULTS.fusszeile,
     unterschrift_vorsitz: m.get("unterschrift_vorsitz") ?? LAYOUT_DEFAULTS.unterschrift_vorsitz,
     unterschrift_zeuge:   m.get("unterschrift_zeuge")   ?? LAYOUT_DEFAULTS.unterschrift_zeuge,
+    unterschrift_ort:     m.get("unterschrift_ort")     ?? LAYOUT_DEFAULTS.unterschrift_ort,
     kopfzeile_layout:     m.get("kopfzeile_layout")     ?? LAYOUT_DEFAULTS.kopfzeile_layout,
     fusszeile_layout:     m.get("fusszeile_layout")     ?? LAYOUT_DEFAULTS.fusszeile_layout,
     logo_pfad:            m.get("logo_pfad")            ?? null,
@@ -245,16 +250,32 @@ export async function pdfGenerieren(
     });
 
     const istFinal = version.typ === "PROTOKOLL_FINAL";
+    const istBV    = istBetriebsversammlung(sitzung.sitzungstyp);
 
     // ── Seite 1: Briefkopf ──────────────────────────────────────
     briefkopf(doc, sitzung, version, mitProtokoll, layout, logoBuffer);
     doc.moveDown(0.3);
 
     // ── Überschrift ──────────────────────────────────────────────
-    const typUeberschrift = mitProtokoll ? "Protokoll" : "Tagesordnung";
+    const typUeberschrift = istBV
+      ? (mitProtokoll ? "Niederschrift der Betriebsversammlung" : "Einladung zur Betriebsversammlung")
+      : (mitProtokoll ? "Protokoll" : "Tagesordnung");
     doc.fontSize(12).font("Helvetica-Bold").fillColor(layout.farbe)
        .text(`${typUeberschrift} (Version ${version.versionNummer})`, RAND_LINKS, doc.y);
     doc.moveDown(0.8);
+
+    // Einladung/Aushang: an die Belegschaft gerichtet, nicht an das Gremium
+    if (istBV && !mitProtokoll) {
+      doc.fontSize(10).font("Helvetica").fillColor("#374151")
+         .text(
+           "Der Betriebsrat lädt alle Arbeitnehmerinnen und Arbeitnehmer des Betriebs zur Betriebsversammlung ein. " +
+           "Die Versammlung ist nicht öffentlich (§ 42 Abs. 1 BetrVG); die Zeit der Teilnahme wird wie Arbeitszeit " +
+           "vergütet (§ 44 Abs. 1 BetrVG).",
+           RAND_LINKS, doc.y, { width: BREITE },
+         );
+      doc.moveDown(0.6);
+      abschnittUeberschrift(doc, "Tagesordnung", layout);
+    }
 
     // ── TOPs ─────────────────────────────────────────────────────
     sitzung.tops.forEach((top, idx) => {
@@ -262,7 +283,10 @@ export async function pdfGenerieren(
     });
 
     // ── Anwesenheit (nur Protokoll) ───────────────────────────────
-    if (mitProtokoll && sitzung.anwesenheiten && sitzung.anwesenheiten.length > 0) {
+    if (mitProtokoll && istBV) {
+      doc.moveDown(0.5);
+      teilnahmeAbschnitt(doc, sitzung.teilnehmerzahl ?? null, layout);
+    } else if (mitProtokoll && sitzung.anwesenheiten && sitzung.anwesenheiten.length > 0) {
       doc.moveDown(0.5);
       anwesenheitAbschnitt(doc, sitzung.anwesenheiten, layout);
     }
@@ -278,14 +302,14 @@ export async function pdfGenerieren(
     // ── Finaler Zeitstempel & Siegel ─────────────────────────────
     if (istFinal && version.finalisiertAm) {
       doc.moveDown(2);
-      zeitstempelSiegel(doc, version.finalisiertAm);
+      zeitstempelSiegel(doc, version.finalisiertAm, istBV ? "Niederschrift" : "Protokoll");
     }
 
     // ── Unterschriften ────────────────────────────────────────────
     if (!mitProtokoll) {
-      unterschriftenTagesordnung(doc, layout, sitzung.sitzungsdatum);
+      unterschriftenTagesordnung(doc, layout, sitzung.sitzungsdatum, istBV);
     } else if (istFinal) {
-      unterschriftenProtokoll(doc, layout, sitzung.sitzungsdatum);
+      unterschriftenProtokoll(doc, layout, sitzung.sitzungsdatum, istBV);
     }
 
     // ── Fußzeile auf allen Seiten ────────────────────────────────
@@ -309,7 +333,8 @@ function briefkopf(
   logoBuffer:   Buffer | null,
 ) {
   const y = doc.y;
-  const datumZeit = `${formatDatum(s.sitzungsdatum)}, ${formatZeit(s.sitzungsdatum)} Uhr`;
+  const datumZeit = `${formatDatum(s.sitzungsdatum)}, ${formatZeit(s.sitzungsdatum)} Uhr`
+    + (s.ort ? `  ·  ${pdfText(s.ort)}` : "");
 
   const textBreite = logoBuffer ? 350 : BREITE;
   doc.fontSize(14).font("Helvetica-Bold").fillColor("#111827")
@@ -609,7 +634,7 @@ function topAbschnitt(
       finalisierte.forEach(b => {
         if (doc.y > 620) doc.addPage();
 
-        const istBeschlossen = b.ergebnis === "BESCHLOSSEN";
+        const istBeschlossen = b.ergebnis === "ANGENOMMEN" || b.ergebnis === "BESCHLOSSEN";
         const akzentFarbe    = istBeschlossen ? FARBE_ERFOLG : FARBE_FEHLER;
         const ergebnisLabel  = istBeschlossen ? "Beschlossen"
           : b.ergebnis === "ABGELEHNT" ? "Abgelehnt"
@@ -676,7 +701,7 @@ function topAbschnitt(
 }
 
 // ── Finaler Zeitstempel-Siegel ────────────────────────────────────
-function zeitstempelSiegel(doc: InstanceType<typeof PDFDocument>, finalisiertAm: Date) {
+function zeitstempelSiegel(doc: InstanceType<typeof PDFDocument>, finalisiertAm: Date, dokumentart: string) {
   if (doc.y > 640) doc.addPage();
   const y = doc.y;
 
@@ -684,7 +709,7 @@ function zeitstempelSiegel(doc: InstanceType<typeof PDFDocument>, finalisiertAm:
   doc.rect(RAND_LINKS, y, 4, 64).fill(FARBE_ERFOLG);
 
   doc.fontSize(10).font("Helvetica-Bold").fillColor(FARBE_ERFOLG)
-     .text("✓  Protokoll finalisiert & revisionssicher gespeichert", RAND_LINKS + 14, y + 8, { width: BREITE - 14 });
+     .text(`✓  ${dokumentart} finalisiert & revisionssicher gespeichert`, RAND_LINKS + 14, y + 8, { width: BREITE - 14 });
 
   doc.fontSize(8).font("Helvetica").fillColor(FARBE_GRAU)
      .text(
@@ -743,8 +768,28 @@ function anwesenheitAbschnitt(doc: InstanceType<typeof PDFDocument>, anwesenheit
   }
 }
 
+// ── Teilnahme an der Betriebsversammlung (statt Anwesenheitsliste) ─
+function teilnahmeAbschnitt(doc: InstanceType<typeof PDFDocument>, teilnehmerzahl: number | null, layout: ProtokollLayout) {
+  if (doc.y > 620) doc.addPage();
+  abschnittUeberschrift(doc, "Teilnahme", layout);
+  doc.fontSize(9).font("Helvetica").fillColor("#111827")
+     .text(
+       teilnehmerzahl !== null
+         ? `An der Betriebsversammlung haben ${teilnehmerzahl} Personen teilgenommen.`
+         : "Die Teilnehmerzahl wurde nicht erfasst.",
+       RAND_LINKS + 12, doc.y, { width: BREITE - 12 },
+     );
+  doc.moveDown(0.4);
+}
+
+/** "Ort, 4. Oktober 2026" – ohne eingestellten Ort nur das Datum. */
+function ortUndDatum(layout: ProtokollLayout, datum: Date): string {
+  const text = datum.toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" });
+  return layout.unterschrift_ort.trim() ? `${layout.unterschrift_ort.trim()}, ${text}` : text;
+}
+
 // ── Unterschriften Tagesordnung ───────────────────────────────────
-function unterschriftenTagesordnung(doc: InstanceType<typeof PDFDocument>, layout: ProtokollLayout, sitzungsdatum: Date) {
+function unterschriftenTagesordnung(doc: InstanceType<typeof PDFDocument>, layout: ProtokollLayout, sitzungsdatum: Date, istBV: boolean) {
   // Der Block braucht ~135pt bis zur Fußzeile (y≈745) – Umbruch erst, wenn er wirklich nicht mehr passt.
   // War vorher bei 560, das hat fast immer unnötig eine neue Seite erzwungen (→ große Lücke am Seitenende).
   if (doc.y > 600) doc.addPage();
@@ -755,17 +800,20 @@ function unterschriftenTagesordnung(doc: InstanceType<typeof PDFDocument>, layou
 
   doc.fontSize(9).font("Helvetica").fillColor("#374151")
      .text(
-       "Hiermit bestätige ich, dass die vorstehende Tagesordnung ordnungsgemäß aufgestellt und den Betriebsratsmitgliedern fristgerecht übermittelt wurde.",
+       istBV
+         ? "Für den Betriebsrat:"
+         : "Hiermit bestätige ich, dass die vorstehende Tagesordnung ordnungsgemäß aufgestellt und den Betriebsratsmitgliedern fristgerecht übermittelt wurde.",
        RAND_LINKS, doc.y, { width: BREITE }
      );
   doc.moveDown(2);
 
-  const datum = sitzungsdatum.toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" });
-  unterschriftsLinie(doc, RAND_LINKS, layout.unterschrift_vorsitz, `Oberhausen/Gladbeck, ${datum}`);
+  // Die Einladung wird vor der Versammlung ausgehängt – Datum offen lassen statt das Versammlungsdatum vorzudrucken
+  unterschriftsLinie(doc, RAND_LINKS, layout.unterschrift_vorsitz,
+    istBV ? (layout.unterschrift_ort.trim() ? `${layout.unterschrift_ort.trim()}, den` : "Datum") : ortUndDatum(layout, sitzungsdatum));
 }
 
 // ── Unterschriften Protokoll ──────────────────────────────────────
-function unterschriftenProtokoll(doc: InstanceType<typeof PDFDocument>, layout: ProtokollLayout, sitzungsdatum: Date) {
+function unterschriftenProtokoll(doc: InstanceType<typeof PDFDocument>, layout: ProtokollLayout, sitzungsdatum: Date, istBV: boolean) {
   // Gleicher Fix wie bei der Tagesordnung – siehe Kommentar dort.
   if (doc.y > 600) doc.addPage();
   doc.moveDown(2);
@@ -775,13 +823,14 @@ function unterschriftenProtokoll(doc: InstanceType<typeof PDFDocument>, layout: 
 
   doc.fontSize(9).font("Helvetica").fillColor("#374151")
      .text(
-       "Die Unterzeichnenden bestätigen, dass dieses Protokoll in der Betriebsratssitzung verlesen, genehmigt und für richtig befunden wurde.",
+       istBV
+         ? "Die Unterzeichnenden bestätigen die Richtigkeit dieser Niederschrift über den Verlauf der Betriebsversammlung."
+         : "Die Unterzeichnenden bestätigen, dass dieses Protokoll in der Betriebsratssitzung verlesen, genehmigt und für richtig befunden wurde.",
        RAND_LINKS, doc.y, { width: BREITE }
      );
   doc.moveDown(2.5);
 
-  const datum = sitzungsdatum.toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" });
-  const ortDatum = `Oberhausen/Gladbeck, ${datum}`;
+  const ortDatum = ortUndDatum(layout, sitzungsdatum);
   const mitte = RAND_LINKS + BREITE / 2 + 10;
   unterschriftsLinie(doc, RAND_LINKS, layout.unterschrift_vorsitz, ortDatum);
   const yNachErster = doc.y;
@@ -1122,7 +1171,7 @@ export async function topAuszugPdfGenerieren(
       finalisierte.forEach(b => {
         if (doc.y > 660) doc.addPage();
 
-        const istBeschlossen = b.ergebnis === "BESCHLOSSEN";
+        const istBeschlossen = b.ergebnis === "ANGENOMMEN" || b.ergebnis === "BESCHLOSSEN";
         const akzentFarbe   = istBeschlossen ? FARBE_ERFOLG : FARBE_FEHLER;
         const ergebnisLabel = istBeschlossen ? "Beschlossen"
           : b.ergebnis === "ABGELEHNT" ? "Abgelehnt"

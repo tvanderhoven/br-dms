@@ -2,6 +2,7 @@ import { PrismaClient, FristStatus, Role } from "@prisma/client";
 import cron from "node-cron";
 import { sendeFristenZusammenfassung } from "../lib/mailer.js";
 import { fristTitel } from "../lib/fristen.js";
+import { betriebsversammlungFristAbgleichen } from "../lib/betriebsversammlungFrist.js";
 
 export interface FristenWorkerErgebnis {
   fristenAnzahl: number;
@@ -16,6 +17,9 @@ export class FristenWorker {
   async run(): Promise<FristenWorkerErgebnis> {
     console.log(`[FristenWorker] Start: ${new Date().toISOString()}`);
     try {
+      await betriebsversammlungFristAbgleichen(this.prisma)
+        .catch(err => console.error("[FristenWorker] Quartals-Frist § 43:", err));
+
       const jetzt = new Date();
       const in7Tagen = new Date(jetzt.getTime() + 7 * 86_400_000);
 
@@ -76,6 +80,9 @@ export class FristenWorker {
 }
 
 export function startFristenWorker(): void {
+  // Beim Start einmal abgleichen, damit die Quartals-Frist nicht erst am nächsten Morgen erscheint
+  betriebsversammlungFristAbgleichen()
+    .catch(err => console.error("[FristenWorker] Quartals-Frist § 43:", err));
   cron.schedule(
     "0 7 * * *",
     async () => {

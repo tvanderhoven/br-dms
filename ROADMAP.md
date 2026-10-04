@@ -9,27 +9,12 @@ damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 |---|---|---|
 | Fristen ohne Dokument | Fristen mit Bezeichnung/Notiz ohne Dokument (Wahl, Betriebsversammlung, Erinnerung); Fristen erledigen und wieder öffnen; „Überfällig“ nach Datum; Fristnamen zentral | Okt. 2026 |
 | Aufgaben + Vorhaben | „Zeiträume“ in die Aufgaben-Seite integriert: Ansichten Board, Liste (nach Vorhaben gruppiert), Zeitplan (Gantt); Begriff „Vorhaben“; `/zeitraeume` leitet um | Okt. 2026 |
+| Sitzungsarten + Betriebsversammlung | Neue Arten „konstituierend“ (Standard-TOPs nach § 29) und „Betriebsversammlung“: Standard-TOPs nach § 43, Teilnehmerzahl statt Anwesenheitsliste, keine Beschlüsse, Anträge (§ 45) per Knopf ins Themen-Backlog, Fragen aus dem Kummerkasten in einen TOP übernehmen, PDF als „Einladung“ (Aushang) und „Niederschrift“; automatische Quartals-Frist (§ 43 Abs. 1), erledigt sich mit der ersten Versammlung im Quartal | Okt. 2026 |
+| Kleinigkeiten | Protokoll-PDF zeigt angenommene Beschlüsse grün; HTTP-Weiterleitung behält den HTTPS-Port; Ort an den Unterschriften als Einstellung statt fest im Code; Fristen im Fristenkalender bearbeiten (Bezeichnung, Datum, Notiz) | Okt. 2026 |
 
 ## Als Nächstes
 
-### 1 · Sitzungsarten + Betriebsversammlung (§§ 42–46 BetrVG)
-
-Neue Sitzungsarten neben ordentlich/außerordentlich: **konstituierend** und **Betriebsversammlung**.
-Der Ablauf (Tagesordnung → Protokoll → PDF) wird wiederverwendet; Unterschiede je Art:
-
-| | BR-Sitzung (ordentl./außerordentl./konstituierend) | Betriebsversammlung |
-|---|---|---|
-| Anwesenheitsliste mit Ersatz-Nachrücken | ja | nein – stattdessen Teilnehmerzahl / Freitext |
-| Beschlüsse mit Stimmen | ja | nein – Anträge an den BR (§ 45) → Themen-Backlog |
-| Protokoll-PDF | „Protokoll“ | „Niederschrift“ |
-
-Geplante Funktionen der Betriebsversammlung:
-- Planung: Termin, Ort, Tagesordnung, Einladung/Aushang (Export wie Themensammlung)
-- Tätigkeitsbericht des BR (§ 43 Abs. 1) und Bericht des Arbeitgebers (§ 43 Abs. 2) als feste TOPs
-- Fragen aus der Belegschaft vorab sammeln (Anbindung Kummerkasten)
-- Erinnerung, wenn im Kalendervierteljahr noch keine Versammlung stattgefunden hat (Frist ohne Dokument)
-
-### 2 · BR- und JAV-Wahl
+### 1 · BR- und JAV-Wahl
 
 - Wahl anlegen: Art (BR/JAV), Verfahren (normal/vereinfacht), Wahltag, Ende der Amtszeit
 - Fristen der Wahlordnung rückwärts vom Wahltag berechnen (Wahlvorstand, Wahlausschreiben,
@@ -63,9 +48,7 @@ nötig (neues, datenschutzrelevantes Feld) – alternativ Liste von Hand pflegen
 
 ## Bekannte Kleinigkeiten
 
-- Protokoll-PDF: angenommene Beschlüsse werden rot statt grün dargestellt (`pdf.service.ts` prüft auf
-  „BESCHLOSSEN“, gespeichert wird „ANGENOMMEN“).
-- Proxy: HTTP-Port leitet auf `https://<host>/` ohne Port um (`proxy/nginx.conf`).
+- Betriebsversammlung: Fragen aus dem Kummerkasten werden nur im Entwurf übernommen (danach ist der TOP-Inhalt fixiert).
 
 ## Arbeitsweise
 

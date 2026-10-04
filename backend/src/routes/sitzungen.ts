@@ -29,6 +29,22 @@ import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { pdfAutomatischGenerieren } from "./pdf.js";
+import { SITZUNGSTYPEN, STANDARD_TOPS, istBetriebsversammlung } from "../lib/sitzungstypen.js";
+import { betriebsversammlungFristAbgleichen } from "../lib/betriebsversammlungFrist.js";
+
+/** Quartals-Frist § 43 nachziehen – Fehler dürfen die eigentliche Aktion nicht scheitern lassen. */
+function quartalsFristAbgleichen(sitzungstyp: string) {
+  if (!istBetriebsversammlung(sitzungstyp)) return;
+  betriebsversammlungFristAbgleichen()
+    .catch(err => console.error("[Sitzungen] Quartals-Frist § 43:", err));
+}
+
+function teilnehmerzahlPruefen(wert: unknown): number | null | undefined | "ungueltig" {
+  if (wert === undefined) return undefined;
+  if (wert === null || wert === "") return null;
+  const n = Number(wert);
+  return Number.isInteger(n) && n >= 0 ? n : "ungueltig";
+}
 
 const TOP_SELECT = {
   id:          true,
@@ -70,6 +86,7 @@ const SITZUNG_SELECT = {
   sitzungstyp:  true,
   status:       true,
   notizen:      true,
+  teilnehmerzahl: true,
   erstelltAm:   true,
   aktualisiertAm: true,
   erstelltVon:  { select: { id: true, name: true } },
@@ -146,7 +163,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
     "/",
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const { titel, sitzungsdatum, ort, sitzungstyp, notizen, vorlageId } =
+      const { titel, sitzungsdatum, ort, sitzungstyp: typEingabe, notizen, vorlageId } =
         request.body as {
           titel: string;
           sitzungsdatum: string;
@@ -159,13 +176,17 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
       if (!titel || !sitzungsdatum) {
         return reply.status(400).send({ fehler: "titel und sitzungsdatum sind Pflichtfelder" });
       }
+      const sitzungstyp = typEingabe ?? "ORDENTLICH";
+      if (!SITZUNGSTYPEN.includes(sitzungstyp)) {
+        return reply.status(400).send({ fehler: `Unbekannte Sitzungsart: ${sitzungstyp}` });
+      }
 
       const sitzung = await prisma.sitzung.create({
         data: {
           titel,
           sitzungsdatum: new Date(sitzungsdatum),
           ort:           ort ?? null,
-          sitzungstyp:   sitzungstyp ?? "ORDENTLICH",
+          sitzungstyp,
           notizen:       notizen ?? null,
           status:        SitzungStatus.ENTWURF,
           erstelltVonId: request.benutzer.sub,
@@ -180,6 +201,13 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
         },
         select: SITZUNG_SELECT,
       });
+
+      const standardTops = STANDARD_TOPS[sitzungstyp];
+      if (!vorlageId && standardTops) {
+        await prisma.tOP.createMany({
+          data: standardTops.map((t, i) => ({ sitzungId: sitzung.id, nummer: i + 1, titel: t })),
+        });
+      }
 
       if (vorlageId) {
         const vorlage = await prisma.sitzungsVorlage.findUnique({
@@ -199,8 +227,9 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
         }
       }
 
-      // Alle aktiven Mitglieder als "Anwesend" vorausfüllen
-      const aktive = await prisma.benutzer.findMany({
+      // Alle aktiven Mitglieder als "Anwesend" vorausfüllen – nicht bei der
+      // Betriebsversammlung, dort zählt nur die Teilnehmerzahl
+      const aktive = istBetriebsversammlung(sitzungstyp) ? [] : await prisma.benutzer.findMany({
         where: { aktiv: true },
         select: { id: true },
       });
@@ -214,7 +243,8 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
         });
       }
 
-      await audit(sitzung.id, request.benutzer.sub, AuditAktion.SITZUNG_ERSTELLT, request, { titel, vorlageId });
+      await audit(sitzung.id, request.benutzer.sub, AuditAktion.SITZUNG_ERSTELLT, request, { titel, vorlageId, sitzungstyp });
+      quartalsFristAbgleichen(sitzungstyp);
       const sitzungMitTops = await prisma.sitzung.findUnique({ where: { id: sitzung.id }, select: SITZUNG_SELECT });
       return reply.status(201).send(sitzungMitTops);
     }
@@ -244,17 +274,33 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
-      const sitzung = await prisma.sitzung.findUnique({ where: { id }, select: { status: true } });
+      const sitzung = await prisma.sitzung.findUnique({ where: { id }, select: { status: true, sitzungstyp: true } });
       if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
 
       if (sitzung.status === SitzungStatus.PROTOKOLL_FINAL || sitzung.status === SitzungStatus.ABGESAGT) {
         return reply.status(409).send({ fehler: "Finalisierte Sitzungen können nicht bearbeitet werden" });
       }
 
-      const { titel, sitzungsdatum, ort, sitzungstyp, notizen } =
+      const { titel, sitzungsdatum, ort, sitzungstyp, notizen, teilnehmerzahl: tzEingabe } =
         request.body as Partial<{
           titel: string; sitzungsdatum: string; ort: string; sitzungstyp: string; notizen: string;
+          teilnehmerzahl: number | null;
         }>;
+
+      if (sitzungstyp !== undefined) {
+        if (!SITZUNGSTYPEN.includes(sitzungstyp)) {
+          return reply.status(400).send({ fehler: `Unbekannte Sitzungsart: ${sitzungstyp}` });
+        }
+        // Anwesenheitsliste und Beschlüsse gibt es nur bei BR-Sitzungen – ein
+        // Wechsel von/zur Betriebsversammlung würde sie verwaist zurücklassen
+        if (istBetriebsversammlung(sitzungstyp) !== istBetriebsversammlung(sitzung.sitzungstyp)) {
+          return reply.status(409).send({ fehler: "Eine Betriebsversammlung kann nicht in eine BR-Sitzung umgewandelt werden (und umgekehrt) – bitte neu anlegen" });
+        }
+      }
+      const teilnehmerzahl = teilnehmerzahlPruefen(tzEingabe);
+      if (teilnehmerzahl === "ungueltig") {
+        return reply.status(400).send({ fehler: "Teilnehmerzahl muss eine ganze Zahl ab 0 sein" });
+      }
 
       const aktualisiert = await prisma.sitzung.update({
         where:  { id },
@@ -264,11 +310,13 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
           ...(ort          !== undefined && { ort }),
           ...(sitzungstyp  !== undefined && { sitzungstyp }),
           ...(notizen      !== undefined && { notizen }),
+          ...(teilnehmerzahl !== undefined && { teilnehmerzahl }),
         },
         select: SITZUNG_SELECT,
       });
 
       await audit(id, request.benutzer.sub, AuditAktion.SITZUNG_AKTUALISIERT, request);
+      if (sitzungsdatum !== undefined) quartalsFristAbgleichen(aktualisiert.sitzungstyp);
       return reply.send(aktualisiert);
     }
   );
@@ -279,7 +327,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
-      const sitzung = await prisma.sitzung.findUnique({ where: { id }, select: { status: true, titel: true } });
+      const sitzung = await prisma.sitzung.findUnique({ where: { id }, select: { status: true, titel: true, sitzungstyp: true } });
       if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
 
       if (sitzung.status === SitzungStatus.PROTOKOLL_FINAL) {
@@ -288,6 +336,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
 
       if (sitzung.status === SitzungStatus.ENTWURF) {
         await prisma.sitzung.delete({ where: { id } });
+        quartalsFristAbgleichen(sitzung.sitzungstyp);
         return reply.send({ nachricht: "Sitzung gelöscht" });
       }
 
@@ -297,6 +346,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
       });
 
       await audit(id, request.benutzer.sub, AuditAktion.SITZUNG_GELOESCHT, request, { titel: sitzung.titel });
+      quartalsFristAbgleichen(sitzung.sitzungstyp);
       return reply.send({ nachricht: "Sitzung abgesagt" });
     }
   );
@@ -309,7 +359,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
       const { id } = request.params as { id: string };
       const sitzung = await prisma.sitzung.findUnique({
         where:  { id },
-        select: { status: true, tops: { select: { id: true } }, titel: true },
+        select: { status: true, tops: { select: { id: true } }, titel: true, sitzungstyp: true },
       });
       if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
 
@@ -362,8 +412,12 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
         brMitglieder.map(m =>
           prisma.nachricht.create({
             data: {
-              betreff: `Tagesordnung fixiert: ${sitzung.titel}`,
-              inhalt: `Die Tagesordnung zur Sitzung "${sitzung.titel}" wurde fixiert.`,
+              betreff: istBetriebsversammlung(sitzung.sitzungstyp)
+                ? `Einladung fixiert: ${sitzung.titel}`
+                : `Tagesordnung fixiert: ${sitzung.titel}`,
+              inhalt: istBetriebsversammlung(sitzung.sitzungstyp)
+                ? `Die Einladung zur Betriebsversammlung "${sitzung.titel}" wurde fixiert und kann ausgehängt werden.`
+                : `Die Tagesordnung zur Sitzung "${sitzung.titel}" wurde fixiert.`,
               typ: "TAGESORDNUNG",
               absenderId: request.benutzer.sub,
               empfaengerId: m.id,
