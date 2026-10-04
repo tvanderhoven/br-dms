@@ -10,11 +10,15 @@ damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 | Fristen ohne Dokument | Fristen mit Bezeichnung/Notiz ohne Dokument (Wahl, Betriebsversammlung, Erinnerung); Fristen erledigen und wieder öffnen; „Überfällig“ nach Datum; Fristnamen zentral | Okt. 2026 |
 | Aufgaben + Vorhaben | „Zeiträume“ in die Aufgaben-Seite integriert: Ansichten Board, Liste (nach Vorhaben gruppiert), Zeitplan (Gantt); Begriff „Vorhaben“; `/zeitraeume` leitet um | Okt. 2026 |
 | Sitzungsarten + Betriebsversammlung | Neue Arten „konstituierend“ (Standard-TOPs nach § 29) und „Betriebsversammlung“: Standard-TOPs nach § 43, Teilnehmerzahl statt Anwesenheitsliste, keine Beschlüsse, Anträge (§ 45) per Knopf ins Themen-Backlog, Fragen aus dem Kummerkasten in einen TOP übernehmen, PDF als „Einladung“ (Aushang) und „Niederschrift“; automatische Quartals-Frist (§ 43 Abs. 1), erledigt sich mit der ersten Versammlung im Quartal | Okt. 2026 |
+| Wahlen (BR und JAV) | Seite „Wahlen“: Fristen für normales und vereinfachtes Verfahren, Wählerliste mit Gremiumsgröße und Mindestsitzen, PDF zum Aushang und CSV, Ergebnis übernehmen mit konstituierender Sitzung; Mitarbeiter mit Geburtsdatum und Geschlecht (Dialog und CSV-Import) | Okt. 2026 |
 | Kleinigkeiten | Protokoll-PDF zeigt angenommene Beschlüsse grün; HTTP-Weiterleitung behält den HTTPS-Port; Ort an den Unterschriften als Einstellung statt fest im Code; Fristen im Fristenkalender bearbeiten (Bezeichnung, Datum, Notiz) | Okt. 2026 |
 
 ## Als Nächstes
 
-### 1 · BR- und JAV-Wahl
+Nichts priorisiert – das nächste Paket aus „Später“ auswählen. Offen beim Wahl-Modul: Fristen und
+Paragrafen juristisch gegenlesen lassen; klären, ob dual Studierende bei der JAV als Auszubildende zählen.
+
+## Wahl-Modul (BR und JAV) – Entscheidungen
 
 Werkzeug des **Betriebsrats**, nicht des Wahlvorstands: Wahlvorstand bestellen, Fristen überwachen,
 Wählerliste vorbereiten, Ergebnis übernehmen. Im Wahlvorstand sitzt jeweils ein BR-Mitglied – der

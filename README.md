@@ -27,6 +27,7 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 - **Abstimmungen** – Einfache Ja/Nein/Enthaltung-Abstimmung je TOP mit Rechtsgrundlage und automatischer Ergebnisberechnung
 - **PDF-Generierung** – Automatisch bei Fixierung/Finalisierung, anpassbarer Briefkopf (Logo, Farben, Unterschriftszeilen mit Ort & Datum), TOP-Einzelauszug als PDF
 - **Sitzungsvorlagen** – Wiederverwendbare TOP-Sets für neue Sitzungen
+- **Sitzungsarten** – Ordentlich, außerordentlich, konstituierend (Standard-Tagesordnung nach § 29) und Betriebsversammlung (§§ 42–46: Standard-Tagesordnung nach § 43, Teilnehmerzahl statt Anwesenheitsliste, keine Beschlüsse, Anträge ins Themen-Backlog, Fragen aus dem Kummerkasten, PDF als Einladung zum Aushang und Niederschrift, Quartals-Frist nach § 43 Abs. 1)
 - **Automatische Einladung** – Interne Nachricht an alle Mitglieder bei Fixierung der Tagesordnung
 - **Cross-Modul-Aktionen aus TOPs** – Aufgabe erstellen, ins Wissensarchiv übernehmen, Gehaltsbeschluss direkt in die Gehaltstabelle übernehmen
 
@@ -34,10 +35,11 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 - **Aufgaben** – Drei Ansichten: Board (Neu/In Bearbeitung/Auf Hold/Erledigt), Liste gruppiert nach Vorhaben, Zeitplan als Gantt-Diagramm; Priorität, Fälligkeit, Zuweisung, Sichtbarkeit (privat/öffentlich), Verknüpfung zu TOP/Dokument, Doppelklick öffnet die Detailansicht
 - **Vorhaben** – Klammer um mehrere Aufgaben mit Zeitraum (z. B. Wahl, Betriebsversammlung, Verhandlung), verschachtelbar, farblich gekennzeichnet, Filter je Vorhaben
 - **Themen-Backlog** – Eigenes Kanban-Board für Themenideen, direkte Übernahme in einen Sitzungs-TOP
+- **Wahlen (BR und JAV)** – Normales und vereinfachtes Verfahren: Fristen vom Wahlvorstand bis zur Anfechtung mit Rechtsgrundlage (nicht juristisch geprüft – gegenlesen lassen), Wählerliste zum Wahltag mit Wählbarkeit, Gremiumsgröße (§ 9 / § 62) und Mindestsitzen des Minderheitengeschlechts (§ 15), PDF zum Aushang ohne Geburtsdaten und CSV für den Wahlvorstand, Ergebnis übernehmen (Rollen, Wahlrang, konstituierende Sitzung) als Historie
 - **Themensammlung** – Sammelt als "öffentlich" markierte TOPs aus Protokollen für Aushänge/Newsletter und exportiert sie formatiert
 
 ### Personalverwaltung *(abschaltbar)*
-- **Mitarbeiter-Stammdaten** – Name, PNR, Abteilung, Ein-/Austritt, Standort, Beschäftigungsart (Mitarbeiter/Azubi/Student/Zeitarbeiter), CSV-Import mit Vorschau/Dry-Run
+- **Mitarbeiter-Stammdaten** – Name, PNR, Abteilung, Ein-/Austritt, Standort, Beschäftigungsart (Mitarbeiter/Azubi/Student/dual Studierende/Zeitarbeiter), für Wahlen Geburtsdatum und Geschlecht; CSV-Import mit Vorschau/Dry-Run
 - **Gehaltstabelle** – Gehaltsstufen-Historie (Tarif-Gruppe/Stufe oder individuelles AT-Gehalt) je Mitarbeiter, CSV-Import/-Export, direkte Übernahme aus Sitzungsbeschlüssen, Statistik-Tab
 - **Zeitmodell-Historie** – Echter Gültigkeitszeitraum je Mitarbeiter, Filter nach befristet/unbefristet, Warnliste für bald auslaufende Zeiträume
 - **Überstunden-Regelungen** – Freitext-Historie nach demselben Muster wie das Zeitmodell (Zeitraum, befristet/unbefristet-Filter, Ablaufwarnung)
@@ -51,7 +53,7 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 - **Gesetzestexte** – Monatlich automatisch aktualisierte Paragraphen-Datenbank (BetrVG, KSchG u.a.), durchsuchbar über die globale Suche und als Popup-Ansicht
 
 ### Fristen & Suche
-- **Fristenkalender** – Monatsansicht aller Fristen (§87/§99/§102 BetrVG, individuelle Fristen), Farbcodierung nach Dringlichkeit, automatische E-Mail-Erinnerung
+- **Fristenkalender** – Monatsansicht aller Fristen (§87/§99/§102 BetrVG, Wahl- und Versammlungsfristen, individuelle Fristen ohne Dokument), Fristen bearbeiten und erledigen, Farbcodierung nach Dringlichkeit, automatische E-Mail-Erinnerung
 - **Globale Suche** – Durchsucht Dokumente, Sitzungen/TOPs/Beschlüsse, Aufgaben, Wissensarchiv, Ressourcen, Betriebsvereinbarungen, Schulungen, Mitarbeiter und Gesetzestexte; Ergebnisse nach Bereich gruppiert, auch als Schnellsuche in der Kopfleiste verfügbar
 
 ### Benutzer, Rollen & Sicherheit

@@ -755,6 +755,79 @@ def build():
         "Das Formular speichert keine IP-Adresse und keinen Benutzerbezug. Gegen automatisierte "
         "Einsendungen schützen eine Mengenbegrenzung und ein unsichtbares Prüffeld.", "info", "Anonymität")
 
+    pdf.h2("5.5  Wahlen (Betriebsrat und JAV)")
+    pdf.body(
+        "Unter Planung → Wahlen begleitet der Betriebsrat BR- und JAV-Wahlen. Den Ablauf verantwortet der "
+        "Wahlvorstand; BR-DMS hilft, die Fristen im Blick zu behalten, die Wählerliste vorzubereiten und das "
+        "Ergebnis zu übernehmen. Der Wahlvorstand braucht keinen eigenen Zugang."
+    )
+    pdf.hinweis(
+        "Fristen, Altersgrenzen und Sitzzahlen sind aus BetrVG und Wahlordnung abgeleitet, aber nicht juristisch "
+        "geprüft. Jede Frist nennt ihre Rechtsgrundlage; Empfehlungen ohne gesetzliche Frist sind gelb markiert. "
+        "Vor dem Einsatz gegenlesen lassen (Gewerkschaft, Schulung des Wahlvorstands).", "achtung", "Gegenlesen")
+    pdf.h3("Wahl anlegen und Fristen")
+    pdf.body(
+        "„Neue Wahl“: Art (BR oder JAV), Verfahren (normal oder vereinfacht), Tag der Stimmabgabe bzw. der "
+        "Wahlversammlung, Ende der Amtszeit und – sobald bekannt – das Datum des Wahlausschreibens. Daraus "
+        "berechnet BR-DMS die Fristen; sie erscheinen auf der Seite und im Fristenkalender und lassen sich dort "
+        "abhaken. Ändern sich die Daten, werden die Fristen neu berechnet; Erledigt-Haken bleiben stehen. "
+        "Optional entsteht ein Vorhaben im Zeitplan für eigene Aufgaben rund um die Wahl."
+    )
+    pdf.tabelle(
+        ["Schritt", "Normales Verfahren", "Vereinfachtes Verfahren"],
+        [
+            ["Wahlvorstand bestellen", "BR 10, JAV 8 Wochen vor Amtszeitende", "4 Wochen vor Amtszeitende"],
+            ["Wahlausschreiben", "spätestens 6 Wochen vor der Stimmabgabe", "Empfehlung: 3 Wochen vor der Versammlung"],
+            ["Einspruch Wählerliste", "2 Wochen nach dem Ausschreiben", "3 Tage nach dem Ausschreiben"],
+            ["Wahlvorschläge", "2 Wochen nach dem Ausschreiben", "1 Woche vor der Versammlung"],
+            ["Konstituierende Sitzung (BR)", "binnen 1 Woche nach der Wahl", "binnen 1 Woche nach der Wahl"],
+            ["Anfechtung", "2 Wochen ab Bekanntgabe", "2 Wochen ab Bekanntgabe"],
+        ],
+        (46, 62, 62),
+    )
+    pdf.bild("wahlen", "Wahl mit berechneten Fristen und Rechtsgrundlagen", hoehe_anteil=0.6)
+    pdf.h3("Wählerliste und Gremiumsgröße")
+    pdf.body(
+        "Der Bereich „Wählerliste & Gremiumsgröße“ ermittelt aus den Mitarbeiterdaten zum Wahltag, wer "
+        "wahlberechtigt und wählbar ist, wie groß das Gremium wird und wie viele Sitze dem Geschlecht in der "
+        "Minderheit mindestens zustehen. Er schlägt auch das Verfahren vor. Dafür braucht es Geburtsdatum und "
+        "Geschlecht der Beschäftigten – am einfachsten per CSV-Import aus der Liste der Personalabteilung (Kapitel 7.1)."
+    )
+    pdf.tabelle(
+        ["", "BR-Wahl", "JAV-Wahl"],
+        [
+            ["Wahlberechtigt", "ab 16 (§ 7), Zeitarbeit nach mehr als 3 Monaten", "unter 18 oder Auszubildende unter 25 (§ 60)"],
+            ["Wählbar", "ab 18, 6 Monate im Betrieb (§ 8)", "unter 25 (§ 61), keine BR-Mitglieder"],
+            ["Größe", "§ 9", "§ 62"],
+            ["Minderheitengeschlecht", "§ 15 – ab 3 Sitzen, Höchstzahlverfahren", "§ 62 Abs. 3 – ab 3 Sitzen"],
+        ],
+        (40, 65, 65),
+    )
+    pdf.bullets([
+        "Dual Studierende – Schalter je JAV-Wahl, ob sie als Auszubildende zählen; ob das zutrifft, hängt vom Vertrag ab",
+        "Ausschließen – Personen von Hand aus der Liste nehmen, z. B. leitende Angestellte",
+        "Bitte prüfen – Fehlt ein Geburtsdatum, steht die Person in einer Prüfliste statt in der Wählerliste",
+        "PDF zum Aushang – Getrennt nach Geschlechtern, alphabetisch, ohne Geburtsdaten",
+        "CSV für den Wahlvorstand – Vollständige Liste mit Geburtsdaten",
+    ])
+    pdf.bild("wahlen-waehlerliste", "Wählerliste mit Gremiumsgröße und Verfahrensvorschlag", hoehe_anteil=0.6)
+    pdf.h3("Ergebnis übernehmen")
+    pdf.body(
+        "Nach der Wahl überträgt „Ergebnis übernehmen“ das Protokoll des Wahlvorstands: die Gewählten in ihrer "
+        "Rangfolge, erst die Mitglieder, dann die Ersatzmitglieder. Die Position ist der Wahlrang für das "
+        "Nachrücken (Kapitel 4.3). Die Vorschau zeigt vor dem Speichern, was sich ändert, und warnt etwa, wenn "
+        "die Mindestsitze unterschritten sind oder danach niemand Vorsitz ist."
+    )
+    pdf.bullets([
+        "Konten – Bestehende Konten werden über den Namen erkannt; für neue Personen eine E-Mail-Adresse angeben. Das neue Konto hat ein Zufallspasswort, das der Vorsitz in der Benutzerverwaltung neu setzt",
+        "Rollen – Mitglieder werden Mitglied, Ersatzmitglieder Ersatzmitglied; Vorsitz und Stellvertretung behalten ihre Rolle bis zur konstituierenden Sitzung. Bei der JAV-Wahl erhalten die Gewählten die Rolle JAV",
+        "Nicht wiedergewählt – Auf Wunsch deaktivieren; sonst verlieren sie nur ihren Wahlrang",
+        "Quote – Minderheitengeschlecht und Mindestsitze landen in den Einstellungen und gelten für das Nachrücken",
+        "Konstituierende Sitzung – Wird mit der Standard-Tagesordnung angelegt (Kapitel 4.6)",
+    ])
+    pdf.bild("wahlen-ergebnis-uebernehmen", "Ergebnis übernehmen – Rangfolge, Stimmen und Geschlecht", hoehe_anteil=0.6)
+    pdf.body("Das übernommene Ergebnis bleibt an der Wahl stehen – so sind frühere Wahlen jederzeit nachschlagbar.")
+
     # 6 ─────────────────────────────────────────────────────────────
     pdf.h1("6  Wissen & Recherche")
     pdf.h2("6.1  Wissensarchiv")
@@ -796,8 +869,17 @@ def build():
     pdf.h2("7.1  Mitarbeiter")
     pdf.body(
         "Stammdaten mit Personalnummer, Abteilung, Standort, Ein- und Austritt sowie Beschäftigungsart "
-        "(Mitarbeiter, Azubi, Student, dual Studierende, Zeitarbeit). Die Übersicht zeigt Kennzahlen und "
-        "die Verteilung nach Standort. Daten lassen sich per CSV mit Vorschau importieren."
+        "(Mitarbeiter, Azubi, Student, dual Studierende, Zeitarbeit). Für Wahlen kommen Geburtsdatum und "
+        "Geschlecht hinzu (Kapitel 5.5). Die Übersicht zeigt Kennzahlen und die Verteilung nach Standort."
+    )
+    pdf.h3("CSV-Import")
+    pdf.body(
+        "Der Import liest eine CSV-Datei (Semikolon oder Komma) mit Kopfzeile und zeigt vor dem Speichern eine "
+        "Vorschau. Pflicht sind nur Nachname und Vorname, die Reihenfolge der Spalten ist egal: PNR, Nachname, "
+        "Vorname, Abteilung, Eintritt, Austritt, Standort, Geburtsdatum, Geschlecht (oder Anrede). Vorhandene "
+        "Mitarbeiter werden über die PNR erkannt und ergänzt; Geburtsdatum und Geschlecht aus der Liste der "
+        "Personalabteilung ersetzen abweichende Werte, die Vorschau meldet jede Korrektur. Ungültige Daten "
+        "werden mit Zeilennummer abgelehnt."
     )
     pdf.bild("mitarbeiter", "Mitarbeiterübersicht mit Kennzahlen", hoehe_anteil=0.6)
     pdf.h2("7.2  Gehaltstabelle")
