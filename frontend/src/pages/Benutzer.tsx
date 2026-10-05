@@ -168,6 +168,7 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
                       <div>
                         <p className="font-medium text-gray-900">{b.name}</p>
                         <p className="text-xs text-gray-400">{b.email}</p>
+                        <EinladungsAdresse benutzer={b} onGespeichert={laden_} onFehler={setFehler} />
                         <p
                           className="text-xs text-gray-300 font-mono cursor-pointer hover:text-gray-500 select-all"
                           title="Klicken zum Kopieren"
@@ -287,12 +288,62 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
   );
 }
 
+// ── Zweitadresse für Einladungen (inline bearbeitbar) ──────────────
+function EinladungsAdresse({ benutzer, onGespeichert, onFehler }: {
+  benutzer: Benutzer; onGespeichert: () => void; onFehler: (f: string) => void;
+}) {
+  const [bearbeiten, setBearbeiten] = useState(false);
+  const [wert, setWert] = useState(benutzer.einladungEmail ?? "");
+
+  async function speichern() {
+    setBearbeiten(false);
+    if (wert.trim() === (benutzer.einladungEmail ?? "")) return;
+    try {
+      await apiFetch(`/api/benutzer/${benutzer.id}`, "PATCH", { einladungEmail: wert.trim() || null });
+      onGespeichert();
+    } catch (err) {
+      setWert(benutzer.einladungEmail ?? "");
+      onFehler(err instanceof Error ? err.message : "Fehler");
+    }
+  }
+
+  if (bearbeiten) {
+    return (
+      <input
+        type="email"
+        autoFocus
+        value={wert}
+        onChange={e => setWert(e.target.value)}
+        onBlur={speichern}
+        onKeyDown={e => {
+          if (e.key === "Enter") speichern();
+          if (e.key === "Escape") { setWert(benutzer.einladungEmail ?? ""); setBearbeiten(false); }
+        }}
+        placeholder="Zweitadresse für Einladungen"
+        className="mt-0.5 w-56 text-xs border border-gray-300 rounded px-1.5 py-0.5 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+      />
+    );
+  }
+  return (
+    <button
+      onClick={() => setBearbeiten(true)}
+      title="Adresse, an die Einladungen gehen (leer = Hauptadresse)"
+      className="text-xs text-left text-gray-500 hover:text-[rgb(var(--accent))]"
+    >
+      {benutzer.einladungEmail
+        ? <>Einladungen an: <span className="text-gray-700">{benutzer.einladungEmail}</span></>
+        : <span className="text-gray-300 hover:text-[rgb(var(--accent))]">+ Adresse für Einladungen</span>}
+    </button>
+  );
+}
+
 // ── Neuer Benutzer Modal ──────────────────────────────────────────
 function NeuerBenutzerModal({ onSchliessen, onErfolg }: { onSchliessen: () => void; onErfolg: () => void }) {
   const [laden, setLaden]     = useState(false);
   const [fehler, setFehler]   = useState("");
   const [name, setName]       = useState("");
   const [email, setEmail]     = useState("");
+  const [einladungEmail, setEinladungEmail] = useState("");
   const [rolle, setRolle]     = useState<Rolle>("MITGLIED");
   const [pw, setPw]           = useState("");
   const [pwWdh, setPwWdh]     = useState("");
@@ -304,7 +355,7 @@ function NeuerBenutzerModal({ onSchliessen, onErfolg }: { onSchliessen: () => vo
     setFehler("");
     setLaden(true);
     try {
-      await apiFetch("/api/benutzer", "POST", { name, email, rolle, passwort: pw });
+      await apiFetch("/api/benutzer", "POST", { name, email, rolle, passwort: pw, einladungEmail: einladungEmail || null });
       onErfolg();
     } catch (err) {
       setFehler(err instanceof Error ? err.message : "Fehler");
@@ -321,6 +372,9 @@ function NeuerBenutzerModal({ onSchliessen, onErfolg }: { onSchliessen: () => vo
         </Feld>
         <Feld label="E-Mail *">
           <input type="email" value={email} onChange={e => setEmail(e.target.value)} required className={input} />
+        </Feld>
+        <Feld label="Adresse für Einladungen (optional)">
+          <input type="email" value={einladungEmail} onChange={e => setEinladungEmail(e.target.value)} className={input} placeholder="z. B. br-name@firma.de – leer = E-Mail oben" />
         </Feld>
         <Feld label="Rolle *">
           <select value={rolle} onChange={e => setRolle(e.target.value as Rolle)} className={input}>

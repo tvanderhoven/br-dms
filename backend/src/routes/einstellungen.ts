@@ -18,6 +18,7 @@ import { erfordert } from "../middleware/rbac.js";
 import { Kategorie, Role, Geschlecht, AuditAktion } from "@prisma/client";
 import { adminHatInhaltszugriff, ADMIN_INHALTSZUGRIFF } from "../lib/adminZugriff.js";
 import { ALLE_KATEGORIEN, STANDARD_AUFBEWAHRUNG_TAGE } from "../lib/kategorien.js";
+import { MAIL_ABSENDER_NAME, MAIL_ABSENDER_ADRESSE } from "../lib/mailer.js";
 
 const STORAGE = process.env.STORAGE_PATH ?? "/data/storage";
 const LOGO_VERZ = path.join(STORAGE, "logo");
@@ -365,6 +366,40 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
       });
 
       return reply.send({ inhaltszugriff });
+    }
+  );
+
+  // ── Mail-Absender (lib/mailer.ts → absender()) ──────────────────────
+  app.get(
+    "/mail",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      const e = await prisma.systemEinstellung.findMany({
+        where: { schluessel: { in: [MAIL_ABSENDER_NAME, MAIL_ABSENDER_ADRESSE] } },
+      });
+      const wert = (k: string) => e.find(x => x.schluessel === k)?.wert ?? "";
+      return reply.send({
+        absenderName:    wert(MAIL_ABSENDER_NAME),
+        absenderAdresse: wert(MAIL_ABSENDER_ADRESSE),
+        standard:        process.env.SMTP_FROM || "",   // gilt, solange keine Adresse eingetragen ist
+        smtpAktiv:       !!process.env.SMTP_HOST,
+      });
+    }
+  );
+
+  app.put<{ Body: { absenderName?: string; absenderAdresse?: string } }>(
+    "/mail",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (request, reply) => {
+      const name    = (request.body.absenderName ?? "").trim();
+      const adresse = (request.body.absenderAdresse ?? "").trim().toLowerCase();
+      if (adresse && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adresse)) {
+        return reply.status(400).send({ fehler: "Ungültige Absenderadresse" });
+      }
+      for (const [schluessel, wert] of [[MAIL_ABSENDER_NAME, name], [MAIL_ABSENDER_ADRESSE, adresse]] as const) {
+        await prisma.systemEinstellung.upsert({ where: { schluessel }, update: { wert }, create: { schluessel, wert } });
+      }
+      return reply.send({ absenderName: name, absenderAdresse: adresse });
     }
   );
 

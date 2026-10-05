@@ -196,6 +196,8 @@ enum AuditAktion {
 model Benutzer {
   id              String    @id @default(uuid())
   email           String    @unique
+  // Zweitadresse für Einladungen (z. B. br-name@… / jav-name@…); leer = Hauptadresse
+  einladungEmail  String?   @map("einladung_email")
   name            String
   passwortHash    String    @map("passwort_hash")
   rolle           Role
