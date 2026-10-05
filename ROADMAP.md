@@ -16,8 +16,44 @@ damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 
 ## Als Nächstes
 
-Nichts priorisiert – das nächste Paket aus „Später“ auswählen. Offen beim Wahl-Modul: Fristen und
-Paragrafen juristisch gegenlesen lassen; klären, ob dual Studierende bei der JAV als Auszubildende zählen.
+Ideen aus der BRbase-Demo (Bund-Verlag, 05.10.2026). BRbase läuft als Cloud-Dienst beim Anbieter,
+BR-DMS ist der Gegenansatz (eigener Server) – einzelne Ideen übernehmen wir trotzdem.
+Reihenfolge noch nicht entschieden; Vorschlag: erst die schnellen Pakete 1–3, dann 4 als Block, dann 5.
+
+| # | Paket | Größe | Inhalt |
+|---|---|---|---|
+| 1 | Sitzungsliste: kommend / vergangen | S | Liste getrennt in „Kommende“ und „Vergangene“ Sitzungen; Spalte mit Anzahl verknüpfter Dokumente (neben der TOP-Anzahl) |
+| 2 | TOPs per Drag & Drop | S | Reihenfolge der TOPs per Ziehen statt Pfeiltasten (natives HTML5-Drag&Drop wie im Themen-Backlog, keine neue Bibliothek); Pfeile als Tastatur-Alternative behalten |
+| 3 | Dokumente: Kategorien sichtbar + Herkunft | S–M | Kategorien als Reiter/Kacheln mit Zähler statt nur Filter-Dropdown; Kategorien ergänzen (z. B. Kündigung, Abmahnung, Versetzung/Eingruppierung, Arbeitgeber-Information); am Dokument anzeigen, in welcher Sitzung/welchem TOP es behandelt wurde (Daten aus `TopDokument` vorhanden) |
+| 4 | Einladung, Ladung und Sitzungspaket | L | siehe unten |
+| 5 | Gremien und Fremdprotokolle | M–L | siehe unten |
+
+**Paket 4 – Einladung, Ladung und Sitzungspaket**
+- *Ladung vorab:* Verhinderung eines Mitglieds schon vor der Sitzung erfassen → Ersatzmitglied laden
+  (bestehender Nachrück-Vorschlag). Steht dann auf Einladung und Unterschriftenliste als „Ersatz für X“
+  und wird in die Anwesenheit übernommen. Heute erscheint „(Vtg. f. X)“ erst, wenn die Anwesenheit erfasst ist.
+- *Zweite E-Mail-Adresse je Benutzer* (z. B. `br-tvanderhoven@…`, `jav-jklaus@…`); Login bleibt die Hauptadresse.
+- *Einladung per E-Mail* an alle Geladenen, mit Tagesordnung als PDF, von einer einstellbaren Absenderadresse.
+- *Versand dokumentieren:* wer wann an welche Adresse eingeladen wurde – nachweisbar (§ 29 Abs. 2 BetrVG).
+- *Sitzungspaket:* Einladung, Tagesordnung, Protokoll und Unterschriftenliste gesammelt zur Sitzung
+  (Download als ZIP oder ein PDF).
+- *Sitzung abschließen:* letzter Schritt wird aktiv abgehakt (Checkliste: Protokoll final, Unterschriftenliste
+  unterschrieben hochgeladen, Beschlüsse erfasst …) → neuer Status „Abgeschlossen“.
+
+**Paket 5 – Gremien und Fremdprotokolle**
+- Sitzungen einem Gremium zuordnen und danach gliedern: BR, Ausschüsse (§ 28), JAV, SBV …
+- *Fremdprotokoll:* Protokoll eines Gremiums, das der BR nicht selbst führt (ASA, Wirtschaftsausschuss,
+  GBR …), als einzelnes Dokument mit Gremium und Datum ablegen – ohne TOPs/Anwesenheit.
+- Überschneidet sich mit „Ausschüsse“, „Schwerbehindertenvertretung“ und „Wirtschaftsausschuss“ unter „Später“.
+
+**Zu klären:**
+- Kategorien fest erweitern oder frei einstellbar? (Aufbewahrungsfristen hängen an der Kategorie.)
+- Einladung an Haupt- und zweite Adresse oder nur an die zweite?
+- Sitzungspaket als ZIP oder als ein zusammengefügtes PDF?
+- Welche Gremien führt der BR selbst mit Protokoll, welche nur als Fremdprotokoll?
+
+Weiter offen beim Wahl-Modul: Fristen und Paragrafen juristisch gegenlesen lassen; klären, ob dual
+Studierende bei der JAV als Auszubildende zählen.
 
 ## Wahl-Modul (BR und JAV) – Entscheidungen
 
