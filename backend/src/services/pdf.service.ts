@@ -109,7 +109,33 @@ function pdfText(s: string | null | undefined): string {
     // nichts darzustellen (Browser kollabieren Tabs automatisch zu einem
     // Leerzeichen, PDFKit tut das nicht).
     .replace(/[\t\f\v]+/g, " ")
-    .replace(/[^\n\x20-\x7E\xA0-\xFF]/g, "");
+    // Mit DejaVu (Docker-Image) gehen auch Latin Extended (ı, ş, ł, ő …) sowie
+    // Gedankenstriche, typografische Anführungszeichen und € – vorher wurden die
+    // still entfernt ("Yılmaz" → "Ylmaz", "§ 99 – Einstellung" ohne Strich).
+    // Ohne DejaVu: auf Grundbuchstaben bzw. ASCII-Ersatz zurückführen.
+    .replace(unicodeSchrift() ? UNICODE_UNERLAUBT : /[^\n\x20-\x7E\xA0-\xFF]/g, z => unicodeSchrift() ? "" : ersatzzeichen(z));
+}
+
+// Zeichen, die DejaVu Sans sicher darstellt: Latin-1, Latin Extended-A/B,
+// allgemeine Interpunktion (– — ‘ ’ „ “ … • ‹ ›), €, ™, Pfeile
+const UNICODE_UNERLAUBT = /[^\n\x20-\x7E\xA0-\u024F\u2010-\u2027\u2030-\u203A\u20AC\u2122\u2190-\u2193]/g;
+
+function unicodeSchrift(): boolean {
+  if (dejaVuVerfuegbar === null) {
+    dejaVuVerfuegbar = Object.values(DEJAVU_FONTS).every(p => fsSync.existsSync(p));
+  }
+  return dejaVuVerfuegbar;
+}
+
+function ersatzzeichen(z: string): string {
+  const fest: Record<string, string> = {
+    "\u2013": "-", "\u2014": "-", "\u2018": "'", "\u2019": "'", "\u201A": ",",
+    "\u201C": "\"", "\u201D": "\"", "\u201E": "\"", "\u2026": "...", "\u20AC": "EUR",
+    "\u0131": "i", "\u0142": "l", "\u0141": "L", "\u0111": "d", "\u0110": "D",
+  };
+  if (fest[z]) return fest[z];
+  const basis = z.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return /^[\x20-\x7E]+$/.test(basis) ? basis : "";
 }
 
 // ── Eingebettete Unicode-Schrift ───────────────────────────────────
@@ -940,14 +966,11 @@ export async function anwesenheitslistePdfGenerieren(
     // Anweisung
     doc.fontSize(9).font("Helvetica").fillColor("#374151")
        .text(
-         "Bitte bestätigen Sie Ihre Anwesenheit durch Ihre Unterschrift. " +
-         "Ersatzmitglieder bitte nur unterschreiben, wenn sie das verhinderte ordentliche Mitglied vertreten.",
+         "Bitte bestätigen Sie Ihre Anwesenheit durch Ihre Unterschrift. Geladene Ersatzmitglieder " +
+         "unterschreiben für das verhinderte Mitglied, das neben ihrem Namen steht.",
          RAND_LINKS, doc.y, { width: BREITE }
        );
     doc.moveDown(1);
-
-    // Spaltenüberschriften
-    abschnittUeberschrift(doc, `Betriebsratsmitglieder (${mitglieder.length})`, layout);
 
     const COL_NR     = RAND_LINKS;
     const COL_NAME   = RAND_LINKS + 22;
@@ -955,50 +978,80 @@ export async function anwesenheitslistePdfGenerieren(
     const COL_STATUS = RAND_LINKS + 300;
     const COL_UNTER  = RAND_LINKS + 380;
 
-    doc.fontSize(8).font("Helvetica-Bold").fillColor(FARBE_GRAU);
-    doc.text("#",            COL_NR,     doc.y, { width: 18 });
-    doc.text("Name",         COL_NAME,   doc.y - doc.currentLineHeight(), { width: 175 });
-    doc.text("Funktion",     COL_ROLLE,  doc.y - doc.currentLineHeight(), { width: 95 });
-    doc.text("Anw. / Entsch.", COL_STATUS, doc.y - doc.currentLineHeight(), { width: 75 });
-    doc.text("Unterschrift", COL_UNTER,  doc.y - doc.currentLineHeight(), { width: RAND_RECHTS - COL_UNTER });
-    doc.moveDown(0.3);
-    doc.moveTo(RAND_LINKS, doc.y).lineTo(RAND_RECHTS, doc.y).strokeColor("#d1d5db").lineWidth(0.5).stroke();
-    doc.moveDown(0.4);
+    // Gruppen: ordentliche Mitglieder, geladene Ersatzmitglieder (mit "für X"),
+    // JAV, übrige Ersatzmitglieder (unterschreiben nur bei kurzfristiger Nachladung)
+    const ORDENTLICH = ["VORSITZ", "STELLVERTRETER", "MITGLIED"];
+    const ordentliche = mitglieder.filter(m => ORDENTLICH.includes(m.rolle));
+    const geladen     = mitglieder.filter(m => m.status === "ERSATZ_FUER");
+    const jav         = mitglieder.filter(m => m.rolle === "JAV");
+    const weitere     = mitglieder.filter(m => m.rolle === "ERSATZMITGLIED" && m.status !== "ERSATZ_FUER");
+    // verhindertes Mitglied → Name des Ersatzes
+    const vertretenDurch = new Map(geladen.filter(m => m.vertretungFuerName).map(m => [m.vertretungFuerName!, m.name]));
 
-    // Mitgliedsliste
-    mitglieder.forEach((m, i) => {
+    function spaltenkopf() {
+      doc.fontSize(8).font("Helvetica-Bold").fillColor(FARBE_GRAU);
+      doc.text("#",            COL_NR,     doc.y, { width: 18 });
+      doc.text("Name",         COL_NAME,   doc.y - doc.currentLineHeight(), { width: 175 });
+      doc.text("Funktion",     COL_ROLLE,  doc.y - doc.currentLineHeight(), { width: 95 });
+      doc.text("Anw. / Entsch.", COL_STATUS, doc.y - doc.currentLineHeight(), { width: 75 });
+      doc.text("Unterschrift", COL_UNTER,  doc.y - doc.currentLineHeight(), { width: RAND_RECHTS - COL_UNTER });
+      doc.moveDown(0.3);
+      doc.moveTo(RAND_LINKS, doc.y).lineTo(RAND_RECHTS, doc.y).strokeColor("#d1d5db").lineWidth(0.5).stroke();
+      doc.moveDown(0.4);
+    }
+
+    function gruppe(titel: string, liste: AnwesenheitsMitglied[], hinweis?: string) {
+      if (liste.length === 0) return;
+      if (doc.y > 640) { doc.addPage(); doc.y = 60; }
+      abschnittUeberschrift(doc, `${titel} (${liste.length})`, layout);
+      if (hinweis) {
+        doc.fontSize(7.5).font("Helvetica").fillColor(FARBE_GRAU).text(hinweis, RAND_LINKS, doc.y, { width: BREITE });
+        doc.moveDown(0.4);
+      }
+      spaltenkopf();
+      liste.forEach((m, i) => zeile(m, i));
+      doc.moveDown(0.3);
+    }
+
+    let nr = 0;
+    function zeile(m: AnwesenheitsMitglied, i: number) {
       if (doc.y > 700) {
         doc.addPage();
         doc.y = 60;
       }
+      nr += 1;
       const rowY = doc.y;
 
       // Zebra-Hintergrund
       if (i % 2 === 0) {
-        doc.rect(RAND_LINKS, rowY - 2, BREITE, 26).fill("#f9fafb");
+        doc.rect(RAND_LINKS, rowY - 2, BREITE, 24).fill("#f9fafb");
       }
 
       doc.fontSize(8).font("Helvetica").fillColor(FARBE_GRAU)
-         .text(`${i + 1}.`, COL_NR, rowY + 4, { width: 18 });
+         .text(`${nr}.`, COL_NR, rowY + 4, { width: 18 });
 
       doc.fontSize(9).font("Helvetica-Bold").fillColor("#111827")
          .text(pdfText(m.name), COL_NAME, rowY + 4, { width: 175 });
 
-      // Rolle + ggf. "Vertretung für X"
-      let rollenText = rolleLabel(m.rolle);
-      if (m.status === "ERSATZ_FUER" && m.vertretungFuerName) {
-        rollenText += ` (Vtg. f. ${pdfText(m.vertretungFuerName)})`;
-      }
+      // Funktion; Vertretung deutlich in der Akzentfarbe
       doc.fontSize(7.5).font("Helvetica").fillColor(FARBE_GRAU)
-         .text(rollenText, COL_ROLLE, rowY + 4, { width: 95 });
+         .text(rolleLabel(m.rolle), COL_ROLLE, rowY + 3, { width: 95 });
+      const vertreter = vertretenDurch.get(m.name);
+      if (m.status === "ERSATZ_FUER" && m.vertretungFuerName) {
+        doc.fontSize(8).font("Helvetica-Bold").fillColor(layout.farbe)
+           .text(`für ${pdfText(m.vertretungFuerName)}`, COL_ROLLE, rowY + 11, { width: 98, height: 10, ellipsis: true });
+      } else if (vertreter) {
+        doc.fontSize(7).font("Helvetica-Oblique").fillColor(layout.farbe)
+           .text(`Ersatz: ${pdfText(vertreter)}`, COL_ROLLE, rowY + 11, { width: 98, height: 9, ellipsis: true });
+      }
 
       // Checkboxen – vorausgefüllt wenn digital erfasst
       const cbY = rowY + 4;
       const istAnwesend   = m.status === "ANWESEND" || m.status === "ERSATZ_FUER";
       const istEntschuldigt = m.status === "ABWESEND_ENTSCHULDIGT";
 
-      // Checkbox Anwesend
-      doc.rect(COL_STATUS, cbY, 9, 9).stroke();
+      // Checkbox Anwesend (Strichfarbe explizit – auf Folgeseiten sonst schwarz)
+      doc.rect(COL_STATUS, cbY, 9, 9).strokeColor("#6b7280").lineWidth(0.6).stroke();
       if (istAnwesend) {
         doc.fontSize(9).font("Helvetica-Bold").fillColor(FARBE_ERFOLG)
            .text("✓", COL_STATUS + 0.5, cbY - 0.5, { width: 9 });
@@ -1007,7 +1060,7 @@ export async function anwesenheitslistePdfGenerieren(
          .text("Anw.", COL_STATUS + 12, cbY + 1, { width: 24 });
 
       // Checkbox Entschuldigt
-      doc.rect(COL_STATUS + 40, cbY, 9, 9).stroke();
+      doc.rect(COL_STATUS + 40, cbY, 9, 9).strokeColor("#6b7280").lineWidth(0.6).stroke();
       if (istEntschuldigt) {
         doc.fontSize(9).font("Helvetica-Bold").fillColor(FARBE_GRAU)
            .text("✓", COL_STATUS + 40.5, cbY - 0.5, { width: 9 });
@@ -1015,12 +1068,17 @@ export async function anwesenheitslistePdfGenerieren(
       doc.fontSize(7).font("Helvetica").fillColor("#374151")
          .text("Entsch.", COL_STATUS + 52, cbY + 1, { width: 30 });
 
-      // Unterschriftslinie – bis zum rechten Rand, nicht darüber hinaus (war vorher +150pt = bis x=590, Rand liegt bei 535)
-      doc.moveTo(COL_UNTER, rowY + 22).lineTo(RAND_RECHTS, rowY + 22)
+      // Unterschriftslinie – bis zum rechten Rand
+      doc.moveTo(COL_UNTER, rowY + 20).lineTo(RAND_RECHTS, rowY + 20)
          .strokeColor("#9ca3af").lineWidth(0.5).stroke();
 
-      doc.y = rowY + 30;
-    });
+      doc.y = rowY + 26;
+    }
+
+    gruppe("Betriebsratsmitglieder", ordentliche);
+    gruppe("Geladene Ersatzmitglieder", geladen);
+    gruppe("Jugend- und Auszubildendenvertretung", jav);
+    gruppe("Weitere Ersatzmitglieder", weitere, "Nur unterschreiben, wenn kurzfristig als Ersatz nachgeladen.");
 
     // Externe Gäste – neue Seite wenn < 210pt übrig (4 Zeilen + Unterschrift)
     if (doc.y > 530) { doc.addPage(); doc.y = 60; }
@@ -1036,7 +1094,7 @@ export async function anwesenheitslistePdfGenerieren(
       if (i % 2 === 0) doc.rect(RAND_LINKS, rowY - 2, BREITE, 26).fill("#f9fafb");
 
       doc.fontSize(8).font("Helvetica").fillColor(FARBE_GRAU)
-         .text(`${mitglieder.length + i + 1}.`, COL_NR, rowY + 4, { width: 18 });
+         .text(`${nr + i + 1}.`, COL_NR, rowY + 4, { width: 18 });
 
       // Leere Linie für Name
       doc.moveTo(COL_NAME, rowY + 20).lineTo(COL_NAME + 165, rowY + 20)
