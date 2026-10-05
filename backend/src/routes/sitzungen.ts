@@ -156,7 +156,21 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
         },
         orderBy: { sitzungsdatum: "desc" },
       });
-      return reply.send(sitzungen);
+
+      // Verknüpfte Dokumente je Sitzung (über die TOPs, jedes Dokument nur einmal);
+      // die JAV sieht vertrauliche TOPs nicht, also zählen sie für sie auch nicht mit
+      const verknuepfungen = await prisma.topDokument.findMany({
+        where:  request.benutzer.rolle === Role.JAV ? { top: { vertraulich: false } } : {},
+        select: { dokumentId: true, top: { select: { sitzungId: true } } },
+      });
+      const dokumenteJeSitzung = new Map<string, Set<string>>();
+      for (const v of verknuepfungen) {
+        const ids = dokumenteJeSitzung.get(v.top.sitzungId) ?? new Set<string>();
+        ids.add(v.dokumentId);
+        dokumenteJeSitzung.set(v.top.sitzungId, ids);
+      }
+
+      return reply.send(sitzungen.map(s => ({ ...s, dokumentAnzahl: dokumenteJeSitzung.get(s.id)?.size ?? 0 })));
     }
   );
 

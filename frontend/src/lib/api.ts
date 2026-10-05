@@ -820,6 +820,7 @@ export interface SitzungListItem {
   erstelltAm: string;
   erstelltVon?: { name: string };
   _count: { tops: number };
+  dokumentAnzahl: number;   // verknüpfte Dokumente über alle TOPs (jedes einmal)
   versionen: { versionNummer: string; typ: string }[];
 }
 

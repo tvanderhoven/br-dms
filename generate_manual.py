@@ -602,6 +602,10 @@ def build():
         (18, 45, 107),
     )
     pdf.bild("sitzungen", "Sitzungsliste mit allen Stufen des Lebenszyklus", hoehe_anteil=0.42)
+    pdf.body(
+        "Die Liste trennt kommende Sitzungen (die nächste zuerst, die heutige zählt dazu) von vergangenen "
+        "(die jüngste zuerst). Neben der Zahl der TOPs steht, wie viele Dokumente mit der Sitzung verknüpft sind."
+    )
 
     pdf.h2("4.2  Sitzung vorbereiten")
     pdf.schritt(1, "Sitzung anlegen",
@@ -609,8 +613,10 @@ def build():
                 "konstituierend oder Betriebsversammlung). Mit einer Vorlage werden Standard-TOPs gleich mit angelegt; "
                 "alle aktiven Mitglieder stehen bereits auf der Anwesenheitsliste.")
     pdf.schritt(2, "Tagesordnung aufbauen",
-                "TOPs hinzufügen, per Rich-Text beschreiben, Dokumente anhängen. Themen aus dem "
-                "Themen-Backlog lassen sich direkt als TOP übernehmen. TOPs können als vertraulich markiert werden.")
+                "TOPs hinzufügen, per Rich-Text beschreiben, Dokumente anhängen. Die Reihenfolge ändern Sie, indem "
+                "Sie einen TOP am Punkte-Griff links an die neue Stelle ziehen; die Pfeile rechts verschieben um eine "
+                "Position. Themen aus dem Themen-Backlog lassen sich direkt als TOP übernehmen. TOPs können als "
+                "vertraulich markiert werden.")
     pdf.schritt(3, "Tagesordnung fixieren",
                 "Vorsitz oder Stellvertretung fixieren die Tagesordnung: Version 1.1 und ihr PDF entstehen, alle Mitglieder "
                 "erhalten eine Nachricht. Danach sind nur noch Spontan-TOPs möglich.")
