@@ -904,7 +904,11 @@ function SitzungDetail({
       {/* Anwesenheitsliste */}
       {!istBV && (
         <div className="mt-5">
-          <AnwesenheitsListe sitzungId={sitzung.id} readonly={sitzung.status === "PROTOKOLL_FINAL"} />
+          <AnwesenheitsListe
+            sitzungId={sitzung.id}
+            readonly={sitzung.status === "PROTOKOLL_FINAL"}
+            vorSitzung={sitzung.status === "ENTWURF" || sitzung.status === "TAGESORDNUNG_FIXIERT"}
+          />
         </div>
       )}
 

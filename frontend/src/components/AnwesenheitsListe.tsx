@@ -31,6 +31,19 @@ const STATUS_LABEL: Record<AnwesenheitsStatus, string> = {
   ERSATZ_FUER: "Ersatzmitglied",
 };
 
+// Vor der Sitzung geht es um die Ladung, nicht um die tatsächliche Anwesenheit
+const STATUS_LABEL_VORAB: Record<AnwesenheitsStatus, string> = {
+  ANWESEND: "Kommt",
+  ABWESEND_ENTSCHULDIGT: "Verhindert",
+  ABWESEND_UNENTSCHULDIGT: "Abwesend (unentschuldigt)",
+  ERSATZ_FUER: "Als Ersatz geladen",
+};
+
+const ROLLE_LABEL: Record<string, string> = {
+  VORSITZ: "Vorsitz", STELLVERTRETER: "Stellv. Vorsitz", MITGLIED: "Mitglied",
+  ERSATZMITGLIED: "Ersatzmitglied", JAV: "JAV",
+};
+
 const STATUS_ICON: Record<AnwesenheitsStatus, React.ReactNode> = {
   ANWESEND: <CheckCircle size={16} className="text-green-600" />,
   ABWESEND_ENTSCHULDIGT: <HelpCircle size={16} className="text-amber-600" />,
@@ -41,9 +54,12 @@ const STATUS_ICON: Record<AnwesenheitsStatus, React.ReactNode> = {
 interface Props {
   sitzungId: string;
   readonly?: boolean;
+  // Sitzung hat noch nicht stattgefunden: Liste dient der Ladung (Verhinderung, Ersatz)
+  vorSitzung?: boolean;
 }
 
-export default function AnwesenheitsListe({ sitzungId, readonly = false }: Props) {
+export default function AnwesenheitsListe({ sitzungId, readonly = false, vorSitzung = false }: Props) {
+  const label = vorSitzung ? STATUS_LABEL_VORAB : STATUS_LABEL;
   const [liste,          setListe]          = useState<ListItem[]>([]);
   const [isLaden,        setIsLaden]        = useState(true);
   const [speichern,      setSpeichern]      = useState<string | null>(null);
@@ -167,12 +183,17 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false }: Props
   }
 
   const anwesend = liste.filter(l => l.anwesenheit?.status === "ANWESEND").length;
+  const kommen   = anwesend + liste.filter(l => l.anwesenheit?.status === "ERSATZ_FUER").length;
+  // verhindertes Mitglied → Name des geladenen Ersatzes
+  const vertretenDurch = new Map(
+    liste
+      .filter(l => l.anwesenheit?.status === "ERSATZ_FUER" && l.anwesenheit.vertretungFuer)
+      .map(l => [l.anwesenheit!.vertretungFuer!.id, l.benutzer.name]),
+  );
   const gesamt   = liste.length;
 
   // Ordentliche Mitglieder für "Vertritt:"-Dropdown
-  const ordentlicheMitglieder = liste.filter(l =>
-    l.benutzer.rolle === "VORSITZ" || l.benutzer.rolle === "MITGLIED"
-  );
+  const ordentlicheMitglieder = liste.filter(l => ORDENTLICHE_ROLLEN.includes(l.benutzer.rolle));
 
   if (isLaden) {
     return (
@@ -186,11 +207,17 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false }: Props
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-gray-800 text-sm">Anwesenheit</h3>
+          <h3 className="font-semibold text-gray-800 text-sm">{vorSitzung ? "Ladung & Verhinderung" : "Anwesenheit"}</h3>
           <span className="text-xs text-gray-500">
-            {anwesend} von {gesamt} anwesend
+            {vorSitzung ? `${kommen} geladen` : `${anwesend} von ${gesamt} anwesend`}
           </span>
         </div>
+        {vorSitzung && !readonly && (
+          <p className="text-xs text-gray-500 mt-1">
+            Ist ein Mitglied verhindert, auf „Verhindert“ stellen – BR-DMS schlägt das nächste Ersatzmitglied
+            laut Wahlrang vor. Geladene Ersatzmitglieder stehen auf der Anwesenheitsliste mit „für …“.
+          </p>
+        )}
       </div>
 
       <div className="divide-y divide-gray-50">
@@ -215,9 +242,12 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false }: Props
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">{item.benutzer.name}</p>
                   <p className="text-xs text-gray-400">
-                    {item.benutzer.rolle}
+                    {ROLLE_LABEL[item.benutzer.rolle] ?? item.benutzer.rolle}
                     {item.anwesenheit?.status === "ERSATZ_FUER" && item.anwesenheit.vertretungFuer && (
-                      <span className="ml-1 text-[rgb(var(--accent))]">für {item.anwesenheit.vertretungFuer.name}</span>
+                      <span className="ml-1 font-medium text-[rgb(var(--accent))]">für {item.anwesenheit.vertretungFuer.name}</span>
+                    )}
+                    {vertretenDurch.get(item.benutzer.id) && (
+                      <span className="ml-1 text-[rgb(var(--accent))]">· Ersatz: {vertretenDurch.get(item.benutzer.id)}</span>
                     )}
                   </p>
                 </div>
@@ -232,7 +262,7 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false }: Props
                         className="flex items-center gap-1 text-xs bg-accent/5 hover:bg-accent/10 text-accent border border-accent/25 px-2 py-1 rounded-lg transition-colors"
                         title="Als Ersatzmitglied nachladen"
                       >
-                        <UserPlus size={12} /> Nachladen
+                        <UserPlus size={12} /> {vorSitzung ? "Laden" : "Nachladen"}
                       </button>
                     )}
 
@@ -243,16 +273,16 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false }: Props
                       className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] disabled:opacity-50"
                     >
                       <option value="">Nicht gesetzt</option>
-                      <option value="ANWESEND">Anwesend</option>
-                      <option value="ABWESEND_ENTSCHULDIGT">Abwesend (entschuldigt)</option>
-                      <option value="ABWESEND_UNENTSCHULDIGT">Abwesend (unentschuldigt)</option>
-                      <option value="ERSATZ_FUER">Ersatzmitglied</option>
+                      <option value="ANWESEND">{label.ANWESEND}</option>
+                      <option value="ABWESEND_ENTSCHULDIGT">{label.ABWESEND_ENTSCHULDIGT}</option>
+                      {!vorSitzung && <option value="ABWESEND_UNENTSCHULDIGT">{label.ABWESEND_UNENTSCHULDIGT}</option>}
+                      <option value="ERSATZ_FUER">{label.ERSATZ_FUER}</option>
                     </select>
                   </div>
                 )}
 
                 {readonly && item.anwesenheit && (
-                  <span className="text-xs text-gray-500">{STATUS_LABEL[item.anwesenheit.status]}</span>
+                  <span className="text-xs text-gray-500">{label[item.anwesenheit.status]}</span>
                 )}
               </div>
 

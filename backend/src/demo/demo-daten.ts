@@ -775,7 +775,10 @@ async function main() {
     // Anwesenheit: gelegentlich fehlt jemand entschuldigt, Ersatz rückt nach Wahlrang nach
     const istVergangen = p.status !== SitzungStatus.TAGESORDNUNG_FIXIERT && !imEntwurf;
     const istBV = p.sitzungstyp === "BETRIEBSVERSAMMLUNG";
-    const abwesend = istVergangen ? ([[], [user["a.wiese"]], [], [user["k.lehmann"], user["s.pohl"]]][si] ?? []) : [];
+    // Bei der kommenden Sitzung hat sich Dirk Meyer schon abgemeldet → Ersatz vorab geladen
+    const abwesend = istVergangen
+      ? ([[], [user["a.wiese"]], [], [user["k.lehmann"], user["s.pohl"]]][si] ?? [])
+      : p.status === SitzungStatus.TAGESORDNUNG_FIXIERT ? [user["d.meyer"]] : [];
     const ersatzReihenfolge = [user["m.engel"], user["l.vogt"], user["p.krause"]];
     const anwesenheiten: Prisma.AnwesenheitCreateManyInput[] = [];
     for (const m of mitglieder) {
