@@ -1203,7 +1203,7 @@ export default function Einstellungen() {
           )}
 
           <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 text-xs text-gray-400">
-            Standardwerte: § 99/102 = 5 Jahre · Bewerbung = 3 Monate · Alt. Bewerbung = 1 Monat · § 87 Zeitmodell = 5 Jahre · Protokoll = 4 Jahre · Betriebsvereinbarung = 10 Jahre · Sonstiges = 5 Jahre
+            Standardwerte: Bewerbung = 3 Monate · Alt. Bewerbung = 1 Monat · Abmahnung = 3 Jahre · Protokoll = 4 Jahre · Betriebsvereinbarung = 10 Jahre · alle übrigen = 5 Jahre. Das Löschdatum einzelner Dokumente lässt sich im Bearbeiten-Dialog des Dokuments ändern.
           </div>
         </div>
       )}

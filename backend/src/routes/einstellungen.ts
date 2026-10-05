@@ -17,6 +17,7 @@ import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { Kategorie, Role, Geschlecht, AuditAktion } from "@prisma/client";
 import { adminHatInhaltszugriff, ADMIN_INHALTSZUGRIFF } from "../lib/adminZugriff.js";
+import { ALLE_KATEGORIEN, STANDARD_AUFBEWAHRUNG_TAGE } from "../lib/kategorien.js";
 
 const STORAGE = process.env.STORAGE_PATH ?? "/data/storage";
 const LOGO_VERZ = path.join(STORAGE, "logo");
@@ -37,25 +38,15 @@ const PROTOKOLL_DEFAULTS = {
 type ProtokollKey = keyof typeof PROTOKOLL_DEFAULTS;
 const PROTOKOLL_KEYS = Object.keys(PROTOKOLL_DEFAULTS) as ProtokollKey[];
 
-const STANDARD_FRISTEN: Record<Kategorie, number> = {
-  ANHOERUNG_99:          1825,
-  ANHOERUNG_102:         1825,
-  BEWERBUNG:              90,
-  BEWERBUNG_ALTERNATIV:   30,
-  ZEITMODELL_87:         1825,
-  PROTOKOLL:             1460,
-  BETRIEBSVEREINBARUNG:  3650,
-  SONSTIGES:             1825,
-};
 
-const ALLE_KATEGORIEN = Object.values(Kategorie);
 
 export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
 
   // ── GET /aufbewahrung ─────────────────────────────────────────────
   app.get(
     "/aufbewahrung",
-    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    // Lesen ab MITGLIED: der Bearbeiten-Dialog schlägt damit das Löschdatum nach Kategorie vor
+    { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (_request: FastifyRequest, reply: FastifyReply) => {
       const regeln = await prisma.aufbewahrungsregel.findMany();
       const regelMap = new Map(regeln.map(r => [r.kategorie, r]));
@@ -64,7 +55,7 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
         const r = regelMap.get(k);
         return {
           kategorie:      k,
-          tage:           r?.tage           ?? STANDARD_FRISTEN[k],
+          tage:           r?.tage           ?? STANDARD_AUFBEWAHRUNG_TAGE[k],
           rechtsgrundlage: r?.rechtsgrundlage ?? null,
           beschreibung:   r?.beschreibung   ?? null,
           istStandard:    !r,

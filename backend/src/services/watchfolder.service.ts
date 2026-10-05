@@ -26,6 +26,10 @@ const ORDNER_KATEGORIE: Record<string, OrdnerEinstufung> = {
   bewerbung:                      { kategorie: Kategorie.BEWERBUNG },
   bewerbung_alternativ:           { kategorie: Kategorie.BEWERBUNG_ALTERNATIV },
   zeitmodell_87:                  { kategorie: Kategorie.ZEITMODELL_87 },
+  abmahnung:                      { kategorie: Kategorie.ABMAHNUNG },
+  arbeitgeber_info:               { kategorie: Kategorie.ARBEITGEBER_INFO },
+  arbeitsschutz:                  { kategorie: Kategorie.ARBEITSSCHUTZ },
+  schriftverkehr:                 { kategorie: Kategorie.SCHRIFTVERKEHR },
   sonstiges:                      { kategorie: Kategorie.SONSTIGES },
 };
 

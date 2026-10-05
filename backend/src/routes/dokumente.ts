@@ -144,6 +144,18 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
             where:  { status: "OFFEN" },
             select: { id: true, typ: true, faelligAm: true, status: true },
           },
+          // In welchen Sitzungen/TOPs wurde das Dokument behandelt?
+          topVerknuepfungen: {
+            select: {
+              top: {
+                select: {
+                  nummer: true,
+                  titel:  true,
+                  sitzung: { select: { id: true, titel: true, sitzungsdatum: true } },
+                },
+              },
+            },
+          },
         },
         orderBy: { erstelltAm: "desc" },
       });
@@ -292,7 +304,17 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
       }
 
       if ("deleteAt" in body) {
-        aenderungen["deleteAt"] = body["deleteAt"] ? new Date(body["deleteAt"] as string) : null;
+        // Ein Datum in der Vergangenheit würde der Lösch-Worker beim nächsten Lauf
+        // endgültig vollstrecken – sofort löschen geht nur über DELETE /:id.
+        const neu = body["deleteAt"] ? new Date(body["deleteAt"] as string) : null;
+        if (neu && Number.isNaN(neu.getTime())) {
+          return reply.status(400).send({ fehler: "Ungültiges Löschdatum" });
+        }
+        const heute = new Date(); heute.setHours(0, 0, 0, 0);
+        if (neu && neu <= heute) {
+          return reply.status(400).send({ fehler: "Das Löschdatum muss in der Zukunft liegen" });
+        }
+        aenderungen["deleteAt"] = neu;
       }
       if ("wiedervorlageAm" in body) {
         aenderungen["wiedervorlageAm"] = body["wiedervorlageAm"] ? new Date(body["wiedervorlageAm"] as string) : null;

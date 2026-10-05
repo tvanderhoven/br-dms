@@ -532,20 +532,26 @@ def build():
 
     pdf.h2("3.2  Dokumentenarchiv")
     pdf.body(
-        "Das Archiv enthält alle Dokumente. Filter nach Kategorie, Status und Volltext helfen beim "
-        "Finden; die Vorschau zeigt PDFs direkt im Browser. Jedes Dokument wird beim Speichern "
-        "verschlüsselt und nur beim Öffnen kurz entschlüsselt."
+        "Das Archiv enthält alle Dokumente. Über der Liste stehen die Kategorien mit der Zahl ihrer "
+        "Dokumente – ein Klick filtert. Unter dem Titel steht, in welcher Sitzung und unter welchem TOP "
+        "das Dokument behandelt wurde; die Vorschau rechts listet alle Sitzungen mit Link. PDFs werden "
+        "direkt im Browser angezeigt. Jedes Dokument wird beim Speichern verschlüsselt und nur beim "
+        "Öffnen kurz entschlüsselt."
     )
     pdf.bild("dokumente", "Dokumentenarchiv mit Kategorie, Fristen und Löschdatum", hoehe_anteil=0.62)
     pdf.tabelle(
         ["Funktion", "Beschreibung"],
         [
             ["Upload", "PDF, DOCX, DOCM, XLSX bis 50 MB; bei PDFs wird der Text für die Volltextsuche ausgelesen"],
-            ["Kategorien", "Anhörung § 99, Anhörung § 102, Bewerbung, Bewerbung (Alternativ), Zeitmodell § 87, Protokoll, Betriebsvereinbarung, Sonstiges"],
+            ["Kategorien", "Anhörung § 99, Kündigung § 102, Abmahnung, Bewerbung, Bewerbung (Alternativ), "
+                           "Zeitmodell § 87, Betriebsvereinbarung, Information des Arbeitgebers, Arbeits- und "
+                           "Gesundheitsschutz, Schriftverkehr, Protokoll, Sonstiges"],
             ["Metadaten", "Titel, Alias, Tags, Aktenzeichen, Beschreibung, Kennzeichen „vertraulich“"],
             ["Versionen", "Beliebig viele Fassungen mit Änderungsnotiz"],
             ["Kommentare", "Diskussion direkt am Dokument"],
             ["Löschung", "Nach Ablauf der Aufbewahrungsfrist Löschvormerkung, danach endgültige, sichere Löschung"],
+            ["Löschdatum ändern", "Im Bearbeiten-Dialog; wechselt die Kategorie, wird das Datum nach deren "
+                                  "Regel ab dem Hochladen neu vorgeschlagen. Nur Daten in der Zukunft"],
         ],
         (32, 138),
     )
@@ -1059,9 +1065,11 @@ def build():
         ["Kategorie", "Standard-Aufbewahrung"],
         [
             ["Anhörung § 99 / § 102", "5 Jahre"],
+            ["Abmahnung", "3 Jahre"],
             ["Bewerbung", "90 Tage"],
             ["Bewerbung (Alternativ)", "30 Tage"],
             ["Zeitmodell § 87", "5 Jahre"],
+            ["Information des Arbeitgebers, Arbeitsschutz, Schriftverkehr", "5 Jahre"],
             ["Protokoll", "4 Jahre"],
             ["Betriebsvereinbarung", "10 Jahre"],
             ["Sonstiges", "5 Jahre"],
@@ -1222,6 +1230,10 @@ def build():
     pdf.body(
         "Mit WATCH_FOLDER_ENABLED=true überwacht das Backend einen Ordner – etwa die Ablage eines "
         "Scanners – und importiert neue PDF-, DOCX-, DOCM- und XLSX-Dateien automatisch in den Eingang. "
+        "Der Unterordner bestimmt die Kategorie: anhoerung_99, anhoerung_102 (ordentliche Kündigung), "
+        "anhoerung_102_ausserordentlich, abmahnung, bewerbung, bewerbung_alternativ, zeitmodell_87, "
+        "betriebsvereinbarung, arbeitgeber_info, arbeitsschutz, schriftverkehr, protokoll, sonstiges. "
+        "Dateien aus unbekannten Ordnern landen unter „Sonstiges“. "
         "Jeder Import und jeder Fehler wird im Audit-Log protokolliert."
     )
 
