@@ -549,10 +549,11 @@ export interface Benutzer {
 }
 
 export type Kategorie =
-  | "ANHOERUNG_99" | "ANHOERUNG_102"
+  | "ANHOERUNG_99" | "ANHOERUNG_102" | "ABMAHNUNG"
   | "BEWERBUNG" | "BEWERBUNG_ALTERNATIV"
   | "ZEITMODELL_87"
-  | "PROTOKOLL" | "BETRIEBSVEREINBARUNG" | "SONSTIGES";
+  | "BETRIEBSVEREINBARUNG" | "ARBEITGEBER_INFO" | "ARBEITSSCHUTZ" | "SCHRIFTVERKEHR"
+  | "PROTOKOLL" | "SONSTIGES";
 
 export type DokumentStatus = "AKTIV" | "ARCHIVIERT" | "LOESCHVORMERKUNG" | "GELOESCHT";
 
@@ -570,6 +571,8 @@ export interface Dokument {
   textinhalt?: string | null;
   hochgeladenVon?: { name: string };
   fristen?: Frist[];
+  // In welchen Sitzungen/TOPs behandelt (nur in der Dokumentliste)
+  topVerknuepfungen?: { top: { nummer: number; titel: string; sitzung: { id: string; titel: string; sitzungsdatum: string } } }[];
 }
 
 // ── Wahlen (Backend: routes/wahlen.ts, Fristen: lib/wahlFristen.ts) ──
@@ -1423,14 +1426,35 @@ export const MODULE_LABEL: Record<ModuleKey, { name: string; beschreibung: strin
 };
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────
+// Reihenfolge = Anzeigereihenfolge (gleich wie backend/src/lib/kategorien.ts)
 export const KATEGORIE_LABEL: Record<Kategorie, string> = {
   ANHOERUNG_99:         "§ 99 BetrVG – Einstellung/Versetzung",
   ANHOERUNG_102:        "§ 102 BetrVG – Kündigung",
+  ABMAHNUNG:            "Abmahnung",
   BEWERBUNG:            "Bewerbung",
   BEWERBUNG_ALTERNATIV: "Alternative Bewerbung (§ 99)",
   ZEITMODELL_87:        "§ 87 BetrVG – Zeitmodelländerung",
-  PROTOKOLL:            "Sitzungsprotokoll",
   BETRIEBSVEREINBARUNG: "Betriebsvereinbarung",
+  ARBEITGEBER_INFO:     "Information des Arbeitgebers",
+  ARBEITSSCHUTZ:        "Arbeits- und Gesundheitsschutz",
+  SCHRIFTVERKEHR:       "Schriftverkehr",
+  PROTOKOLL:            "Sitzungsprotokoll",
+  SONSTIGES:            "Sonstiges",
+};
+
+// Kurzform für die Kategorie-Leiste über der Dokumentliste
+export const KATEGORIE_KURZ: Record<Kategorie, string> = {
+  ANHOERUNG_99:         "§ 99 Einstellung/Versetzung",
+  ANHOERUNG_102:        "§ 102 Kündigung",
+  ABMAHNUNG:            "Abmahnung",
+  BEWERBUNG:            "Bewerbung",
+  BEWERBUNG_ALTERNATIV: "Alt. Bewerbung",
+  ZEITMODELL_87:        "§ 87 Zeitmodell",
+  BETRIEBSVEREINBARUNG: "Betriebsvereinbarung",
+  ARBEITGEBER_INFO:     "Info Arbeitgeber",
+  ARBEITSSCHUTZ:        "Arbeitsschutz",
+  SCHRIFTVERKEHR:       "Schriftverkehr",
+  PROTOKOLL:            "Protokoll",
   SONSTIGES:            "Sonstiges",
 };
 

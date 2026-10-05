@@ -9,22 +9,13 @@ import type { Readable } from "node:stream";
 import { Kategorie, AuditAktion } from "@prisma/client";
 import { encryptFile } from "../lib/encryption.js";
 import prisma from "../lib/prisma.js";
+import { STANDARD_AUFBEWAHRUNG_TAGE } from "../lib/kategorien.js";
 
 const execFileAsync = promisify(execFile);
 
 const STORAGE = process.env.STORAGE_PATH ?? "/data/storage";
 const MASTER_KEY = process.env.ENCRYPTION_KEY!;
 
-const STANDARD_FRISTEN: Record<Kategorie, number> = {
-  ANHOERUNG_99:          1825,
-  ANHOERUNG_102:         1825,
-  BEWERBUNG:              90,
-  BEWERBUNG_ALTERNATIV:   30,
-  ZEITMODELL_87:         1825,
-  PROTOKOLL:             1460,
-  BETRIEBSVEREINBARUNG:  3650,
-  SONSTIGES:             1825,
-};
 
 export interface PipelineOptionen {
   stream: Readable;
@@ -103,7 +94,7 @@ export async function verarbeiteDokument(opts: PipelineOptionen) {
   await fs.unlink(tmpPfad);
 
   const regel = await prisma.aufbewahrungsregel.findUnique({ where: { kategorie } });
-  const aufbewahrungTage = regel?.tage ?? STANDARD_FRISTEN[kategorie];
+  const aufbewahrungTage = regel?.tage ?? STANDARD_AUFBEWAHRUNG_TAGE[kategorie];
   const deleteAt = new Date();
   deleteAt.setDate(deleteAt.getDate() + aufbewahrungTage);
 

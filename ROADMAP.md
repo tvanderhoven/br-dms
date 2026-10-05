@@ -13,19 +13,20 @@ damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 | Wahlen (BR und JAV) | Seite „Wahlen“: Fristen für normales und vereinfachtes Verfahren, Wählerliste mit Gremiumsgröße und Mindestsitzen, PDF zum Aushang und CSV, Ergebnis übernehmen mit konstituierender Sitzung; Mitarbeiter mit Geburtsdatum und Geschlecht (Dialog und CSV-Import) | Okt. 2026 |
 | Admin ohne Inhaltszugriff | Einstellung unter Benutzerverwaltung (nur Vorsitz/Stellvertretung): Admin auf die technische Verwaltung beschränken – Positivliste zentral im Backend, Navigation nur Einstellungen und Nachrichten; kein Passwort-Reset für andere, keine eigene Rollenänderung, neue Konten werden dem Vorsitz gemeldet; Rundnachrichten (Tagesordnung, „an alle“) gehen nicht mehr an ihn | Okt. 2026 |
 | Sitzungsliste + TOPs ziehen | Sitzungsliste in „Kommende“ (nächste zuerst, heute zählt dazu) und „Vergangene“ gegliedert, Spalte „Dokumente“ (verknüpfte Dokumente über alle TOPs, für die JAV ohne vertrauliche TOPs); TOPs im Entwurf am Griff per Drag & Drop verschieben, Pfeile bleiben | Okt. 2026 |
+| Dokumente: Kategorien + Herkunft | Kategorie-Leiste mit Zählern statt Dropdown; neue Kategorien Abmahnung (3 Jahre), Information des Arbeitgebers, Arbeits- und Gesundheitsschutz, Schriftverkehr (je 5 Jahre) samt Watch-Folder-Unterordnern; Kategorien/Aufbewahrung zentral in `backend/src/lib/kategorien.ts`; „Behandelt in Sitzung/TOP“ in Liste und Vorschau; Löschdatum je Dokument mit Vorschlag nach Kategorie-Regel, nur in der Zukunft | Okt. 2026 |
 | Kleinigkeiten | Protokoll-PDF zeigt angenommene Beschlüsse grün; HTTP-Weiterleitung behält den HTTPS-Port; Ort an den Unterschriften als Einstellung statt fest im Code; Fristen im Fristenkalender bearbeiten (Bezeichnung, Datum, Notiz) | Okt. 2026 |
 
 ## Als Nächstes
 
 Ideen aus der BRbase-Demo (Bund-Verlag, 05.10.2026). BRbase läuft als Cloud-Dienst beim Anbieter,
 BR-DMS ist der Gegenansatz (eigener Server) – einzelne Ideen übernehmen wir trotzdem.
-Pakete 1 und 2 erledigt; als Nächstes 3, dann 4 als Block, dann 5.
+Pakete 1–3 erledigt; als Nächstes 4 als Block, dann 5.
 
 | # | Paket | Größe | Inhalt |
 |---|---|---|---|
 | 1 | ~~Sitzungsliste: kommend / vergangen~~ | S | erledigt, siehe oben |
 | 2 | ~~TOPs per Drag & Drop~~ | S | erledigt, siehe oben |
-| 3 | Dokumente: Kategorien sichtbar + Herkunft | S–M | Kategorien als Reiter/Kacheln mit Zähler statt nur Filter-Dropdown; Kategorien ergänzen (z. B. Kündigung, Abmahnung, Versetzung/Eingruppierung, Arbeitgeber-Information); am Dokument anzeigen, in welcher Sitzung/welchem TOP es behandelt wurde (Daten aus `TopDokument` vorhanden) |
+| 3 | ~~Dokumente: Kategorien sichtbar + Herkunft~~ | S–M | erledigt, siehe oben |
 | 4 | Einladung, Ladung und Sitzungspaket | L | siehe unten |
 | 5 | Gremien und Fremdprotokolle | M–L | siehe unten |
 

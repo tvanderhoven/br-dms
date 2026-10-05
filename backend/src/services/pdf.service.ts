@@ -11,6 +11,7 @@ import { Readable } from "node:stream";
 import fs from "node:fs/promises";
 import fsSync from "node:fs";
 import { istBetriebsversammlung } from "../lib/sitzungstypen.js";
+import { KATEGORIE_LABEL } from "../lib/kategorien.js";
 import prisma from "../lib/prisma.js";
 
 // ── Typen (Subset aus Prisma) ─────────────────────────────────────
@@ -211,14 +212,7 @@ function topStatusLabel(s: string): string {
 }
 
 function kategorieLabel(k: string): string {
-  return {
-    ANHOERUNG_99:         "§ 99 BetrVG",
-    ANHOERUNG_102:        "§ 102 BetrVG",
-    BEWERBUNG_ALTERNATIV: "Alternative Bewerbung",
-    PROTOKOLL:            "Sitzungsprotokoll",
-    BETRIEBSVEREINBARUNG: "Betriebsvereinbarung",
-    SONSTIGES:            "Sonstiges",
-  }[k] ?? k;
+  return (KATEGORIE_LABEL as Record<string, string>)[k] ?? k;
 }
 
 // ── Kern-Generator ────────────────────────────────────────────────

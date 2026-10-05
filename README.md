@@ -207,11 +207,16 @@ Auf NAS-Systemen erhalten einliefernde User dann per SMB nur Zugriff auf diesen 
 watch_inbox/
 ├── anhoerung_99/
 ├── anhoerung_102/
+├── anhoerung_102_ausserordentlich/
+├── abmahnung/
 ├── bewerbung/
 ├── bewerbung_alternativ/
 ├── zeitmodell_87/
-├── protokoll/
 ├── betriebsvereinbarung/
+├── arbeitgeber_info/
+├── arbeitsschutz/
+├── schriftverkehr/
+├── protokoll/
 └── sonstiges/
 ```
 
@@ -224,11 +229,16 @@ watch_inbox/
 | §87 BetrVG – Zeitmodelländerung | 5 Jahre |
 | Bewerbung | 3 Monate |
 | Alternative Bewerbung | 1 Monat |
+| Abmahnung | 3 Jahre |
+| Information des Arbeitgebers | 5 Jahre |
+| Arbeits- und Gesundheitsschutz | 5 Jahre |
+| Schriftverkehr | 5 Jahre |
 | Sitzungsprotokoll | 4 Jahre |
 | Betriebsvereinbarung | 10 Jahre |
 | Sonstiges | 5 Jahre |
 
-Alle Fristen sind in den Einstellungen (VORSITZ/ADMIN) individuell anpassbar.
+Alle Fristen sind in den Einstellungen (VORSITZ/ADMIN) individuell anpassbar. Das Löschdatum eines
+einzelnen Dokuments lässt sich im Bearbeiten-Dialog ändern (z. B. nach falscher Kategorie).
 
 ---
 

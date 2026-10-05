@@ -26,6 +26,7 @@ import {
   WahlArt, WahlVerfahren,
 } from "@prisma/client";
 import prisma from "../lib/prisma.js";
+import { STANDARD_AUFBEWAHRUNG_TAGE } from "../lib/kategorien.js";
 import { hashPassword } from "../lib/password.js";
 import { encryptFile } from "../lib/encryption.js";
 import { pdfAutomatischGenerieren } from "../routes/pdf.js";
@@ -119,10 +120,7 @@ function pdfErzeugen(kopf: string, titel: string, abschnitte: [string, string][]
   });
 }
 
-const STANDARD_AUFBEWAHRUNG: Record<Kategorie, number> = {
-  ANHOERUNG_99: 1825, ANHOERUNG_102: 1825, BEWERBUNG: 90, BEWERBUNG_ALTERNATIV: 30,
-  ZEITMODELL_87: 1825, PROTOKOLL: 1460, BETRIEBSVEREINBARUNG: 3650, SONSTIGES: 1825,
-};
+const STANDARD_AUFBEWAHRUNG = STANDARD_AUFBEWAHRUNG_TAGE;
 
 async function dokumentAnlegen(opts: {
   titel: string;
@@ -579,7 +577,7 @@ async function main() {
     erstelltAm: tage(-4), vonId: personal, vertraulich: true,
   });
   const dokGBU = await dokumentAnlegen({
-    titel: "Gefährdungsbeurteilung psychische Belastung – Ergebnisbericht", kategorie: Kategorie.SONSTIGES,
+    titel: "Gefährdungsbeurteilung psychische Belastung – Ergebnisbericht", kategorie: Kategorie.ARBEITSSCHUTZ,
     dateiname: "GBU_Psyche_Ergebnisbericht.pdf", kopf: "Arbeitssicherheit · Fachkraft für Arbeitssicherheit",
     abschnitte: [
       ["Zusammenfassung", "Die Befragung (Rücklauf 64 %) zeigt erhöhte Belastung durch Termindruck in Montage und Service sowie durch Unterbrechungen im Büro."],
@@ -588,13 +586,31 @@ async function main() {
     erstelltAm: tage(-70), vonId: vorsitz, tags: ["Arbeitsschutz", "GBU"],
   });
   const dokPraemie = await dokumentAnlegen({
-    titel: "Entwurf GF: Neue Prämienregelung Produktion", kategorie: Kategorie.SONSTIGES,
+    titel: "Entwurf GF: Neue Prämienregelung Produktion", kategorie: Kategorie.ARBEITGEBER_INFO,
     dateiname: "Entwurf_Praemienregelung_2027.pdf", kopf: "Geschäftsführung",
     abschnitte: [
       ["Ziel", "Einführung einer Gruppenprämie in der Produktion ab 01.01.2027, abhängig von Termintreue und Ausschussquote."],
       ["Hinweis", "Mitbestimmungspflichtig nach § 87 Abs. 1 Nr. 10 und 11 BetrVG – Verhandlungsaufnahme mit dem Betriebsrat erbeten."],
     ],
     erstelltAm: tage(-12), vonId: stv, tags: ["Entgelt", "Verhandlung"],
+  });
+  await dokumentAnlegen({
+    titel: "Abmahnung (Abschrift) – wiederholte Verspätung, Lager", kategorie: Kategorie.ABMAHNUNG,
+    dateiname: "Abmahnung_Abschrift_Lager.pdf", kopf: "Personalabteilung · Abschrift zur Kenntnis des Betriebsrats",
+    abschnitte: [
+      ["Sachverhalt", "Der Mitarbeiter hat an drei Tagen im September den Schichtbeginn um 20 bis 35 Minuten verpasst, ohne sich rechtzeitig zu melden."],
+      ["Hinweis", "Der Mitarbeiter hat um Unterstützung durch den Betriebsrat gebeten; eine Gegendarstellung zur Personalakte ist in Vorbereitung."],
+    ],
+    erstelltAm: tage(-9), vonId: personal, vertraulich: true, tags: ["Personalakte"],
+  });
+  await dokumentAnlegen({
+    titel: "Schreiben an die GF: Auskunftsverlangen Leiharbeit (§ 80 Abs. 2)", kategorie: Kategorie.SCHRIFTVERKEHR,
+    dateiname: "Schreiben_GF_Auskunft_Leiharbeit.pdf", kopf: "Betriebsrat · an die Geschäftsführung",
+    abschnitte: [
+      ["Anliegen", "Der Betriebsrat bittet um eine Aufstellung aller Leiharbeitnehmerinnen und Leiharbeitnehmer mit Einsatzbereich und voraussichtlicher Einsatzdauer."],
+      ["Frist", "Wir bitten um Antwort innerhalb von zwei Wochen."],
+    ],
+    erstelltAm: tage(-20), vonId: vorsitz, tags: ["Leiharbeit"],
   });
   console.log("[Demo] Demo-Dokumente als verschlüsselte PDFs abgelegt");
 

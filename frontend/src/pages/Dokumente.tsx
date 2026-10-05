@@ -1,11 +1,19 @@
 import { useEffect, useState, useRef, FormEvent, useCallback } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import {
-  Upload, Download, Trash2, FileText, Lock, X, Loader2, Search, ChevronDown, Pencil, MessageSquare, Eye, History, ExternalLink,
+  Upload, Download, Trash2, FileText, Lock, X, Loader2, Search, Pencil, MessageSquare, Eye, History, ExternalLink, CalendarDays,
 } from "lucide-react";
 import {
-  api, Dokument, DokumentVersion, Kategorie, KATEGORIE_LABEL, formatDatum, formatDateigroesse, fristFarbe,
+  api, Dokument, DokumentVersion, Kategorie, KATEGORIE_LABEL, KATEGORIE_KURZ, Aufbewahrungsregel,
+  formatDatum, formatDateigroesse, fristFarbe,
 } from "../lib/api";
+
+// Sitzungen/TOPs, in denen ein Dokument behandelt wurde – jüngste Sitzung zuerst
+function behandeltIn(d: Dokument) {
+  return [...(d.topVerknuepfungen ?? [])]
+    .map(v => v.top)
+    .sort((a, b) => b.sitzung.sitzungsdatum.localeCompare(a.sitzung.sitzungsdatum) || a.nummer - b.nummer);
+}
 import KommentarBlock from "../components/KommentarBlock";
 
 const STATUS_BADGE: Record<string, string> = {
@@ -93,6 +101,9 @@ export default function Dokumente() {
     setVorschau(null);
     setVorschauUrl(null);
   }
+
+  const anzahlJeKategorie: Partial<Record<Kategorie, number>> = {};
+  for (const d of dokumente) anzahlJeKategorie[d.kategorie] = (anzahlJeKategorie[d.kategorie] ?? 0) + 1;
 
   const gefiltert = dokumente.filter(d => {
     const suchTreffer = suche === "" ||
@@ -191,19 +202,32 @@ export default function Dokumente() {
               className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
             />
           </div>
-          <div className="relative">
-            <select
-              value={kategorieFilter}
-              onChange={e => setFilter(e.target.value as Kategorie | "")}
-              className="appearance-none pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white"
-            >
-              <option value="">Alle Kategorien</option>
-              {ALLE_KATEGORIEN.map(k => (
-                <option key={k} value={k}>{KATEGORIE_LABEL[k]}</option>
-              ))}
-            </select>
-            <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          </div>
+        </div>
+
+        {/* Kategorien mit Anzahl – leere Kategorien nur, wenn gerade ausgewählt */}
+        <div className="flex flex-wrap gap-1.5 mb-4">
+          {(["", ...ALLE_KATEGORIEN] as (Kategorie | "")[])
+            .filter(k => k === "" || k === kategorieFilter || (anzahlJeKategorie[k] ?? 0) > 0)
+            .map(k => {
+              const aktiv = kategorieFilter === k;
+              return (
+                <button
+                  key={k || "alle"}
+                  onClick={() => setFilter(k)}
+                  title={k ? KATEGORIE_LABEL[k] : "Alle Kategorien"}
+                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                    aktiv
+                      ? "bg-[rgb(var(--accent))] border-[rgb(var(--accent))] text-white"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-[rgb(var(--accent))] hover:text-[rgb(var(--accent))]"
+                  }`}
+                >
+                  {k ? KATEGORIE_KURZ[k] : "Alle"}
+                  <span className={`ml-1.5 ${aktiv ? "text-white/80" : "text-gray-400"}`}>
+                    {k ? anzahlJeKategorie[k] ?? 0 : dokumente.length}
+                  </span>
+                </button>
+              );
+            })}
         </div>
 
         {/* Tabelle */}
@@ -258,6 +282,16 @@ export default function Dokumente() {
                             <p className="text-xs text-gray-400">
                               {d.dateiname} · {formatDateigroesse(d.dateigroesse)}
                             </p>
+                            {behandeltIn(d).length > 0 && (() => {
+                              const [erste, ...weitere] = behandeltIn(d);
+                              return (
+                                <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                                  <CalendarDays size={11} className="text-gray-400 shrink-0" />
+                                  Sitzung {formatDatum(erste.sitzung.sitzungsdatum)}, TOP {erste.nummer}
+                                  {weitere.length > 0 && <span className="text-gray-400">+{weitere.length}</span>}
+                                </p>
+                              );
+                            })()}
                           </div>
                         </div>
                       </td>
@@ -414,6 +448,28 @@ export default function Dokumente() {
               <Pencil size={13} /> Bearbeiten
             </button>
           </div>
+
+          {/* In welchen Sitzungen behandelt */}
+          {behandeltIn(vorschau).length > 0 && (
+            <div className="px-4 py-2 border-b border-gray-100">
+              <p className="text-xs font-medium text-gray-500 mb-1">Behandelt in</p>
+              <ul className="space-y-0.5">
+                {behandeltIn(vorschau).map(t => (
+                  <li key={`${t.sitzung.id}-${t.nummer}`}>
+                    <Link
+                      to={`/sitzungen?id=${t.sitzung.id}`}
+                      className="flex items-start gap-1.5 text-xs text-gray-700 hover:text-[rgb(var(--accent))]"
+                    >
+                      <CalendarDays size={12} className="mt-0.5 text-gray-400 shrink-0" />
+                      <span>
+                        {formatDatum(t.sitzung.sitzungsdatum)} · TOP {t.nummer}: {t.titel}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Versionshistorie */}
           {(versionenLaden || versionen.length > 0) && (
@@ -769,9 +825,31 @@ function BearbeitenModal({ dokument, onSchliessen, onErfolg }: {
   const [aktenzeichen, setAktenzeichen] = useState(dokument.aktenzeichen ?? "");
   const [beschreibung, setBeschreibung] = useState(dokument.beschreibung ?? "");
   const [vertraulich, setVertraulich]   = useState(dokument.vertraulich);
-  const [deleteAt, setDeleteAt]         = useState(
-    dokument.deleteAt ? dokument.deleteAt.slice(0, 10) : ""
-  );
+  const deleteAtVorher = dokument.deleteAt ? dokument.deleteAt.slice(0, 10) : "";
+  const [deleteAt, setDeleteAt]         = useState(deleteAtVorher);
+  const [regeln, setRegeln]             = useState<Aufbewahrungsregel[]>([]);
+  const [angepasst, setAngepasst]       = useState(false);
+
+  useEffect(() => { api.einstellungen.aufbewahrung().then(setRegeln).catch(() => {}); }, []);
+
+  // Löschdatum nach der Aufbewahrungsregel einer Kategorie, gerechnet ab dem Hochladen
+  function regelDatum(k: Kategorie): { datum: string; tage: number } | null {
+    const r = regeln.find(x => x.kategorie === k);
+    if (!r) return null;
+    const d = new Date(dokument.erstelltAm);
+    d.setDate(d.getDate() + r.tage);
+    return { datum: d.toISOString().slice(0, 10), tage: r.tage };
+  }
+
+  function kategorieWechseln(k: Kategorie) {
+    setKategorie(k);
+    const r = regelDatum(k);
+    if (r && r.datum !== deleteAt && r.datum > morgen) { setDeleteAt(r.datum); setAngepasst(true); }
+  }
+
+  const morgen = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+  const vorschlag = regelDatum(kategorie);
+  const dauer = (tage: number) => tage >= 365 ? `${Math.round(tage / 365 * 10) / 10} Jahre` : `${tage} Tage`;
 
   async function speichern(e: FormEvent) {
     e.preventDefault();
@@ -784,7 +862,9 @@ function BearbeitenModal({ dokument, onSchliessen, onErfolg }: {
         aktenzeichen: aktenzeichen || undefined,
         beschreibung: beschreibung || undefined,
         vertraulich,
-        deleteAt:     deleteAt || undefined,
+        // nur bei Änderung senden – sonst scheitert z. B. eine Alias-Änderung an
+        // einem Dokument, dessen Löschdatum schon erreicht ist
+        ...(deleteAt && deleteAt !== deleteAtVorher ? { deleteAt } : {}),
       });
       onErfolg();
     } catch (err) {
@@ -820,7 +900,7 @@ function BearbeitenModal({ dokument, onSchliessen, onErfolg }: {
             <label className="block text-sm font-medium text-gray-700 mb-1">Kategorie</label>
             <select
               value={kategorie}
-              onChange={e => setKategorie(e.target.value as Kategorie)}
+              onChange={e => kategorieWechseln(e.target.value as Kategorie)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white"
             >
               {ALLE_KATEGORIEN.map(k => (
@@ -851,14 +931,38 @@ function BearbeitenModal({ dokument, onSchliessen, onErfolg }: {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Löschdatum</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Aufbewahrung bis (Löschdatum)</label>
             <input
               type="date"
               value={deleteAt}
-              onChange={e => setDeleteAt(e.target.value)}
+              min={morgen}
+              onChange={e => { setDeleteAt(e.target.value); setAngepasst(false); }}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
             />
-            <p className="text-xs text-gray-400 mt-1">Leer lassen = Datum bleibt unverändert</p>
+            {vorschlag && (
+              <p className="text-xs text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
+                <span>
+                  Regel für {KATEGORIE_KURZ[kategorie]}: {dauer(vorschlag.tage)} ab Hochladen → {formatDatum(vorschlag.datum)}
+                </span>
+                {vorschlag.datum !== deleteAt && vorschlag.datum > morgen && (
+                  <button
+                    type="button"
+                    onClick={() => { setDeleteAt(vorschlag.datum); setAngepasst(true); }}
+                    className="text-[rgb(var(--accent))] hover:underline"
+                  >
+                    übernehmen
+                  </button>
+                )}
+              </p>
+            )}
+            {angepasst && deleteAt !== deleteAtVorher && (
+              <p className="text-xs text-amber-700 mt-1">
+                Löschdatum an die Kategorie angepasst (vorher {deleteAtVorher ? formatDatum(deleteAtVorher) : "keins"}).
+              </p>
+            )}
+            {deleteAt && deleteAt !== deleteAtVorher && deleteAt < morgen && (
+              <p className="text-xs text-red-700 mt-1">Das Löschdatum muss in der Zukunft liegen.</p>
+            )}
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer">

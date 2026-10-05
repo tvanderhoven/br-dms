@@ -5,15 +5,8 @@ import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { FRIST_TYP_LABEL } from "../lib/fristen.js";
+import { KATEGORIE_LABEL } from "../lib/kategorien.js";
 
-const KATEGORIE_LABEL: Record<string, string> = {
-  ANHOERUNG_99:         "§ 99 Anhörung",
-  ANHOERUNG_102:        "§ 102 Anhörung",
-  BEWERBUNG_ALTERNATIV: "Bewerbung alternativ",
-  PROTOKOLL:            "Protokoll",
-  BETRIEBSVEREINBARUNG: "Betriebsvereinbarung",
-  SONSTIGES:            "Sonstiges",
-};
 
 
 function pdfBuffer(cb: (doc: InstanceType<typeof PDFDocument>) => void): Promise<Buffer> {
