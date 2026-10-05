@@ -12,18 +12,19 @@ damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 | Sitzungsarten + Betriebsversammlung | Neue Arten „konstituierend“ (Standard-TOPs nach § 29) und „Betriebsversammlung“: Standard-TOPs nach § 43, Teilnehmerzahl statt Anwesenheitsliste, keine Beschlüsse, Anträge (§ 45) per Knopf ins Themen-Backlog, Fragen aus dem Kummerkasten in einen TOP übernehmen, PDF als „Einladung“ (Aushang) und „Niederschrift“; automatische Quartals-Frist (§ 43 Abs. 1), erledigt sich mit der ersten Versammlung im Quartal | Okt. 2026 |
 | Wahlen (BR und JAV) | Seite „Wahlen“: Fristen für normales und vereinfachtes Verfahren, Wählerliste mit Gremiumsgröße und Mindestsitzen, PDF zum Aushang und CSV, Ergebnis übernehmen mit konstituierender Sitzung; Mitarbeiter mit Geburtsdatum und Geschlecht (Dialog und CSV-Import) | Okt. 2026 |
 | Admin ohne Inhaltszugriff | Einstellung unter Benutzerverwaltung (nur Vorsitz/Stellvertretung): Admin auf die technische Verwaltung beschränken – Positivliste zentral im Backend, Navigation nur Einstellungen und Nachrichten; kein Passwort-Reset für andere, keine eigene Rollenänderung, neue Konten werden dem Vorsitz gemeldet; Rundnachrichten (Tagesordnung, „an alle“) gehen nicht mehr an ihn | Okt. 2026 |
+| Sitzungsliste + TOPs ziehen | Sitzungsliste in „Kommende“ (nächste zuerst, heute zählt dazu) und „Vergangene“ gegliedert, Spalte „Dokumente“ (verknüpfte Dokumente über alle TOPs, für die JAV ohne vertrauliche TOPs); TOPs im Entwurf am Griff per Drag & Drop verschieben, Pfeile bleiben | Okt. 2026 |
 | Kleinigkeiten | Protokoll-PDF zeigt angenommene Beschlüsse grün; HTTP-Weiterleitung behält den HTTPS-Port; Ort an den Unterschriften als Einstellung statt fest im Code; Fristen im Fristenkalender bearbeiten (Bezeichnung, Datum, Notiz) | Okt. 2026 |
 
 ## Als Nächstes
 
 Ideen aus der BRbase-Demo (Bund-Verlag, 05.10.2026). BRbase läuft als Cloud-Dienst beim Anbieter,
 BR-DMS ist der Gegenansatz (eigener Server) – einzelne Ideen übernehmen wir trotzdem.
-Reihenfolge noch nicht entschieden; Vorschlag: erst die schnellen Pakete 1–3, dann 4 als Block, dann 5.
+Pakete 1 und 2 erledigt; als Nächstes 3, dann 4 als Block, dann 5.
 
 | # | Paket | Größe | Inhalt |
 |---|---|---|---|
-| 1 | Sitzungsliste: kommend / vergangen | S | Liste getrennt in „Kommende“ und „Vergangene“ Sitzungen; Spalte mit Anzahl verknüpfter Dokumente (neben der TOP-Anzahl) |
-| 2 | TOPs per Drag & Drop | S | Reihenfolge der TOPs per Ziehen statt Pfeiltasten (natives HTML5-Drag&Drop wie im Themen-Backlog, keine neue Bibliothek); Pfeile als Tastatur-Alternative behalten |
+| 1 | ~~Sitzungsliste: kommend / vergangen~~ | S | erledigt, siehe oben |
+| 2 | ~~TOPs per Drag & Drop~~ | S | erledigt, siehe oben |
 | 3 | Dokumente: Kategorien sichtbar + Herkunft | S–M | Kategorien als Reiter/Kacheln mit Zähler statt nur Filter-Dropdown; Kategorien ergänzen (z. B. Kündigung, Abmahnung, Versetzung/Eingruppierung, Arbeitgeber-Information); am Dokument anzeigen, in welcher Sitzung/welchem TOP es behandelt wurde (Daten aus `TopDokument` vorhanden) |
 | 4 | Einladung, Ladung und Sitzungspaket | L | siehe unten |
 | 5 | Gremien und Fremdprotokolle | M–L | siehe unten |
@@ -46,11 +47,19 @@ Reihenfolge noch nicht entschieden; Vorschlag: erst die schnellen Pakete 1–3, 
   GBR …), als einzelnes Dokument mit Gremium und Datum ablegen – ohne TOPs/Anwesenheit.
 - Überschneidet sich mit „Ausschüsse“, „Schwerbehindertenvertretung“ und „Wirtschaftsausschuss“ unter „Später“.
 
-**Zu klären:**
-- Kategorien fest erweitern oder frei einstellbar? (Aufbewahrungsfristen hängen an der Kategorie.)
-- Einladung an Haupt- und zweite Adresse oder nur an die zweite?
-- Sitzungspaket als ZIP oder als ein zusammengefügtes PDF?
-- Welche Gremien führt der BR selbst mit Protokoll, welche nur als Fremdprotokoll?
+**Entschieden (05.10.2026):**
+- Kategorien: vorerst fest (erweitert). Zusätzlich die Aufbewahrungsfrist *pro Dokument* nachträglich
+  ändern können (z. B. wenn beim Hochladen die falsche Kategorie/Frist gewählt wurde).
+- Anmeldung mit der Hauptadresse, Einladungen an die zweite Adresse (falls vorhanden). Dafür ein
+  Kontaktdatensatz je Benutzer, der später auch Personen anderer Gremien, Protokollführung oder
+  Assistenz aufnehmen kann.
+- Die unterschriebene Unterschriftenliste wird als Scan hochgeladen und gehört zum Sitzungspaket –
+  alles unter einem Dach, nichts mehr abheften.
+- Gremien: oberste Gliederung nach Gremium, darunter die Protokolle. Je Gremium frei, ob die Sitzung
+  im System geführt oder ein Fremdprotokoll abgelegt wird – auch gemischt (ASA mal selbst, mal von
+  anderen). Hauptsache dokumentiert.
+
+**Noch offen:** Sitzungspaket als ZIP oder als ein zusammengefügtes PDF?
 
 Weiter offen beim Wahl-Modul: Fristen und Paragrafen juristisch gegenlesen lassen; klären, ob dual
 Studierende bei der JAV als Auszubildende zählen.

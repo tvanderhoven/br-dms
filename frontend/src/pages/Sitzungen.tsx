@@ -1,8 +1,8 @@
-import { useEffect, useState, useRef, FormEvent } from "react";
+import { useEffect, useState, useRef, FormEvent, DragEvent } from "react";
 import { useLocation } from "react-router-dom";
 import { SitzungsVorlage } from "../lib/api";
 import {
-  CalendarDays, Plus, ChevronLeft, ChevronUp, ChevronDown, Lock, Unlock, FileCheck, FileText,
+  CalendarDays, Plus, ChevronLeft, ChevronUp, ChevronDown, GripVertical, Lock, Unlock, FileCheck, FileText,
   Trash2, Link, Unlink, X, Loader2, CheckCircle, Clock, XCircle, RotateCcw, Eye,
   Send, ClipboardList, Download, MessageSquare, Zap, Pencil, RefreshCw, BookmarkPlus, Tag, CheckSquare, Folder, Wallet, MoreHorizontal, Copy, Timer,
   Users, Inbox, ListPlus,
@@ -182,6 +182,14 @@ export default function Sitzungen() {
     listeLaden();
   }
 
+  // Heute zählt noch zu "kommend" – die Sitzung des Tages soll oben stehen.
+  // Kommende aufsteigend (nächste zuerst), vergangene absteigend (jüngste zuerst).
+  const heute = new Date(); heute.setHours(0, 0, 0, 0);
+  const kommende = liste
+    .filter(s => new Date(s.sitzungsdatum) >= heute)
+    .sort((a, b) => a.sitzungsdatum.localeCompare(b.sitzungsdatum));
+  const vergangene = liste.filter(s => new Date(s.sitzungsdatum) < heute);
+
   if (gewählt) {
     return (
       <SitzungDetail
@@ -206,60 +214,24 @@ export default function Sitzungen() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        {laden ? (
-          <div className="flex items-center justify-center h-48 text-gray-400">
-            <Loader2 className="animate-spin mr-2" size={18} /> Laden…
-          </div>
-        ) : liste.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 text-gray-400 text-sm">
-            <CalendarDays size={32} className="mb-2 opacity-30" />
-            Noch keine Sitzungen angelegt
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500 uppercase tracking-wide">
-                <th className="px-4 py-3 font-medium">Sitzung</th>
-                <th className="px-4 py-3 font-medium">Datum</th>
-                <th className="px-4 py-3 font-medium hidden sm:table-cell">Typ</th>
-                <th className="px-4 py-3 font-medium hidden sm:table-cell">Status</th>
-                <th className="px-4 py-3 font-medium hidden md:table-cell">TOPs</th>
-                <th className="px-4 py-3 font-medium hidden md:table-cell">Version</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {liste.map(s => (
-                <tr
-                  key={s.id}
-                  onClick={() => detailLaden ? undefined : sitzungOeffnen(s.id)}
-                  className="hover:bg-gray-50 transition-colors cursor-pointer"
-                >
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-gray-900">{s.titel}</p>
-                    {s.ort && <p className="text-xs text-gray-400">{s.ort}</p>}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">
-                    {formatDatum(s.sitzungsdatum)}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-gray-500 hidden sm:table-cell">
-                    {SITZUNGSTYP_LABEL[s.sitzungstyp] ?? s.sitzungstyp}
-                  </td>
-                  <td className="px-4 py-3 hidden sm:table-cell">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${SITZUNG_BADGE[s.status]}`}>
-                      {sitzungStatusLabel(s.status, s.sitzungstyp)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{s._count.tops}</td>
-                  <td className="px-4 py-3 text-xs text-gray-500 hidden md:table-cell">
-                    {s.versionen[0] ? versionLabel(s.versionen[0].typ, s.sitzungstyp) ?? s.versionen[0].versionNummer : "–"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {laden ? (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm flex items-center justify-center h-48 text-gray-400">
+          <Loader2 className="animate-spin mr-2" size={18} /> Laden…
+        </div>
+      ) : liste.length === 0 ? (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col items-center justify-center h-48 text-gray-400 text-sm">
+          <CalendarDays size={32} className="mb-2 opacity-30" />
+          Noch keine Sitzungen angelegt
+        </div>
+      ) : (
+        <SitzungTabelle
+          gruppen={[
+            { titel: "Kommende Sitzungen",  leerText: "Keine Sitzung geplant",            sitzungen: kommende },
+            { titel: "Vergangene Sitzungen", leerText: "Noch keine vergangenen Sitzungen", sitzungen: vergangene },
+          ]}
+          onOeffnen={id => detailLaden ? undefined : sitzungOeffnen(id)}
+        />
+      )}
 
       {neueModal && (
         <NeueSitzungModal
@@ -267,6 +239,80 @@ export default function Sitzungen() {
           onErfolg={(id) => { setNeueModal(false); listeLaden(); sitzungOeffnen(id); }}
         />
       )}
+    </div>
+  );
+}
+
+// ── Sitzungstabelle, gegliedert in kommende und vergangene ─────────
+// Eine Tabelle mit Zwischenüberschriften statt zwei Tabellen, damit die
+// Spalten beider Abschnitte bündig untereinander stehen.
+function SitzungTabelle({ gruppen, onOeffnen }: {
+  gruppen: { titel: string; leerText: string; sitzungen: SitzungListItem[] }[];
+  onOeffnen: (id: string) => void;
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500 uppercase tracking-wide">
+            <th className="px-4 py-3 font-medium">Sitzung</th>
+            <th className="px-4 py-3 font-medium">Datum</th>
+            <th className="px-4 py-3 font-medium hidden sm:table-cell">Typ</th>
+            <th className="px-4 py-3 font-medium hidden sm:table-cell">Status</th>
+            <th className="px-4 py-3 font-medium hidden md:table-cell">TOPs</th>
+            <th className="px-4 py-3 font-medium hidden md:table-cell">Dokumente</th>
+            <th className="px-4 py-3 font-medium hidden md:table-cell">Version</th>
+          </tr>
+        </thead>
+        {gruppen.map(g => (
+          <tbody key={g.titel} className="divide-y divide-gray-50 border-b border-gray-100 last:border-b-0">
+            <tr>
+              <td colSpan={7} className="px-4 pt-4 pb-2 text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                {g.titel} <span className="font-normal text-gray-400">({g.sitzungen.length})</span>
+              </td>
+            </tr>
+            {g.sitzungen.length === 0 && (
+              <tr><td colSpan={7} className="px-4 py-4 text-sm text-gray-400">{g.leerText}</td></tr>
+            )}
+            {g.sitzungen.map(s => (
+              <tr
+                key={s.id}
+                onClick={() => onOeffnen(s.id)}
+                className="hover:bg-gray-50 transition-colors cursor-pointer"
+              >
+                <td className="px-4 py-3">
+                  <p className="font-medium text-gray-900">{s.titel}</p>
+                  {s.ort && <p className="text-xs text-gray-400">{s.ort}</p>}
+                </td>
+                <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+                  {formatDatum(s.sitzungsdatum)}
+                </td>
+                <td className="px-4 py-3 text-xs text-gray-500 hidden sm:table-cell">
+                  {SITZUNGSTYP_LABEL[s.sitzungstyp] ?? s.sitzungstyp}
+                </td>
+                <td className="px-4 py-3 hidden sm:table-cell">
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full border whitespace-nowrap ${SITZUNG_BADGE[s.status]}`}>
+                    {sitzungStatusLabel(s.status, s.sitzungstyp)}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{s._count.tops}</td>
+                <td className="px-4 py-3 hidden md:table-cell">
+                  {s.dokumentAnzahl > 0 ? (
+                    <span className="inline-flex items-center gap-1 text-gray-600">
+                      <FileText size={13} className="text-gray-400" /> {s.dokumentAnzahl}
+                    </span>
+                  ) : (
+                    <span className="text-gray-300">–</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-xs text-gray-500 hidden md:table-cell whitespace-nowrap">
+                  {s.versionen[0] ? versionLabel(s.versionen[0].typ, s.sitzungstyp) ?? s.versionen[0].versionNummer : "–"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        ))}
+      </table>
     </div>
   );
 }
@@ -508,19 +554,53 @@ function SitzungDetail({
   // für alle anderen bleibt der Knopf nach PROTOKOLL_FINAL ausgeblendet.
   const kannRetroaktivUebertragen = meineRolle === "VORSITZ" || meineRolle === "STELLVERTRETER" || meineRolle === "ADMIN";
 
-  async function topVerschieben(topId: string, richtung: "hoch" | "runter") {
+  // TOP an Position zielIdx (in der Liste OHNE den verschobenen TOP) setzen –
+  // für die Pfeile (±1) und für Drag & Drop
+  async function topVerschiebenNach(topId: string, zielIdx: number) {
     const tops = [...sitzung.tops].sort((a, b) => a.nummer - b.nummer);
     const idx = tops.findIndex(t => t.id === topId);
     if (idx < 0) return;
-    const tauschIdx = richtung === "hoch" ? idx - 1 : idx + 1;
-    if (tauschIdx < 0 || tauschIdx >= tops.length) return;
-    [tops[idx], tops[tauschIdx]] = [tops[tauschIdx], tops[idx]];
+    const [top] = tops.splice(idx, 1);
+    const ziel = Math.max(0, Math.min(zielIdx, tops.length));
+    if (ziel === idx) return;
+    tops.splice(ziel, 0, top);
     try {
       await api.sitzungen.topReihenfolge(sitzung.id, tops.map(t => t.id));
       onAktualisieren();
     } catch (err) {
       setFehler(err instanceof Error ? err.message : "Fehler beim Verschieben");
     }
+  }
+
+  function topVerschieben(topId: string, richtung: "hoch" | "runter") {
+    const idx = sitzung.tops.findIndex(t => t.id === topId);
+    return topVerschiebenNach(topId, richtung === "hoch" ? idx - 1 : idx + 1);
+  }
+
+  // Drag & Drop: gezogen wird am Griff, Ziel ist die ganze Zeile. Die obere
+  // bzw. untere Zeilenhälfte entscheidet, ob davor oder dahinter eingefügt wird.
+  const [gezogenId, setGezogenId] = useState<string | null>(null);
+  const [ablage, setAblage] = useState<{ idx: number; davor: boolean } | null>(null);
+
+  function ziehenUeber(e: DragEvent<HTMLDivElement>, idx: number) {
+    if (!gezogenId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const r = e.currentTarget.getBoundingClientRect();
+    const davor = e.clientY < r.top + r.height / 2;
+    setAblage(a => (a?.idx === idx && a.davor === davor ? a : { idx, davor }));
+  }
+
+  function ablegen(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    if (gezogenId && ablage) {
+      const vonIdx = sitzung.tops.findIndex(t => t.id === gezogenId);
+      let ziel = ablage.davor ? ablage.idx : ablage.idx + 1;
+      if (vonIdx < ziel) ziel -= 1;   // Liste ohne den gezogenen TOP
+      topVerschiebenNach(gezogenId, ziel);
+    }
+    setGezogenId(null);
+    setAblage(null);
   }
 
   async function sitzungLoeschen() {
@@ -768,8 +848,17 @@ function SitzungDetail({
         ) : (
           <div className="divide-y divide-gray-50">
             {sitzung.tops.map((top, idx) => (
-              <TopZeile
+              <div
                 key={top.id}
+                data-top-zeile
+                onDragOver={e => ziehenUeber(e, idx)}
+                onDrop={ablegen}
+                className={`relative transition-opacity ${gezogenId === top.id ? "opacity-40" : ""}`}
+              >
+              {ablage?.idx === idx && gezogenId && gezogenId !== top.id && (
+                <div className={`absolute left-3 right-3 h-0.5 rounded bg-[rgb(var(--accent))] z-10 ${ablage.davor ? "-top-px" : "-bottom-px"}`} />
+              )}
+              <TopZeile
                 top={top}
                 sitzungId={sitzung.id}
                 sitzungTitel={sitzung.titel}
@@ -786,10 +875,19 @@ function SitzungDetail({
                 onLoeschen={() => topLoeschen(top.id)}
                 onVerschiebenHoch={() => topVerschieben(top.id, "hoch")}
                 onVerschiebenRunter={() => topVerschieben(top.id, "runter")}
+                onZiehenStart={e => {
+                  const zeile = (e.currentTarget as HTMLElement).closest("[data-top-zeile]");
+                  if (zeile) e.dataTransfer.setDragImage(zeile, 20, 20);
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/top-id", top.id);
+                  setGezogenId(top.id);
+                }}
+                onZiehenEnde={() => { setGezogenId(null); setAblage(null); }}
                 onDokumentVerknuepfen={() => setLinkModal({ topId: top.id, topTitel: top.titel })}
                 onDokumentEntknuepfen={(dId) => dokumentEntknuepfen(top.id, dId)}
                 onAktualisieren={onAktualisieren}
               />
+              </div>
             ))}
           </div>
         )}
@@ -861,7 +959,7 @@ function SitzungDetail({
 function TopZeile({
   top, sitzungId, sitzungTitel, sitzungsdatum, sitzungStatus, istBV, readonly, imEntwurf, imProtokoll, kannRetroaktivUebertragen,
   istErster, istLetzter,
-  onBearbeiten, onLoeschen, onVerschiebenHoch, onVerschiebenRunter,
+  onBearbeiten, onLoeschen, onVerschiebenHoch, onVerschiebenRunter, onZiehenStart, onZiehenEnde,
   onDokumentVerknuepfen, onDokumentEntknuepfen, onAktualisieren,
 }: {
   top: TOP;
@@ -880,6 +978,8 @@ function TopZeile({
   onLoeschen: () => void;
   onVerschiebenHoch: () => void;
   onVerschiebenRunter: () => void;
+  onZiehenStart: (e: DragEvent<HTMLElement>) => void;
+  onZiehenEnde: () => void;
   onDokumentVerknuepfen: () => void;
   onDokumentEntknuepfen: (dokumentId: string) => void;
   onAktualisieren: () => void;
@@ -954,6 +1054,17 @@ function TopZeile({
   return (
     <div className="px-4 py-3">
       <div className="flex items-start gap-3">
+        {imEntwurf && (
+          <span
+            draggable
+            onDragStart={onZiehenStart}
+            onDragEnd={onZiehenEnde}
+            title="Ziehen zum Verschieben"
+            className="-ml-2 mt-0.5 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing shrink-0"
+          >
+            <GripVertical size={15} />
+          </span>
+        )}
         <span className="mt-0.5 text-xs font-bold text-gray-400 w-6 shrink-0">
           {top.nummer}.
         </span>
