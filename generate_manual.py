@@ -634,7 +634,9 @@ def build():
                 "In der Karte „Einladung per E-Mail“ verschickt der Vorsitz die Einladung mit der Tagesordnung als PDF an "
                 "alle Geladenen – an deren Adresse für Einladungen (z. B. br-…), sonst an die Hauptadresse. Wer später "
                 "nachgeladen wird, bekommt sie mit „An Neue senden“. Jeder Versand wird mit Zeitpunkt, Adresse und "
-                "Ergebnis protokolliert – das ist der Nachweis der Ladung. Die JAV erhält keine vertraulichen TOPs.")
+                "Ergebnis protokolliert – das ist der Nachweis der Ladung. Die JAV erhält keine vertraulichen TOPs. "
+                "Vor dem Senden öffnet sich ein Fenster für einen zusätzlichen Text, etwa den Link zu einem "
+                "Online-Meeting; er wird beim nächsten Versand für dieselbe Sitzung vorgeschlagen.")
     pdf.bild("vorlagen", "Sitzungsvorlagen für wiederkehrende Tagesordnungen", hoehe_anteil=0.35)
 
     pdf.h2("4.3  Sitzung durchführen und protokollieren")
@@ -1088,7 +1090,7 @@ def build():
     )
     pdf.bullets([
         "Protokoll-Layout – Logo hochladen, Kopf- und Fußzeile, Akzentfarbe, Unterschriftszeilen und der Ort vor dem Datum an den Unterschriften (leer = nur Datum)",
-        "System – E-Mail-Absender (Name und Adresse für alle Mails; ohne Eintrag gilt SMTP_FROM), Status des Watch-Folders und Übersicht der Backups (Anzahl, Alter, Größe, Vollständigkeit)",
+        "System – E-Mail-Absender (Name und Adresse für alle Mails; ohne Eintrag gilt SMTP_FROM) und Signatur unter den Einladungen, Status des Watch-Folders und Übersicht der Backups (Anzahl, Alter, Größe, Vollständigkeit)",
         "Automatisches Abmelden – Nach 0 bis 480 Minuten Inaktivität (0 = aus)",
     ])
 

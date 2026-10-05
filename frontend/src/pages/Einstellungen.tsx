@@ -960,6 +960,7 @@ function formatGroesse(bytes: number): string {
 function MailAbsenderEinstellung() {
   const [name, setName]         = useState("");
   const [adresse, setAdresse]   = useState("");
+  const [signatur, setSignatur] = useState("");
   const [standard, setStandard] = useState("");
   const [smtpAktiv, setSmtpAktiv] = useState(true);
   const [laden, setLaden]       = useState(true);
@@ -969,7 +970,7 @@ function MailAbsenderEinstellung() {
 
   useEffect(() => {
     api.einstellungen.mail()
-      .then(m => { setName(m.absenderName); setAdresse(m.absenderAdresse); setStandard(m.standard); setSmtpAktiv(m.smtpAktiv); })
+      .then(m => { setName(m.absenderName); setAdresse(m.absenderAdresse); setSignatur(m.signatur); setStandard(m.standard); setSmtpAktiv(m.smtpAktiv); })
       .catch(() => {})
       .finally(() => setLaden(false));
   }, []);
@@ -977,7 +978,7 @@ function MailAbsenderEinstellung() {
   async function speichernKlick() {
     setFehler(""); setSpeichern(true); setGespeichert(false);
     try {
-      await api.einstellungen.mailSpeichern({ absenderName: name, absenderAdresse: adresse });
+      await api.einstellungen.mailSpeichern({ absenderName: name, absenderAdresse: adresse, signatur });
       setGespeichert(true);
       setTimeout(() => setGespeichert(false), 3000);
     } catch (err) {
@@ -1004,9 +1005,16 @@ function MailAbsenderEinstellung() {
       {laden ? (
         <div className="flex items-center text-gray-400 text-sm"><Loader2 size={16} className="animate-spin mr-2" /> Laden…</div>
       ) : (
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-start gap-2 flex-wrap">
           <input value={name} onChange={e => setName(e.target.value)} placeholder="Name, z. B. Betriebsrat" className={`${feld} w-56`} />
           <input type="email" value={adresse} onChange={e => setAdresse(e.target.value)} placeholder="betriebsrat@firma.de" className={`${feld} w-72`} />
+          <textarea
+            value={signatur}
+            onChange={e => setSignatur(e.target.value)}
+            rows={3}
+            placeholder={"Signatur unter Einladungen, z. B.\nBetriebsrat Nordwerk · Werk 1, Raum 104\nTel. 0123 456-78 · betriebsrat@firma.de"}
+            className={`${feld} w-full resize-y`}
+          />
           <button
             onClick={speichernKlick}
             disabled={speichern}

@@ -10,6 +10,7 @@ const SMTP_FROM = process.env.SMTP_FROM || `"BR-DMS" <noreply@br-dms.lokal>`;
 
 export const MAIL_ABSENDER_NAME    = "mail.absender_name";
 export const MAIL_ABSENDER_ADRESSE = "mail.absender_adresse";
+export const MAIL_SIGNATUR         = "mail.signatur";   // unter jeder Einladung
 
 /**
  * Absender aller Mails: Einstellungen → System (z. B. "Betriebsrat" <betriebsrat@firma.de>),
@@ -191,6 +192,15 @@ export interface EinladungMail {
   sitzungUrl:      string;
   anhang:          { dateiname: string; pfad: string } | null;
   unterschrift:    string;            // z. B. "Sabine Kröger, Vorsitzende"
+  zusatz:          string | null;     // freier Text dieses Versands (z. B. Meeting-Link)
+  signatur:        string | null;     // feste Signatur aus den Einstellungen
+}
+
+// Text → HTML: escapen, Zeilenumbrüche erhalten, Links anklickbar machen
+function textAlsHtml(t: string): string {
+  return html(t)
+    .replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)])/g, '<a href="$1">$1</a>')
+    .replace(/\n/g, "<br>");
 }
 
 /** Verschickt eine Einladung; wirft bei Fehlern (der Aufrufer protokolliert). */
@@ -211,6 +221,7 @@ export async function sendeEinladung(m: EinladungMail): Promise<void> {
     `Termin: ${datum}, ${zeit} Uhr`,
     ...(m.ort ? [`Ort:    ${m.ort}`] : []),
     ...(ersatz ? ["", ersatz] : []),
+    ...(m.zusatz ? ["", m.zusatz] : []),
     "",
     "Tagesordnung:",
     ...m.tops.map(t => `  ${t.nummer}. ${t.titel}`),
@@ -222,6 +233,7 @@ export async function sendeEinladung(m: EinladungMail): Promise<void> {
     "",
     "Viele Grüße",
     m.unterschrift,
+    ...(m.signatur ? ["", "-- ", m.signatur] : []),
   ].join("\n");
 
   const topsHtml = m.tops.map(t =>
@@ -241,11 +253,13 @@ export async function sendeEinladung(m: EinladungMail): Promise<void> {
         ${m.ort ? `<tr><td style="padding:2px 12px 2px 0;color:#6b7280">Ort</td><td>${html(m.ort)}</td></tr>` : ""}
       </table>
       ${ersatz ? `<p style="background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:8px 12px">${html(ersatz)}</p>` : ""}
+      ${m.zusatz ? `<p style="background:#f3f4f6;border-radius:6px;padding:8px 12px">${textAlsHtml(m.zusatz)}</p>` : ""}
       <p style="margin-bottom:4px"><strong>Tagesordnung</strong></p>
       <table style="border-collapse:collapse">${topsHtml}</table>
       <p>${m.anhang ? "Die Tagesordnung liegt als PDF bei. " : ""}<a href="${html(m.sitzungUrl)}">Sitzung in BR-DMS öffnen</a></p>
       <p style="color:#6b7280;font-size:13px">Solltest du verhindert sein, gib bitte unverzüglich Bescheid, damit ein Ersatzmitglied geladen werden kann.</p>
       <p>Viele Grüße<br>${html(m.unterschrift)}</p>
+      ${m.signatur ? `<p style="color:#6b7280;font-size:13px;border-top:1px solid #e5e7eb;padding-top:8px">${textAlsHtml(m.signatur)}</p>` : ""}
     </div>`,
     attachments: m.anhang ? [{ filename: m.anhang.dateiname, path: m.anhang.pfad }] : [],
   });

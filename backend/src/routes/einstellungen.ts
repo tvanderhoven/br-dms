@@ -18,7 +18,7 @@ import { erfordert } from "../middleware/rbac.js";
 import { Kategorie, Role, Geschlecht, AuditAktion } from "@prisma/client";
 import { adminHatInhaltszugriff, ADMIN_INHALTSZUGRIFF } from "../lib/adminZugriff.js";
 import { ALLE_KATEGORIEN, STANDARD_AUFBEWAHRUNG_TAGE } from "../lib/kategorien.js";
-import { MAIL_ABSENDER_NAME, MAIL_ABSENDER_ADRESSE } from "../lib/mailer.js";
+import { MAIL_ABSENDER_NAME, MAIL_ABSENDER_ADRESSE, MAIL_SIGNATUR } from "../lib/mailer.js";
 
 const STORAGE = process.env.STORAGE_PATH ?? "/data/storage";
 const LOGO_VERZ = path.join(STORAGE, "logo");
@@ -375,19 +375,20 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (_request: FastifyRequest, reply: FastifyReply) => {
       const e = await prisma.systemEinstellung.findMany({
-        where: { schluessel: { in: [MAIL_ABSENDER_NAME, MAIL_ABSENDER_ADRESSE] } },
+        where: { schluessel: { in: [MAIL_ABSENDER_NAME, MAIL_ABSENDER_ADRESSE, MAIL_SIGNATUR] } },
       });
       const wert = (k: string) => e.find(x => x.schluessel === k)?.wert ?? "";
       return reply.send({
         absenderName:    wert(MAIL_ABSENDER_NAME),
         absenderAdresse: wert(MAIL_ABSENDER_ADRESSE),
+        signatur:        wert(MAIL_SIGNATUR),
         standard:        process.env.SMTP_FROM || "",   // gilt, solange keine Adresse eingetragen ist
         smtpAktiv:       !!process.env.SMTP_HOST,
       });
     }
   );
 
-  app.put<{ Body: { absenderName?: string; absenderAdresse?: string } }>(
+  app.put<{ Body: { absenderName?: string; absenderAdresse?: string; signatur?: string } }>(
     "/mail",
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request, reply) => {
@@ -396,10 +397,11 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
       if (adresse && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adresse)) {
         return reply.status(400).send({ fehler: "Ungültige Absenderadresse" });
       }
-      for (const [schluessel, wert] of [[MAIL_ABSENDER_NAME, name], [MAIL_ABSENDER_ADRESSE, adresse]] as const) {
+      const signatur = (request.body.signatur ?? "").trim().slice(0, 2000);
+      for (const [schluessel, wert] of [[MAIL_ABSENDER_NAME, name], [MAIL_ABSENDER_ADRESSE, adresse], [MAIL_SIGNATUR, signatur]] as const) {
         await prisma.systemEinstellung.upsert({ where: { schluessel }, update: { wert }, create: { schluessel, wert } });
       }
-      return reply.send({ absenderName: name, absenderAdresse: adresse });
+      return reply.send({ absenderName: name, absenderAdresse: adresse, signatur });
     }
   );
 

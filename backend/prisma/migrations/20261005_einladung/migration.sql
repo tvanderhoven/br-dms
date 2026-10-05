@@ -20,3 +20,6 @@ CREATE TABLE "einladung_versand" (
   "versendet_von"    TEXT NOT NULL
 );
 CREATE INDEX "einladung_versand_sitzung_id_idx" ON "einladung_versand"("sitzung_id");
+
+-- Zusatztext je Versand (z. B. Online-Meeting-Link)
+ALTER TABLE "einladung_versand" ADD COLUMN "zusatz" TEXT;

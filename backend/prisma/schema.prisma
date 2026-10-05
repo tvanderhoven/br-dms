@@ -506,6 +506,7 @@ model EinladungVersand {
   rolle          String
   vertretungFuer String?  @map("vertretung_fuer")   // Name des verhinderten Mitglieds
   mitAnhang      Boolean  @default(false) @map("mit_anhang")
+  zusatz         String?                             // freier Text dieses Versands (z. B. Online-Meeting-Link)
   erfolgreich    Boolean
   fehler         String?
   versendetAm    DateTime @default(now()) @map("versendet_am")
