@@ -3,7 +3,7 @@
  * Backend: routes/einladung.ts
  */
 import { useEffect, useState } from "react";
-import { Mail, Send, Loader2, CheckCircle, XCircle, Clock, ChevronDown, ChevronRight } from "lucide-react";
+import { Mail, Send, Loader2, CheckCircle, XCircle, Clock, ChevronDown, ChevronRight, X } from "lucide-react";
 import { api, Rolle, EinladungStand } from "../lib/api";
 
 const ROLLE_LABEL: Record<string, string> = {
@@ -25,6 +25,9 @@ export default function EinladungKarte({ sitzungId, meineRolle, aktualisierung }
   const [meldung, setMeldung]   = useState("");
   const [fehler, setFehler]     = useState("");
   const [protokollOffen, setProtokollOffen] = useState(false);
+  // Versand-Fenster: an wen (undefined = alle noch nicht Eingeladenen) und Zusatztext
+  const [dialog, setDialog]     = useState<{ benutzerIds?: string[]; namen: string[] } | null>(null);
+  const [zusatz, setZusatz]     = useState("");
 
   const darfSenden = !!meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle);
 
@@ -33,11 +36,17 @@ export default function EinladungKarte({ sitzungId, meineRolle, aktualisierung }
   }
   useEffect(laden, [sitzungId, aktualisierung]);
 
-  async function senden(benutzerIds?: string[]) {
+  function dialogOeffnen(benutzerIds: string[] | undefined, namen: string[]) {
+    setZusatz(stand?.letzterZusatz ?? "");
+    setDialog({ benutzerIds, namen });
+  }
+
+  async function senden(benutzerIds: string[] | undefined) {
+    setDialog(null);
     setFehler(""); setMeldung("");
     setSendet(benutzerIds ? benutzerIds[0] : "alle");
     try {
-      const r = await api.sitzungen.einladungVersenden(sitzungId, benutzerIds);
+      const r = await api.sitzungen.einladungVersenden(sitzungId, benutzerIds, zusatz);
       setMeldung(r.fehlgeschlagen > 0
         ? `${r.gesendet} verschickt, ${r.fehlgeschlagen} fehlgeschlagen`
         : `${r.gesendet} Einladung${r.gesendet === 1 ? "" : "en"} verschickt`);
@@ -66,7 +75,7 @@ export default function EinladungKarte({ sitzungId, meineRolle, aktualisierung }
         </div>
         {darfSenden && stand.kannVersenden && stand.smtpAktiv && offen.length > 0 && (
           <button
-            onClick={() => senden()}
+            onClick={() => dialogOeffnen(undefined, offen.map(e => e.name))}
             disabled={!!sendet}
             className="flex items-center gap-2 bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white text-sm font-medium px-3 py-1.5 rounded-lg"
           >
@@ -113,7 +122,7 @@ export default function EinladungKarte({ sitzungId, meineRolle, aktualisierung }
               </div>
               {darfSenden && stand.kannVersenden && stand.smtpAktiv && l && (
                 <button
-                  onClick={() => senden([e.benutzerId])}
+                  onClick={() => dialogOeffnen([e.benutzerId], [e.name])}
                   disabled={!!sendet}
                   title="Einladung erneut senden"
                   className="text-xs text-gray-500 hover:text-[rgb(var(--accent))] disabled:opacity-40 shrink-0"
@@ -142,7 +151,7 @@ export default function EinladungKarte({ sitzungId, meineRolle, aktualisierung }
                   <tr key={p.id}>
                     <td className="px-4 py-1 text-gray-500 whitespace-nowrap">{zeitpunkt(p.versendetAm)}</td>
                     <td className="px-2 py-1 text-gray-800">{p.name}{p.vertretungFuer ? ` (für ${p.vertretungFuer})` : ""}</td>
-                    <td className="px-2 py-1 text-gray-500">{p.adresse}</td>
+                    <td className="px-2 py-1 text-gray-500">{p.adresse}{p.zusatz && <span className="block text-gray-400 truncate max-w-xs" title={p.zusatz}>Zusatz: {p.zusatz}</span>}</td>
                     <td className="px-2 py-1">{p.erfolgreich
                       ? <span className="text-green-700">zugestellt an Mailserver{p.mitAnhang ? " · mit PDF" : ""}</span>
                       : <span className="text-red-700">{p.fehler}</span>}</td>
@@ -152,6 +161,46 @@ export default function EinladungKarte({ sitzungId, meineRolle, aktualisierung }
               </tbody>
             </table>
           )}
+        </div>
+      )}
+
+      {dialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="font-semibold text-gray-900">Einladung senden</h2>
+              <button onClick={() => setDialog(null)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+            </div>
+            <div className="px-6 py-4 space-y-3">
+              <p className="text-sm text-gray-600">
+                An {dialog.namen.length === 1 ? dialog.namen[0] : `${dialog.namen.length} Geladene`} – mit Termin, Tagesordnung
+                und PDF; die Signatur aus Einstellungen → System kommt automatisch darunter.
+              </p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Zusätzlicher Text (optional)</label>
+                <textarea
+                  value={zusatz}
+                  onChange={e => setZusatz(e.target.value)}
+                  rows={5}
+                  autoFocus
+                  placeholder={"z. B. Einwahl per GoTo Meeting: https://meet.goto.com/123456789\noder ein Hinweis zur Sitzung"}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
+                />
+                <p className="text-xs text-gray-400 mt-1">Erscheint hervorgehoben unter Termin und Ort; Links werden anklickbar. Wird im Versandnachweis mitgespeichert.</p>
+              </div>
+            </div>
+            <div className="flex gap-3 px-6 pb-5">
+              <button onClick={() => setDialog(null)} className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">
+                Abbrechen
+              </button>
+              <button
+                onClick={() => senden(dialog.benutzerIds)}
+                className="flex-1 px-4 py-2 text-sm bg-[rgb(var(--accent))] hover:brightness-90 text-white rounded-lg flex items-center justify-center gap-2"
+              >
+                <Send size={14} /> Senden
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

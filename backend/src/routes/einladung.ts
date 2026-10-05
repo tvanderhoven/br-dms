@@ -16,7 +16,7 @@ import { AnwesenheitsStatus, AuditAktion, Role, SitzungStatus } from "@prisma/cl
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
-import { sendeEinladung } from "../lib/mailer.js";
+import { sendeEinladung, MAIL_SIGNATUR } from "../lib/mailer.js";
 import { istBetriebsversammlung } from "../lib/sitzungstypen.js";
 
 const ROLLE_LABEL: Record<string, string> = {
@@ -70,6 +70,7 @@ export async function einladungRouten(app: FastifyInstance): Promise<void> {
           return { ...e, letzterVersand: l ? { versendetAm: l.versendetAm, erfolgreich: l.erfolgreich, fehler: l.fehler, adresse: l.adresse } : null };
         }),
         protokoll,
+        letzterZusatz: protokoll.find(p => p.zusatz)?.zusatz ?? "",   // Vorbelegung fürs nächste Mal
         smtpAktiv:    !!process.env.SMTP_HOST,
         kannVersenden: sitzung.status === SitzungStatus.TAGESORDNUNG_FIXIERT && !istBetriebsversammlung(sitzung.sitzungstyp),
       });
@@ -77,7 +78,7 @@ export async function einladungRouten(app: FastifyInstance): Promise<void> {
   );
 
   // ── POST /:id/einladung/versenden ───────────────────────────────
-  app.post<{ Params: { id: string }; Body: { benutzerIds?: string[] } }>(
+  app.post<{ Params: { id: string }; Body: { benutzerIds?: string[]; zusatz?: string } }>(
     "/:id/einladung/versenden",
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request, reply) => {
@@ -125,6 +126,8 @@ export async function einladungRouten(app: FastifyInstance): Promise<void> {
       const ich = await prisma.benutzer.findUnique({ where: { id: request.benutzer.sub }, select: { name: true, rolle: true } });
       const unterschrift = ich ? `${ich.name}, ${ROLLE_LABEL[ich.rolle] ?? ich.rolle}` : "Der Betriebsrat";
       const sitzungUrl = `${process.env.APP_URL ?? "http://localhost:3000"}/sitzungen?id=${id}`;
+      const zusatz   = request.body?.zusatz?.trim().slice(0, 4000) || null;
+      const signatur = (await prisma.systemEinstellung.findUnique({ where: { schluessel: MAIL_SIGNATUR } }))?.wert.trim() || null;
 
       const ergebnisse: { benutzerId: string; name: string; adresse: string; erfolgreich: boolean; fehler: string | null }[] = [];
       for (const e of empfaenger) {
@@ -143,6 +146,8 @@ export async function einladungRouten(app: FastifyInstance): Promise<void> {
             sitzungUrl,
             anhang,
             unterschrift,
+            zusatz,
+            signatur,
           });
         } catch (err) {
           fehler = err instanceof Error ? err.message : String(err);
@@ -150,7 +155,7 @@ export async function einladungRouten(app: FastifyInstance): Promise<void> {
         await prisma.einladungVersand.create({
           data: {
             sitzungId: id, benutzerId: e.benutzerId, name: e.name, adresse: e.adresse,
-            rolle: e.rolle, vertretungFuer: e.ersatzFuer, mitAnhang: !!anhang,
+            rolle: e.rolle, vertretungFuer: e.ersatzFuer, mitAnhang: !!anhang, zusatz,
             erfolgreich: !fehler, fehler,
             versendetVonId: request.benutzer.sub, versendetVon: ich?.name ?? "",
           },

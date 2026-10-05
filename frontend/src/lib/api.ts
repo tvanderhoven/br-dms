@@ -142,9 +142,9 @@ export const api = {
       request<{ ok: boolean }>(`/api/sitzungen/${id}/tops/reihenfolge`, { method: "PUT", body: JSON.stringify({ topIds }) }),
     anwesenheitslisteUrl: (id: string) => `${BASE}/api/sitzungen/${id}/anwesenheitsliste`,
     einladung: (id: string) => request<EinladungStand>(`/api/sitzungen/${id}/einladung`),
-    einladungVersenden: (id: string, benutzerIds?: string[]) =>
+    einladungVersenden: (id: string, benutzerIds: string[] | undefined, zusatz: string) =>
       request<{ gesendet: number; fehlgeschlagen: number }>(`/api/sitzungen/${id}/einladung/versenden`, {
-        method: "POST", body: JSON.stringify(benutzerIds ? { benutzerIds } : {}),
+        method: "POST", body: JSON.stringify({ ...(benutzerIds ? { benutzerIds } : {}), zusatz }),
       }),
     topAuszugUrl: (sitzungId: string, topId: string) => `${BASE}/api/sitzungen/${sitzungId}/tops/${topId}/auszug`,
     dokumentVerknuepfen: (id: string, topId: string, dokumentId: string, hinweis?: string) =>
@@ -383,9 +383,9 @@ export const api = {
     wahlquote: () => request<{ minderheitengeschlecht: Geschlecht | null; mindestsitzeMinderheit: number }>("/api/einstellungen/wahlquote"),
     wahlquoteSpeichern: (data: { minderheitengeschlecht: Geschlecht | null; mindestsitzeMinderheit: number }) =>
       request<{ ok: boolean }>("/api/einstellungen/wahlquote", { method: "PUT", body: JSON.stringify(data) }),
-    mail: () => request<{ absenderName: string; absenderAdresse: string; standard: string; smtpAktiv: boolean }>("/api/einstellungen/mail"),
-    mailSpeichern: (data: { absenderName: string; absenderAdresse: string }) =>
-      request<{ absenderName: string; absenderAdresse: string }>("/api/einstellungen/mail", { method: "PUT", body: JSON.stringify(data) }),
+    mail: () => request<{ absenderName: string; absenderAdresse: string; signatur: string; standard: string; smtpAktiv: boolean }>("/api/einstellungen/mail"),
+    mailSpeichern: (data: { absenderName: string; absenderAdresse: string; signatur: string }) =>
+      request<{ absenderName: string; absenderAdresse: string; signatur: string }>("/api/einstellungen/mail", { method: "PUT", body: JSON.stringify(data) }),
   },
 
   wahlen: {
@@ -831,7 +831,9 @@ export interface EinladungStand {
   protokoll: {
     id: string; name: string; adresse: string; rolle: string; vertretungFuer: string | null;
     mitAnhang: boolean; erfolgreich: boolean; fehler: string | null; versendetAm: string; versendetVon: string;
+    zusatz: string | null;
   }[];
+  letzterZusatz: string;
   smtpAktiv: boolean;
   kannVersenden: boolean;
 }

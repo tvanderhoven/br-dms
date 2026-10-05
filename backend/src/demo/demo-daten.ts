@@ -277,6 +277,7 @@ async function main() {
     "protokoll.fusszeile":  "DEMO – alle Inhalte frei erfunden",
     "mail.absender_name":   "Betriebsrat Nordwerk",
     "mail.absender_adresse": `betriebsrat@${DEMO_DOMAIN}`,
+    "mail.signatur":        "Betriebsrat Nordwerk · Werk 1, Raum 104\nTel. 0123 456-78",
   };
   for (const [schluessel, wert] of Object.entries(einstellungen)) {
     await prisma.systemEinstellung.upsert({ where: { schluessel }, update: { wert }, create: { schluessel, wert } });
