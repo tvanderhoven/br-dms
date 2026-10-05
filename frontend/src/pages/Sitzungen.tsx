@@ -14,6 +14,7 @@ import {
 } from "../lib/api";
 import SitzungsEditor from "../components/SitzungsEditor";
 import AnwesenheitsListe from "../components/AnwesenheitsListe";
+import EinladungKarte from "../components/EinladungKarte";
 import BeschlussBlock from "../components/BeschlussBlock";
 import KommentarBlock from "../components/KommentarBlock";
 import AufgabeUebernehmenModal from "../components/AufgabeUebernehmenModal";
@@ -548,6 +549,8 @@ function SitzungDetail({
   const imEntwurf   = sitzung.status === "ENTWURF";
   const istBV       = istBetriebsversammlung(sitzung.sitzungstyp);
   const [kummerkastenModal, setKummerkastenModal] = useState(false);
+  // zählt hoch, wenn die Ladung geändert wird → Einladungskarte lädt neu
+  const [ladungStand, setLadungStand] = useState(0);
   const imProtokoll = sitzung.status === "PROTOKOLL_ENTWURF";
   // Vorsitz/Stellvertretung dürfen auch nach Finalisierung noch Zeitmodell-/
   // Überstunden-/Gehaltsänderungen aus einem TOP heraus nachtragen (Erprobungsphase) –
@@ -807,6 +810,11 @@ function SitzungDetail({
         </div>
       )}
 
+      {/* Einladung per E-Mail mit Versandnachweis */}
+      {!istBV && sitzung.status !== "ENTWURF" && sitzung.status !== "ABGESAGT" && (
+        <EinladungKarte sitzungId={sitzung.id} meineRolle={meineRolle} aktualisierung={ladungStand} />
+      )}
+
       {/* TOPs */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-5">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
@@ -908,6 +916,7 @@ function SitzungDetail({
             sitzungId={sitzung.id}
             readonly={sitzung.status === "PROTOKOLL_FINAL"}
             vorSitzung={sitzung.status === "ENTWURF" || sitzung.status === "TAGESORDNUNG_FIXIERT"}
+            onGeaendert={() => setLadungStand(n => n + 1)}
           />
         </div>
       )}

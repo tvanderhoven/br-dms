@@ -35,8 +35,8 @@ Pakete 1–3 erledigt; als Nächstes 4 als Block, dann 5.
 | Stufe | Inhalt | Stand |
 |---|---|---|
 | 1 | Ladung vorab: Anwesenheit heißt vor der Sitzung „Ladung & Verhinderung“ (Kommt / Verhindert / Als Ersatz geladen); Anwesenheitsliste-PDF gegliedert (Mitglieder · geladene Ersatzmitglieder „für X“ · JAV · weitere Ersatzmitglieder) | erledigt |
-| 2 | Zweitadresse für Einladungen je Benutzer, Absenderadresse als Einstellung | |
-| 3 | Einladung per E-Mail mit Tagesordnung als PDF, Versandnachweis je Empfänger | |
+| 2 | Zweitadresse für Einladungen je Benutzer, Absenderadresse als Einstellung | erledigt |
+| 3 | Einladung per E-Mail mit Tagesordnung als PDF, Versandnachweis je Empfänger (Tabelle `einladung_versand`); neue Sitzungen laden nur noch ordentliche Mitglieder + JAV vor | erledigt (API getestet, Oberfläche noch vom Nutzer zu prüfen) |
 | 4 | Unterschriftenseite des Protokolls (Version + Prüfsumme) und zwei Upload-Plätze für Scans (Anwesenheitsliste, Protokoll-Unterschriften; eine kombinierte Datei darf beide füllen) | |
 | 5 | Sitzungspaket als ein PDF (Einladung + Versandnachweis, Tagesordnung, Protokoll, Scans) und „Sitzung abschließen“ mit Checkliste | |
 

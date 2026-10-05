@@ -141,6 +141,11 @@ export const api = {
     topReihenfolge: (id: string, topIds: string[]) =>
       request<{ ok: boolean }>(`/api/sitzungen/${id}/tops/reihenfolge`, { method: "PUT", body: JSON.stringify({ topIds }) }),
     anwesenheitslisteUrl: (id: string) => `${BASE}/api/sitzungen/${id}/anwesenheitsliste`,
+    einladung: (id: string) => request<EinladungStand>(`/api/sitzungen/${id}/einladung`),
+    einladungVersenden: (id: string, benutzerIds?: string[]) =>
+      request<{ gesendet: number; fehlgeschlagen: number }>(`/api/sitzungen/${id}/einladung/versenden`, {
+        method: "POST", body: JSON.stringify(benutzerIds ? { benutzerIds } : {}),
+      }),
     topAuszugUrl: (sitzungId: string, topId: string) => `${BASE}/api/sitzungen/${sitzungId}/tops/${topId}/auszug`,
     dokumentVerknuepfen: (id: string, topId: string, dokumentId: string, hinweis?: string) =>
       request<TopDokumentInfo>(`/api/sitzungen/${id}/tops/${topId}/dokumente`, {
@@ -815,6 +820,20 @@ export interface Sitzung {
   tops: TOP[];
   erstelltAm: string;
   aktualisiertAm: string;
+}
+
+// ── Einladung per E-Mail (Backend: routes/einladung.ts) ──
+export interface EinladungStand {
+  empfaenger: {
+    benutzerId: string; name: string; rolle: string; adresse: string; ersatzFuer: string | null;
+    letzterVersand: { versendetAm: string; erfolgreich: boolean; fehler: string | null; adresse: string } | null;
+  }[];
+  protokoll: {
+    id: string; name: string; adresse: string; rolle: string; vertretungFuer: string | null;
+    mitAnhang: boolean; erfolgreich: boolean; fehler: string | null; versendetAm: string; versendetVon: string;
+  }[];
+  smtpAktiv: boolean;
+  kannVersenden: boolean;
 }
 
 export interface SitzungListItem {

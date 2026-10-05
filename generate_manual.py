@@ -623,9 +623,18 @@ def build():
                 "Sie einen TOP am Punkte-Griff links an die neue Stelle ziehen; die Pfeile rechts verschieben um eine "
                 "Position. Themen aus dem Themen-Backlog lassen sich direkt als TOP übernehmen. TOPs können als "
                 "vertraulich markiert werden.")
-    pdf.schritt(3, "Tagesordnung fixieren",
+    pdf.schritt(3, "Ladung und Verhinderung",
+                "Vor der Sitzung heißt die Anwesenheit „Ladung & Verhinderung“. Meldet sich ein Mitglied ab, wird es auf "
+                "„Verhindert“ gestellt; BR-DMS schlägt das nächste Ersatzmitglied laut Wahlrang vor. Auf der "
+                "Anwesenheitsliste steht der Ersatz dann mit „für …“ in einem eigenen Abschnitt.")
+    pdf.schritt(4, "Tagesordnung fixieren",
                 "Vorsitz oder Stellvertretung fixieren die Tagesordnung: Version 1.1 und ihr PDF entstehen, alle Mitglieder "
                 "erhalten eine Nachricht. Danach sind nur noch Spontan-TOPs möglich.")
+    pdf.schritt(5, "Einladung per E-Mail",
+                "In der Karte „Einladung per E-Mail“ verschickt der Vorsitz die Einladung mit der Tagesordnung als PDF an "
+                "alle Geladenen – an deren Adresse für Einladungen (z. B. br-…), sonst an die Hauptadresse. Wer später "
+                "nachgeladen wird, bekommt sie mit „An Neue senden“. Jeder Versand wird mit Zeitpunkt, Adresse und "
+                "Ergebnis protokolliert – das ist der Nachweis der Ladung. Die JAV erhält keine vertraulichen TOPs.")
     pdf.bild("vorlagen", "Sitzungsvorlagen für wiederkehrende Tagesordnungen", hoehe_anteil=0.35)
 
     pdf.h2("4.3  Sitzung durchführen und protokollieren")
@@ -1004,6 +1013,7 @@ def build():
         "Anlegen – Name, E-Mail, Rolle; das Passwort wird beim ersten Login geändert",
         "Deaktivieren – Zugang sperren, ohne Historie zu verlieren",
         "Passwort zurücksetzen – Durch Vorsitz oder Admin, alternativ per E-Mail-Link durch die Person selbst",
+        "Adresse für Einladungen – Zweitadresse unter der E-Mail (z. B. br-name@…); leer = Hauptadresse. Angemeldet wird immer mit der Hauptadresse",
     ])
 
     pdf.h2("9.2  Zugriff des Admins auf Inhalte")
@@ -1078,7 +1088,7 @@ def build():
     )
     pdf.bullets([
         "Protokoll-Layout – Logo hochladen, Kopf- und Fußzeile, Akzentfarbe, Unterschriftszeilen und der Ort vor dem Datum an den Unterschriften (leer = nur Datum)",
-        "System – Status des Watch-Folders und Übersicht der Backups (Anzahl, Alter, Größe, Vollständigkeit)",
+        "System – E-Mail-Absender (Name und Adresse für alle Mails; ohne Eintrag gilt SMTP_FROM), Status des Watch-Folders und Übersicht der Backups (Anzahl, Alter, Größe, Vollständigkeit)",
         "Automatisches Abmelden – Nach 0 bis 480 Minuten Inaktivität (0 = aus)",
     ])
 

@@ -5,7 +5,7 @@
  * und der Wahl-Übernahme (konstituierende Sitzung, routes/wahlen.ts).
  */
 
-import { Prisma, PrismaClient, SitzungStatus } from "@prisma/client";
+import { Prisma, PrismaClient, Role, SitzungStatus } from "@prisma/client";
 import defaultPrisma from "./prisma.js";
 import { STANDARD_TOPS, istBetriebsversammlung } from "./sitzungstypen.js";
 
@@ -64,10 +64,11 @@ export async function sitzungAnlegen(
     }
   }
 
-  // Alle aktiven Mitglieder als "Anwesend" vorausfüllen – nicht bei der
-  // Betriebsversammlung, dort zählt nur die Teilnehmerzahl
+  // Ordentliche Mitglieder und JAV als "Anwesend" (= geladen) vorausfüllen –
+  // Ersatzmitglieder nur, wenn sie für jemanden geladen werden; Admin nie.
+  // Nicht bei der Betriebsversammlung, dort zählt nur die Teilnehmerzahl.
   const aktive = istBetriebsversammlung(s.sitzungstyp) ? [] : await client.benutzer.findMany({
-    where: { aktiv: true },
+    where: { aktiv: true, rolle: { in: [Role.VORSITZ, Role.STELLVERTRETER, Role.MITGLIED, Role.JAV] } },
     select: { id: true },
   });
   if (aktive.length > 0) {
