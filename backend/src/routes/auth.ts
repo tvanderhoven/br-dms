@@ -8,6 +8,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { AuditAktion } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 import prisma from "../lib/prisma.js";
+import { istTechnikAdmin } from "../lib/adminZugriff.js";
 import { verifyPassword, hashPassword } from "../lib/password.js";
 import { authenticate } from "../middleware/auth.js";
 import { sendePasswortReset } from "../lib/mailer.js";
@@ -112,7 +113,9 @@ export async function authRouten(app: FastifyInstance): Promise<void> {
         where:  { id: request.benutzer.sub },
         select: { id: true, name: true, email: true, rolle: true, letzterLogin: true, istVertretungFuer: true },
       });
-      return reply.send(benutzer);
+      if (!benutzer) return reply.send(benutzer);
+      // Frontend blendet für einen Admin ohne Inhaltszugriff alles außer der Verwaltung aus
+      return reply.send({ ...benutzer, ohneInhaltszugriff: await istTechnikAdmin(benutzer.rolle) });
     }
   );
 

@@ -372,6 +372,9 @@ export const api = {
       anzahl: number;
       saetze: { zeitpunkt: string; groesseBytes: number; vollstaendig: boolean }[];
     }>("/api/einstellungen/backups"),
+    adminZugriff: () => request<{ inhaltszugriff: boolean }>("/api/einstellungen/admin-zugriff"),
+    adminZugriffSpeichern: (inhaltszugriff: boolean) =>
+      request<{ inhaltszugriff: boolean }>("/api/einstellungen/admin-zugriff", { method: "PUT", body: JSON.stringify({ inhaltszugriff }) }),
     wahlquote: () => request<{ minderheitengeschlecht: Geschlecht | null; mindestsitzeMinderheit: number }>("/api/einstellungen/wahlquote"),
     wahlquoteSpeichern: (data: { minderheitengeschlecht: Geschlecht | null; mindestsitzeMinderheit: number }) =>
       request<{ ok: boolean }>("/api/einstellungen/wahlquote", { method: "PUT", body: JSON.stringify(data) }),
@@ -542,6 +545,7 @@ export interface Benutzer {
   id: string; name: string; email: string; rolle: Rolle;
   aktiv: boolean; letzterLogin?: string; istVertretungFuer?: string;
   geschlecht?: Geschlecht | null; wahlReihenfolge?: number | null;
+  ohneInhaltszugriff?: boolean;   // nur aus /api/auth/me: Admin ohne Zugriff auf Inhalte
 }
 
 export type Kategorie =
@@ -1027,7 +1031,8 @@ export type AuditAktion =
   | "SITZUNG_PROTOKOLL_GESTARTET" | "SITZUNG_FINALISIERT" | "SITZUNG_GELOESCHT"
   | "ABSTIMMUNG_ERSTELLT" | "ABSTIMMUNG_FINALISIERT"
   | "NACHRICHT_GESENDET" | "WATCHFOLDER_FEHLER"
-  | "WISSEN_ERSTELLT" | "WISSEN_AKTUALISIERT" | "WISSEN_GELOESCHT";
+  | "WISSEN_ERSTELLT" | "WISSEN_AKTUALISIERT" | "WISSEN_GELOESCHT"
+  | "EINSTELLUNG_GEAENDERT";
 
 export interface AuditEintrag {
   id:        string;
@@ -1082,6 +1087,7 @@ export const AUDIT_AKTION_LABEL: Record<AuditAktion, string> = {
   WISSEN_ERSTELLT:             "Wissenseintrag erstellt",
   WISSEN_AKTUALISIERT:         "Wissenseintrag aktualisiert",
   WISSEN_GELOESCHT:            "Wissenseintrag gelöscht",
+  EINSTELLUNG_GEAENDERT:       "Einstellung geändert",
 };
 
 export type RessourceKategorie = "GESETZ" | "KI_WERKZEUG" | "BEHOERDE" | "VORLAGE" | "SONSTIGES";

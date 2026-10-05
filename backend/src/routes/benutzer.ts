@@ -14,6 +14,7 @@ import prisma from "../lib/prisma.js";
 import { hashPassword } from "../lib/password.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
+import { istTechnikAdmin } from "../lib/adminZugriff.js";
 
 interface NeuerBenutzer {
   name:     string;
@@ -108,6 +109,24 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
         },
       });
 
+      // Ein Admin ohne Inhaltszugriff könnte sich ein Zweitkonto anlegen –
+      // das verhindert die App nicht, aber der Vorsitz erfährt es sofort.
+      if (await istTechnikAdmin(request.benutzer.rolle)) {
+        const vorsitz = await prisma.benutzer.findMany({
+          where:  { aktiv: true, rolle: { in: [Role.VORSITZ, Role.STELLVERTRETER] } },
+          select: { id: true },
+        });
+        await prisma.nachricht.createMany({
+          data: vorsitz.map(v => ({
+            betreff:      `Neues Benutzerkonto: ${benutzer.name}`,
+            inhalt:       `Der Admin hat das Konto ${benutzer.name} (${benutzer.email}) mit der Rolle ${rolle} angelegt. ` +
+                          `Bitte prüfen, ob das so gewollt ist.`,
+            typ:          "SYSTEM",
+            empfaengerId: v.id,
+          })),
+        }).catch(() => {});
+      }
+
       return reply.status(201).send(benutzer);
     }
   );
@@ -123,6 +142,13 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
       // Schutz: sich selbst nicht deaktivieren
       if (id === request.benutzer.sub && aktiv === false) {
         return reply.status(400).send({ fehler: "Sie können sich nicht selbst deaktivieren" });
+      }
+
+      // Admin ohne Inhaltszugriff darf sich nicht selbst eine Gremiumsrolle geben –
+      // das würde die Sperre aushebeln
+      if (id === request.benutzer.sub && rolle !== undefined && rolle !== request.benutzer.rolle
+          && await istTechnikAdmin(request.benutzer.rolle)) {
+        return reply.status(403).send({ fehler: "Der Admin kann seine eigene Rolle nicht ändern" });
       }
 
       if (wahlReihenfolge !== undefined && wahlReihenfolge !== null && (!Number.isInteger(wahlReihenfolge) || wahlReihenfolge < 1)) {
@@ -205,6 +231,13 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
     async (request: FastifyRequest<{ Params: { id: string }; Body: PasswortReset }>, reply: FastifyReply) => {
       const { id } = request.params;
       const { neuesPasswort } = request.body;
+
+      // Sonst könnte sich ein Admin ohne Inhaltszugriff als Mitglied anmelden
+      if (await istTechnikAdmin(request.benutzer.rolle)) {
+        return reply.status(403).send({
+          fehler: "Passwörter setzt in dieser Installation der Vorsitz zurück – oder die Person selbst über „Passwort vergessen“",
+        });
+      }
 
       if (!neuesPasswort || neuesPasswort.length < 8) {
         return reply.status(400).send({ fehler: "Passwort muss mindestens 8 Zeichen haben" });

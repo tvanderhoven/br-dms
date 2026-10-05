@@ -33,6 +33,8 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
   const [neuOffen, setNeuOffen]       = useState(false);
   const [resetId, setResetId]         = useState<string | null>(null);
   const [fehler, setFehler]           = useState("");
+  // Admin ohne Inhaltszugriff setzt keine fremden Passwörter (Backend sperrt das auch)
+  const [ohneInhalt, setOhneInhalt]   = useState(false);
 
   function laden_() {
     setLaden(true);
@@ -46,6 +48,7 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
   }
 
   useEffect(laden_, []);
+  useEffect(() => { api.auth.me().then(b => setOhneInhalt(!!b.ohneInhaltszugriff)).catch(() => {}); }, []);
 
   async function statusToggle(b: Benutzer) {
     setFehler("");
@@ -222,14 +225,14 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
 
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
-                      <button
+                      {!ohneInhalt && <button
                         onClick={() => setResetId(b.id)}
                         title="Passwort zurücksetzen"
                         className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
                       >
                         <KeyRound size={13} />
                         PW reset
-                      </button>
+                      </button>}
 
                       {b.id !== meinId && (
                         <button

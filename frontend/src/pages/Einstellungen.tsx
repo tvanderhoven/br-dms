@@ -793,6 +793,71 @@ function SicherheitEinstellung() {
 
 // ── Wahlquote: Minderheitengeschlecht + Mindestsitze (§15 Abs. 2 BetrVG) ──
 // Basis für den automatischen Ersatzmitglieder-Nachrück-Vorschlag in Sitzungen.
+// ── Inhaltszugriff des Admins (nur Vorsitz/Stellvertretung ändern) ──
+function AdminZugriffEinstellung({ darfAendern }: { darfAendern: boolean }) {
+  const [inhaltszugriff, setInhaltszugriff] = useState<boolean | null>(null);
+  const [speichern, setSpeichern] = useState(false);
+  const [fehler, setFehler]       = useState("");
+
+  useEffect(() => {
+    api.einstellungen.adminZugriff().then(z => setInhaltszugriff(z.inhaltszugriff)).catch(() => {});
+  }, []);
+
+  async function umschalten(wert: boolean) {
+    setFehler("");
+    setSpeichern(true);
+    try {
+      const z = await api.einstellungen.adminZugriffSpeichern(wert);
+      setInhaltszugriff(z.inhaltszugriff);
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Speichern fehlgeschlagen");
+    } finally {
+      setSpeichern(false);
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-4">
+      <h2 className="font-semibold text-gray-800 mb-1">Zugriff des Admins auf Inhalte</h2>
+      <p className="text-sm text-gray-500 mb-4">
+        Betreut jemand außerhalb des Gremiums die Technik (z. B. die IT), kann der Admin auf die Verwaltung
+        beschränkt werden: Benutzer, Einstellungen, Module und Gesetzestexte. Sitzungen, Dokumente,
+        Personaldaten, Aufgaben und das Audit-Log sind dann für ihn gesperrt.
+        {darfAendern ? " Nur Vorsitz und Stellvertretung können das ändern." : " Festgelegt von Vorsitz oder Stellvertretung."}
+      </p>
+      {inhaltszugriff === null ? (
+        <div className="flex items-center text-gray-400 text-sm"><Loader2 size={16} className="animate-spin mr-2" /> Laden…</div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {[
+            { wert: true,  label: "Voller Zugriff", text: "Der Admin sieht alles, wie Vorsitz (Standard)." },
+            { wert: false, label: "Nur technische Verwaltung", text: "Der Admin sieht keine Inhalte des Gremiums." },
+          ].map(o => (
+            <label key={String(o.wert)} className={`flex items-start gap-2 text-sm ${darfAendern ? "cursor-pointer" : "opacity-70"}`}>
+              <input
+                type="radio"
+                name="admin-inhaltszugriff"
+                checked={inhaltszugriff === o.wert}
+                disabled={!darfAendern || speichern}
+                onChange={() => umschalten(o.wert)}
+                className="mt-0.5 accent-[rgb(var(--accent))]"
+              />
+              <span><span className="font-medium text-gray-800">{o.label}</span> – <span className="text-gray-500">{o.text}</span></span>
+            </label>
+          ))}
+          {!inhaltszugriff && (
+            <p className="text-xs text-gray-500 mt-1">
+              Legt der Admin ein neues Benutzerkonto an, bekommen Vorsitz und Stellvertretung eine Nachricht.
+              Passwörter anderer setzt er nicht mehr zurück.
+            </p>
+          )}
+        </div>
+      )}
+      {fehler && <p className="text-red-700 text-sm mt-2">{fehler}</p>}
+    </div>
+  );
+}
+
 function WahlQuoteEinstellung() {
   const [geschlecht, setGeschlecht]   = useState<Geschlecht | "">("");
   const [mindestsitze, setMindestsitze] = useState("0");
@@ -1041,13 +1106,14 @@ export default function Einstellungen() {
   const [regeln, setRegeln] = useState<Aufbewahrungsregel[]>([]);
   const [laden, setLaden]   = useState(true);
   const [meineRolle, setMeineRolle] = useState<Rolle | null>(null);
+  const [ohneInhalt, setOhneInhalt] = useState(false);
 
   useEffect(() => {
     api.einstellungen.aufbewahrung()
       .then(setRegeln)
       .catch(console.error)
       .finally(() => setLaden(false));
-    api.auth.me().then(b => setMeineRolle(b.rolle)).catch(() => {});
+    api.auth.me().then(b => { setMeineRolle(b.rolle); setOhneInhalt(!!b.ohneInhaltszugriff); }).catch(() => {});
   }, []);
 
   function regelAktualisieren(neu: Aufbewahrungsregel) {
@@ -1095,7 +1161,7 @@ export default function Einstellungen() {
             <Scale size={15} /> Gesetzestexte
           </button>
         )}
-        {meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && (
+        {meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && !ohneInhalt && (
           <button className={tabKlasse("amtsuebergabe")} onClick={() => setTab("amtsuebergabe")}>
             <Download size={15} /> Amtsübergabe
           </button>
@@ -1143,12 +1209,12 @@ export default function Einstellungen() {
       )}
 
       {/* Fristen-Erinnerungsmail testen (nur VORSITZ/STELLVERTRETER/ADMIN) */}
-      {tab === "fristen" && meineRolle && ["ADMIN", "VORSITZ", "STELLVERTRETER"].includes(meineRolle) && (
+      {tab === "fristen" && !ohneInhalt && meineRolle && ["ADMIN", "VORSITZ", "STELLVERTRETER"].includes(meineRolle) && (
         <FristenErinnerungTestBox />
       )}
 
       {/* Zeitmodell/Überstunden-Ablaufmail testen (nur VORSITZ/STELLVERTRETER/ADMIN) */}
-      {tab === "fristen" && meineRolle && ["ADMIN", "VORSITZ", "STELLVERTRETER"].includes(meineRolle) && (
+      {tab === "fristen" && !ohneInhalt && meineRolle && ["ADMIN", "VORSITZ", "STELLVERTRETER"].includes(meineRolle) && (
         <AblaufErinnerungTestBox />
       )}
 
@@ -1156,6 +1222,9 @@ export default function Einstellungen() {
       {tab === "protokoll" && <ProtokollTab />}
 
       {/* Tab: Benutzerverwaltung */}
+      {tab === "benutzer" && meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && (
+        <AdminZugriffEinstellung darfAendern={meineRolle !== "ADMIN"} />
+      )}
       {tab === "benutzer" && meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && <WahlQuoteEinstellung />}
       {tab === "benutzer" && <BenutzerVerwaltung eingebettet />}
 
@@ -1172,7 +1241,7 @@ export default function Einstellungen() {
       {tab === "gesetze" && meineRolle === "ADMIN" && <GesetzeTab />}
 
       {/* Tab: Amtsübergabe (nur VORSITZ/STELLVERTRETER/ADMIN) */}
-      {tab === "amtsuebergabe" && meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && <AmtsuebergabeTab />}
+      {tab === "amtsuebergabe" && !ohneInhalt && meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && <AmtsuebergabeTab />}
     </div>
   );
 }

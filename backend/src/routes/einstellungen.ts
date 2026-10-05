@@ -5,6 +5,8 @@
  * GET  /api/einstellungen/sicherheit    – Inaktivitäts-Timeout in Minuten (0 = aus)
  * PUT  /api/einstellungen/sicherheit    – Inaktivitäts-Timeout setzen (nur ADMIN)
  * GET  /api/einstellungen/backups       – Übersicht der backup.sh-Sicherungen (Anzahl, Alter, Größe)
+ * GET  /api/einstellungen/admin-zugriff – darf der Admin Inhalte sehen?
+ * PUT  /api/einstellungen/admin-zugriff – festlegen (nur VORSITZ/STELLVERTRETER)
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
@@ -13,7 +15,8 @@ import path from "node:path";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
-import { Kategorie, Role, Geschlecht } from "@prisma/client";
+import { Kategorie, Role, Geschlecht, AuditAktion } from "@prisma/client";
+import { adminHatInhaltszugriff, ADMIN_INHALTSZUGRIFF } from "../lib/adminZugriff.js";
 
 const STORAGE = process.env.STORAGE_PATH ?? "/data/storage";
 const LOGO_VERZ = path.join(STORAGE, "logo");
@@ -328,6 +331,49 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
       });
 
       return reply.send({ ok: true, inaktivitaetMinuten });
+    }
+  );
+
+  // ── Inhaltszugriff des Admins (siehe lib/adminZugriff.ts) ─────────
+  // Lesen darf jeder (der Admin soll sehen, wie er eingestellt ist),
+  // ändern nur Vorsitz und Stellvertretung – ausdrücklich nicht der Admin.
+  app.get(
+    "/admin-zugriff",
+    { preHandler: [authenticate] },
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      return reply.send({ inhaltszugriff: await adminHatInhaltszugriff() });
+    }
+  );
+
+  app.put<{ Body: { inhaltszugriff: boolean } }>(
+    "/admin-zugriff",
+    { preHandler: [authenticate] },
+    async (request, reply) => {
+      const { rolle } = request.benutzer;
+      if (rolle !== Role.VORSITZ && rolle !== Role.STELLVERTRETER) {
+        return reply.status(403).send({ fehler: "Nur Vorsitz und Stellvertretung können den Zugriff des Admins festlegen" });
+      }
+      const { inhaltszugriff } = request.body;
+      if (typeof inhaltszugriff !== "boolean") {
+        return reply.status(400).send({ fehler: "inhaltszugriff muss true oder false sein" });
+      }
+
+      await prisma.systemEinstellung.upsert({
+        where:  { schluessel: ADMIN_INHALTSZUGRIFF },
+        update: { wert: String(inhaltszugriff) },
+        create: { schluessel: ADMIN_INHALTSZUGRIFF, wert: String(inhaltszugriff) },
+      });
+      await prisma.auditLog.create({
+        data: {
+          benutzerId: request.benutzer.sub,
+          aktion:     AuditAktion.EINSTELLUNG_GEAENDERT,
+          ip:         request.ip,
+          userAgent:  request.headers["user-agent"] ?? null,
+          details:    { einstellung: ADMIN_INHALTSZUGRIFF, wert: inhaltszugriff },
+        },
+      });
+
+      return reply.send({ inhaltszugriff });
     }
   );
 

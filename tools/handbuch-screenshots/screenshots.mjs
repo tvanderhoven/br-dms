@@ -84,6 +84,9 @@ const AUFNAHMEN = [
   { datei: "einstellungen-design", pfad: "/einstellungen", js: klickText("Design", "button") },
   { datei: "einstellungen-module", pfad: "/einstellungen", js: klickText("Module", "button"), alsAdmin: true },
   { datei: "benutzer",         pfad: "/einstellungen", js: klickText("Benutzer", "button") },
+  // Nur sinnvoll, solange der Vorsitz den Admin auf die Technik beschränkt hat
+  // (Einstellungen → Benutzer → „Nur technische Verwaltung“)
+  { datei: "admin-ohne-inhalt", pfad: "/einstellungen", js: klickText("Benutzer", "button"), alsAdmin: true },
   { datei: "kummerkasten-oeffentlich", pfad: "/kummerkasten", ohneLogin: true },
   { datei: "login",            pfad: "/login", ohneLogin: true },
 ];

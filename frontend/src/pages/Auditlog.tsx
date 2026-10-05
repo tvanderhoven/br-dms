@@ -27,7 +27,7 @@ const KATEGORIEN: { label: string; aktionen: AuditAktion[] }[] = [
   },
   {
     label: "Benutzer",
-    aktionen: ["BENUTZER_ERSTELLT", "BENUTZER_DEAKTIVIERT", "BENUTZER_GELOESCHT"],
+    aktionen: ["BENUTZER_ERSTELLT", "BENUTZER_DEAKTIVIERT", "BENUTZER_GELOESCHT", "EINSTELLUNG_GEAENDERT"],
   },
   {
     label: "Sitzungen",

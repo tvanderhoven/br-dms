@@ -182,6 +182,7 @@ enum AuditAktion {
   BV_ERSTELLT
   BV_AKTUALISIERT
   BV_GELOESCHT
+  EINSTELLUNG_GEAENDERT
 }
 
 // ================================================================

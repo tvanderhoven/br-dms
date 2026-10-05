@@ -290,6 +290,8 @@ export default function Layout() {
   const [aufgabenCount, setAufgabenCount]         = useState(0);
   const [meineRolle, setMeineRolle]               = useState<Rolle | null>(null);
   const [meinName, setMeinName]                   = useState("");
+  // Admin ohne Inhaltszugriff (Einstellungen → Benutzer, festgelegt von Vorsitz/Stellv.)
+  const [ohneInhalt, setOhneInhalt]               = useState(false);
   const [module, setModule]                       = useState<Record<ModuleKey, boolean> | null>(null);
   const [toast, setToast]                         = useState<string | null>(null);
   const [pwModalOffen, setPwModalOffen]           = useState(false);
@@ -297,6 +299,9 @@ export default function Layout() {
   const [inaktivitaetMinuten, setInaktivitaetMinuten] = useState(0);
   const prevCounts = useRef({ inbox: 0, nachrichten: 0, aufgaben: 0 });
   const ersterLauf = useRef(true);
+  // pollCounts läuft im setInterval mit dem Stand des ersten Renders –
+  // Rolle daher per Ref lesen, nicht aus dem State
+  const meinKonto = useRef<{ rolle: Rolle | null; ohneInhalt: boolean }>({ rolle: null, ohneInhalt: false });
   const letzteAktivitaet = useRef(Date.now());
 
   // Auf-/zugeklappte Menü-Gruppen – pro Gerät gemerkt (Standard: alle offen)
@@ -316,9 +321,10 @@ export default function Layout() {
   }
 
   async function pollCounts() {
+    const { rolle, ohneInhalt } = meinKonto.current;
     // Eingang ist nur für Vorsitz/Stellvertreter/Admin – für alle anderen Rollen
     // gar nicht erst abfragen (sonst nur unnötige 403-Fehler im Netzwerk-Log)
-    if (meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle)) {
+    if (rolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(rolle) && !ohneInhalt) {
       try {
         const docs = await api.dokumente.inbox();
         const n = docs.filter(d => !d.inboxGelesen).length;
@@ -346,7 +352,7 @@ export default function Layout() {
       setNachrichtenCount(n);
     } catch {}
 
-    try {
+    if (!ohneInhalt) try {
       const aufgaben = await api.aufgaben.liste();
       // Offene Aufgaben wie auf der Aufgaben-Seite – auch solche in Vorhaben,
       // aber ohne Vorhaben selbst und ohne Themen-Backlog-Einträge.
@@ -368,10 +374,14 @@ export default function Layout() {
     if (Notification.permission === "default") {
       Notification.requestPermission().catch(() => {});
     }
-    api.auth.me().then(b => { setMeineRolle(b.rolle); setMeinName(b.name); }).catch(() => {});
+    api.auth.me().then(b => {
+      setMeineRolle(b.rolle);
+      setMeinName(b.name);
+      setOhneInhalt(!!b.ohneInhaltszugriff);
+      meinKonto.current = { rolle: b.rolle, ohneInhalt: !!b.ohneInhaltszugriff };
+    }).catch(() => {}).finally(pollCounts);
     api.einstellungen.module().then(setModule).catch(() => {});
     api.einstellungen.sicherheit().then(s => setInaktivitaetMinuten(s.inaktivitaetMinuten)).catch(() => {});
-    pollCounts();
     const id = setInterval(pollCounts, POLL_INTERVAL);
     return () => clearInterval(id);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -416,6 +426,12 @@ export default function Layout() {
   const aktivesModulPfad = Object.keys(MODUL_PFADE).find(p => location.pathname.startsWith(p));
   if (aktivesModulPfad && module && module[MODUL_PFADE[aktivesModulPfad]] === false) {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  // Admin ohne Inhaltszugriff: nur Verwaltung und eigene Nachrichten
+  // (Backend sperrt den Rest zusätzlich, siehe middleware/auth.ts)
+  if (ohneInhalt && !["/einstellungen", "/benutzer", "/posteingang"].some(p => location.pathname.startsWith(p))) {
+    return <Navigate to="/einstellungen" replace />;
   }
 
   // JAV: stark eingeschränkte Rolle, darf im Frontend nur /sitzungen sehen
@@ -495,7 +511,7 @@ export default function Layout() {
         {/* Suche + Einstellungen + Abmelden */}
         <div className="px-3 py-2 border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
           <div className="flex items-center gap-1.5">
-            {meineRolle !== "JAV" && <GlobaleSuche />}
+            {meineRolle !== "JAV" && !ohneInhalt && <GlobaleSuche />}
             {meineRolle !== "JAV" && meineRolle !== "ERSATZMITGLIED" && (
             <NavLink
               to="/einstellungen"
@@ -524,7 +540,31 @@ export default function Layout() {
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
-          {meineRolle === "JAV" ? (
+          {ohneInhalt ? (
+            // Admin ohne Inhaltszugriff: nur die technische Verwaltung
+            <>
+              <NavLink to="/einstellungen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+                <Settings size={16} />
+                Einstellungen
+              </NavLink>
+              <NavLink to="/posteingang" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+                {({ isActive }) => (
+                  <>
+                    <Mail size={16} />
+                    <span className="flex-1">Nachrichten</span>
+                    {nachrichtenCount > 0 && (
+                      <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${isActive ? "bg-[rgb(var(--sidebar-text))] text-[rgb(var(--sidebar-bg))]" : "bg-[rgb(var(--accent))] text-white"}`}>
+                        {nachrichtenCount}
+                      </span>
+                    )}
+                  </>
+                )}
+              </NavLink>
+              <p className="px-3 pt-3 text-[11px] leading-snug" style={{ color: "rgb(var(--sidebar-text-muted))" }}>
+                Technischer Zugang: Inhalte des Gremiums sind für den Admin gesperrt.
+              </p>
+            </>
+          ) : meineRolle === "JAV" ? (
             // JAV: stark eingeschränkte Rolle, sieht nur Sitzungen/Protokolle
             <NavLink to="/sitzungen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
               <CalendarDays size={16} />

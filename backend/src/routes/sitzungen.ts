@@ -26,6 +26,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { SitzungStatus, TopStatus, AuditAktion, Role } from "@prisma/client";
 import prisma from "../lib/prisma.js";
+import { rundnachrichtFilter } from "../lib/adminZugriff.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { pdfAutomatischGenerieren } from "./pdf.js";
@@ -351,7 +352,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
 
       // Tagesordnung automatisch an alle BR-Mitglieder senden
       const brMitglieder = await prisma.benutzer.findMany({
-        where: { aktiv: true },
+        where: { aktiv: true, ...(await rundnachrichtFilter()) },
         select: { id: true },
       });
       await prisma.$transaction(

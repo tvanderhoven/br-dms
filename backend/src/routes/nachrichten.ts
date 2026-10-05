@@ -10,6 +10,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { NachrichtTyp, AuditAktion } from "@prisma/client";
 import prisma from "../lib/prisma.js";
+import { rundnachrichtFilter } from "../lib/adminZugriff.js";
 import { authenticate } from "../middleware/auth.js";
 
 const NACHRICHT_SELECT = {
@@ -86,7 +87,7 @@ export async function nachrichtenRouten(app: FastifyInstance): Promise<void> {
         empfaengerIds = [empfaengerId];
       } else if (alle || sitzungId) {
         const brMitglieder = await prisma.benutzer.findMany({
-          where: { aktiv: true, id: { not: request.benutzer.sub } },
+          where: { aktiv: true, id: { not: request.benutzer.sub }, ...(await rundnachrichtFilter()) },
           select: { id: true },
         });
         empfaengerIds = brMitglieder.map(b => b.id);

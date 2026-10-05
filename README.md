@@ -58,6 +58,7 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 
 ### Benutzer, Rollen & Sicherheit
 - **Rollenbasierte Zugriffskontrolle** – VORSITZ, STELLVERTRETER, MITGLIED, ERSATZMITGLIED, ADMIN sowie **JAV** (stark eingeschränkte Rolle für Jugend- und Auszubildendenvertretung: nur Lesezugriff, vertrauliche TOPs ausgeblendet)
+- **Admin ohne Inhaltszugriff** (optional) – Vorsitz/Stellvertretung können den Admin auf die technische Verwaltung beschränken (Benutzer, Einstellungen, Module, Gesetzestexte); Sitzungen, Dokumente, Personaldaten und Audit-Log sind dann für ihn gesperrt. Neue Konten des Admins werden dem Vorsitz gemeldet
 - **Login mit E-Mail oder Benutzername** – Anmeldung wahlweise mit der vollständigen E-Mail-Adresse oder nur dem Teil vor dem `@`
 - **Passwort-Reset per E-Mail** und admin-/VORSITZ-ausgelöster Reset für andere Benutzer
 - **Ständige Vertretung** – Verknüpfung Ersatzmitglied ↔ Mitglied, wirkt sich auf Anwesenheit und Abstimmungen aus

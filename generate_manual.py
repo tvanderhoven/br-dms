@@ -488,7 +488,8 @@ def build():
             ["Mitglied", "Ordentliche Mitglieder", "Dokumente, TOPs, Aufgaben, Personal; keine vertraulichen Dokumente anderer"],
             ["Ersatzmitglied", "Nachrückende", "Lesend; bei aktiver Vertretung wie ein Mitglied"],
             ["JAV", "Jugend- und Auszubildendenvertretung", "Nur Lesezugriff auf Sitzungen, vertrauliche TOPs ausgeblendet"],
-            ["Admin", "Technische Betreuung", "Alle Rechte inkl. Module – aber kein Sitzungsmitglied"],
+            ["Admin", "Technische Betreuung", "Alle Rechte inkl. Module – aber kein Sitzungsmitglied; "
+                      "auf Wunsch ohne Zugriff auf Inhalte (Kapitel 9.2)"],
         ],
         (26, 40, 104),
     )
@@ -861,7 +862,7 @@ def build():
     pdf.h1("7  Personal")
     pdf.body(
         "Die Personalverwaltung bildet die gesamte Belegschaft ab – unabhängig davon, wer einen Zugang "
-        "zu BR-DMS hat. Sie ist ein optionales Modul und lässt sich abschalten (Kapitel 9.3)."
+        "zu BR-DMS hat. Sie ist ein optionales Modul und lässt sich abschalten (Kapitel 9.4)."
     )
     pdf.h2("7.1  Mitarbeiter")
     pdf.body(
@@ -969,7 +970,8 @@ def build():
         [
             ["Fristen", "Aufbewahrungsfristen je Dokumentkategorie"],
             ["Protokoll-Layout", "Kopf- und Fußzeile, Farbe, Logo und Unterschriftszeilen der PDFs"],
-            ["Benutzerverwaltung", "Benutzer, Rollen, Wahlrang, ständige Vertretung, Geschlechterquote"],
+            ["Benutzerverwaltung", "Benutzer, Rollen, Wahlrang, ständige Vertretung, Geschlechterquote, "
+                                   "Zugriff des Admins"],
             ["Design", "Farbschema, Schriftgröße, Hell/Dunkel"],
             ["System", "Watch-Folder-Status, Backup-Übersicht, automatisches Abmelden"],
             ["Module", "Optionale Bereiche ein- und ausschalten (nur Admin)"],
@@ -992,7 +994,35 @@ def build():
         "Passwort zurücksetzen – Durch Vorsitz oder Admin, alternativ per E-Mail-Link durch die Person selbst",
     ])
 
-    pdf.h2("9.2  Design")
+    pdf.h2("9.2  Zugriff des Admins auf Inhalte")
+    pdf.body(
+        "Standardmäßig darf der Admin alles, was auch der Vorsitz darf. Betreut jemand außerhalb des Gremiums "
+        "die Technik – etwa die IT-Abteilung –, stellen Vorsitz oder Stellvertretung unter Benutzerverwaltung "
+        "auf „Nur technische Verwaltung“ um. Der Admin selbst kann diese Einstellung nicht ändern; jede "
+        "Änderung steht im Audit-Log."
+    )
+    pdf.tabelle(
+        ["Der Admin …", "Nur technische Verwaltung"],
+        [
+            ["verwaltet Benutzer, Einstellungen, Design, Module", "Ja"],
+            ["aktualisiert Gesetzestexte, sieht Backups", "Ja"],
+            ["liest und schreibt eigene Nachrichten", "Ja"],
+            ["sieht Sitzungen, Dokumente, Fristen, Aufgaben, Wahlen", "Nein"],
+            ["sieht Mitarbeiter, Gehaltstabelle, Betriebsvereinbarungen", "Nein"],
+            ["sieht Audit-Log, Suche, Amtsübergabe", "Nein"],
+            ["setzt Passwörter anderer zurück, ändert die eigene Rolle", "Nein"],
+        ],
+        (120, 50),
+    )
+    pdf.bild("admin-ohne-inhalt", "Ansicht des Admins ohne Inhaltszugriff", hoehe_anteil=0.6)
+    pdf.hinweis(
+        "Neue Benutzerkonten darf der Admin weiter anlegen – sonst könnte er seine Aufgabe nicht erfüllen. "
+        "Damit er sich nicht unbemerkt ein Zweitkonto mit Gremiumsrolle anlegt, erhalten Vorsitz und "
+        "Stellvertretung bei jedem neuen Konto eine Nachricht. Wer Zugriff auf Server oder Datenbank hat, "
+        "kann technisch immer an die Daten – die Einstellung regelt den Zugang über die Anwendung.",
+        "achtung", "Grenzen")
+
+    pdf.h2("9.3  Design")
     pdf.body(
         "Ein Klick auf ein Farbschema setzt alle Farben auf einmal; „Board“ ist der Standard, „Board Rot“ "
         "nutzt die rote Akzentfarbe. Einzelne Farben, Schriftgröße und Hell-/Dunkelmodus lassen sich "
@@ -1000,7 +1030,7 @@ def build():
     )
     pdf.bild("einstellungen-design", "Design-Einstellungen mit Farbschemata", hoehe_anteil=0.75)
 
-    pdf.h2("9.3  Module")
+    pdf.h2("9.4  Module")
     pdf.body(
         "Nicht jeder Betriebsrat braucht alles. Diese Bereiche lassen sich abschalten; sie verschwinden "
         "dann aus der Seitenleiste, Direktaufrufe führen zum Dashboard. Die Daten bleiben erhalten."
@@ -1018,7 +1048,7 @@ def build():
     )
     pdf.bild("einstellungen-module", "Module ein- und ausschalten (Admin)", hoehe_anteil=0.55)
 
-    pdf.h2("9.4  Aufbewahrung, Protokoll-Layout und System")
+    pdf.h2("9.5  Aufbewahrung, Protokoll-Layout und System")
     pdf.tabelle(
         ["Kategorie", "Standard-Aufbewahrung"],
         [
@@ -1038,7 +1068,7 @@ def build():
         "Automatisches Abmelden – Nach 0 bis 480 Minuten Inaktivität (0 = aus)",
     ])
 
-    pdf.h2("9.5  Audit-Log")
+    pdf.h2("9.6  Audit-Log")
     pdf.body(
         "Das Audit-Log protokolliert unveränderlich alle sicherheitsrelevanten Vorgänge – Anmeldungen, "
         "Dokumentzugriffe, Änderungen an Sitzungen, Benutzern und Einstellungen – mit Zeitpunkt, Person, "
@@ -1078,8 +1108,9 @@ def build():
         "Die JAV-Rolle darf ausschließlich Sitzungen und Protokolle lesen."
     )
     pdf.hinweis(
-        "Admin ist ein rein technischer Zugang: Er taucht nicht auf Anwesenheitslisten auf und nimmt "
-        "nicht an Abstimmungen teil.", "info")
+        "Admin gehört nicht zum Gremium: Er taucht nicht auf Anwesenheitslisten auf und nimmt nicht an "
+        "Abstimmungen teil. Die Spalte zeigt den Standard – haben Vorsitz oder Stellvertretung den Admin "
+        "auf die technische Verwaltung beschränkt, gilt für ihn bei allen Inhalten „–“ (Kapitel 9.2).", "info")
 
     # ════════════════════════════════════════════════════════════════
     #  TEIL III – TECHNIK
