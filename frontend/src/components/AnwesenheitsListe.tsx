@@ -56,9 +56,10 @@ interface Props {
   readonly?: boolean;
   // Sitzung hat noch nicht stattgefunden: Liste dient der Ladung (Verhinderung, Ersatz)
   vorSitzung?: boolean;
+  onGeaendert?: () => void;
 }
 
-export default function AnwesenheitsListe({ sitzungId, readonly = false, vorSitzung = false }: Props) {
+export default function AnwesenheitsListe({ sitzungId, readonly = false, vorSitzung = false, onGeaendert }: Props) {
   const label = vorSitzung ? STATUS_LABEL_VORAB : STATUS_LABEL;
   const [liste,          setListe]          = useState<ListItem[]>([]);
   const [isLaden,        setIsLaden]        = useState(true);
@@ -91,6 +92,7 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false, vorSitz
         vertretungFuerId,
       });
       ladeDaten();
+      onGeaendert?.();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Fehler beim Speichern");
     } finally {
@@ -136,6 +138,7 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false, vorSitz
     try {
       await api.delete(`/api/sitzungen/${sitzungId}/anwesenheit/${eintragId}`);
       ladeDaten();
+      onGeaendert?.();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Fehler beim Entfernen");
     } finally {

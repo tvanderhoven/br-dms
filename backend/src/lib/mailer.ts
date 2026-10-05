@@ -175,3 +175,78 @@ export async function sendeFristenZusammenfassung(
     </div>`,
   });
 }
+
+// ── Einladung zur Sitzung (Paket 4) ──────────────────────────────────
+
+const html = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+export interface EinladungMail {
+  an:              string;
+  name:            string;
+  sitzungTitel:    string;
+  sitzungsdatum:   Date;
+  ort:             string | null;
+  tops:            { nummer: number; titel: string }[];
+  ersatzFuer:      string | null;     // Name des verhinderten Mitglieds
+  sitzungUrl:      string;
+  anhang:          { dateiname: string; pfad: string } | null;
+  unterschrift:    string;            // z. B. "Sabine Kröger, Vorsitzende"
+}
+
+/** Verschickt eine Einladung; wirft bei Fehlern (der Aufrufer protokolliert). */
+export async function sendeEinladung(m: EinladungMail): Promise<void> {
+  // Sitzungszeiten liegen "wie eingegeben" in UTC (09:00 Ortszeit = 09:00Z, siehe
+  // datetime-local im Frontend) – daher wie in den PDFs in UTC formatieren
+  const datum = m.sitzungsdatum.toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "long", year: "numeric", timeZone: "UTC" });
+  const zeit  = m.sitzungsdatum.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
+  const ersatz = m.ersatzFuer
+    ? `Du wirst als Ersatzmitglied für ${m.ersatzFuer} geladen, der/die an der Sitzung verhindert ist.`
+    : null;
+
+  const text = [
+    `Hallo ${m.name},`,
+    "",
+    `hiermit lade ich dich zur Sitzung „${m.sitzungTitel}“ ein.`,
+    "",
+    `Termin: ${datum}, ${zeit} Uhr`,
+    ...(m.ort ? [`Ort:    ${m.ort}`] : []),
+    ...(ersatz ? ["", ersatz] : []),
+    "",
+    "Tagesordnung:",
+    ...m.tops.map(t => `  ${t.nummer}. ${t.titel}`),
+    "",
+    ...(m.anhang ? ["Die Tagesordnung liegt als PDF bei."] : []),
+    `In BR-DMS: ${m.sitzungUrl}`,
+    "",
+    "Solltest du verhindert sein, gib bitte unverzüglich Bescheid, damit ein Ersatzmitglied geladen werden kann.",
+    "",
+    "Viele Grüße",
+    m.unterschrift,
+  ].join("\n");
+
+  const topsHtml = m.tops.map(t =>
+    `<tr><td style="padding:4px 10px 4px 0;color:#6b7280;vertical-align:top">${t.nummer}.</td><td style="padding:4px 0">${html(t.titel)}</td></tr>`
+  ).join("");
+
+  await transporter.sendMail({
+    from:    await absender(),
+    to:      m.an,
+    subject: `Einladung: ${m.sitzungTitel}`,
+    text,
+    html: `<div style="font-family:sans-serif;max-width:640px;margin:0 auto;color:#111827">
+      <p>Hallo ${html(m.name)},</p>
+      <p>hiermit lade ich dich zur Sitzung <strong>„${html(m.sitzungTitel)}“</strong> ein.</p>
+      <table style="border-collapse:collapse;margin:12px 0">
+        <tr><td style="padding:2px 12px 2px 0;color:#6b7280">Termin</td><td><strong>${html(datum)}, ${zeit} Uhr</strong></td></tr>
+        ${m.ort ? `<tr><td style="padding:2px 12px 2px 0;color:#6b7280">Ort</td><td>${html(m.ort)}</td></tr>` : ""}
+      </table>
+      ${ersatz ? `<p style="background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:8px 12px">${html(ersatz)}</p>` : ""}
+      <p style="margin-bottom:4px"><strong>Tagesordnung</strong></p>
+      <table style="border-collapse:collapse">${topsHtml}</table>
+      <p>${m.anhang ? "Die Tagesordnung liegt als PDF bei. " : ""}<a href="${html(m.sitzungUrl)}">Sitzung in BR-DMS öffnen</a></p>
+      <p style="color:#6b7280;font-size:13px">Solltest du verhindert sein, gib bitte unverzüglich Bescheid, damit ein Ersatzmitglied geladen werden kann.</p>
+      <p>Viele Grüße<br>${html(m.unterschrift)}</p>
+    </div>`,
+    attachments: m.anhang ? [{ filename: m.anhang.dateiname, path: m.anhang.pfad }] : [],
+  });
+}

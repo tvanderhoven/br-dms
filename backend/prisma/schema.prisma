@@ -483,6 +483,7 @@ model Sitzung {
   nachrichten    Nachricht[]
   kommentare     Kommentar[]
   anwesenheiten  Anwesenheit[]
+  einladungen    EinladungVersand[]
   protocolBlocks ProtocolBlock[]
   gehaltsstufenEintraege GehaltsstufenEintrag[]
   zeitmodellEintraege    ZeitmodellEintrag[]
@@ -490,6 +491,29 @@ model Sitzung {
 
   @@index([sitzungsdatum, status])
   @@map("sitzungen")
+}
+
+// Versandnachweis der Einladungen (§ 29 Abs. 2 BetrVG) – ein Eintrag je Mail.
+// Name, Adresse und Vertretung als Momentaufnahme, damit der Nachweis auch nach
+// Änderungen am Benutzer stimmt; deshalb keine Relation zum Benutzer.
+model EinladungVersand {
+  id             String   @id @default(uuid())
+  sitzungId      String   @map("sitzung_id")
+  sitzung        Sitzung  @relation(fields: [sitzungId], references: [id], onDelete: Cascade)
+  benutzerId     String?  @map("benutzer_id")
+  name           String
+  adresse        String
+  rolle          String
+  vertretungFuer String?  @map("vertretung_fuer")   // Name des verhinderten Mitglieds
+  mitAnhang      Boolean  @default(false) @map("mit_anhang")
+  erfolgreich    Boolean
+  fehler         String?
+  versendetAm    DateTime @default(now()) @map("versendet_am")
+  versendetVonId String   @map("versendet_von_id")
+  versendetVon   String   @map("versendet_von")      // Name, als Momentaufnahme
+
+  @@index([sitzungId])
+  @@map("einladung_versand")
 }
 
 model SitzungVersion {
