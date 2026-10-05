@@ -126,6 +126,10 @@ Personalabteilung aktuelle Listen; der Import gleicht über die PNR ab und korri
 
 ## Arbeitsweise
 
+- Versionsnummer (`frontend/package.json`, `backend/package.json`; Über-Ansicht und Handbuch lesen sie
+  von dort) wird hochgezählt, wenn ein Stand aufs NAS geht, nicht pro Commit – dazu ein Tag `vX.Y.Z`.
+  Hintere Zahl: nur Fehlerbehebungen; mittlere: neue Funktionen; vordere: großer Umbruch
+  (z. B. Update passt nicht mehr ohne Weiteres auf alte Daten).
 - Neue Funktionen zuerst in der Demo-Instanz prüfen (`./demo/demo.sh reset`), dann aufs NAS deployen.
 - Handbuch nach Änderungen neu erzeugen: Demo starten, `node tools/handbuch-screenshots/screenshots.mjs`,
   `python3 generate_manual.py`, PDF auch nach `br-dms-website/assets/` kopieren.
