@@ -275,6 +275,8 @@ async function main() {
     "protokoll.unterzeile": "Werk 1 · Werk 2 · Verwaltung",
     "protokoll.farbe":      "#c8102e",
     "protokoll.fusszeile":  "DEMO – alle Inhalte frei erfunden",
+    "mail.absender_name":   "Betriebsrat Nordwerk",
+    "mail.absender_adresse": `betriebsrat@${DEMO_DOMAIN}`,
   };
   for (const [schluessel, wert] of Object.entries(einstellungen)) {
     await prisma.systemEinstellung.upsert({ where: { schluessel }, update: { wert }, create: { schluessel, wert } });
@@ -287,6 +289,8 @@ async function main() {
     const b = await prisma.benutzer.create({
       data: {
         email: `${g.login}@${DEMO_DOMAIN}`,
+        // Zweitadresse für Einladungen wie im echten Betrieb: br-… bzw. jav-…
+        einladungEmail: `${g.rolle === Role.JAV ? "jav" : "br"}-${g.login}@${DEMO_DOMAIN}`,
         name: g.name,
         passwortHash: pwHash,
         rolle: g.rolle,

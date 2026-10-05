@@ -21,6 +21,17 @@ interface NeuerBenutzer {
   email:    string;
   rolle:    Role;
   passwort: string;
+  einladungEmail?: string | null;
+}
+
+const EMAIL_MUSTER = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Leer → null; sonst kleingeschrieben und auf Form geprüft (wirft bei Unsinn) */
+function zweitadresse(wert: string | null | undefined): string | null {
+  const s = (wert ?? "").trim().toLowerCase();
+  if (!s) return null;
+  if (!EMAIL_MUSTER.test(s)) throw new Error("Ungültige Einladungs-Adresse");
+  return s;
 }
 
 interface BenutzerUpdate {
@@ -29,6 +40,7 @@ interface BenutzerUpdate {
   istVertretungFuer?: string | null;
   geschlecht?: Geschlecht | null;
   wahlReihenfolge?: number | null;
+  einladungEmail?: string | null;
 }
 
 interface PasswortReset {
@@ -49,6 +61,7 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
           id:               true,
           name:             true,
           email:            true,
+          einladungEmail:   true,
           rolle:            true,
           aktiv:            true,
           letzterLogin:     true,
@@ -78,6 +91,13 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
         return reply.status(400).send({ fehler: "Passwort muss mindestens 8 Zeichen haben" });
       }
 
+      let einladungEmail: string | null;
+      try {
+        einladungEmail = zweitadresse(request.body.einladungEmail);
+      } catch (err) {
+        return reply.status(400).send({ fehler: (err as Error).message });
+      }
+
       // VORSITZ darf keinen ADMIN anlegen
       if (rolle === Role.ADMIN && request.benutzer.rolle !== Role.ADMIN) {
         return reply.status(403).send({ fehler: "Nur Admins dürfen Admins anlegen" });
@@ -97,8 +117,9 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
           passwortHash: hashPassword(passwort),
           rolle,
           aktiv:        true,
+          einladungEmail,
         },
-        select: { id: true, name: true, email: true, rolle: true, aktiv: true, erstelltAm: true },
+        select: { id: true, name: true, email: true, einladungEmail: true, rolle: true, aktiv: true, erstelltAm: true },
       });
 
       await prisma.auditLog.create({
@@ -138,6 +159,12 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
     async (request: FastifyRequest<{ Params: { id: string }; Body: BenutzerUpdate }>, reply: FastifyReply) => {
       const { id } = request.params;
       const { rolle, aktiv, istVertretungFuer, geschlecht, wahlReihenfolge } = request.body;
+      let einladungEmail: string | null | undefined;
+      try {
+        einladungEmail = request.body.einladungEmail === undefined ? undefined : zweitadresse(request.body.einladungEmail);
+      } catch (err) {
+        return reply.status(400).send({ fehler: (err as Error).message });
+      }
 
       // Schutz: sich selbst nicht deaktivieren
       if (id === request.benutzer.sub && aktiv === false) {
@@ -166,8 +193,9 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
           ...(istVertretungFuer !== undefined ? { istVertretungFuer } : {}),
           ...(geschlecht !== undefined ? { geschlecht } : {}),
           ...(wahlReihenfolge !== undefined ? { wahlReihenfolge } : {}),
+          ...(einladungEmail !== undefined ? { einladungEmail } : {}),
         },
-        select: { id: true, name: true, email: true, rolle: true, aktiv: true, istVertretungFuer: true, geschlecht: true, wahlReihenfolge: true },
+        select: { id: true, name: true, email: true, einladungEmail: true, rolle: true, aktiv: true, istVertretungFuer: true, geschlecht: true, wahlReihenfolge: true },
       });
 
       await prisma.auditLog.create({

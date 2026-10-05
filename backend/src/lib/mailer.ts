@@ -1,11 +1,31 @@
 import { FRIST_TYP_LABEL } from "./fristen.js";
 import nodemailer from "nodemailer";
+import prisma from "./prisma.js";
 
 // "||" statt "??": Docker Compose ersetzt ${SMTP_FROM} durch einen LEEREN
 // String (nicht "unset"), wenn die Variable in der .env fehlt – das führte
 // schon mal zu einem komplett leeren From-Header, weil "??" einen leeren
 // String nicht als "fehlt" erkennt.
 const SMTP_FROM = process.env.SMTP_FROM || `"BR-DMS" <noreply@br-dms.lokal>`;
+
+export const MAIL_ABSENDER_NAME    = "mail.absender_name";
+export const MAIL_ABSENDER_ADRESSE = "mail.absender_adresse";
+
+/**
+ * Absender aller Mails: Einstellungen → System (z. B. "Betriebsrat" <betriebsrat@firma.de>),
+ * sonst SMTP_FROM aus der .env. Viele Mailserver lassen nur Absender zu, für die das
+ * SMTP-Konto berechtigt ist – das muss die IT einrichten.
+ */
+export async function absender(): Promise<string> {
+  const e = await prisma.systemEinstellung.findMany({
+    where: { schluessel: { in: [MAIL_ABSENDER_NAME, MAIL_ABSENDER_ADRESSE] } },
+  }).catch(() => []);
+  const wert = (k: string) => e.find(x => x.schluessel === k)?.wert.trim() ?? "";
+  const adresse = wert(MAIL_ABSENDER_ADRESSE);
+  if (!adresse) return SMTP_FROM;
+  const name = wert(MAIL_ABSENDER_NAME).replace(/"/g, "");
+  return name ? `"${name}" <${adresse}>` : adresse;
+}
 
 
 const transporter = nodemailer.createTransport({
@@ -29,7 +49,7 @@ export async function sendePasswortReset(email: string, name: string, token: str
   const link   = `${appUrl}/passwort-reset?token=${token}`;
 
   await transporter.sendMail({
-    from:    SMTP_FROM,
+    from:    await absender(),
     to:      email,
     subject: "BR-DMS – Passwort zurücksetzen",
     text: `Hallo ${name},\n\ndu hast eine Passwort-Zurücksetzen-Anfrage gestellt.\n\nLink (gültig 1 Stunde):\n${link}\n\nFalls du diese Anfrage nicht gestellt hast, kannst du diese E-Mail ignorieren.\n\nDein BR-DMS`,
@@ -71,7 +91,7 @@ export async function sendeAblaufZusammenfassung(
   </tr>`).join("");
 
   await transporter.sendMail({
-    from:    SMTP_FROM,
+    from:    await absender(),
     to:      email,
     subject: `BR-DMS – ${eintraege.length} Zeitmodell/Überstunden-Regelung(en) laufen diesen Monat aus`,
     text:    eintraege.map(e =>
@@ -123,7 +143,7 @@ export async function sendeFristenZusammenfassung(
   }).join("");
 
   await transporter.sendMail({
-    from:    SMTP_FROM,
+    from:    await absender(),
     to:      email,
     subject: `BR-DMS – ${fristen.length} Frist(en) laufen in 7 Tagen ab`,
     text:    fristen.map(f =>

@@ -378,6 +378,9 @@ export const api = {
     wahlquote: () => request<{ minderheitengeschlecht: Geschlecht | null; mindestsitzeMinderheit: number }>("/api/einstellungen/wahlquote"),
     wahlquoteSpeichern: (data: { minderheitengeschlecht: Geschlecht | null; mindestsitzeMinderheit: number }) =>
       request<{ ok: boolean }>("/api/einstellungen/wahlquote", { method: "PUT", body: JSON.stringify(data) }),
+    mail: () => request<{ absenderName: string; absenderAdresse: string; standard: string; smtpAktiv: boolean }>("/api/einstellungen/mail"),
+    mailSpeichern: (data: { absenderName: string; absenderAdresse: string }) =>
+      request<{ absenderName: string; absenderAdresse: string }>("/api/einstellungen/mail", { method: "PUT", body: JSON.stringify(data) }),
   },
 
   wahlen: {
@@ -546,6 +549,7 @@ export interface Benutzer {
   aktiv: boolean; letzterLogin?: string; istVertretungFuer?: string;
   geschlecht?: Geschlecht | null; wahlReihenfolge?: number | null;
   ohneInhaltszugriff?: boolean;   // nur aus /api/auth/me: Admin ohne Zugriff auf Inhalte
+  einladungEmail?: string | null; // Zweitadresse für Einladungen, leer = Hauptadresse
 }
 
 export type Kategorie =

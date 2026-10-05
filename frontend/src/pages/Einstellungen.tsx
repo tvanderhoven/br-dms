@@ -956,6 +956,73 @@ function formatGroesse(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// ── Absender der Mails (Einladungen, Erinnerungen, Passwort-Reset) ──
+function MailAbsenderEinstellung() {
+  const [name, setName]         = useState("");
+  const [adresse, setAdresse]   = useState("");
+  const [standard, setStandard] = useState("");
+  const [smtpAktiv, setSmtpAktiv] = useState(true);
+  const [laden, setLaden]       = useState(true);
+  const [speichern, setSpeichern] = useState(false);
+  const [gespeichert, setGespeichert] = useState(false);
+  const [fehler, setFehler]     = useState("");
+
+  useEffect(() => {
+    api.einstellungen.mail()
+      .then(m => { setName(m.absenderName); setAdresse(m.absenderAdresse); setStandard(m.standard); setSmtpAktiv(m.smtpAktiv); })
+      .catch(() => {})
+      .finally(() => setLaden(false));
+  }, []);
+
+  async function speichernKlick() {
+    setFehler(""); setSpeichern(true); setGespeichert(false);
+    try {
+      await api.einstellungen.mailSpeichern({ absenderName: name, absenderAdresse: adresse });
+      setGespeichert(true);
+      setTimeout(() => setGespeichert(false), 3000);
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Speichern fehlgeschlagen");
+    } finally {
+      setSpeichern(false);
+    }
+  }
+
+  const feld = "border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]";
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+      <h2 className="font-semibold text-gray-800 mb-1">E-Mail-Absender</h2>
+      <p className="text-sm text-gray-500 mb-4">
+        Von dieser Adresse gehen Einladungen, Fristen-Erinnerungen und Passwort-Links raus. Der Mailserver muss
+        das SMTP-Konto für diese Adresse freigeben – das richtet die IT ein.
+        {standard && <> Ohne Eintrag gilt <span className="font-mono text-xs">{standard}</span>.</>}
+      </p>
+      {!smtpAktiv && (
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+          Es ist kein Mailserver eingerichtet (SMTP_HOST in der .env) – es werden keine Mails verschickt.
+        </p>
+      )}
+      {laden ? (
+        <div className="flex items-center text-gray-400 text-sm"><Loader2 size={16} className="animate-spin mr-2" /> Laden…</div>
+      ) : (
+        <div className="flex items-center gap-2 flex-wrap">
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="Name, z. B. Betriebsrat" className={`${feld} w-56`} />
+          <input type="email" value={adresse} onChange={e => setAdresse(e.target.value)} placeholder="betriebsrat@firma.de" className={`${feld} w-72`} />
+          <button
+            onClick={speichernKlick}
+            disabled={speichern}
+            className="flex items-center gap-1.5 bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+          >
+            {speichern && <Loader2 size={14} className="animate-spin" />}
+            Speichern
+          </button>
+          {gespeichert && <span className="text-green-700 text-sm">Gespeichert.</span>}
+        </div>
+      )}
+      {fehler && <p className="text-red-700 text-sm mt-2">{fehler}</p>}
+    </div>
+  );
+}
+
 function SystemTab() {
   const [info, setInfo]         = useState<{ watchFolderPfad: string; watchFolderAktiv: boolean } | null>(null);
   const [laden, setLaden]       = useState(true);
@@ -971,13 +1038,17 @@ function SystemTab() {
     api.einstellungen.backups().then(setBackups).catch(() => {});
   }, []);
 
+  // wie ORDNER_KATEGORIE in backend/src/services/watchfolder.service.ts
   const UNTERORDNER = [
-    "anhoerung_99", "anhoerung_102", "anhoerung_102_ausserordentlich", "betriebsvereinbarung",
-    "protokoll", "bewerbung", "bewerbung_alternativ", "zeitmodell_87", "sonstiges",
+    "anhoerung_99", "anhoerung_102", "anhoerung_102_ausserordentlich", "abmahnung",
+    "bewerbung", "bewerbung_alternativ", "zeitmodell_87", "betriebsvereinbarung",
+    "arbeitgeber_info", "arbeitsschutz", "schriftverkehr", "protokoll", "sonstiges",
   ];
 
   return (
     <div className="space-y-4">
+      {meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && <MailAbsenderEinstellung />}
+
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100">
           <h2 className="font-semibold text-gray-800">Watch-Folder</h2>
