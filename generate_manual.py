@@ -662,7 +662,7 @@ def build():
     pdf.bullets([
         "Aufgabe erstellen – Folgeaufgabe mit Bezug zum TOP",
         "Ins Wissensarchiv – Ergebnis als Wissenseintrag festhalten",
-        "In die Gehaltstabelle – Beschlossene Ein- oder Umgruppierung direkt beim Mitarbeiter eintragen",
+        "In die Eingruppierung – Beschlossene Ein- oder Umgruppierung direkt beim Mitarbeiter eintragen",
         "Einzelauszug – Einen TOP als eigenes PDF erzeugen",
     ])
 
@@ -964,13 +964,13 @@ def build():
         "werden mit Zeilennummer abgelehnt."
     )
     pdf.bild("mitarbeiter", "Mitarbeiterübersicht mit Kennzahlen", hoehe_anteil=0.6)
-    pdf.h2("7.2  Gehaltstabelle")
+    pdf.h2("7.2  Eingruppierung")
     pdf.body(
-        "Die Gehaltstabelle führt die Eingruppierungs-Historie je Mitarbeiter – Tarifgruppe und Stufe "
+        "Die Seite Eingruppierung führt die Eingruppierungs-Historie je Mitarbeiter – Tarifgruppe und Stufe "
         "oder ein individuelles AT-Gehalt, jeweils mit „gültig ab“ und Bemerkung. Einträge, die aus einem "
         "Sitzungsbeschluss stammen, sind mit der Sitzung verknüpft."
     )
-    pdf.bild("gehaltstabelle-liste", "Gehaltstabelle mit Historie und Bemerkungen", hoehe_anteil=0.6)
+    pdf.bild("gehaltstabelle-liste", "Eingruppierung mit Historie und Bemerkungen", hoehe_anteil=0.6)
     pdf.body(
         "Der Reiter Statistik zeigt die Verteilung nach Gruppe, Stufe, Zeitmodell und Standort sowie "
         "das durchschnittliche AT-Gehalt."
@@ -1014,7 +1014,7 @@ def build():
     pdf.schritt(5, "Beraten und beschließen",
                 "In der Sitzung werden Anwesenheit, Beratungsergebnis und Beschluss mit Abstimmung erfasst.")
     pdf.schritt(6, "Abschließen",
-                "Frist erledigen, Ein- oder Umgruppierung in die Gehaltstabelle übernehmen, Protokoll "
+                "Frist erledigen, Ein- oder Umgruppierung in die Eingruppierung übernehmen, Protokoll "
                 "finalisieren. Bei Bedarf Widerspruchsschreiben aus dem Eingang erzeugen.")
     pdf.schritt(7, "Aufbewahren und löschen",
                 "Das Dokument bleibt für die Dauer der Aufbewahrungsfrist erhalten und wird danach "
@@ -1029,7 +1029,7 @@ def build():
             ["Eigene Aufgaben bearbeiten", "Alle", "Aufgaben"],
             ["Nachrichten lesen", "Alle", "Nachrichten"],
             ["Kummerkasten bearbeiten", "Zuständige Mitglieder", "Kummerkasten"],
-            ["Ablaufende BVs und Zeitmodelle prüfen", "Vorsitz", "Betriebsvereinbarungen, Gehaltstabelle"],
+            ["Ablaufende BVs und Zeitmodelle prüfen", "Vorsitz", "Betriebsvereinbarungen, Eingruppierung"],
             ["Audit-Log prüfen", "Vorsitz / Admin", "Audit-Log"],
             ["Backups kontrollieren", "Admin", "Einstellungen → System"],
         ],
@@ -1093,7 +1093,7 @@ def build():
             ["aktualisiert Gesetzestexte, sieht Backups", "Ja"],
             ["liest und schreibt eigene Nachrichten", "Ja"],
             ["sieht Sitzungen, Dokumente, Fristen, Aufgaben, Wahlen", "Nein"],
-            ["sieht Mitarbeiter, Gehaltstabelle, Betriebsvereinbarungen", "Nein"],
+            ["sieht Mitarbeiter, Eingruppierung, Betriebsvereinbarungen", "Nein"],
             ["sieht Audit-Log, Suche, Amtsübergabe", "Nein"],
             ["setzt Passwörter anderer zurück, ändert die eigene Rolle", "Nein"],
         ],
@@ -1123,7 +1123,7 @@ def build():
     pdf.tabelle(
         ["Modul", "Umfasst"],
         [
-            ["Personalverwaltung", "Mitarbeiter, Gehaltstabelle, Zeitmodelle, Überstunden, Schulungen"],
+            ["Personalverwaltung", "Mitarbeiter, Eingruppierung, Zeitmodelle, Überstunden, Schulungen"],
             ["Betriebsvereinbarungen", "Das BV-Register"],
             ["Gremien", "Andere Gremien, Mitglieder, Fremdprotokolle"],
             ["Wissensarchiv", "Wissenseinträge"],
@@ -1183,7 +1183,7 @@ def build():
             ["TOPs bearbeiten", j, j, j, v, n, j],
             ["Sitzung anlegen, fixieren, finalisieren", j, j, n, n, n, j],
             ["Beschlüsse erfassen und finalisieren", j, j, n, n, n, j],
-            ["Gehaltstabelle bearbeiten", j, j, j, v, n, j],
+            ["Eingruppierung bearbeiten", j, j, j, v, n, j],
             ["Betriebsvereinbarungen anlegen", j, j, n, n, n, j],
             ["Gremien, Mitglieder und Fremdprotokolle verwalten", j, j, n, n, n, j],
             ["Benutzer verwalten, Design ändern", j, j, n, n, n, j],
