@@ -1139,6 +1139,89 @@ export async function anwesenheitslistePdfGenerieren(
   });
 }
 
+// ── Unterschriftenseite (eigenständig, ohne vollständigen Protokolldruck) ─
+// Trägt Version + Prüfsumme der finalisierten Protokoll-PDF, damit die unterschriebene
+// Seite eindeutig einer Protokollversion zuzuordnen ist (statt das ganze Protokoll zu drucken).
+export async function unterschriftenseitePdfGenerieren(
+  sitzung: { titel: string; sitzungsdatum: Date; ort?: string | null; sitzungstyp: string },
+  version: { versionNummer: string; zeitstempel: string | null; finalisiertAm: Date | null },
+): Promise<Buffer> {
+  const layout     = await layoutLaden();
+  const logoBuffer = layout.logo_pfad
+    ? await fs.readFile(layout.logo_pfad).catch(() => null)
+    : null;
+  const istBV = istBetriebsversammlung(sitzung.sitzungstyp);
+
+  return new Promise((resolve, reject) => {
+    const doc    = new PDFDocument({ size: "A4", margin: 60, bufferPages: true });
+    registriereSchriften(doc);
+    const chunks: Buffer[] = [];
+
+    doc.on("data",  c  => chunks.push(c));
+    doc.on("error", reject);
+    doc.on("end",   () => resolve(Buffer.concat(chunks)));
+
+    // Briefkopf (schlank, wie Anwesenheitsliste)
+    const y0 = doc.y;
+    const datumZeit = `${formatDatum(sitzung.sitzungsdatum)}, ${formatZeit(sitzung.sitzungsdatum)} Uhr`;
+
+    const textBreite = logoBuffer ? 350 : BREITE;
+    doc.fontSize(14).font("Helvetica-Bold").fillColor("#111827")
+       .text(pdfText(sitzung.titel), RAND_LINKS, y0, { width: textBreite });
+    doc.fontSize(9).font("Helvetica").fillColor(FARBE_GRAU)
+       .text(datumZeit, RAND_LINKS, y0 + 18, { width: textBreite });
+
+    if (logoBuffer) {
+      doc.image(logoBuffer, 463, y0, { height: 38, fit: [72, 38] });
+    }
+
+    doc.y = y0 + 44;
+    doc.moveTo(RAND_LINKS, doc.y).lineTo(RAND_RECHTS, doc.y)
+       .strokeColor(layout.farbe).lineWidth(1.5).stroke();
+    doc.moveDown(0.8);
+
+    // Überschrift
+    doc.fontSize(12).font("Helvetica-Bold").fillColor(layout.farbe)
+       .text(`Unterschriftenseite ${istBV ? "zur Niederschrift" : "zum Protokoll"}`, RAND_LINKS, doc.y);
+    doc.moveDown(0.8);
+
+    // Infobox: Version + Prüfsumme
+    const yBox = doc.y;
+    doc.rect(RAND_LINKS, yBox, BREITE, 56).fill("#f3f4f6");
+    doc.rect(RAND_LINKS, yBox, 4, 56).fill(layout.farbe);
+
+    doc.fontSize(9).font("Helvetica-Bold").fillColor("#111827")
+       .text(
+         `Gehört zu Version ${version.versionNummer}` +
+         (version.finalisiertAm
+           ? `, finalisiert am ${version.finalisiertAm.toLocaleString("de-DE", { dateStyle: "full", timeStyle: "medium" })}`
+           : ""),
+         RAND_LINKS + 14, yBox + 8, { width: BREITE - 28 },
+       );
+    doc.fontSize(8).font("Helvetica").fillColor(FARBE_GRAU)
+       .text(`Prüfsumme (SHA-256): ${version.zeitstempel ?? "–"}`, RAND_LINKS + 14, yBox + 26, { width: BREITE - 28 });
+    doc.fontSize(7).fillColor(FARBE_GRAU)
+       .text(
+         "Diese Seite ist eindeutig der oben genannten Protokollversion zugeordnet. Zum Unterschreiben " +
+         "reicht diese Seite, ein Ausdruck des vollständigen Protokolls ist nicht nötig.",
+         RAND_LINKS + 14, yBox + 38, { width: BREITE - 28 },
+       );
+    doc.y = yBox + 64;
+
+    // Unterschriftslinien – identische Darstellung wie im finalen Protokoll
+    unterschriftenProtokoll(doc, layout, sitzung.sitzungsdatum, istBV);
+
+    // Fußzeilen
+    const seiten = (doc as any).bufferedPageRange().count;
+    for (let i = 0; i < seiten; i++) {
+      doc.switchToPage(i);
+      fusszeile(doc, i + 1, seiten, version.versionNummer, layout);
+    }
+
+    doc.end();
+  });
+}
+
 // ── TOP-Auszug PDF (für Geschäftsführung etc.) ────────────────────
 // Enthält: Briefkopf, Sitzungsinfo, TOP-Inhalt, Beschlüsse (nur Ergebnis, keine Stimmen)
 export async function topAuszugPdfGenerieren(

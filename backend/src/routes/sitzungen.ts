@@ -108,6 +108,15 @@ const SITZUNG_SELECT = {
     orderBy: { nummer: "asc" as const },
     select: TOP_SELECT,
   },
+  scans: {
+    select: {
+      typ:           true,
+      dateiname:     true,
+      dateigroesse:  true,
+      hochgeladenAm: true,
+      hochgeladenVon: { select: { name: true } },
+    },
+  },
 } as const;
 
 async function audit(

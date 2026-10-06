@@ -13,7 +13,7 @@ import { randomUUID } from "node:crypto";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
-import { pdfGenerieren, anwesenheitslistePdfGenerieren, topAuszugPdfGenerieren } from "../services/pdf.service.js";
+import { pdfGenerieren, anwesenheitslistePdfGenerieren, topAuszugPdfGenerieren, unterschriftenseitePdfGenerieren } from "../services/pdf.service.js";
 import { vergleicheNachMitgliederSortierung } from "../lib/mitgliederSortierung.js";
 
 const STORAGE = process.env.STORAGE_PATH ?? "/data/storage";
@@ -139,6 +139,35 @@ export async function pdfRouten(app: FastifyInstance): Promise<void> {
 
       const buffer = await anwesenheitslistePdfGenerieren(sitzung, mitglieder);
       const dateiname = `anwesenheitsliste-${sitzung.titel.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, "-")}.pdf`;
+
+      return reply
+        .header("Content-Type", "application/pdf")
+        .header("Content-Disposition", `attachment; filename="${dateiname}"`)
+        .send(buffer);
+    }
+  );
+
+  // ── GET /:id/unterschriftenseite – Unterschriftenseite als PDF ──
+  app.get(
+    "/:id/unterschriftenseite",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+
+      const sitzung = await prisma.sitzung.findUnique({
+        where: { id },
+        select: { titel: true, sitzungsdatum: true, ort: true, sitzungstyp: true },
+      });
+      if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
+
+      const version = await prisma.sitzungVersion.findFirst({
+        where:  { sitzungId: id, typ: "PROTOKOLL_FINAL" },
+        select: { versionNummer: true, zeitstempel: true, finalisiertAm: true },
+      });
+      if (!version) return reply.status(404).send({ fehler: "Protokoll ist noch nicht finalisiert" });
+
+      const buffer = await unterschriftenseitePdfGenerieren(sitzung, version);
+      const dateiname = `unterschriftenseite-${sitzung.titel.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, "-")}.pdf`;
 
       return reply
         .header("Content-Type", "application/pdf")

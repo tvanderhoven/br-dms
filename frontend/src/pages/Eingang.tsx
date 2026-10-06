@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
   Inbox, FileText, Clock, Tag, CheckSquare, Eye, X, ChevronRight, ChevronDown, ChevronUp,
-  Loader2, Check, CheckCheck, History, Search, RotateCcw, ScrollText,
+  Loader2, Check, CheckCheck, History, Search, RotateCcw, ScrollText, ScanLine, Trash2,
 } from "lucide-react";
 import {
-  api, Dokument, SitzungListItem, Benutzer, TOP, KATEGORIE_LABEL, formatDatum, formatDateigroesse
+  api, Dokument, SitzungListItem, Benutzer, TOP, KATEGORIE_LABEL, formatDatum, formatDateigroesse,
+  ScanEingangEintrag, SitzungScanTyp,
 } from "../lib/api";
 
 type Aktion = "sitzung-top" | "wissensarchiv" | "aufgabe" | "version" | "wiedervorlage" | null;
@@ -49,6 +50,10 @@ export default function Eingang() {
   const [aktiveAktion, setAktiveAktion]       = useState<Aktion>(null);
   const [aktionErfolg, setAktionErfolg]       = useState<string | null>(null);
 
+  // Wartende Scans aus dem Watch-Folder (protokoll_scan)
+  const [scanEingang, setScanEingang]         = useState<ScanEingangEintrag[]>([]);
+  const [scanSitzungen, setScanSitzungen]     = useState<SitzungListItem[]>([]);
+
   // Für Aktions-Modals
   const [sitzungen, setSitzungen]             = useState<SitzungListItem[]>([]);
   const [benutzer, setBenutzer]               = useState<Benutzer[]>([]);
@@ -86,6 +91,9 @@ export default function Eingang() {
   // Derived: das aktuell ausgeklappte Dokument
   const ausgewaehlt = dokumente.find(d => d.id === ausgeklappt) ?? null;
 
+  // Fixierte Tagesordnung ist eingefroren – neue TOPs nur im ENTWURF (siehe waehleSitzungFuerTop)
+  const topAktionSitzungImEntwurf = sitzungen.find(s => s.id === selSitzungId)?.status === "ENTWURF";
+
   const ladeInbox = useCallback(() => {
     setLaden(true);
     api.dokumente.inbox()
@@ -95,6 +103,21 @@ export default function Eingang() {
   }, []);
 
   useEffect(() => { ladeInbox(); }, [ladeInbox]);
+
+  const ladeScanEingang = useCallback(() => {
+    api.scanEingang.liste().then(setScanEingang).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    ladeScanEingang();
+    api.sitzungen.liste()
+      .then(data => setScanSitzungen(data.filter(s => s.status !== "ENTWURF" && s.status !== "ABGESAGT")))
+      .catch(console.error);
+  }, [ladeScanEingang]);
+
+  function scanEingangErledigt(id: string) {
+    setScanEingang(prev => prev.filter(e => e.id !== id));
+  }
 
   async function ladeVorschau(dok: Dokument) {
     if (blobRef.current) URL.revokeObjectURL(blobRef.current);
@@ -161,10 +184,17 @@ export default function Eingang() {
     setSelTopId("");
     setTopsDerSitzung([]);
     if (!sitzungId) return;
+
+    // Fixierte Tagesordnung ist eingefroren (gleiche Regel wie auf der Sitzungsseite):
+    // neue TOPs nur im ENTWURF, danach lässt sich ein Dokument nur noch an einen
+    // bereits spontan hinzugefügten TOP hängen.
+    const istEntwurf = sitzungen.find(s => s.id === sitzungId)?.status === "ENTWURF";
+    setTopModus(istEntwurf ? "neu" : "bestehend");
+
     setTopsLaden(true);
     try {
       const sitzung = await api.sitzungen.einzel(sitzungId);
-      setTopsDerSitzung(sitzung.tops);
+      setTopsDerSitzung(istEntwurf ? sitzung.tops : sitzung.tops.filter(t => t.spontan));
     } catch { setTopsDerSitzung([]); }
     finally { setTopsLaden(false); }
   }
@@ -312,12 +342,31 @@ export default function Eingang() {
           </div>
         </div>
         <button
-          onClick={ladeInbox}
+          onClick={() => { ladeInbox(); ladeScanEingang(); }}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-gray-600"
         >
           <RotateCcw size={15} /> Aktualisieren
         </button>
       </div>
+
+      {/* Wartende Scans aus dem Watch-Folder (protokoll_scan) */}
+      {scanEingang.length > 0 && (
+        <div className="mb-6">
+          <p className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1.5">
+            <ScanLine size={13} /> Wartende Scans ({scanEingang.length}) – noch keiner Sitzung zugeordnet
+          </p>
+          <div className="space-y-2">
+            {scanEingang.map(eintrag => (
+              <ScanEingangKarte
+                key={eintrag.id}
+                eintrag={eintrag}
+                sitzungen={scanSitzungen}
+                onErledigt={scanEingangErledigt}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Zähler */}
       <p className="text-xs text-gray-500 mb-3">
@@ -440,8 +489,9 @@ export default function Eingang() {
                         </div>
 
                         <div className="col-span-2 flex gap-4 text-sm">
-                          <label className="flex items-center gap-1.5 cursor-pointer">
+                          <label className={`flex items-center gap-1.5 cursor-pointer ${!topAktionSitzungImEntwurf ? "opacity-40 cursor-not-allowed" : ""}`}>
                             <input type="radio" name="topModus" checked={topModus === "neu"}
+                              disabled={!topAktionSitzungImEntwurf}
                               onChange={() => setTopModus("neu")} />
                             Neuer TOP
                           </label>
@@ -451,6 +501,14 @@ export default function Eingang() {
                             Als Anhang zu vorhandenem TOP
                           </label>
                         </div>
+
+                        {selSitzungId && !topAktionSitzungImEntwurf && (
+                          <div className="col-span-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                            Die Tagesordnung dieser Sitzung ist bereits fixiert – neue TOPs gehen jetzt nur noch als
+                            Spontan-TOP in der Sitzung selbst. Hier lässt sich das Dokument nur an einen bereits
+                            spontan hinzugefügten TOP hängen.
+                          </div>
+                        )}
 
                         {topModus === "neu" ? (
                           <div className="col-span-2">
@@ -473,7 +531,11 @@ export default function Eingang() {
                               ))}
                             </select>
                             {selSitzungId && !topsLaden && topsDerSitzung.length === 0 && (
-                              <p className="text-xs text-gray-400 mt-1">Diese Sitzung hat noch keine TOPs.</p>
+                              <p className="text-xs text-gray-400 mt-1">
+                                {topAktionSitzungImEntwurf
+                                  ? "Diese Sitzung hat noch keine TOPs."
+                                  : "Diese Sitzung hat noch keine Spontan-TOPs."}
+                              </p>
                             )}
                           </div>
                         )}
@@ -682,6 +744,130 @@ export default function Eingang() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Karte für einen wartenden Scan (Watch-Folder-Unterordner protokoll_scan) ──
+function ScanEingangKarte({
+  eintrag, sitzungen, onErledigt,
+}: { eintrag: ScanEingangEintrag; sitzungen: SitzungListItem[]; onErledigt: (id: string) => void }) {
+  const [selSitzungId, setSelSitzungId]           = useState("");
+  const [alGewaehlt, setAlGewaehlt]               = useState(false);
+  const [protokollGewaehlt, setProtokollGewaehlt] = useState(false);
+  const [laden, setLaden]                         = useState(false);
+  const [fehler, setFehler]                       = useState("");
+
+  const gewaehlteSitzung = sitzungen.find(s => s.id === selSitzungId);
+  const alErlaubt = gewaehlteSitzung
+    ? gewaehlteSitzung.status === "TAGESORDNUNG_FIXIERT" || gewaehlteSitzung.status === "PROTOKOLL_ENTWURF" || gewaehlteSitzung.status === "PROTOKOLL_FINAL"
+    : false;
+  const protokollErlaubt = gewaehlteSitzung?.status === "PROTOKOLL_FINAL";
+
+  function sitzungWaehlen(id: string) {
+    setSelSitzungId(id);
+    setAlGewaehlt(false);
+    setProtokollGewaehlt(false);
+  }
+
+  async function zuordnen() {
+    const typen: SitzungScanTyp[] = [
+      ...(alGewaehlt ? ["ANWESENHEITSLISTE" as SitzungScanTyp] : []),
+      ...(protokollGewaehlt ? ["PROTOKOLL_UNTERSCHRIFTEN" as SitzungScanTyp] : []),
+    ];
+    if (!selSitzungId || typen.length === 0) return;
+    setLaden(true);
+    setFehler("");
+    try {
+      await api.scanEingang.zuordnen(eintrag.id, selSitzungId, typen);
+      onErledigt(eintrag.id);
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  async function verwerfen() {
+    if (!confirm(`"${eintrag.dateiname}" wirklich verwerfen?`)) return;
+    setLaden(true);
+    try {
+      await api.scanEingang.verwerfen(eintrag.id);
+      onErledigt(eintrag.id);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl px-4 py-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+        <div className="min-w-0">
+          <p className="font-medium text-gray-900 truncate">{eintrag.dateiname}</p>
+          <p className="text-xs text-gray-400">
+            {formatDateigroesse(eintrag.dateigroesse)} · {formatDatum(eintrag.erkanntAm)}
+          </p>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            onClick={() => dateiInTabOeffnen(api.scanEingang.dateiUrl(eintrag.id))}
+            className="flex items-center gap-1 text-gray-500 hover:text-gray-700 text-xs font-medium"
+          >
+            <Eye size={13} /> Ansehen
+          </button>
+          <button
+            onClick={verwerfen}
+            disabled={laden}
+            title="Verwerfen"
+            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-end gap-3 flex-wrap">
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-xs font-medium text-gray-700 mb-1">Sitzung</label>
+          <select
+            value={selSitzungId}
+            onChange={e => sitzungWaehlen(e.target.value)}
+            className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white"
+          >
+            <option value="">– Sitzung wählen –</option>
+            {sitzungen.map(s => (
+              <option key={s.id} value={s.id}>{s.titel} ({formatDatum(s.sitzungsdatum)})</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex gap-3 text-sm">
+          <label className={`flex items-center gap-1.5 cursor-pointer ${!alErlaubt ? "opacity-40 cursor-not-allowed" : ""}`}>
+            <input type="checkbox" checked={alGewaehlt} disabled={!alErlaubt}
+              onChange={e => setAlGewaehlt(e.target.checked)} />
+            Anwesenheitsliste
+          </label>
+          <label className={`flex items-center gap-1.5 cursor-pointer ${!protokollErlaubt ? "opacity-40 cursor-not-allowed" : ""}`}>
+            <input type="checkbox" checked={protokollGewaehlt} disabled={!protokollErlaubt}
+              onChange={e => setProtokollGewaehlt(e.target.checked)} />
+            Protokoll-Unterschriften
+          </label>
+        </div>
+
+        <button
+          onClick={zuordnen}
+          disabled={laden || !selSitzungId || (!alGewaehlt && !protokollGewaehlt)}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-white text-sm font-medium rounded-lg hover:brightness-90 disabled:opacity-50"
+          style={{ backgroundColor: "rgb(var(--accent))" }}
+        >
+          {laden ? <Loader2 size={13} className="animate-spin" /> : <ChevronRight size={13} />}
+          Zuordnen
+        </button>
+      </div>
+
+      {fehler && <p className="text-xs text-red-600 mt-2">{fehler}</p>}
     </div>
   );
 }
