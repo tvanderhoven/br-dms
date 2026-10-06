@@ -47,6 +47,8 @@ import { qualifikationenRouten, schulungenRouten } from "./routes/schulungen.js"
 import { gesetzeRouten } from "./routes/gesetze.js";
 import { kummerkastenRouten } from "./routes/kummerkasten.js";
 import { ablaufRouten } from "./routes/ablauf.js";
+import { gremienRouten } from "./routes/gremien.js";
+import { fremdprotokolleRouten } from "./routes/fremdprotokolle.js";
 
 process.on("uncaughtException", (err) => {
   console.error("[process] uncaughtException – Backend bleibt am Laufen:", err);
@@ -127,6 +129,8 @@ await app.register(schulungenRouten,         { prefix: "/api/schulungen" });
 await app.register(gesetzeRouten,            { prefix: "/api/gesetze" });
 await app.register(kummerkastenRouten,       { prefix: "/api/kummerkasten" });
 await app.register(ablaufRouten,             { prefix: "/api/ablauf" });
+await app.register(gremienRouten,            { prefix: "/api/gremien" });
+await app.register(fremdprotokolleRouten,    { prefix: "/api/fremdprotokolle" });
 
 // ── Erster Admin (nur bei leerer Benutzertabelle) ─────────────────
 await erstAdminAnlegen();

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, FormEvent, DragEvent, RefObject } from "react";
 import { useLocation } from "react-router-dom";
-import { SitzungsVorlage } from "../lib/api";
+import { SitzungsVorlage, Gremium } from "../lib/api";
 import {
   CalendarDays, Plus, ChevronLeft, ChevronUp, ChevronDown, GripVertical, Lock, Unlock, FileCheck, FileText,
   Trash2, Link, Unlink, X, Loader2, CheckCircle, Circle, Clock, XCircle, RotateCcw, Eye,
@@ -155,9 +155,12 @@ export default function Sitzungen() {
   const [neueModal, setNeueModal]   = useState(false);
   const [detailLaden, setDetailLaden] = useState(false);
   const [meineRolle, setMeineRolle] = useState<Rolle | null>(null);
+  const [gremien, setGremien]       = useState<Gremium[]>([]);
+  const [gremiumFilter, setGremiumFilter] = useState("ALLE");
   const location = useLocation();
 
   useEffect(() => { api.auth.me().then(b => setMeineRolle(b.rolle)).catch(() => {}); }, []);
+  useEffect(() => { api.gremien.liste().then(setGremien).catch(() => {}); }, []);
 
   // Erneuter Klick auf "Sitzungen" in der Sidebar navigiert zur selben Route
   // (/sitzungen) – React Router vergibt dabei trotzdem einen neuen location.key.
@@ -206,10 +209,13 @@ export default function Sitzungen() {
   // Heute zählt noch zu "kommend" – die Sitzung des Tages soll oben stehen.
   // Kommende aufsteigend (nächste zuerst), vergangene absteigend (jüngste zuerst).
   const heute = new Date(); heute.setHours(0, 0, 0, 0);
-  const kommende = liste
+  const listeGefiltert = gremiumFilter === "ALLE" ? liste
+    : gremiumFilter === "BR" ? liste.filter(s => !s.gremium)
+    : liste.filter(s => s.gremium?.id === gremiumFilter);
+  const kommende = listeGefiltert
     .filter(s => new Date(s.sitzungsdatum) >= heute)
     .sort((a, b) => a.sitzungsdatum.localeCompare(b.sitzungsdatum));
-  const vergangene = liste.filter(s => new Date(s.sitzungsdatum) < heute);
+  const vergangene = listeGefiltert.filter(s => new Date(s.sitzungsdatum) < heute);
 
   if (gewählt) {
     return (
@@ -224,15 +230,25 @@ export default function Sitzungen() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
         <h1 className="text-2xl font-bold text-gray-900">Sitzungen</h1>
-        <button
-          onClick={() => setNeueModal(true)}
-          className="flex items-center gap-2 bg-[rgb(var(--accent))] hover:brightness-90 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-        >
-          <Plus size={16} />
-          Neue Sitzung
-        </button>
+        <div className="flex items-center gap-2">
+          {gremien.length > 0 && (
+            <select value={gremiumFilter} onChange={e => setGremiumFilter(e.target.value)}
+              className="border border-gray-300 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]">
+              <option value="ALLE">Alle Gremien</option>
+              <option value="BR">Betriebsrat</option>
+              {gremien.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+          )}
+          <button
+            onClick={() => setNeueModal(true)}
+            className="flex items-center gap-2 bg-[rgb(var(--accent))] hover:brightness-90 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            <Plus size={16} />
+            Neue Sitzung
+          </button>
+        </div>
       </div>
 
       {laden ? (
@@ -310,6 +326,11 @@ function SitzungTabelle({ gruppen, onOeffnen }: {
                 </td>
                 <td className="px-4 py-3 text-xs text-gray-500 hidden sm:table-cell">
                   {SITZUNGSTYP_LABEL[s.sitzungstyp] ?? s.sitzungstyp}
+                  {s.gremium && (
+                    <span className="ml-1.5 inline-block text-[10px] font-medium px-1.5 py-0.5 rounded-full border border-accent/25 bg-accent/10 text-accent whitespace-nowrap">
+                      {s.gremium.name}
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3 hidden sm:table-cell">
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full border whitespace-nowrap ${SITZUNG_BADGE[s.status]}`}>
@@ -349,6 +370,12 @@ function SitzungBearbeitenModal({
   const [ort, setOrt]         = useState(sitzung.ort ?? "");
   const [typ, setTyp]         = useState(sitzung.sitzungstyp ?? "ORDENTLICH");
   const [notizen, setNotizen] = useState(sitzung.notizen ?? "");
+  const [gremien, setGremien] = useState<Gremium[]>([]);
+  const [gremiumId, setGremiumId] = useState(sitzung.gremium?.id ?? "");
+
+  useEffect(() => {
+    api.gremien.liste(true).then(setGremien).catch(() => {});
+  }, []);
 
   async function speichern(e: FormEvent) {
     e.preventDefault();
@@ -361,6 +388,7 @@ function SitzungBearbeitenModal({
         ort: ort || undefined,
         sitzungstyp: typ,
         notizen: notizen || undefined,
+        gremiumId: gremiumId || null,
       });
       onErfolg();
     } catch (err) {
@@ -403,6 +431,16 @@ function SitzungBearbeitenModal({
                 .map(([wert, label]) => <option key={wert} value={wert}>{label}</option>)}
             </select>
           </div>
+          {gremien.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Gremium</label>
+              <select value={gremiumId} onChange={e => setGremiumId(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
+                <option value="">Betriebsrat</option>
+                {gremien.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </select>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Notizen</label>
             <textarea value={notizen} onChange={e => setNotizen(e.target.value)} rows={3} placeholder="Optional"
@@ -437,9 +475,12 @@ function NeueSitzungModal({
   const [notizen, setNotizen]       = useState("");
   const [vorlagen, setVorlagen]     = useState<SitzungsVorlage[]>([]);
   const [vorlageId, setVorlageId]   = useState<string>("");
+  const [gremien, setGremien]       = useState<Gremium[]>([]);
+  const [gremiumId, setGremiumId]   = useState<string>("");
 
   useEffect(() => {
     api.vorlagen.liste().then(setVorlagen).catch(() => {});
+    api.gremien.liste(true).then(setGremien).catch(() => {});
   }, []);
 
   async function anlegen(e: FormEvent) {
@@ -448,7 +489,7 @@ function NeueSitzungModal({
     setFehler("");
     setLaden(true);
     try {
-      const s = await api.sitzungen.erstellen({ titel, sitzungsdatum: datum, ort: ort || undefined, sitzungstyp: typ, notizen: notizen || undefined, vorlageId: vorlageId || undefined });
+      const s = await api.sitzungen.erstellen({ titel, sitzungsdatum: datum, ort: ort || undefined, sitzungstyp: typ, notizen: notizen || undefined, vorlageId: vorlageId || undefined, gremiumId: gremiumId || undefined });
       onErfolg(s.id);
     } catch (err) {
       setFehler(err instanceof Error ? err.message : "Fehler beim Anlegen");
@@ -504,6 +545,16 @@ function NeueSitzungModal({
                 {vorlagen.map(v => (
                   <option key={v.id} value={v.id}>{v.name} ({v.tops.length} TOPs)</option>
                 ))}
+              </select>
+            </div>
+          )}
+          {gremien.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Gremium</label>
+              <select value={gremiumId} onChange={e => setGremiumId(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
+                <option value="">Betriebsrat</option>
+                {gremien.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
             </div>
           )}
@@ -627,7 +678,10 @@ function SitzungDetail({
   }
 
   async function sitzungLoeschen() {
-    if (!confirm(`Sitzung "${sitzung.titel}" wirklich löschen?`)) return;
+    const frage = imEntwurf
+      ? `Sitzung "${sitzung.titel}" wirklich löschen?`
+      : `Sitzung "${sitzung.titel}" wirklich absagen? Status wechselt auf "Abgesagt", die Sitzung bleibt einsehbar.`;
+    if (!confirm(frage)) return;
     try {
       await api.sitzungen.absagen(sitzung.id);
       onZurueck();
@@ -690,22 +744,22 @@ function SitzungDetail({
               {linkKopiert ? "Kopiert!" : "Link kopieren"}
             </button>
             {imEntwurf && (
-              <>
-                <button
-                  onClick={() => setBearbeitenModal(true)}
-                  title="Metadaten bearbeiten"
-                  className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
-                >
-                  <Pencil size={15} />
-                </button>
-                <button
-                  onClick={sitzungLoeschen}
-                  title="Sitzung löschen"
-                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                >
-                  <Trash2 size={15} />
-                </button>
-              </>
+              <button
+                onClick={() => setBearbeitenModal(true)}
+                title="Metadaten bearbeiten"
+                className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
+              >
+                <Pencil size={15} />
+              </button>
+            )}
+            {!readonly && (
+              <button
+                onClick={sitzungLoeschen}
+                title={imEntwurf ? "Sitzung löschen" : "Sitzung absagen"}
+                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+              >
+                <Trash2 size={15} />
+              </button>
             )}
           </div>
           <div className="flex gap-4 mt-1 text-sm text-gray-500 flex-wrap">

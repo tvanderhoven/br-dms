@@ -192,6 +192,15 @@ enum AuditAktion {
   SITZUNG_SCAN_GELOESCHT
   SITZUNG_ABGESCHLOSSEN
   SITZUNGSPAKET_HERUNTERGELADEN
+  GREMIUM_ERSTELLT
+  GREMIUM_AKTUALISIERT
+  GREMIUM_GELOESCHT
+  FREMDPROTOKOLL_ERSTELLT
+  FREMDPROTOKOLL_AKTUALISIERT
+  FREMDPROTOKOLL_GELOESCHT
+  FREMDPROTOKOLL_HERUNTERGELADEN
+  GREMIUM_MITGLIED_HINZUGEFUEGT
+  GREMIUM_MITGLIED_ENTFERNT
 }
 
 // ================================================================
@@ -238,6 +247,8 @@ model Benutzer {
   schulungenErstellt     Schulungstermin[] @relation("SchulungErstellt")
   kummerkastenBearbeitet KummerkastenEintrag[]
   sitzungScansHochgeladen SitzungScan[]    @relation("SitzungScanHochgeladen")
+  fremdprotokolleHochgeladen Fremdprotokoll[] @relation("FremdprotokollHochgeladenVon")
+  gremienMitgliedschaften GremiumMitglied[]
 
   @@map("benutzer")
 }
@@ -477,6 +488,12 @@ model Sitzung {
   // Nur Betriebsversammlung: Teilnehmerzahl statt Anwesenheitsliste
   teilnehmerzahl Int?
 
+  // Gremium-Zuordnung (Paket 5): leer = Betriebsrat (Standardfall, keine Datenmigration
+  // nötig). Andere Gremien (Ausschüsse, JAV, SBV, ...) können ihre Sitzungen optional
+  // voll im System führen, statt nur ein Fremdprotokoll abzulegen.
+  gremiumId      String?       @map("gremium_id")
+  gremium        Gremium?      @relation(fields: [gremiumId], references: [id], onDelete: Restrict)
+
   erstelltVonId  String        @map("erstellt_von_id")
   erstelltVon    Benutzer      @relation("SitzungenErstellt", fields: [erstelltVonId], references: [id])
 
@@ -571,6 +588,77 @@ model ScanEingang {
   erkanntAm    DateTime @default(now()) @map("erkannt_am")
 
   @@map("scan_eingang")
+}
+
+// ================================================================
+//  GREMIEN UND FREMDPROTOKOLLE (Paket 5)
+// ================================================================
+
+// Katalog der Gremien, die der BR NICHT selbst im System führt (ASA, Wirtschafts-
+// ausschuss, Gesamtbetriebsrat, ...) oder deren Sitzungen optional doch im System
+// geführt werden (dann über Sitzung.gremiumId). Der Betriebsrat selbst taucht hier
+// bewusst nicht auf – seine Sitzungen bleiben exklusiv auf der Sitzungen-Seite.
+model Gremium {
+  id              String   @id @default(uuid())
+  name            String   @unique
+  rechtsgrundlage String?                            // z.B. "§ 28 BetrVG", frei
+  bemerkung       String?
+  aktiv           Boolean  @default(true)            // Archivieren statt löschen, wenn verknüpft
+
+  erstelltAm      DateTime @default(now()) @map("erstellt_am")
+  aktualisiertAm  DateTime @updatedAt @map("aktualisiert_am")
+
+  sitzungen       Sitzung[]
+  fremdprotokolle Fremdprotokoll[]
+  mitglieder      GremiumMitglied[]
+
+  @@map("gremien")
+}
+
+// Mitgliedschaft eines Benutzers in einem (Nicht-BR-)Gremium – steuert die automatische
+// Anwesenheits-Vorausfüllung einer Sitzung dieses Gremiums (siehe lib/sitzungAnlegen.ts).
+model GremiumMitglied {
+  id         String   @id @default(uuid())
+  gremiumId  String   @map("gremium_id")
+  gremium    Gremium  @relation(fields: [gremiumId], references: [id], onDelete: Cascade)
+  benutzerId String   @map("benutzer_id")
+  benutzer   Benutzer @relation(fields: [benutzerId], references: [id], onDelete: Cascade)
+
+  erstelltAm DateTime @default(now()) @map("erstellt_am")
+
+  @@unique([gremiumId, benutzerId])
+  @@map("gremium_mitglieder")
+}
+
+// Protokoll eines Gremiums, das der BR nicht selbst führt – ein einzelnes hochgeladenes
+// Dokument mit Gremium + Datum, ohne TOPs/Anwesenheit. Eigenes Modell statt neue
+// Dokument-Kategorie, da gremiumId+datum echte Pflichtfelder sind, die im Dokument-
+// Upload nicht existieren. Verschlüsselung wie bei Dokument (AES-256-GCM).
+model Fremdprotokoll {
+  id               String   @id @default(uuid())
+  gremiumId        String   @map("gremium_id")
+  gremium          Gremium  @relation(fields: [gremiumId], references: [id], onDelete: Restrict)
+
+  datum            DateTime
+  titel            String
+  bemerkung        String?
+  vertraulich      Boolean  @default(false)
+
+  dateiname        String
+  speicherpfad     String   @map("speicher_pfad")
+  verschlPfad      String   @map("verschl_pfad")
+  dateigroesse     Int      @map("datei_groesse")
+  mimeTyp          String   @map("mime_typ")
+  pruefsumme       String
+
+  hochgeladenVonId String   @map("hochgeladen_von_id")
+  hochgeladenVon   Benutzer @relation("FremdprotokollHochgeladenVon", fields: [hochgeladenVonId], references: [id])
+
+  erstelltAm       DateTime @default(now()) @map("erstellt_am")
+  aktualisiertAm   DateTime @updatedAt @map("aktualisiert_am")
+
+  @@index([gremiumId, datum])
+  @@map("fremdprotokolle")
 }
 
 model SitzungVersion {

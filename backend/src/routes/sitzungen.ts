@@ -91,6 +91,7 @@ const SITZUNG_SELECT = {
   teilnehmerzahl: true,
   erstelltAm:   true,
   aktualisiertAm: true,
+  gremium:      { select: { id: true, name: true } },
   erstelltVon:  { select: { id: true, name: true } },
   versionen: {
     orderBy: { erstelltAm: "asc" as const },
@@ -155,6 +156,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
           sitzungstyp:  true,
           status:       true,
           erstelltAm:   true,
+          gremium:      { select: { id: true, name: true } },
           erstelltVon:  { select: { name: true } },
           _count:       { select: { tops: true } },
           versionen: {
@@ -188,7 +190,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
     "/",
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const { titel, sitzungsdatum, ort, sitzungstyp: typEingabe, notizen, vorlageId } =
+      const { titel, sitzungsdatum, ort, sitzungstyp: typEingabe, notizen, vorlageId, gremiumId } =
         request.body as {
           titel: string;
           sitzungsdatum: string;
@@ -196,6 +198,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
           sitzungstyp?: string;
           notizen?: string;
           vorlageId?: string;
+          gremiumId?: string | null;
         };
 
       if (!titel || !sitzungsdatum) {
@@ -205,10 +208,15 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
       if (!SITZUNGSTYPEN.includes(sitzungstyp)) {
         return reply.status(400).send({ fehler: `Unbekannte Sitzungsart: ${sitzungstyp}` });
       }
+      if (gremiumId) {
+        const gremium = await prisma.gremium.findUnique({ where: { id: gremiumId } });
+        if (!gremium) return reply.status(404).send({ fehler: "Gremium nicht gefunden" });
+      }
 
       const sitzung = {
         id: await sitzungAnlegen({
           titel, sitzungsdatum: new Date(sitzungsdatum), ort, sitzungstyp, notizen, vorlageId,
+          gremiumId: gremiumId || null,
           erstelltVonId: request.benutzer.sub,
         }),
       };
@@ -251,10 +259,10 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
         return reply.status(409).send({ fehler: "Finalisierte Sitzungen können nicht bearbeitet werden" });
       }
 
-      const { titel, sitzungsdatum, ort, sitzungstyp, notizen, teilnehmerzahl: tzEingabe } =
+      const { titel, sitzungsdatum, ort, sitzungstyp, notizen, teilnehmerzahl: tzEingabe, gremiumId } =
         request.body as Partial<{
           titel: string; sitzungsdatum: string; ort: string; sitzungstyp: string; notizen: string;
-          teilnehmerzahl: number | null;
+          teilnehmerzahl: number | null; gremiumId: string | null;
         }>;
 
       if (sitzungstyp !== undefined) {
@@ -271,6 +279,10 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
       if (teilnehmerzahl === "ungueltig") {
         return reply.status(400).send({ fehler: "Teilnehmerzahl muss eine ganze Zahl ab 0 sein" });
       }
+      if (gremiumId !== undefined && gremiumId !== null) {
+        const gremium = await prisma.gremium.findUnique({ where: { id: gremiumId } });
+        if (!gremium) return reply.status(404).send({ fehler: "Gremium nicht gefunden" });
+      }
 
       const aktualisiert = await prisma.sitzung.update({
         where:  { id },
@@ -281,6 +293,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
           ...(sitzungstyp  !== undefined && { sitzungstyp }),
           ...(notizen      !== undefined && { notizen }),
           ...(teilnehmerzahl !== undefined && { teilnehmerzahl }),
+          ...(gremiumId    !== undefined && { gremiumId }),
         },
         select: SITZUNG_SELECT,
       });

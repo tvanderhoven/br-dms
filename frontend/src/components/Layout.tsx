@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   FileText, LayoutDashboard, CalendarDays,
   Mail, CheckSquare, Inbox, Search, X, LayoutTemplate, Settings, UserCircle, BookOpen, Menu, Newspaper, Globe, ClipboardList,
-  Gavel, CalendarRange, Wallet, Scale, GraduationCap, Users, Kanban, ChevronDown, MailPlus, Vote,
+  Gavel, CalendarRange, Wallet, Scale, GraduationCap, Users, Kanban, ChevronDown, MailPlus, Vote, Landmark,
 } from "lucide-react";
 import { api, SuchErgebnis, KATEGORIE_LABEL, SITZUNG_STATUS_LABEL, RESSOURCE_KATEGORIE_LABEL, formatDatum, Rolle, ModuleKey, GesetzParagraph } from "../lib/api";
 import GesetzModal from "./GesetzModal";
@@ -18,6 +18,7 @@ const MODUL_PFADE: Record<string, ModuleKey> = {
   "/mitarbeiter":            "personalverwaltung",
   "/schulungen":             "personalverwaltung",
   "/betriebsvereinbarungen": "betriebsvereinbarungen",
+  "/gremien":                "gremien",
   "/wissen":                 "wissensarchiv",
   "/ressourcen":             "ressourcen",
   "/themen":                 "themensammlung",
@@ -625,6 +626,12 @@ export default function Layout() {
               <NavLink to="/vorlagen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
                 <LayoutTemplate size={16} />
                 Vorlagen
+              </NavLink>
+            )}
+            {modulAktiv("gremien") && (
+              <NavLink to="/gremien" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+                <Landmark size={16} />
+                Gremien
               </NavLink>
             )}
             <NavLink to="/beschluesse" className={linkKlasse} onClick={() => setMobileOffen(false)}>
