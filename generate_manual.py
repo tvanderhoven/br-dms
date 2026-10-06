@@ -753,7 +753,7 @@ def build():
         "Direkt hochladen – PDF, JPG oder PNG über die Sitzungsseite auswählen",
         "Über den Watch-Folder – Scan in den Unterordner protokoll_scan legen (z. B. Scanner-Ablage); die "
         "Datei erscheint im Eingang als „wartender Scan“ und wird dort per Klick der richtigen Sitzung "
-        "zugeordnet (Kapitel 12.4)",
+        "zugeordnet (Kapitel 12.6)",
     ])
 
     pdf.h3("Sitzungspaket und Sitzung abschließen")
@@ -1315,7 +1315,7 @@ def build():
     pdf.bild("einstellungen-system", "E-Mail-Absender und Watch-Folder", hoehe_anteil=0.6)
     pdf.bullets([
         "E-Mail-Absender – Name und Adresse für alle Mails (ohne Eintrag gilt SMTP_FROM) und die Signatur unter Einladungen. Ein Hinweis erscheint, solange kein Mailserver eingerichtet ist",
-        "Watch-Folder – Ob die Ordnerüberwachung läuft, der Basispfad und welcher Unterordner zu welcher Kategorie gehört (Kapitel 12.4)",
+        "Watch-Folder – Ob die Ordnerüberwachung läuft, der Basispfad und welcher Unterordner zu welcher Kategorie gehört (Kapitel 12.6)",
         "Backup & Restore – Anzahl, Alter, Größe und Vollständigkeit der Backups; dazu die Hinweise zum Schlüssel und zur Wiederherstellung (Kapitel 13.2)",
         "Sicherheit – Automatisches Abmelden nach 0 bis 480 Minuten Inaktivität (0 = aus)",
     ])
@@ -1467,48 +1467,155 @@ def build():
             ["Docker / Compose", "Docker 20.10, Compose V2", "Docker 24+, Compose 2.20+"],
             ["Arbeitsspeicher", "2 GB", "4 GB"],
             ["Speicher", "20 GB", "100 GB+"],
+            ["Werkzeuge auf dem Host", "bash, python3, openssl", "–"],
         ],
         (40, 70, 60),
     )
+    pdf.body("Bevor es losgeht, sollten diese Angaben bereitliegen:")
+    pdf.bullets([
+        "Adresse des Servers – IP-Adresse und/oder Rechnername, unter dem BR-DMS im Netz aufgerufen wird (z. B. 192.168.1.100 und br-nas)",
+        "Datenverzeichnis – wo Datenbank und Dokumente liegen sollen; auf dem NAS ein eigener Ordner, z. B. /volume1/docker/br-dms",
+        "Admin-Zugang – E-Mail-Adresse und ein Passwort mit mindestens 8 Zeichen für das erste Konto",
+        "Optional E-Mail – SMTP-Server, Port, Benutzer und Passwort eines Postfachs (stehen in dessen Einstellungen)",
+        "Optional Scanner-Ordner – falls Dokumente automatisch importiert werden sollen (Kapitel 12.6)",
+    ])
+
     pdf.h2("12.2  Schritt für Schritt")
-    pdf.schritt(1, "Dateien bereitstellen", "Repository klonen oder Release entpacken.")
+    pdf.body("Alle Befehle werden auf dem Server im Projektordner ausgeführt (bei einem NAS per SSH).")
+    pdf.schritt(1, "Dateien bereitstellen", "Repository klonen oder Release entpacken und in den Ordner wechseln.")
     pdf.schritt(2, "Assistent starten",
-                "bash installation.sh fragt Datenpfad, Schlüssel, Admin-Zugang, SMTP und Watch-Folder "
-                "ab und erzeugt die .env.")
-    pdf.schritt(3, "Zertifikat erzeugen",
-                "bash proxy/generate-selfsigned-cert.sh <DATA_PATH> <Hostname/IP> – oder ein eigenes "
-                "Zertifikat (fullchain.pem, privkey.pem) nach <DATA_PATH>/certs/ legen.")
-    pdf.schritt(4, "Starten",
-                "docker compose up -d --build. Beim ersten Start legt das Backend alle Tabellen an.")
-    pdf.schritt(5, "Anmelden",
-                "https://<Host>:8443 öffnen. Der erste Admin wird automatisch aus ADMIN_EMAIL und "
-                "ADMIN_PASSWORD angelegt – Passwort sofort ändern, dann das Gremium anlegen.")
+                "bash installation.sh – fragt alles Nötige ab, erzeugt die Schlüssel selbst und schreibt die .env "
+                "(Kapitel 12.3). Am Ende zeigt er die folgenden Befehle fertig ausgefüllt an.")
+    pdf.schritt(3, "Verzeichnisse anlegen",
+                "Unterordner für Datenbank, Dokumente, Logs, Eingang, Backups und Zertifikat.")
+    pdf.schritt(4, "Zertifikat erzeugen",
+                "Ohne Zertifikat startet der HTTPS-Proxy nicht – es muss vor dem ersten Start da sein (Kapitel 12.4).")
+    pdf.schritt(5, "Starten",
+                "docker compose up -d --build. Der erste Start dauert einige Minuten; das Backend legt alle "
+                "Tabellen und das erste Admin-Konto an.")
+    pdf.schritt(6, "Anmelden",
+                "https://<Adresse>:8443 öffnen, mit ADMIN_EMAIL und ADMIN_PASSWORD anmelden, Passwort ändern "
+                "(Klick auf den Namen) und unter Einstellungen → Benutzerverwaltung das Gremium anlegen.")
     pdf.code(
         "bash installation.sh\n"
-        "bash proxy/generate-selfsigned-cert.sh /volume1/docker/br-dms br-nas 192.168.1.100\n"
-        "docker compose up -d --build"
+        "mkdir -p /srv/br-dms/{storage,postgres,logs,watch_inbox,backups,certs}\n"
+        "bash proxy/generate-selfsigned-cert.sh /srv/br-dms br-nas 192.168.1.100\n"
+        "docker compose up -d --build\n"
+        "docker compose logs -f backend      # Start beobachten, Ende mit Strg+C"
     )
-    pdf.h2("12.3  Umgebungsvariablen")
-    pdf.body("Die .env liegt im Installationsverzeichnis und wird nie ins Repository übernommen.")
+    pdf.hinweis(
+        "Jetzt den ENCRYPTION_KEY aus der .env in einen Passwort-Manager kopieren. Ohne ihn lassen sich die "
+        "Dokumente auch aus einem Backup nicht mehr öffnen.", "achtung", "Sofort sichern")
+
+    pdf.h2("12.3  Der Installationsassistent – Frage für Frage")
+    pdf.body(
+        "Werte in [eckigen Klammern] sind Vorschläge: Enter übernimmt sie. Felder ohne Vorschlag – etwa "
+        "Passwörter – müssen ausgefüllt werden, sonst fragt der Assistent erneut. Bei Ja/Nein-Fragen gilt "
+        "mit Enter der Großbuchstabe: [J/n] heißt Ja, [j/N] heißt Nein. Vor dem Schreiben zeigt der "
+        "Assistent eine Zusammenfassung; erst nach Bestätigung entsteht die .env."
+    )
     pdf.tabelle(
-        ["Variable", "Pflicht", "Bedeutung"],
+        ["Frage", "Was eintragen", "Nur Enter"],
         [
-            ["DATA_PATH", "Ja", "Datenverzeichnis (Datenbank, Dokumente, Logs, Zertifikate)"],
-            ["POSTGRES_USER / _PASSWORD / _DB", "Ja", "Zugang zur Datenbank"],
-            ["JWT_SECRET", "Ja", "Signaturschlüssel für Anmeldungen (openssl rand -hex 32)"],
-            ["ENCRYPTION_KEY", "Ja", "AES-256-Schlüssel, 64 Hex-Zeichen (openssl rand -hex 32)"],
-            ["ADMIN_EMAIL / ADMIN_PASSWORD", "Ja", "Erster Admin-Zugang beim Erststart"],
-            ["APP_URL", "Ja", "Öffentliche Adresse, z. B. https://br-nas:8443 (Links in E-Mails, CORS)"],
-            ["PUID / PGID", "Nein", "Benutzer- und Gruppen-ID für Dateirechte"],
-            ["SMTP_HOST / _PORT / _USER / _PASS / _FROM", "Nein", "E-Mail-Versand (Passwort-Reset, Erinnerungen)"],
-            ["WATCH_FOLDER_ENABLED", "Nein", "Watch-Folder aktivieren (true/false)"],
-            ["WATCH_INBOX_PATH", "Nein", "Eigener Pfad für den Eingangsordner"],
-            ["SYSTEM_USER_ID", "Nein", "Benutzer, dem Watch-Folder-Importe zugeordnet werden"],
-            ["PROXY_HTTPS_PORT / PROXY_HTTP_PORT", "Nein", "Ports des Proxys (Standard 8443 / 8080)"],
+            ["Zielsystem", "1 = Linux-Server/VM oder NAS mit SSH-Shell, 2 = Synology, 3 = QNAP (2/3 nutzen die Deploy-Skripte)", "1"],
+            ["Erreichbar unter", "IP-Adresse oder Name des Servers", "localhost (NAS: 192.168.1.100)"],
+            ["Datenverzeichnis", "Ordner für Datenbank und Dokumente", "./data bzw. NAS-Standardpfad"],
+            ["PUID / PGID", "Wird erkannt (bei NAS per SSH) – nur bestätigen", "erkannter Wert"],
+            ["JWT_SECRET, ENCRYPTION_KEY", "Nichts – nur bei einem Umzug den alten Schlüssel eingeben", "neu erzeugt"],
+            ["Datenbankpasswort", "Nichts", "neu erzeugt"],
+            ["Admin-E-Mail", "Login des ersten Kontos", "admin@br-dms.lokal"],
+            ["Admin-Passwort", "Mindestens 8 Zeichen, zweimal", "Pflicht"],
+            ["HTTPS-Port / HTTP-Port", "Nur ändern, wenn belegt oder 443/80 gewünscht", "8443 / 8080"],
+            ["Weitere Namen fürs Zertifikat", "Alle weiteren Adressen, unter denen BR-DMS aufgerufen wird", "Rechnername"],
+            ["E-Mail konfigurieren?", "Server, Port, Benutzer, Passwort, Absender", "Nein"],
+            ["Watch-Folder aktivieren?", "Ja, wenn ein Scanner-Ordner importiert werden soll", "Nein"],
         ],
-        (62, 16, 92),
+        (44, 84, 42),
     )
-    pdf.h2("12.4  Watch-Folder")
+    pdf.body(
+        "Der Assistent darf jederzeit erneut laufen, etwa um E-Mail nachzutragen. Eine vorhandene .env lädt er "
+        "als Vorschlag; bei den Schlüsseln fragt er, ob sie bleiben sollen – hier immer Ja wählen, sonst sind "
+        "bestehende Dokumente und Anmeldungen ungültig. APP_URL setzt er selbst aus Adresse und HTTPS-Port zusammen."
+    )
+
+    pdf.h2("12.4  HTTPS-Zertifikat")
+    pdf.body(
+        "BR-DMS ist nur über HTTPS erreichbar. Der Proxy erwartet zwei Dateien in <DATA_PATH>/certs/: "
+        "fullchain.pem (Zertifikat) und privkey.pem (privater Schlüssel). Das Zertifikat gilt nur für die "
+        "Adressen, die darin stehen – wer BR-DMS per IP und per Name aufruft, nimmt beide auf. Es gibt drei Wege:"
+    )
+    pdf.tabelle(
+        ["Weg", "Aufwand", "Browser-Warnung"],
+        [
+            ["Selbstsigniert mit dem mitgelieferten Skript", "eine Minute", "bis es einmal je PC importiert ist"],
+            ["Von der internen Firmen-CA (IT fragen)", "gering, wenn es eine CA gibt", "keine auf Firmen-PCs"],
+            ["Let's Encrypt per DNS-Challenge (eigene Domain)", "mittel, Erneuerung alle 90 Tage", "keine"],
+        ],
+        (70, 50, 50),
+    )
+    pdf.h3("Selbstsigniert")
+    pdf.body("Erster Parameter ist das Datenverzeichnis, danach alle Namen und IP-Adressen. Gültig 825 Tage; "
+             "danach den Befehl erneut ausführen und das neue Zertifikat wieder importieren.")
+    pdf.code("bash proxy/generate-selfsigned-cert.sh /srv/br-dms br-nas 192.168.1.100\n"
+             "docker compose restart proxy        # nur nötig, wenn BR-DMS schon läuft")
+    pdf.body(
+        "Damit der Browser nicht mehr warnt, wird das Zertifikat einmal pro PC als vertrauenswürdig importiert. "
+        "Dazu fullchain.pem auf den PC kopieren und in br-dms.crt umbenennen:"
+    )
+    pdf.bullets([
+        "Windows (Edge, Chrome) – Doppelklick auf br-dms.crt → Zertifikat installieren → Lokaler Computer → „Alle Zertifikate in folgendem Speicher speichern“ → Vertrauenswürdige Stammzertifizierungsstellen → Fertig stellen; Browser neu starten",
+        "macOS (Safari, Chrome) – Doppelklick öffnet die Schlüsselbundverwaltung, Schlüsselbund „System“ wählen; danach das Zertifikat öffnen → Vertrauen → „Immer vertrauen“",
+        "Firefox – Einstellungen → Datenschutz & Sicherheit → Zertifikate anzeigen → Zertifizierungsstellen → Importieren → „Dieser CA vertrauen, um Websites zu identifizieren“",
+        "Auf vielen PCs auf einmal – die IT verteilt das Zertifikat per Gruppenrichtlinie",
+    ])
+    pdf.h3("Eigenes Zertifikat (Firmen-CA oder Let's Encrypt)")
+    pdf.body(
+        "Bei der IT ein Zertifikat für den Rechnernamen anfragen – wichtig: der Name muss als „Subject "
+        "Alternative Name“ (SAN) eingetragen sein. Kommt es als .pfx-Datei, wird es so umgewandelt; danach "
+        "beide Dateien nach <DATA_PATH>/certs/ legen und den Proxy neu starten. Ein Let's-Encrypt-Zertifikat "
+        "per DNS-Challenge braucht keinen offenen Port ins Internet, nur einen TXT-Eintrag in der öffentlichen "
+        "DNS-Zone der Domain; Ergebnis ebenso als fullchain.pem und privkey.pem ablegen."
+    )
+    pdf.code("openssl pkcs12 -in zertifikat.pfx -clcerts -nokeys -out /srv/br-dms/certs/fullchain.pem\n"
+             "openssl pkcs12 -in zertifikat.pfx -nocerts -nodes -out /srv/br-dms/certs/privkey.pem\n"
+             "docker compose restart proxy")
+    pdf.body("Ändert sich dadurch die Adresse (z. B. https://br-dms.firma.de), auch APP_URL in der .env anpassen "
+             "und docker compose up -d ausführen.")
+
+    pdf.h2("12.5  Die .env von Hand")
+    pdf.body(
+        "Wer den Assistenten nicht nutzt, kopiert .env.example nach .env und ersetzt jedes BITTE_AENDERN. "
+        "Die Schlüssel erzeugt openssl rand -hex 32 (je einmal für JWT_SECRET und ENCRYPTION_KEY). "
+        "Die Tabelle zeigt, was passiert, wenn ein Wert leer bleibt:"
+    )
+    pdf.tabelle(
+        ["Variable", "Bedeutung", "Wenn leer"],
+        [
+            ["DATA_PATH", "Datenverzeichnis auf dem Host", "Pflicht – sonst landen die Daten unter / des Hosts"],
+            ["POSTGRES_PASSWORD", "Datenbank; nur Buchstaben, Ziffern, - und _", "Backend startet nicht"],
+            ["JWT_SECRET", "Signiert Anmeldungen (openssl rand -hex 32)", "Backend startet nicht"],
+            ["ENCRYPTION_KEY", "Verschlüsselt Dokumente, genau 64 Hex-Zeichen", "Backend startet nicht"],
+            ["ADMIN_EMAIL", "Login des ersten Kontos", "admin@br-dms.lokal"],
+            ["ADMIN_PASSWORD", "Passwort des ersten Kontos, mind. 8 Zeichen", "Erste Installation startet nicht"],
+            ["APP_URL", "Adresse wie im Browser, z. B. https://br-nas:8443", "Links in E-Mails führen ins Leere"],
+            ["PUID / PGID", "Besitzer der Dateien auf dem Host", "1000 / 100"],
+            ["SMTP_HOST, _PORT, _USER, _PASS, _FROM", "E-Mail-Versand", "keine E-Mails, sonst alles normal"],
+            ["WATCH_FOLDER_ENABLED", "Scanner-Ordner importieren", "aus"],
+            ["WATCH_INBOX_PATH", "Eigener Eingangsordner", "<DATA_PATH>/watch_inbox"],
+            ["SYSTEM_USER_ID", "Konto für Importe", "erstes Admin-Konto"],
+            ["PROXY_HTTPS_PORT / _HTTP_PORT", "Ports des Proxys", "8443 / 8080"],
+        ],
+        (50, 70, 50),
+    )
+    pdf.body(
+        "Fehlen Schlüssel oder steht noch ein Platzhalter darin, startet das Backend bewusst nicht und nennt "
+        "den Grund im Log (docker compose logs backend, Zeilen mit [Konfiguration]). ADMIN_EMAIL und "
+        "ADMIN_PASSWORD werden nur beim allerersten Start gelesen – spätere Änderungen in der .env wirken "
+        "nicht mehr; das Passwort wird dann in der App geändert. Nach jeder anderen Änderung an der .env: "
+        "docker compose up -d."
+    )
+
+    pdf.h2("12.6  Watch-Folder")
     pdf.body(
         "Mit WATCH_FOLDER_ENABLED=true überwacht das Backend einen Ordner – etwa die Ablage eines "
         "Scanners – und importiert neue PDF-, DOCX-, DOCM- und XLSX-Dateien automatisch in den Eingang. "
@@ -1519,10 +1626,32 @@ def build():
         "Jeder Import und jeder Fehler wird im Audit-Log protokolliert."
     )
     pdf.body(
+        "Importe werden dem ersten Admin-Konto zugeordnet. Soll es ein anderes Konto sein, dessen ID als "
+        "SYSTEM_USER_ID eintragen – sie steht in der Benutzerverwaltung als graue Zeile unter dem Namen, "
+        "ein Klick kopiert sie. Empfohlen ist ein eigener, separat freigegebener Ordner (WATCH_INBOX_PATH): "
+        "Wer einliefert, sieht dann nur diesen Ordner, nicht das restliche Datenverzeichnis."
+    )
+    pdf.body(
         "Ein Unterordner fällt aus diesem Schema heraus: protokoll_scan ist für Scans der Anwesenheitsliste "
         "und der Unterschriftenseite (Kapitel 4.4) gedacht, nicht für normale Dokumente. Erlaubt sind PDF, "
         "JPG und PNG. Dateien landen dort nicht im Eingang als Dokument, sondern als „wartender Scan“, der "
         "sich per Klick einer Sitzung und einem oder beiden Nachweisen zuordnen lässt."
+    )
+
+    pdf.h2("12.7  Wenn etwas nicht klappt")
+    pdf.tabelle(
+        ["Problem", "Ursache und Lösung"],
+        [
+            ["Seite lädt nicht, Proxy startet nicht", "Zertifikat fehlt in <DATA_PATH>/certs – Skript ausführen (12.4), dann docker compose up -d"],
+            ["Backend startet immer wieder neu", "docker compose logs backend: Zeilen mit [Konfiguration] nennen den fehlenden Wert in der .env"],
+            ["„Verbindung nicht privat“", "Selbstsigniertes Zertifikat: einmal importieren (12.4); oder die Adresse fehlt im Zertifikat – mit allen Namen neu erzeugen"],
+            ["Links in E-Mails funktionieren nicht", "APP_URL entspricht nicht der Adresse im Browser (https, Name, Port) – anpassen, docker compose up -d"],
+            ["Port bereits belegt", "PROXY_HTTPS_PORT / PROXY_HTTP_PORT in der .env ändern"],
+            ["Keine E-Mails", "SMTP-Werte prüfen; bei Einladungen zeigt die Einladungskarte den Fehler je Empfänger, sonst steht er im Backend-Log"],
+            ["„Permission denied“ im Log", "PUID/PGID passen nicht zum Besitzer des Datenverzeichnisses (id auf dem Host)"],
+            ["Dokumente nach Umzug nicht lesbar", "ENCRYPTION_KEY stimmt nicht mit dem alten System überein – alten Schlüssel eintragen"],
+        ],
+        (55, 115),
     )
 
     # 13 ────────────────────────────────────────────────────────────
@@ -1618,13 +1747,23 @@ def build():
         "Alle Daten werden relativ zum aktuellen Datum erzeugt. Die Abbildungen in diesem Handbuch stammen "
         "aus dieser Demo."
     )
-    pdf.code("./demo/demo.sh start    # bauen, starten, befüllen -> https://localhost:8444\n"
-             "./demo/demo.sh reset    # alles löschen und frisch einspielen\n"
-             "./demo/demo.sh stop     # anhalten\n\n"
-             "# Anmeldung: s.kroeger / Demo2026!  (Vorsitz)")
+    pdf.code("./demo/demo.sh start      # bauen, starten, befüllen -> https://localhost:8444\n"
+             "./demo/demo.sh stop       # anhalten, Daten bleiben\n"
+             "./demo/demo.sh reset      # alles löschen und frisch einspielen\n"
+             "./demo/demo.sh logs       # Backend-Log verfolgen\n"
+             "./demo/demo.sh entfernen  # Demo komplett löschen (fragt nach)\n\n"
+             "# Anmeldung: s.kroeger / Demo2026!  (Vorsitz) – weitere Konten zeigt start")
+    pdf.body(
+        "Die Demo läuft neben einer echten Installation auf demselben Rechner: eigene Container "
+        "(brdms_demo_…), eigene Docker-Volumes statt des Datenverzeichnisses, eigener Port 8444 und eigene, "
+        "beim ersten Start erzeugte Schlüssel in demo/.env.demo. „entfernen“ löscht Container, Volumes, die "
+        "gebauten Demo-Images, Schlüssel und Zertifikat der Demo – nur dieses Projekt, eine echte "
+        "Installation bleibt unberührt."
+    )
     pdf.hinweis(
-        "Das Demo-Skript schreibt nur in eine leere Datenbank und bricht sonst ab – eine echte "
-        "Installation kann es nicht verändern.", "tipp")
+        "Demodaten lassen sich bewusst nicht in eine echte Installation einspielen: Das Skript schreibt nur "
+        "in eine leere Datenbank und bricht sonst ab. Zum Ausprobieren also immer die getrennte Demo nutzen.",
+        "tipp")
     pdf.body("Die Screenshots dieses Handbuchs werden aus der laufenden Demo neu erzeugt (braucht Node.js ab "
              "Version 22 und Chrome oder Chromium; ein anderer Browser über CHROME=/pfad/zum/browser):")
     pdf.code("node tools/handbuch-screenshots/screenshots.mjs\n"

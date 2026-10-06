@@ -33,6 +33,7 @@ import { startGesetzeWorker } from "./workers/gesetze.worker.js";
 import { startAblaufWorker } from "./workers/ablauf.worker.js";
 import { starteWatchFolder } from "./services/watchfolder.service.js";
 import { erstAdminAnlegen } from "./lib/erst-admin.js";
+import { konfigPruefen } from "./lib/konfigPruefen.js";
 import { einladungRouten } from "./routes/einladung.js";
 import { beschlussRegisterRouten } from "./routes/beschlussregister.js";
 import { fristenRouten } from "./routes/fristen.js";
@@ -49,6 +50,8 @@ import { kummerkastenRouten } from "./routes/kummerkasten.js";
 import { ablaufRouten } from "./routes/ablauf.js";
 import { gremienRouten } from "./routes/gremien.js";
 import { fremdprotokolleRouten } from "./routes/fremdprotokolle.js";
+
+konfigPruefen();
 
 process.on("uncaughtException", (err) => {
   console.error("[process] uncaughtException – Backend bleibt am Laufen:", err);
@@ -143,7 +146,7 @@ startGesetzeWorker();
 startAblaufWorker();
 
 if (process.env.WATCH_FOLDER_ENABLED === "true") {
-  starteWatchFolder();
+  starteWatchFolder().catch(err => console.error("[watchfolder] Start fehlgeschlagen:", err));
 }
 
 // ── Start ─────────────────────────────────────────────────────────

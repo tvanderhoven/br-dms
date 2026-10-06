@@ -12,7 +12,7 @@ Zielsysteme:
        (passend zu deploy_komplett.py / deploy_update.sh).
 """
 
-import os, sys, re, secrets, string, getpass, subprocess
+import os, sys, re, secrets, string, getpass, subprocess, socket
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).parent
@@ -80,7 +80,9 @@ def gen_hex(n=32):
     return secrets.token_hex(n)
 
 def gen_pw(length=22):
-    abc = string.ascii_letters + string.digits + "-_!@$%"
+    # Keine Sonderzeichen wie $ % @: Docker Compose ersetzt $… in der .env als Variable,
+    # und % bzw. @ können die DATABASE_URL (postgresql://user:passwort@host) zerlegen.
+    abc = string.ascii_letters + string.digits + "-_"
     return "".join(secrets.choice(abc) for _ in range(length))
 
 def load_env(path):
@@ -135,6 +137,10 @@ def main():
     print()
     print("  Dieses Skript führt dich durch die Erstkonfiguration und")
     print("  erstellt am Ende eine fertige .env mit allen benötigten Werten.")
+    print()
+    note(f"Werte in {c('[eckigen Klammern]', DIM)} sind Vorschläge – Enter übernimmt sie.")
+    note("Felder ohne Vorschlag (z. B. Passwörter) müssen ausgefüllt werden.")
+    note("Bei Ja/Nein-Fragen gilt mit Enter der Großbuchstabe: [J/n] = Ja, [j/N] = Nein.")
     print()
     warn("ENCRYPTION_KEY  sichern! Ohne ihn sind alle Dokumente verloren.")
     print()
@@ -295,7 +301,11 @@ def main():
         if gen_or_own:
             db_password = gen_pw(24)
         else:
-            db_password = ask_pw("Datenbankpasswort (mind. 12 Zeichen)", min_len=12)
+            while True:
+                db_password = ask_pw("Datenbankpasswort (mind. 12 Zeichen, ohne $ % @ : / #)", min_len=12)
+                if not re.search(r"[$%@:/#\s]", db_password):
+                    break
+                print(c("    ↳ Bitte ohne $ % @ : / # und Leerzeichen – die stören in .env und Datenbank-URL.", RED))
         ok(f"POSTGRES_PASSWORD: {c(db_password, BOLD)}")
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -322,32 +332,41 @@ def main():
     # ─────────────────────────────────────────────────────────────────────────
     section(5, "Ports")
     print()
-    print("  HTTPS-Proxy-Ports sind der eigentliche Zugriffsweg (siehe README,")
-    print("  Abschnitt 'HTTPS aktivieren'). Frontend-/Backend-Port werden intern")
-    print("  bzw. für den Healthcheck verwendet und müssen i.d.R. nicht angepasst werden.")
+    print("  BR-DMS ist nur über den HTTPS-Proxy erreichbar, unter https://<Adresse>:<HTTPS-Port>.")
+    print("  443/80 sind nicht Standard, weil viele NAS diese Ports selbst belegen –")
+    print("  sind sie bei dir frei, kannst du sie hier eintragen.")
     print()
 
-    proxy_https_port = ask("HTTPS-Proxy-Port", default=defaults.get("PROXY_HTTPS_PORT", "8443"))
-    proxy_http_port  = ask("HTTP-Proxy-Port (Redirect)", default=defaults.get("PROXY_HTTP_PORT", "8080"))
-    frontend_port = ask("Frontend-Port (intern)", default=defaults.get("FRONTEND_PORT", "3000"))
-    backend_port  = ask("Backend-Port (intern)",  default=defaults.get("BACKEND_PORT",  "4000"))
+    proxy_https_port = ask("HTTPS-Port", default=defaults.get("PROXY_HTTPS_PORT", "8443"))
+    proxy_http_port  = ask("HTTP-Port (leitet nur auf HTTPS um)", default=defaults.get("PROXY_HTTP_PORT", "8080"))
+
+    # Zertifikat: alle Namen/IPs, unter denen das System aufgerufen wird
+    print()
+    note("Das HTTPS-Zertifikat gilt nur für die Adressen, die darin stehen. Wird BR-DMS")
+    note("z. B. per IP und per Rechnername aufgerufen, beide angeben (durch Leerzeichen getrennt).")
+    vorschlag = [n for n in (socket.gethostname(),) if n and n != host_address]
+    zusatz_namen = ask("Weitere Namen/IP-Adressen fürs Zertifikat (optional)",
+                       default=" ".join(vorschlag) if vorschlag else None, required=False)
+    zert_namen = " ".join(dict.fromkeys([host_address] + zusatz_namen.split()))
 
     # ─────────────────────────────────────────────────────────────────────────
     # Schritt 6: E-Mail (Passwort-Reset)
     # ─────────────────────────────────────────────────────────────────────────
-    section(6, "E-Mail (Passwort-Reset) – optional")
+    section(6, "E-Mail – optional")
     print()
-    print("  Ermöglicht das Zurücksetzen vergessener Passwörter per E-Mail.")
+    print("  Für Einladungen zu Sitzungen, Fristen-Erinnerungen und „Passwort vergessen“.")
+    print("  Ohne E-Mail läuft alles andere normal; nachtragen geht später in der .env.")
+    print("  Die Zugangsdaten stehen in den Einstellungen deines E-Mail-Postfachs (SMTP).")
     print()
 
     smtp_configured = ask_yn("E-Mail konfigurieren?", default=bool(defaults.get("SMTP_HOST")))
 
     if smtp_configured:
-        smtp_host = ask("SMTP-Server",    default=defaults.get("SMTP_HOST", "smtp.ionos.de"))
-        smtp_port = ask("SMTP-Port",      default=defaults.get("SMTP_PORT", "587"))
+        smtp_host = ask("SMTP-Server (z. B. smtp.firma.de)", default=defaults.get("SMTP_HOST") or None)
+        smtp_port = ask("SMTP-Port (587 = STARTTLS, 465 = SSL)", default=defaults.get("SMTP_PORT", "587"))
         smtp_user = ask("SMTP-Benutzername (E-Mail-Adresse)", default=defaults.get("SMTP_USER", ""))
         smtp_pass = ask("SMTP-Passwort", secret=True)
-        smtp_from = ask("Absender-Name",  default=defaults.get("SMTP_FROM", f"BR-DMS <{smtp_user}>"))
+        smtp_from = ask("Absender (Name <Adresse>)", default=defaults.get("SMTP_FROM", f"Betriebsrat <{smtp_user}>"))
         ok("E-Mail konfiguriert.")
     else:
         smtp_host = smtp_port = smtp_user = smtp_pass = smtp_from = ""
@@ -378,8 +397,9 @@ def main():
             watch_inbox_path = ""
 
         print()
-        warn("Nach dem ersten Start die SYSTEM_USER_ID aus der Benutzerverwaltung")
-        warn("im System holen und in der .env nachtragen.")
+        note("Importierte Dateien werden dem ersten Admin-Konto zugeordnet. Soll es ein")
+        note("anderes Konto sein: dessen ID (Benutzerverwaltung, graue Zeile unter dem")
+        note("Namen, Klick kopiert) später als SYSTEM_USER_ID in die .env eintragen.")
         system_user_id = defaults.get("SYSTEM_USER_ID", "")
         if system_user_id:
             keep_uid = ask_yn(f"Bestehende SYSTEM_USER_ID behalten ({system_user_id[:8]}…)?", default=True)
@@ -405,8 +425,7 @@ def main():
         ("PUID / PGID",        f"{puid} / {pgid}"),
         ("HTTPS-Proxy-Port",   proxy_https_port),
         ("HTTP-Proxy-Port",    proxy_http_port),
-        ("Frontend-Port",      frontend_port),
-        ("Backend-Port",       backend_port),
+        ("Zertifikat für",     zert_namen),
         ("JWT_SECRET",         jwt_secret[:16] + "…"),
         ("ENCRYPTION_KEY",     encryption_key[:16] + "…"),
         ("POSTGRES_PASSWORD",  db_password[:6] + "…"),
@@ -432,7 +451,7 @@ def main():
     # ── gemeinsame Blöcke ────────────────────────────────────────────────────
     if smtp_configured:
         smtp_block = f"""
-# --- E-Mail (Passwort-Reset) ------------------------------------
+# --- E-Mail (Einladungen, Erinnerungen, Passwort-Reset) ---------
 SMTP_HOST={smtp_host}
 SMTP_PORT={smtp_port}
 SMTP_USER={smtp_user}
@@ -441,13 +460,13 @@ SMTP_FROM={smtp_from}
 """
     else:
         smtp_block = """
-# --- E-Mail (Passwort-Reset) ------------------------------------
-# Zum Aktivieren auskommentieren und Werte eintragen:
-# SMTP_HOST=smtp.ionos.de
+# --- E-Mail (Einladungen, Erinnerungen, Passwort-Reset) ---------
+# Zum Aktivieren das # entfernen, Werte eintragen, Backend neu starten:
+# SMTP_HOST=smtp.firma.de
 # SMTP_PORT=587
-# SMTP_USER=deine@domain.de
-# SMTP_PASS=dein-passwort
-# SMTP_FROM=BR-DMS <deine@domain.de>
+# SMTP_USER=betriebsrat@firma.de
+# SMTP_PASS=
+# SMTP_FROM=Betriebsrat <betriebsrat@firma.de>
 """
 
     # Frontend/Backend haben keinen eigenen Host-Port (siehe docker-compose.yml) -
@@ -475,7 +494,6 @@ POSTGRES_DB=brdms
 
 # --- Backend ----------------------------------------------------
 NODE_ENV=production
-BACKEND_PORT={backend_port}
 
 # JWT-Secret (NICHT verlieren, niemals teilen)
 JWT_SECRET={jwt_secret}
@@ -491,15 +509,14 @@ STORAGE_PATH=/data/storage
 ADMIN_EMAIL={admin_email}
 ADMIN_PASSWORD={admin_pw}
 
-# --- Frontend ---------------------------------------------------
-FRONTEND_PORT={frontend_port}
+# --- Adresse, unter der BR-DMS aufgerufen wird (Links in E-Mails, CORS) ---
 APP_URL={app_url}
 {smtp_block}
 # --- Watch-Folder -----------------------------------------------
 WATCH_FOLDER=/data/watch_inbox
 WATCH_FOLDER_ENABLED={'true' if wf_enabled else 'false'}
 WATCH_INBOX_PATH={watch_inbox_path}
-# UUID des Admin-Benutzers (nach erstem Login in Benutzerverwaltung ermitteln)
+# Konto, dem Importe zugeordnet werden; leer = erstes Admin-Konto
 SYSTEM_USER_ID={system_user_id}
 
 # --- HTTPS-Proxy (siehe README, Abschnitt "HTTPS aktivieren") ---
@@ -530,8 +547,6 @@ NAS_HOST={nas_ip}
 NAS_IP={host_address}
 PUID={puid}
 PGID={pgid}
-BACKEND_PORT={backend_port}
-FRONTEND_PORT={frontend_port}
 """
         LOCAL_ENV.write_text(local_env_content, encoding="utf-8")
         ok(f".env     geschrieben → {c(str(LOCAL_ENV), BOLD)}")
@@ -544,8 +559,8 @@ FRONTEND_PORT={frontend_port}
 
     # Der Proxy-Container startet nicht ohne Zertifikat unter <DATA_PATH>/certs/ -
     # Zertifikat muss also vor dem allerersten "docker compose up" existieren.
-    cert_cmd_generic = f"bash proxy/generate-selfsigned-cert.sh {data_path} {host_address}"
-    cert_cmd_nas     = f"bash {data_path}/proxy/generate-selfsigned-cert.sh {data_path} {nas_ip if not is_generic else host_address}"
+    cert_cmd_generic = f"bash proxy/generate-selfsigned-cert.sh {data_path} {zert_namen}"
+    cert_cmd_nas     = f"bash {data_path}/proxy/generate-selfsigned-cert.sh {data_path} {zert_namen}"
 
     if is_generic:
         steps = [
@@ -557,6 +572,8 @@ FRONTEND_PORT={frontend_port}
              f"{docker_cmd} compose up -d --build"),
             ("System aufrufen",
              f"https://{host_address}:{proxy_https_port}  (Zertifikatswarnung bei selbstsigniertem Zertifikat ist normal)"),
+            ("Anmelden",
+             f"{admin_email} mit dem eben gewählten Passwort – danach unter Einstellungen → Benutzerverwaltung das Gremium anlegen"),
         ]
     else:
         dc_file = f"{data_path}/docker-compose.yml"
@@ -573,6 +590,8 @@ FRONTEND_PORT={frontend_port}
              f"{docker_cmd} compose -f {dc_file} up -d --build"),
             ("System aufrufen",
              f"https://{nas_ip}:{proxy_https_port}  (Zertifikatswarnung bei selbstsigniertem Zertifikat ist normal)"),
+            ("Anmelden",
+             f"{admin_email} mit dem eben gewählten Passwort – danach unter Einstellungen → Benutzerverwaltung das Gremium anlegen"),
         ]
 
     for i, (titel, befehl) in enumerate(steps, 1):
@@ -580,15 +599,10 @@ FRONTEND_PORT={frontend_port}
         print(f"     {c(befehl, YEL)}")
         print()
 
-    if wf_enabled:
-        print()
-        warn("WatchFolder: Nach dem ersten Login SYSTEM_USER_ID aus der Benutzerverwaltung")
-        warn("holen und in der .env eintragen, dann Backend neu starten:")
-        if is_generic:
-            print(f"     {c(docker_cmd + ' compose restart backend', YEL)}")
-        else:
-            print(f"     {c(docker_cmd + ' compose -f ' + dc_file + ' restart backend', YEL)}")
-        print()
+    print()
+    warn(c("Jetzt den ENCRYPTION_KEY aus der .env in einen Passwort-Manager kopieren!", BOLD))
+    note("Probleme beim Start? Log ansehen mit: " + docker_cmd + " compose logs backend")
+    print()
 
     hr()
     print()
