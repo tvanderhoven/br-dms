@@ -754,6 +754,37 @@ def build():
         "weil Anwesenheitsliste und Beschlüsse sonst verwaist zurückblieben. Im Zweifel neu anlegen.",
         "info")
 
+    pdf.h2("4.7  Gremien und Fremdprotokolle")
+    pdf.body(
+        "Die Seite Gremien verwaltet die anderen Gremien, die der Betriebsrat begleitet – etwa "
+        "Arbeitsschutzausschuss (§ 89), Wirtschaftsausschuss (§§ 106–110), Gesamtbetriebsrat oder JAV/SBV. "
+        "Der Betriebsrat selbst taucht hier bewusst nicht auf und bleibt wie gewohnt auf der Seite Sitzungen."
+    )
+    pdf.bild("gremien", "Gremien-Übersicht mit Fremdprotokollen und Sitzungen", hoehe_anteil=0.6)
+    pdf.h3("Fremdprotokoll")
+    pdf.body(
+        "Für Gremien, die der Betriebsrat nicht selbst im System führt, wird ein fertiges Protokoll als "
+        "Fremdprotokoll abgelegt – eine hochgeladene Datei mit Gremium, Datum und Titel, ohne eigene "
+        "Tagesordnungspunkte oder Anwesenheitsliste. Eine Markierung als vertraulich beschränkt Ansicht "
+        "und Download auf Vorsitz und Admin, etwa für Wirtschaftsausschuss-Protokolle."
+    )
+    pdf.h3("Mitglieder")
+    pdf.body(
+        "Je Gremium lässt sich hinterlegen, wer dazugehört. Führt der Betriebsrat eine Sitzung dieses "
+        "Gremiums doch im System (Tagesordnung, Protokoll, PDF wie gewohnt – über das Gremium-Feld beim "
+        "Anlegen einer Sitzung), füllt BR-DMS die Anwesenheit automatisch mit diesen Mitgliedern statt mit "
+        "allen Betriebsratsmitgliedern vor."
+    )
+    pdf.hinweis(
+        "Ohne hinterlegte Mitglieder bleibt die Anwesenheitsliste einer Gremium-Sitzung leer und wird von "
+        "Hand gepflegt – BR-DMS füllt dann nicht ersatzweise die Betriebsratsmitglieder ein.",
+        "info")
+    pdf.body(
+        "Sowohl die Sitzungsliste als auch das Dokumentenarchiv lassen sich nach Gremium filtern; bei "
+        "Dokumenten, die über einen TOP mit einer Gremium-Sitzung verknüpft sind, erscheint der Gremium-Name "
+        "zusätzlich direkt bei „Behandelt in“."
+    )
+
     # 5 ─────────────────────────────────────────────────────────────
     pdf.h1("5  Planung & Zusammenarbeit")
     pdf.h2("5.1  Aufgaben und Vorhaben")
@@ -1094,6 +1125,7 @@ def build():
         [
             ["Personalverwaltung", "Mitarbeiter, Gehaltstabelle, Zeitmodelle, Überstunden, Schulungen"],
             ["Betriebsvereinbarungen", "Das BV-Register"],
+            ["Gremien", "Andere Gremien, Mitglieder, Fremdprotokolle"],
             ["Wissensarchiv", "Wissenseinträge"],
             ["Ressourcen", "Linksammlung"],
             ["Themensammlung", "Export öffentlicher TOPs"],
@@ -1153,6 +1185,7 @@ def build():
             ["Beschlüsse erfassen und finalisieren", j, j, n, n, n, j],
             ["Gehaltstabelle bearbeiten", j, j, j, v, n, j],
             ["Betriebsvereinbarungen anlegen", j, j, n, n, n, j],
+            ["Gremien, Mitglieder und Fremdprotokolle verwalten", j, j, n, n, n, j],
             ["Benutzer verwalten, Design ändern", j, j, n, n, n, j],
             ["Audit-Log einsehen", j, j, n, n, n, j],
             ["Module ein-/ausschalten", n, n, n, n, n, j],
@@ -1402,7 +1435,8 @@ def build():
             ["Zusammenarbeit", "Aufgabe (inkl. Vorhaben und Themen-Backlog), Nachricht, KummerkastenEintrag"],
             ["Wissen", "WissensEintrag, Ressource, GesetzParagraph"],
             ["Personal", "Mitarbeiter, Abteilung, GehaltsstufenEintrag, ZeitmodellEintrag, UeberstundenEintrag"],
-            ["Weitere", "Betriebsvereinbarung, Qualifikation, Schulungstermin, SchulungsTeilnahme"],
+            ["Weitere", "Betriebsvereinbarung, Qualifikation, Schulungstermin, SchulungsTeilnahme, "
+                        "Gremium, GremiumMitglied, Fremdprotokoll"],
             ["System", "SystemEinstellung, Aufbewahrungsregel"],
         ],
         (32, 138),
