@@ -693,6 +693,21 @@ def build():
         "zugeordnet (Kapitel 12.4)",
     ])
 
+    pdf.h3("Sitzungspaket und Sitzung abschließen")
+    pdf.body(
+        "Sobald das Protokoll final ist, lässt sich das Sitzungspaket als ZIP herunterladen: Tagesordnung "
+        "bzw. Einladung als PDF, Versandnachweis als CSV, Protokoll bzw. Niederschrift als PDF und – sobald "
+        "vorhanden – beide Scans. Jede Datei bleibt dabei im Original, nichts wird in ein Sammel-PDF "
+        "umgewandelt; fehlt ein Teil (z. B. ein Scan steht noch aus), wird er einfach ausgelassen."
+    )
+    pdf.body(
+        "Liegen beide Scans vor, lässt sich die Sitzung endgültig abschließen. Eine Checkliste zeigt, was "
+        "noch fehlt – „Sitzung abschließen“ ist erst aktiv, wenn Anwesenheitsliste- und "
+        "Protokoll-Unterschriften-Scan hochgeladen sind. Danach wechselt der Status auf „Abgeschlossen“: "
+        "die Sitzung ist vollständig unveränderlich, auch die Scans lassen sich nicht mehr ersetzen. "
+        "Downloads (Protokoll, Scans, Sitzungspaket) funktionieren weiterhin."
+    )
+
     pdf.h2("4.5  Beschlussregister")
     pdf.body(
         "Das Beschlussregister sammelt alle Beschlüsse sitzungsübergreifend – filterbar nach Zeitraum, "

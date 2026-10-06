@@ -111,7 +111,7 @@ export default function Eingang() {
   useEffect(() => {
     ladeScanEingang();
     api.sitzungen.liste()
-      .then(data => setScanSitzungen(data.filter(s => s.status !== "ENTWURF" && s.status !== "ABGESAGT")))
+      .then(data => setScanSitzungen(data.filter(s => s.status !== "ENTWURF" && s.status !== "ABGESAGT" && s.status !== "ABGESCHLOSSEN")))
       .catch(console.error);
   }, [ladeScanEingang]);
 

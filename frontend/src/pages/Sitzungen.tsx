@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import { SitzungsVorlage } from "../lib/api";
 import {
   CalendarDays, Plus, ChevronLeft, ChevronUp, ChevronDown, GripVertical, Lock, Unlock, FileCheck, FileText,
-  Trash2, Link, Unlink, X, Loader2, CheckCircle, Clock, XCircle, RotateCcw, Eye,
+  Trash2, Link, Unlink, X, Loader2, CheckCircle, Circle, Clock, XCircle, RotateCcw, Eye,
   Send, ClipboardList, Download, MessageSquare, Zap, Pencil, RefreshCw, BookmarkPlus, Tag, CheckSquare, Folder, Wallet, MoreHorizontal, Copy, Timer,
   Users, Inbox, ListPlus,
 } from "lucide-react";
@@ -41,12 +41,32 @@ function pdfInTabOeffnen(url: string) {
     });
 }
 
+// Datei herunterladen statt in einem Tab zu öffnen – für Dateitypen wie ZIP, die der
+// Browser nicht anzeigen kann (würde window.open sonst nur mit einer leeren Seite verwirren).
+function dateiHerunterladen(url: string, dateiname: string) {
+  const token = localStorage.getItem("brdms_token");
+  fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.blob(); })
+    .then(blob => {
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = dateiname;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    })
+    .catch(() => alert("Datei konnte nicht heruntergeladen werden"));
+}
+
 // ── Status-Badges ─────────────────────────────────────────────────
 const SITZUNG_BADGE: Record<SitzungStatus, string> = {
   ENTWURF:              "bg-yellow-100 text-yellow-700 border-yellow-200",
   TAGESORDNUNG_FIXIERT: "bg-accent/10 text-accent border-accent/25",
   PROTOKOLL_ENTWURF:    "bg-orange-100 text-orange-700 border-orange-200",
   PROTOKOLL_FINAL:      "bg-green-100 text-green-700 border-green-200",
+  ABGESCHLOSSEN:        "bg-emerald-100 text-emerald-700 border-emerald-200",
   ABGESAGT:             "bg-gray-100 text-gray-500 border-gray-200",
 };
 
@@ -545,7 +565,7 @@ function SitzungDetail({
     }
   }
 
-  const readonly    = sitzung.status === "PROTOKOLL_FINAL" || sitzung.status === "ABGESAGT";
+  const readonly    = sitzung.status === "PROTOKOLL_FINAL" || sitzung.status === "ABGESCHLOSSEN" || sitzung.status === "ABGESAGT";
   const imEntwurf   = sitzung.status === "ENTWURF";
   const istBV       = istBetriebsversammlung(sitzung.sitzungstyp);
   const [kummerkastenModal, setKummerkastenModal] = useState(false);
@@ -811,6 +831,7 @@ function SitzungDetail({
       )}
 
       <SitzungScanKarte sitzung={sitzung} meineRolle={meineRolle} onAktualisieren={onAktualisieren} />
+      <SitzungAbschliessenKarte sitzung={sitzung} meineRolle={meineRolle} onAktualisieren={onAktualisieren} />
 
       {/* Einladung per E-Mail mit Versandnachweis */}
       {!istBV && sitzung.status !== "ENTWURF" && sitzung.status !== "ABGESAGT" && (
@@ -916,7 +937,7 @@ function SitzungDetail({
         <div className="mt-5">
           <AnwesenheitsListe
             sitzungId={sitzung.id}
-            readonly={sitzung.status === "PROTOKOLL_FINAL"}
+            readonly={sitzung.status === "PROTOKOLL_FINAL" || sitzung.status === "ABGESCHLOSSEN"}
             vorSitzung={sitzung.status === "ENTWURF" || sitzung.status === "TAGESORDNUNG_FIXIERT"}
             onGeaendert={() => setLadungStand(n => n + 1)}
           />
@@ -1140,11 +1161,11 @@ function TopZeile({
           {/* Beschlüsse (Abstimmungsmatrix) – auch nach dem Finalisieren sichtbar,
               nur eben schreibgeschützt. Vorher verschwand der ganze Block, sobald
               die Sitzung PROTOKOLL_FINAL erreichte. */}
-          {!istBV && (imProtokoll || sitzungStatus === "PROTOKOLL_FINAL") && (
+          {!istBV && (imProtokoll || sitzungStatus === "PROTOKOLL_FINAL" || sitzungStatus === "ABGESCHLOSSEN") && (
             <BeschlussBlock
               topId={top.id}
               sitzungId={sitzungId}
-              readonly={sitzungStatus === "PROTOKOLL_FINAL"}
+              readonly={sitzungStatus === "PROTOKOLL_FINAL" || sitzungStatus === "ABGESCHLOSSEN"}
             />
           )}
 
@@ -2347,7 +2368,7 @@ function SpontanTopModal({
 function TeilnahmeKarte({ sitzung, onAktualisieren }: { sitzung: Sitzung; onAktualisieren: () => void }) {
   const [wert, setWert]       = useState(sitzung.teilnehmerzahl?.toString() ?? "");
   const [laden, setLaden]     = useState(false);
-  const readonly = sitzung.status === "PROTOKOLL_FINAL";
+  const readonly = sitzung.status === "PROTOKOLL_FINAL" || sitzung.status === "ABGESCHLOSSEN";
   const geaendert = wert !== (sitzung.teilnehmerzahl?.toString() ?? "");
 
   async function speichern() {
@@ -2405,13 +2426,16 @@ function SitzungScanKarte({
   const kannBearbeiten = meineRolle === "VORSITZ" || meineRolle === "STELLVERTRETER" || meineRolle === "ADMIN";
 
   const alSichtbar = !istBV && (
-    sitzung.status === "TAGESORDNUNG_FIXIERT" || sitzung.status === "PROTOKOLL_ENTWURF" || sitzung.status === "PROTOKOLL_FINAL"
+    sitzung.status === "TAGESORDNUNG_FIXIERT" || sitzung.status === "PROTOKOLL_ENTWURF" ||
+    sitzung.status === "PROTOKOLL_FINAL" || sitzung.status === "ABGESCHLOSSEN"
   );
-  const protokollSichtbar = sitzung.status === "PROTOKOLL_FINAL";
+  const protokollSichtbar = sitzung.status === "PROTOKOLL_FINAL" || sitzung.status === "ABGESCHLOSSEN";
+  // Nach dem Abschluss ist alles nur noch ansehbar, nicht mehr ersetzbar oder löschbar
+  const gesperrt = sitzung.status === "ABGESCHLOSSEN";
 
   const alScan        = sitzung.scans.find(s => s.typ === "ANWESENHEITSLISTE");
   const protokollScan = sitzung.scans.find(s => s.typ === "PROTOKOLL_UNTERSCHRIFTEN");
-  const beideMoeglich = alSichtbar && protokollSichtbar && !alScan && !protokollScan;
+  const beideMoeglich = alSichtbar && protokollSichtbar && !gesperrt && !alScan && !protokollScan;
 
   const alInputRef        = useRef<HTMLInputElement>(null);
   const protokollInputRef = useRef<HTMLInputElement>(null);
@@ -2471,7 +2495,7 @@ function SitzungScanKarte({
               <Download size={13} /> Öffnen
             </button>
           )}
-          {kannBearbeiten && (
+          {kannBearbeiten && !gesperrt && (
             <>
               <input
                 ref={inputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden"
@@ -2514,13 +2538,21 @@ function SitzungScanKarte({
             Unterschriftenseite {istBV ? "zur Niederschrift" : "zum Protokoll"} – mit Version und Prüfsumme,
             statt das ganze {istBV ? "Niederschrift" : "Protokoll"} auszudrucken
           </p>
-          <a
-            href={api.sitzungen.unterschriftenseiteUrl(sitzung.id)}
-            onClick={e => { e.preventDefault(); pdfInTabOeffnen(api.sitzungen.unterschriftenseiteUrl(sitzung.id)); }}
-            className="flex items-center gap-1 bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg whitespace-nowrap"
-          >
-            <Download size={13} /> Unterschriftenseite öffnen
-          </a>
+          <div className="flex items-center gap-2">
+            <a
+              href={api.sitzungen.unterschriftenseiteUrl(sitzung.id)}
+              onClick={e => { e.preventDefault(); pdfInTabOeffnen(api.sitzungen.unterschriftenseiteUrl(sitzung.id)); }}
+              className="flex items-center gap-1 bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg whitespace-nowrap"
+            >
+              <Download size={13} /> Unterschriftenseite öffnen
+            </a>
+            <button
+              onClick={() => dateiHerunterladen(api.sitzungen.sitzungspaketUrl(sitzung.id), `sitzungspaket-${sitzung.titel}.zip`)}
+              className="flex items-center gap-1 border border-amber-300 text-amber-800 hover:bg-amber-100 text-xs font-medium px-3 py-1.5 rounded-lg whitespace-nowrap"
+            >
+              <Download size={13} /> Sitzungspaket (ZIP)
+            </button>
+          </div>
         </div>
       )}
 
@@ -2740,6 +2772,69 @@ function AntragBacklogModal({
           </form>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Sitzung abschließen (Checkliste, Paket 4, Stufe 5) ───────────
+function SitzungAbschliessenKarte({
+  sitzung, meineRolle, onAktualisieren,
+}: { sitzung: Sitzung; meineRolle: Rolle | null; onAktualisieren: () => void }) {
+  const [laden, setLaden] = useState(false);
+  const [fehler, setFehler] = useState("");
+  const kannAbschliessenRolle = meineRolle === "VORSITZ" || meineRolle === "STELLVERTRETER" || meineRolle === "ADMIN";
+
+  if (sitzung.status !== "PROTOKOLL_FINAL") return null;
+
+  const hatAnwesenheitsliste = sitzung.scans.some(s => s.typ === "ANWESENHEITSLISTE");
+  const hatProtokollUnterschriften = sitzung.scans.some(s => s.typ === "PROTOKOLL_UNTERSCHRIFTEN");
+  const kannAbschliessen = hatAnwesenheitsliste && hatProtokollUnterschriften;
+
+  async function abschliessen() {
+    if (!kannAbschliessen) return;
+    if (!confirm("Sitzung wirklich abschließen? Danach lässt sich nichts mehr ändern.")) return;
+    setLaden(true);
+    setFehler("");
+    try {
+      await api.sitzungen.abschliessen(sitzung.id);
+      onAktualisieren();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler beim Abschließen");
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  function punkt(erfuellt: boolean, label: string) {
+    return (
+      <div className="flex items-center gap-2 text-sm">
+        {erfuellt
+          ? <CheckCircle size={15} className="text-emerald-600 shrink-0" />
+          : <Circle size={15} className="text-gray-300 shrink-0" />}
+        <span className={erfuellt ? "text-gray-700" : "text-gray-400"}>{label}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 mb-5">
+      <p className="text-sm font-medium text-emerald-900 mb-2">Sitzung abschließen</p>
+      <div className="space-y-1 mb-3">
+        {punkt(true, "Protokoll finalisiert")}
+        {punkt(hatAnwesenheitsliste, "Anwesenheitsliste-Scan hochgeladen")}
+        {punkt(hatProtokollUnterschriften, "Protokoll-Unterschriften-Scan hochgeladen")}
+      </div>
+      {fehler && <p className="text-xs text-red-600 mb-2">{fehler}</p>}
+      {kannAbschliessenRolle && (
+        <button
+          onClick={abschliessen}
+          disabled={laden || !kannAbschliessen}
+          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+        >
+          {laden ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
+          Sitzung abschließen
+        </button>
+      )}
     </div>
   );
 }

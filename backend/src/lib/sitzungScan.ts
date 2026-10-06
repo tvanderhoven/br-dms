@@ -18,8 +18,8 @@ export const REL_PFAD_SITZUNG_SCANS = "sitzung-scans";
 /** Gleiche Regel wie auf der Sitzungsseite: eine fixierte Tagesordnung ist eingefroren. */
 export function scanStatusFehler(status: SitzungStatus, typ: SitzungScanTyp): string | null {
   if (typ === SitzungScanTyp.ANWESENHEITSLISTE
-      && (status === SitzungStatus.ENTWURF || status === SitzungStatus.ABGESAGT)) {
-    return "Anwesenheitsliste erst ab fixierter Tagesordnung hochladbar";
+      && (status === SitzungStatus.ENTWURF || status === SitzungStatus.ABGESAGT || status === SitzungStatus.ABGESCHLOSSEN)) {
+    return "Anwesenheitsliste erst ab fixierter Tagesordnung hochladbar, nicht mehr nach Abschluss";
   }
   if (typ === SitzungScanTyp.PROTOKOLL_UNTERSCHRIFTEN && status !== SitzungStatus.PROTOKOLL_FINAL) {
     return "Protokoll-Unterschriften erst nach Finalisierung hochladbar";
