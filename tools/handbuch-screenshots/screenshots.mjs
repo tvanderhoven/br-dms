@@ -38,6 +38,37 @@ const klickZeile = (...texte) => `
     return !!tr;
   })()`;
 
+// Innerstes sichtbares Element mit dem Text anklicken (z. B. eine Karte statt ihres Containers)
+const klickInnen = (text, selektor) => `
+  (() => {
+    const el = [...document.querySelectorAll(${JSON.stringify(selektor)})]
+      .filter(e => e.textContent.includes(${JSON.stringify(text)}) && e.offsetParent !== null).pop();
+    if (el) el.click();
+    return !!el;
+  })()`;
+
+// Zum (innersten) Element scrollen, dessen Text so beginnt
+const zeigeText = text => `
+  (() => {
+    const el = [...document.querySelectorAll("h1, h2, h3, p, span, div")]
+      .filter(e => e.textContent.trim().startsWith(${JSON.stringify(text)}) && e.offsetParent !== null).pop();
+    if (el) el.scrollIntoView({ block: "start" });
+    return !!el;
+  })()`;
+
+// Auswahlfeld (n-tes <select> der Seite) auf eine Option setzen – so, dass React es mitbekommt
+const waehle = (nr, optionText) => `
+  (() => {
+    const sel = document.querySelectorAll("select")[${nr}];
+    const opt = sel && [...sel.options].find(o => o.text.includes(${JSON.stringify(optionText)}));
+    if (!opt) return false;
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set.call(sel, opt.value);
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  })()`;
+
+const ersteZeile = `(() => { const tr = document.querySelector("tbody tr"); if (tr) tr.click(); return !!tr; })()`;
+
 const AUFNAHMEN = [
   { datei: "dashboard",        pfad: "/dashboard" },
   { datei: "eingang",          pfad: "/eingang" },
@@ -88,6 +119,29 @@ const AUFNAHMEN = [
   // Nur sinnvoll, solange der Vorsitz den Admin auf die Technik beschränkt hat
   // (Einstellungen → Benutzer → „Nur technische Verwaltung“)
   { datei: "admin-ohne-inhalt", pfad: "/einstellungen", js: klickText("Benutzer", "button"), alsAdmin: true },
+  // Ergänzungen: Detailansichten, Einstellungs-Reiter, Sonderfunktionen
+  { datei: "dokument-vorschau",   pfad: "/dokumente", js: ersteZeile, warte: 4000 },
+  { datei: "dokument-bearbeiten", pfad: "/dokumente", js: [ersteZeile, klickText("Bearbeiten", "button"), zeigeText("Kommentare")] },
+  { datei: "eingang-aktionen",    pfad: "/eingang", js: `(() => { const b = document.querySelector(".space-y-2 > div > button"); if (b) b.click(); return !!b; })()`, warte: 5000 },
+  { datei: "gremium-detail",      pfad: "/gremien", js: klickInnen("Wirtschaftsausschuss", "div.cursor-pointer") },
+  { datei: "sitzung-einladung",   pfad: "/sitzungen", js: [klickText("Tagesordnung fixiert", "tr"), zeigeText("Einladung per E-Mail")], warte: 2500 },
+  { datei: "themensammlung",      pfad: "/themen", js: klickText("Themen laden", "button"), warte: 2500 },
+  { datei: "gesetz-popup",        pfad: "/suche?q=Pausen", warte: 2500, js: `
+    (() => {
+      const b = [...document.querySelectorAll("button")].find(e => e.textContent.trim().startsWith("BetrVG § 87"));
+      if (b) b.click();
+      return !!b;
+    })()` },
+  { datei: "passwort-aendern",    pfad: "/dashboard", js: `(() => { const b = document.querySelector('[title="Passwort ändern"]'); if (b) b.click(); return !!b; })()` },
+  { datei: "ueberstunden",        pfad: "/gehaltstabelle" },
+  { datei: "sichtschutz",         pfad: "/gehaltstabelle", js: [klickText("Liste", "button"), waehle(0, "IT"), `(() => { window.dispatchEvent(new Event("blur")); return true; })()`] },
+  { datei: "mitarbeiter-auswahl", pfad: "/mitarbeiter", js: `(() => { const b = [...document.querySelectorAll("tbody tr td:first-child button")].slice(0, 3); b.forEach(x => x.click()); return b.length > 0; })()` },
+  { datei: "einstellungen-fristen",    pfad: "/einstellungen" },
+  { datei: "einstellungen-protokoll",  pfad: "/einstellungen", js: klickText("Protokoll-Layout", "button") },
+  { datei: "einstellungen-system",     pfad: "/einstellungen", js: klickText("System", "button") },
+  { datei: "einstellungen-gefahrenzone", pfad: "/einstellungen", js: [klickText("System", "button"), zeigeText("Gefahrenzone")], alsAdmin: true },
+  { datei: "einstellungen-gesetze",    pfad: "/einstellungen", js: klickText("Gesetzestexte", "button"), alsAdmin: true },
+  { datei: "einstellungen-amtsuebergabe", pfad: "/einstellungen", js: klickText("Amtsübergabe", "button") },
   { datei: "kummerkasten-oeffentlich", pfad: "/kummerkasten", ohneLogin: true },
   { datei: "login",            pfad: "/login", ohneLogin: true },
 ];
@@ -157,8 +211,9 @@ async function main() {
         : `localStorage.setItem("brdms_token", ${JSON.stringify(a.alsAdmin ? adminJwt : jwt)})`);
       await cdp("Page.navigate", { url: BASIS + a.pfad });
       await pause(2200);
-      if (a.js) {
-        const { result } = await auswerten(a.js);
+      // js: ein Skript oder eine Liste von Schritten (z. B. erst Zeile öffnen, dann Reiter klicken)
+      for (const schritt of a.js ? [a.js].flat() : []) {
+        const { result } = await auswerten(schritt);
         if (result.value === false) console.warn(`  ! ${a.datei}: Klickziel nicht gefunden`);
         await pause(a.warte ?? 1500);
       }

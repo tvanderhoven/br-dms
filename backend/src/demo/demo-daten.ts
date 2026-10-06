@@ -33,6 +33,7 @@ import { pdfAutomatischGenerieren } from "../routes/pdf.js";
 import { betriebsversammlungFristAbgleichen } from "../lib/betriebsversammlungFrist.js";
 import { wahlFristenAbgleichen } from "../lib/wahlFristen.js";
 import { sitzungAnlegen } from "../lib/sitzungAnlegen.js";
+import { alleGesetzeAktualisieren } from "../services/gesetze.service.js";
 
 const STORAGE     = process.env.STORAGE_PATH ?? "/data/storage";
 const MASTER_KEY  = process.env.ENCRYPTION_KEY!;
@@ -729,6 +730,8 @@ async function main() {
         beschluesse: [{ antrag: "Der Betriebsrat bildet einen Arbeitskreis 'Psychische Belastung' mit den Mitgliedern Kröger, Lehmann und Pohl.", grundlage: "§ 87 BetrVG – Mitbestimmung", ja: 9, nein: 0, enth: 0 }] },
       { titel: "BV Schichtarbeit – Kündigung durch die Geschäftsführung", inhalt: ["Die Geschäftsführung hat die BV Schichtarbeit Werk 1 fristgerecht gekündigt."], ergebnis: ["Die BV wirkt nach. Der Betriebsrat nimmt Verhandlungen auf; Verhandlungskommission: Brandt, Meyer, Yılmaz."], dokumente: [dokBV["schichtarbeit"]],
         beschluesse: [{ antrag: "Der Betriebsrat benennt Thomas Brandt, Dirk Meyer und Mehmet Yılmaz als Verhandlungskommission für eine neue BV Schichtarbeit.", grundlage: "Sonstige Beschlussfassung", ja: 8, nein: 0, enth: 1 }] },
+      // Für die Themensammlung (Stichwort „öffentlich“): Ergebnis = Aushangtext für die Belegschaft
+      { titel: "Öffentlichkeitsarbeit – Aushang an die Belegschaft", inhalt: ["Abstimmung der Informationen für das Schwarze Brett."], ergebnis: ["Arbeitskreis „Psychische Belastung“ gegründet: Der Betriebsrat begleitet die Gefährdungsbeurteilung. Ansprechpartner sind Sabine Kröger, Katrin Lehmann und Stefan Pohl.", "Die BV Schichtarbeit wurde von der Geschäftsführung gekündigt, gilt aber bis zu einer neuen Regelung weiter. Wir halten euch über die Verhandlungen auf dem Laufenden."], status: TopStatus.ZUR_KENNTNIS },
       { titel: "Verschiedenes", inhalt: ["Termine, Informationen, Sonstiges."], ergebnis: ["Sommerfest am 2. Augustwochenende – der Betriebsrat beteiligt sich mit einem Infostand."], status: TopStatus.ZUR_KENNTNIS },
     ],
     [
@@ -753,6 +756,7 @@ async function main() {
         beschluesse: [{ antrag: "Der Betriebsrat entsendet Katrin Lehmann und Anna Schulte zum Seminar 'BR-Grundlagen Teil 1'.", grundlage: "§ 37 BetrVG – Freistellung", ja: 7, nein: 0, enth: 2 }] },
       { titel: "Neue Prämienregelung Produktion – Entwurf der GF", inhalt: ["Erste Vorstellung des Entwurfs der Geschäftsführung."], ergebnis: ["Der Betriebsrat lehnt den Entwurf in der vorliegenden Form ab und fordert Gespräche über Kennzahlen und Absicherung nach unten."], dokumente: [dokPraemie.id],
         beschluesse: [{ antrag: "Der Betriebsrat stimmt dem Entwurf der Prämienregelung in der vorliegenden Form zu.", grundlage: "§ 87 BetrVG – Mitbestimmung", ja: 1, nein: 7, enth: 1 }] },
+      { titel: "Öffentlichkeitsarbeit – Aushang an die Belegschaft", inhalt: ["Abstimmung der Informationen für das Schwarze Brett."], ergebnis: ["Neue Kolleginnen und Kollegen: Der Betriebsrat hat zwei Einstellungen in Konstruktion und Logistik zugestimmt – herzlich willkommen!", "Prämienregelung Produktion: Den Entwurf der Geschäftsführung haben wir abgelehnt. Wir verhandeln weiter über faire Kennzahlen und eine Absicherung nach unten."], status: TopStatus.ZUR_KENNTNIS },
       { titel: "Verschiedenes", inhalt: ["Termine, Informationen, Sonstiges."], ergebnis: ["Kummerkasten: Hinweise zur Hitze in Halle 3 wurden an die Werksleitung weitergegeben."], status: TopStatus.ZUR_KENNTNIS },
     ],
     [
@@ -908,6 +912,9 @@ async function main() {
       { autorId: stv, sitzungId: sitzungIds[3], inhalt: "Bitte im Protokoll zu TOP 3 noch den nächsten Verhandlungstermin ergänzen." },
       { autorId: user["d.meyer"], sitzungId: sitzungIds[3], inhalt: "Termin ist der 23. – ich trage es ein." },
       { autorId: user["a.schulte"], sitzungId: sitzungIds[4], inhalt: "Zum Prämien-Gegenvorschlag habe ich Vergleichszahlen aus der IG-Metall-Auswertung, bringe ich mit." },
+      // Diskussion an der jüngsten § 99-Anhörung (Bearbeiten-Dialog im Dokumentenarchiv)
+      { autorId: stv, dokumentId: anh99[5].dok, inhalt: "Befristung ohne Sachgrund – bitte prüfen, ob die Stelle nicht unbefristet besetzt werden kann.", erstelltAm: tage(0) },
+      { autorId: user["j.hoffmann"], dokumentId: anh99[5].dok, inhalt: "Frage ich bei der Personalabteilung nach, Antwort bis zur Sitzung.", erstelltAm: new Date(tage(0).getTime() + 2 * 36e5) },
     ],
   });
 
@@ -1236,6 +1243,14 @@ async function main() {
 
   // Quartals-Frist § 43: beim Backend-Start schon angelegt, jetzt gibt es eine Betriebsversammlung im Quartal
   await betriebsversammlungFristAbgleichen(prisma);
+
+  // Gesetzestexte für Suche und Gesetz-Popups – braucht Internet, Demo läuft notfalls ohne
+  try {
+    const gesetze = await alleGesetzeAktualisieren();
+    console.log(`[Demo] Gesetzestexte importiert (${gesetze.map(g => g.name).join(", ")})`);
+  } catch (err) {
+    console.log(`[Demo] Gesetzestexte nicht importiert (offline?) – später unter Einstellungen → Gesetzestexte: ${err instanceof Error ? err.message : err}`);
+  }
 
   console.log("\n[Demo] Fertig. Anmeldung z.B. als Vorsitzende:");
   console.log(`[Demo]   Benutzer: s.kroeger   Passwort: ${DEMO_PW}`);
