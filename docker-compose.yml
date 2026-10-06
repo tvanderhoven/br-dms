@@ -73,7 +73,7 @@ services:
       SYSTEM_USER_ID:       ${SYSTEM_USER_ID:-}
       # Erster Admin-Account – wird beim ersten Start angelegt, solange es noch keinen Benutzer gibt
       ADMIN_EMAIL:          ${ADMIN_EMAIL:-admin@br-dms.lokal}
-      ADMIN_PASSWORD:       ${ADMIN_PASSWORD:-ChangeMe123!}
+      ADMIN_PASSWORD:       ${ADMIN_PASSWORD:-}
     volumes:
       - ${DATA_PATH}/storage:/data/storage
       - ${DATA_PATH}/logs:/data/logs

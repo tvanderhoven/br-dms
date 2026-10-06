@@ -6,6 +6,8 @@
 #  ./demo/demo.sh stop    – anhalten (Daten bleiben erhalten)
 #  ./demo/demo.sh reset   – alles löschen und mit frischen Demodaten neu starten
 #  ./demo/demo.sh logs    – Backend-Log verfolgen
+#  ./demo/demo.sh entfernen – Demo komplett löschen (Container, Daten, Images,
+#                             Schlüssel und Zertifikat der Demo)
 # ================================================================
 set -e
 
@@ -97,8 +99,20 @@ case "${1:-start}" in
   logs)
     compose logs -f backend
     ;;
+  entfernen)
+    if [ ! -f "$ENV_DATEI" ]; then
+      echo "[Demo] Keine Demo-Instanz gefunden (demo/.env.demo fehlt)."
+      exit 0
+    fi
+    read -r -p "[Demo] Demo-Instanz mit allen Demodaten endgültig löschen? [j/N] " antwort
+    case "$antwort" in j|J|ja|Ja) ;; *) echo "[Demo] Abgebrochen."; exit 0 ;; esac
+    # Nur das Compose-Projekt "brdms-demo" – eine echte Installation bleibt unberührt
+    compose down -v --rmi local --remove-orphans
+    rm -rf "$DEMO_DIR/certs" "$ENV_DATEI"
+    echo "[Demo] Demo-Instanz entfernt. Neu anlegen jederzeit mit: ./demo/demo.sh start"
+    ;;
   *)
-    echo "Aufruf: $0 {start|stop|reset|logs}"
+    echo "Aufruf: $0 {start|stop|reset|logs|entfernen}"
     exit 1
     ;;
 esac

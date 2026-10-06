@@ -116,6 +116,12 @@ bash installation.sh
 # oder direkt: python3 setup_wizard.py
 ```
 
+Werte in `[eckigen Klammern]` sind Vorschläge – **Enter übernimmt sie**. Felder ohne Vorschlag
+(Admin-Passwort, SMTP-Zugangsdaten) sind Pflicht und werden erneut abgefragt; bei Ja/Nein-Fragen gilt
+mit Enter der Großbuchstabe (`[J/n]` = Ja). Schlüssel, Datenbankpasswort und `APP_URL` erzeugt der
+Assistent selbst. Eine vorhandene `.env` lädt er als Vorschlag – bei der Frage nach den Schlüsseln
+dann immer „behalten“ wählen. Jede Frage mit Beispiel und Standardwert: Handbuch, Kapitel 12.3.
+
 Im ersten Schritt wählst du das Zielsystem:
 - **Generischer Docker-Host** – für jede beliebige Docker-Umgebung (lokal, eigener Server,
   Cloud-VM, oder auch ein NAS, wenn du direkt per SSH-Shell darauf arbeitest). Schreibt eine
@@ -128,7 +134,10 @@ Im ersten Schritt wählst du das Zielsystem:
 mkdir -p <DATA_PATH>/{storage,postgres,logs,watch_inbox,backups,certs}
 bash proxy/generate-selfsigned-cert.sh <DATA_PATH> <Hostname> <Host-IP>   # Zertifikat MUSS vor dem ersten Start existieren
 docker compose up -d --build   # legt beim ersten Start automatisch den Admin aus ADMIN_EMAIL/ADMIN_PASSWORD an
+docker compose logs -f backend # Start beobachten (Strg+C beendet nur die Anzeige)
 ```
+Der Assistent zeigt diese Befehle am Ende fertig ausgefüllt an. Danach sofort den `ENCRYPTION_KEY`
+aus der `.env` in einen Passwort-Manager kopieren.
 
 Browser öffnen: `https://<Host-IP>:8443` (Zertifikatswarnung beim ersten Aufruf ist normal, siehe [HTTPS aktivieren](#https-aktivieren) für Details/Alternativen). Frontend/Backend haben **keinen eigenen Host-Port** – der Proxy ist der einzige Zugriffsweg.
 
@@ -137,7 +146,7 @@ Browser öffnen: `https://<Host-IP>:8443` (Zertifikatswarnung beim ersten Aufruf
 **1. `.env` anlegen** (im Projektverzeichnis, nicht committen):
 ```bash
 cp .env.example .env
-nano .env   # Alle Werte anpassen, siehe Tabelle unten
+nano .env   # jedes BITTE_AENDERN ersetzen, siehe Tabelle unten
 ```
 
 **2. Bei NAS-Betrieb zusätzlich `.env.deploy` anlegen** (steuert nur die Deploy-Skripte, keine Secrets):
@@ -176,12 +185,18 @@ Pflichtfelder:
 
 | Variable | Beschreibung | Generieren mit |
 |---|---|---|
-| `POSTGRES_PASSWORD` | Datenbankpasswort (32+ Zeichen) | `openssl rand -base64 32` |
+| `POSTGRES_PASSWORD` | Datenbankpasswort – nur Buchstaben, Ziffern, `-` und `_` (`$ % @ / +` stören in `.env` bzw. Datenbank-URL) | `openssl rand -hex 24` |
 | `JWT_SECRET` | Token-Signaturschlüssel | `openssl rand -hex 32` |
 | `ENCRYPTION_KEY` | AES-256 Dokumentschlüssel | `openssl rand -hex 32` |
 | `NAS_IP` | IP-Adresse bzw. Hostname des Docker-Hosts | `hostname -I` |
 | `APP_URL` | URL für Passwort-Reset-Mails (muss die Proxy-HTTPS-Adresse sein, siehe unten) | `https://<Host-IP>:8443` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Login-Daten des ersten Admin-Accounts – wird beim ersten Start automatisch angelegt | frei wählbar |
+
+Fehlt einer dieser Werte oder steht noch ein Platzhalter darin, startet das Backend bewusst nicht und
+nennt den Grund im Log (`docker compose logs backend`, Zeilen mit `[Konfiguration]`). Ausnahmen mit
+Standardwert: `ADMIN_EMAIL` (`admin@br-dms.lokal`), `PUID`/`PGID` (1000/100), Proxy-Ports (8443/8080).
+Ohne `SMTP_*` gibt es keine E-Mails, alles andere läuft normal. `ADMIN_*` wird nur beim allerersten
+Start gelesen. Nach Änderungen an der `.env`: `docker compose up -d`.
 
 > **Kritisch:** Der `ENCRYPTION_KEY` muss separat gesichert werden. Bei Verlust sind alle Dokumente dauerhaft unlesbar.
 > `ADMIN_PASSWORD` nach dem ersten Login sofort in den Einstellungen ändern – wird nur beim Seed gelesen, danach nicht mehr automatisch synchronisiert.
@@ -191,7 +206,7 @@ Pflichtfelder:
 | Variable | Beschreibung | Standard |
 |---|---|---|
 | `WATCH_FOLDER_ENABLED` | Watch-Folder aktivieren | `false` |
-| `SYSTEM_USER_ID` | UUID des Admin-Users für automatische Imports | – |
+| `SYSTEM_USER_ID` | Konto, dem Importe zugeordnet werden (ID per Klick in der Benutzerverwaltung kopieren) | erstes Admin-Konto |
 | `WATCH_INBOX_PATH` | Pfad des Eingangsordners auf dem Host (unabhängig vom Docker-Verzeichnis) | `DATA_PATH/watch_inbox` |
 
 Eingangsordner auf einen separaten, eigenständig freigegebenen Pfad legen (empfohlen):
@@ -252,7 +267,13 @@ Der Reverse-Proxy-Container (`proxy/`) ist **keine optionale Zusatzkomponente**,
 ```bash
 bash proxy/generate-selfsigned-cert.sh <DATA_PATH> br-nas 192.168.1.100
 ```
-Browser zeigen dabei eine Warnung ("Verbindung nicht privat" o.ä.), bis das Zertifikat einmalig pro PC als vertrauenswürdig markiert wird (Zertifikat aus `<DATA_PATH>/certs/fullchain.pem` in den Windows-Zertifikatspeicher "Vertrauenswürdige Stammzertifizierungsstellen" importieren).
+Alle Namen und IP-Adressen angeben, unter denen BR-DMS aufgerufen wird – das Zertifikat gilt nur für diese. Gültig 825 Tage; zum Erneuern erneut ausführen und `docker compose restart proxy`.
+
+Browser zeigen eine Warnung ("Verbindung nicht privat" o.ä.), bis das Zertifikat einmalig pro PC als vertrauenswürdig importiert ist. Dazu `<DATA_PATH>/certs/fullchain.pem` auf den PC kopieren und in `br-dms.crt` umbenennen:
+- **Windows (Edge/Chrome):** Doppelklick → Zertifikat installieren → Lokaler Computer → „Alle Zertifikate in folgendem Speicher speichern“ → *Vertrauenswürdige Stammzertifizierungsstellen*
+- **macOS:** Doppelklick → Schlüsselbund *System* → Zertifikat öffnen → Vertrauen → „Immer vertrauen“
+- **Firefox:** Einstellungen → Datenschutz & Sicherheit → Zertifikate anzeigen → Zertifizierungsstellen → Importieren
+- **Viele PCs:** per Gruppenrichtlinie durch die IT verteilen
 
 **Zertifikat von der internen Firmen-CA (schnellste Lösung, falls vorhanden):** Falls eure IT bereits eine eigene interne Zertifizierungsstelle betreibt (z.B. via Active Directory Certificate Services – erkennbar daran, dass interne Seiten wie ein ERP-System HTTPS mit einem "Ausgestellt von"-Feld zeigen, das nicht auf eine bekannte öffentliche CA wie Let's Encrypt/DigiCert verweist, sondern auf einen firmeneigenen Namen), reicht eine Bitte an die IT: ein Zertifikat für `br-nas` ausstellen lassen, **mit `br-nas` als Subject Alternative Name (SAN)**, nicht nur als CN. Wird meist als `.pfx`-Datei (Zertifikat + privater Schlüssel gebündelt, passwortgeschützt) ausgeliefert – vor der Verwendung nach PEM konvertieren:
 ```bash
@@ -316,11 +337,14 @@ Gehaltshistorie usw.):
 ```bash
 ./demo/demo.sh start   # bauen, starten, Demodaten einspielen → https://localhost:8444
 ./demo/demo.sh reset   # alles löschen und frisch einspielen
-./demo/demo.sh stop    # anhalten
+./demo/demo.sh stop    # anhalten, Daten bleiben
+./demo/demo.sh logs    # Backend-Log verfolgen
+./demo/demo.sh entfernen  # Demo komplett löschen: Container, Volumes, Images, Schlüssel (fragt nach)
 ```
 
-Anmeldung z.B. mit `s.kroeger` / `Demo2026!` (Vorsitz). Das Demo-Skript schreibt nur in eine
-leere Datenbank und kann eine echte Instanz daher nicht verändern.
+Anmeldung z.B. mit `s.kroeger` / `Demo2026!` (Vorsitz). Die Demo hat eigene Container, Volumes,
+Schlüssel und Port und läuft neben einer echten Installation. Demodaten lassen sich bewusst nicht in
+eine echte Installation einspielen: Das Skript schreibt nur in eine leere Datenbank und bricht sonst ab.
 
 ---
 
@@ -360,7 +384,7 @@ steht in der [`ROADMAP.md`](ROADMAP.md).
 
 ## Handbuch
 
-Das vollständige Handbuch (63 Seiten, mit Screenshots aus der Demo) liegt als PDF im Repository:  
+Das vollständige Handbuch (66 Seiten, mit Screenshots aus der Demo) liegt als PDF im Repository:  
 [`BR-DMS_Handbuch.pdf`](BR-DMS_Handbuch.pdf)
 
 Aufbau: Teil I beschreibt alle Funktionen, Teil II die Administration, Teil III die Technik (Installation, Betrieb, Backup, Datenbank). Neu erzeugen: Demo starten, `node tools/handbuch-screenshots/screenshots.mjs`, dann `python3 generate_manual.py`.

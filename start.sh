@@ -14,7 +14,7 @@ warn() { echo -e "${YLW}[BR-DMS]${NC} $*"; }
 err()  { echo -e "${RED}[BR-DMS]${NC} $*" >&2; }
 
 # ── .env prüfen & sicher laden ────────────────────────────────────
-[ -f "${ENV}" ] || { err ".env fehlt – bitte: cp .env.example .env && nano .env"; exit 1; }
+[ -f "${ENV}" ] || { err ".env fehlt – bitte: bash installation.sh (oder cp .env.example .env && nano .env)"; exit 1; }
 
 # Sicheres Parsen: kein `source`, daher keine Bash-Interpretation
 # von Sonderzeichen (!$`\) in Passwörtern.
@@ -36,7 +36,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] && export "$key=$val"
 done < "${ENV}"
 
-for var in JWT_SECRET ENCRYPTION_KEY POSTGRES_PASSWORD; do
+for var in JWT_SECRET ENCRYPTION_KEY POSTGRES_PASSWORD ADMIN_PASSWORD; do
   [[ "${!var:-}" == *"BITTE_AENDERN"* ]] && { err "${var} ist noch nicht gesetzt!"; exit 1; }
 done
 
@@ -50,6 +50,8 @@ init_dirs() {
     "${base}/storage/protokolle"
     "${base}/logs"
     "${base}/watch_inbox"
+    "${base}/backups"
+    "${base}/certs"
   )
   for d in "${dirs[@]}"; do
     mkdir -p "${d}" && log "  ✓ ${d}"
@@ -67,8 +69,8 @@ case "${1:-up}" in
   up)
     log "Starte BR-DMS..."
     docker compose up -d --build
-    NAS_IP=$(ip route get 1 2>/dev/null | awk '{print $7; exit}' || hostname -i 2>/dev/null | awk '{print $1}')
-    log "Backend:  http://${NAS_IP}:${BACKEND_PORT:-4000}" ;;
+    [ -f "${DATA_PATH}/certs/fullchain.pem" ] || warn "Kein Zertifikat in ${DATA_PATH}/certs – der Proxy startet so nicht (bash proxy/generate-selfsigned-cert.sh ${DATA_PATH} <Name/IP>)"
+    log "Erreichbar unter: https://${NAS_IP:-<Host-IP>}:${PROXY_HTTPS_PORT:-8443}" ;;
   down)
     log "Stoppe BR-DMS..."; docker compose down ;;
   restart)

@@ -9,7 +9,9 @@ import { encryptFile } from "../lib/encryption.js";
 import prisma from "../lib/prisma.js";
 
 const WATCH_PATH  = process.env.WATCH_FOLDER   ?? "/uploads/watch_inbox";
-const SYSTEM_USER = process.env.SYSTEM_USER_ID ?? "";
+// Benutzer, dem Watch-Folder-Importe zugeordnet werden. Leer = erster aktiver Admin
+// (wird in starteWatchFolder() ermittelt), damit niemand die UUID heraussuchen muss.
+let SYSTEM_USER = process.env.SYSTEM_USER_ID?.trim() ?? "";
 const ERLAUBTE_EXTS = new Set([".pdf", ".docx", ".docm", ".xlsx"]);
 
 const STORAGE    = process.env.STORAGE_PATH ?? "/data/storage";
@@ -80,10 +82,19 @@ async function verschiebeInFehlerOrdner(filePath: string, dateiname: string): Pr
   });
 }
 
-export function starteWatchFolder(): void {
+export async function starteWatchFolder(): Promise<void> {
   if (!SYSTEM_USER) {
-    console.warn("[watchfolder] SYSTEM_USER_ID nicht gesetzt – WatchFolder deaktiviert");
-    return;
+    const admin = await prisma.benutzer.findFirst({
+      where:   { rolle: "ADMIN", aktiv: true },
+      orderBy: { erstelltAm: "asc" },
+      select:  { id: true, email: true },
+    });
+    if (!admin) {
+      console.warn("[watchfolder] Kein aktiver Admin gefunden und SYSTEM_USER_ID leer – WatchFolder deaktiviert");
+      return;
+    }
+    SYSTEM_USER = admin.id;
+    console.log(`[watchfolder] SYSTEM_USER_ID leer – Importe werden ${admin.email} zugeordnet`);
   }
 
   console.log(`[watchfolder] Überwache ${WATCH_PATH}`);
