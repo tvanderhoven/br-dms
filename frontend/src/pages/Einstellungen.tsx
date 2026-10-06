@@ -1101,6 +1101,18 @@ function SystemTab() {
             <p className="text-xs text-gray-400">
               Erlaubte Dateitypen: .pdf · .docx · .docm · .xlsx — Fehlerhafte Dateien landen in <code className="font-mono">fehler/</code>
             </p>
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Scan-Eingang (kein Dokument, Zuordnung im Eingang)</p>
+              <div className="flex items-center gap-1.5 text-xs text-gray-600 bg-gray-50 rounded px-2 py-1.5 w-fit">
+                <FolderOpen size={12} className="text-gray-400 shrink-0" />
+                <code className="font-mono">protokoll_scan</code>
+              </div>
+              <p className="text-xs text-gray-400 mt-1.5">
+                Für Scans der Anwesenheitsliste/Protokoll-Unterschriften (Paket 4, Stufe 4) – landen nicht als
+                Dokument, sondern tauchen im Eingang als "wartender Scan" auf und werden dort per Klick einer
+                Sitzung zugeordnet. Erlaubte Dateitypen: .pdf · .jpg · .jpeg · .png
+              </p>
+            </div>
           </div>
         )}
       </div>

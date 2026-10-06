@@ -187,6 +187,8 @@ enum AuditAktion {
   BV_AKTUALISIERT
   BV_GELOESCHT
   EINSTELLUNG_GEAENDERT
+  SITZUNG_SCAN_HOCHGELADEN
+  SITZUNG_SCAN_GELOESCHT
 }
 
 // ================================================================
@@ -232,6 +234,7 @@ model Benutzer {
   betriebsvereinbarungenErstellt Betriebsvereinbarung[] @relation("BVErstellt")
   schulungenErstellt     Schulungstermin[] @relation("SchulungErstellt")
   kummerkastenBearbeitet KummerkastenEintrag[]
+  sitzungScansHochgeladen SitzungScan[]    @relation("SitzungScanHochgeladen")
 
   @@map("benutzer")
 }
@@ -484,6 +487,7 @@ model Sitzung {
   kommentare     Kommentar[]
   anwesenheiten  Anwesenheit[]
   einladungen    EinladungVersand[]
+  scans          SitzungScan[]
   protocolBlocks ProtocolBlock[]
   gehaltsstufenEintraege GehaltsstufenEintrag[]
   zeitmodellEintraege    ZeitmodellEintrag[]
@@ -515,6 +519,55 @@ model EinladungVersand {
 
   @@index([sitzungId])
   @@map("einladung_versand")
+}
+
+// Gescannte Unterschriften (§ 29 Abs. 2, Nachweis der Protokollgenehmigung) – je Sitzung
+// höchstens ein Scan pro Typ; eine kombinierte Datei darf beide Typen füllen (zwei Zeilen,
+// zwei verschlüsselte Kopien). Ablage wie bei Dokument/DokumentVersion (AES-256-GCM).
+enum SitzungScanTyp {
+  ANWESENHEITSLISTE
+  PROTOKOLL_UNTERSCHRIFTEN
+}
+
+model SitzungScan {
+  id               String         @id @default(uuid())
+  sitzungId        String         @map("sitzung_id")
+  sitzung          Sitzung        @relation(fields: [sitzungId], references: [id], onDelete: Cascade)
+
+  typ              SitzungScanTyp
+
+  dateiname        String
+  speicherpfad     String         @map("speicher_pfad")
+  verschlPfad      String         @map("verschl_pfad")
+  dateigroesse     Int            @map("datei_groesse")
+  mimeTyp          String         @map("mime_typ")
+  pruefsumme       String
+
+  hochgeladenAm    DateTime       @default(now()) @map("hochgeladen_am")
+  hochgeladenVonId String         @map("hochgeladen_von_id")
+  hochgeladenVon   Benutzer       @relation("SitzungScanHochgeladen", fields: [hochgeladenVonId], references: [id])
+
+  @@unique([sitzungId, typ])
+  @@map("sitzung_scans")
+}
+
+// Wartende Scans aus dem Watch-Folder-Unterordner "protokoll_scan", bevor sie per Klick im
+// Eingang einer Sitzung + einem SitzungScanTyp zugeordnet werden. Bewusst ohne Relation zu
+// Sitzung/Benutzer – anonym, bis jemand sie zuordnet oder verwirft (verarbeiteDokument/Dokument
+// passt hier nicht: kein Kategorie, keine Aufbewahrungsfrist, kein OCR-Volltext nötig).
+model ScanEingang {
+  id           String   @id @default(uuid())
+
+  dateiname    String
+  speicherpfad String   @map("speicher_pfad")
+  verschlPfad  String   @map("verschl_pfad")
+  dateigroesse Int      @map("datei_groesse")
+  mimeTyp      String   @map("mime_typ")
+  pruefsumme   String
+
+  erkanntAm    DateTime @default(now()) @map("erkannt_am")
+
+  @@map("scan_eingang")
 }
 
 model SitzungVersion {

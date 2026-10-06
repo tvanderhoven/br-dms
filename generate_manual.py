@@ -678,6 +678,21 @@ def build():
         "(SHA-256 über Inhalt und Zeitpunkt) belegt, dass es seitdem unverändert ist.",
         "tipp", "Rechtssicherheit")
 
+    pdf.h3("Unterschreiben und Scan hochladen")
+    pdf.body(
+        "Zum Unterschreiben reicht eine eigene Unterschriftenseite statt des ganzen Protokolls – sie trägt "
+        "Version und SHA-256-Prüfsumme, damit sie eindeutig dem finalisierten Stand zugeordnet ist. Die "
+        "unterschriebene Anwesenheitsliste (geht zu Sitzungsbeginn rum) und die unterschriebene "
+        "Unterschriftenseite (nach der Finalisierung) werden als Scan zur Sitzung hochgeladen – eine "
+        "kombinierte Datei darf beide Nachweise auf einmal füllen."
+    )
+    pdf.bullets([
+        "Direkt hochladen – PDF, JPG oder PNG über die Sitzungsseite auswählen",
+        "Über den Watch-Folder – Scan in den Unterordner protokoll_scan legen (z. B. Scanner-Ablage); die "
+        "Datei erscheint im Eingang als „wartender Scan“ und wird dort per Klick der richtigen Sitzung "
+        "zugeordnet (Kapitel 12.4)",
+    ])
+
     pdf.h2("4.5  Beschlussregister")
     pdf.body(
         "Das Beschlussregister sammelt alle Beschlüsse sitzungsübergreifend – filterbar nach Zeitraum, "
@@ -1247,6 +1262,12 @@ def build():
         "betriebsvereinbarung, arbeitgeber_info, arbeitsschutz, schriftverkehr, protokoll, sonstiges. "
         "Dateien aus unbekannten Ordnern landen unter „Sonstiges“. "
         "Jeder Import und jeder Fehler wird im Audit-Log protokolliert."
+    )
+    pdf.body(
+        "Ein Unterordner fällt aus diesem Schema heraus: protokoll_scan ist für Scans der Anwesenheitsliste "
+        "und der Unterschriftenseite (Kapitel 4.4) gedacht, nicht für normale Dokumente. Erlaubt sind PDF, "
+        "JPG und PNG. Dateien landen dort nicht im Eingang als Dokument, sondern als „wartender Scan“, der "
+        "sich per Klick einer Sitzung und einem oder beiden Nachweisen zuordnen lässt."
     )
 
     # 13 ────────────────────────────────────────────────────────────

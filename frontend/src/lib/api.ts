@@ -107,6 +107,15 @@ export const api = {
     versionDownloadUrl: (id: string, vid: string) => `${BASE}/api/dokumente/${id}/versionen/${vid}/download`,
   },
 
+  // Wartende Scans aus dem Watch-Folder-Unterordner "protokoll_scan" (Backend: routes/scanEingang.ts)
+  scanEingang: {
+    liste:     () => request<ScanEingangEintrag[]>("/api/scan-eingang"),
+    dateiUrl:  (id: string) => `${BASE}/api/scan-eingang/${id}/datei`,
+    zuordnen:  (id: string, sitzungId: string, typen: SitzungScanTyp[]) =>
+      request<{ ok: boolean }>(`/api/scan-eingang/${id}/zuordnen`, { method: "POST", body: JSON.stringify({ sitzungId, typen }) }),
+    verwerfen: (id: string) => request<{ nachricht: string }>(`/api/scan-eingang/${id}`, { method: "DELETE" }),
+  },
+
   aufgaben: {
     liste:       () => request<Aufgabe[]>("/api/aufgaben"),
     erstellen:   (data: AufgabeErstellen) => request<Aufgabe>("/api/aufgaben", { method: "POST", body: JSON.stringify(data) }),
@@ -141,6 +150,12 @@ export const api = {
     topReihenfolge: (id: string, topIds: string[]) =>
       request<{ ok: boolean }>(`/api/sitzungen/${id}/tops/reihenfolge`, { method: "PUT", body: JSON.stringify({ topIds }) }),
     anwesenheitslisteUrl: (id: string) => `${BASE}/api/sitzungen/${id}/anwesenheitsliste`,
+    unterschriftenseiteUrl: (id: string) => `${BASE}/api/sitzungen/${id}/unterschriftenseite`,
+    scanHochladen: (id: string, formData: FormData) =>
+      request<{ ok: boolean }>(`/api/sitzungen/${id}/scans`, { method: "POST", body: formData }),
+    scanLoeschen: (id: string, typ: SitzungScanTyp) =>
+      request<{ nachricht: string }>(`/api/sitzungen/${id}/scans/${typ}`, { method: "DELETE" }),
+    scanDownloadUrl: (id: string, typ: SitzungScanTyp) => `${BASE}/api/sitzungen/${id}/scans/${typ}/download`,
     einladung: (id: string) => request<EinladungStand>(`/api/sitzungen/${id}/einladung`),
     einladungVersenden: (id: string, benutzerIds: string[] | undefined, zusatz: string) =>
       request<{ gesendet: number; fehlgeschlagen: number }>(`/api/sitzungen/${id}/einladung/versenden`, {
@@ -783,6 +798,26 @@ export interface TOP {
   aktualisiertAm: string;
 }
 
+// Scans unterschriebener Nachweise (Backend: routes/sitzungScans.ts)
+export type SitzungScanTyp = "ANWESENHEITSLISTE" | "PROTOKOLL_UNTERSCHRIFTEN";
+
+export interface SitzungScan {
+  typ: SitzungScanTyp;
+  dateiname: string;
+  dateigroesse: number;
+  hochgeladenAm: string;
+  hochgeladenVon: { name: string };
+}
+
+// Wartender Scan aus dem Watch-Folder (Backend: routes/scanEingang.ts)
+export interface ScanEingangEintrag {
+  id: string;
+  dateiname: string;
+  dateigroesse: number;
+  mimeTyp: string;
+  erkanntAm: string;
+}
+
 export interface SitzungVersion {
   id: string;
   versionNummer: string;
@@ -818,6 +853,7 @@ export interface Sitzung {
   erstelltVon?: { id: string; name: string };
   versionen: SitzungVersion[];
   tops: TOP[];
+  scans: SitzungScan[];
   erstelltAm: string;
   aktualisiertAm: string;
 }

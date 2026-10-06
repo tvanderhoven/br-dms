@@ -10,7 +10,7 @@
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { Kategorie, DokumentStatus, AuditAktion, Role } from "@prisma/client";
+import { Kategorie, DokumentStatus, AuditAktion, Role, SitzungStatus } from "@prisma/client";
 import { Readable } from "node:stream";
 import { createWriteStream } from "node:fs";
 import { pipeline } from "node:stream/promises";
@@ -462,8 +462,18 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
       const sitzung = await prisma.sitzung.findUnique({ where: { id: sitzungId } });
       if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
 
+      // Gleiche Regel wie auf der Sitzungsseite (routes/sitzungen.ts, POST /:id/tops bzw.
+      // POST /:id/tops/:topId/dokumente): eine fixierte Tagesordnung ist eingefroren –
+      // neue TOPs nur im ENTWURF, neue Dokumente danach nur noch bei Spontan-TOPs.
+      if (sitzung.status === SitzungStatus.PROTOKOLL_FINAL || sitzung.status === SitzungStatus.ABGESAGT) {
+        return reply.status(409).send({ fehler: "Finalisierte Sitzungen sind unveränderlich" });
+      }
+
       let zielTopId = topId;
       if (!zielTopId) {
+        if (sitzung.status !== SitzungStatus.ENTWURF) {
+          return reply.status(409).send({ fehler: "TOPs können nur in Sitzungen im Status ENTWURF hinzugefügt werden" });
+        }
         const vorhandeneNummern = await prisma.tOP.findMany({
           where: { sitzungId }, select: { nummer: true }, orderBy: { nummer: "desc" }, take: 1,
         });
@@ -472,6 +482,12 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
           data: { sitzungId, nummer: naechsteNummer, titel: topTitel },
         });
         zielTopId = neuerTop.id;
+      } else {
+        const top = await prisma.tOP.findFirst({ where: { id: zielTopId, sitzungId }, select: { spontan: true } });
+        if (!top) return reply.status(404).send({ fehler: "TOP nicht gefunden" });
+        if (sitzung.status !== SitzungStatus.ENTWURF && !top.spontan) {
+          return reply.status(409).send({ fehler: "Die Tagesordnung ist fixiert – Dokumente können nur noch bei Spontan-TOPs verknüpft werden" });
+        }
       }
 
       await prisma.topDokument.upsert({

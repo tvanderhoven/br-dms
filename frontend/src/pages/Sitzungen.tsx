@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, FormEvent, DragEvent } from "react";
+import { useEffect, useState, useRef, FormEvent, DragEvent, RefObject } from "react";
 import { useLocation } from "react-router-dom";
 import { SitzungsVorlage } from "../lib/api";
 import {
@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import {
   api, Sitzung, SitzungListItem, SitzungStatus, TOP, TopStatus, Dokument, Mitarbeiter, Abteilung, Zeitmodell, Rolle,
-  TOP_STATUS_LABEL, KATEGORIE_LABEL, SITZUNGSTYP_LABEL, KummerkastenEintrag,
+  TOP_STATUS_LABEL, KATEGORIE_LABEL, SITZUNGSTYP_LABEL, KummerkastenEintrag, SitzungScan, SitzungScanTyp,
   istBetriebsversammlung, sitzungStatusLabel, formatDatum,
 } from "../lib/api";
 import SitzungsEditor from "../components/SitzungsEditor";
@@ -809,6 +809,8 @@ function SitzungDetail({
           </a>
         </div>
       )}
+
+      <SitzungScanKarte sitzung={sitzung} meineRolle={meineRolle} onAktualisieren={onAktualisieren} />
 
       {/* Einladung per E-Mail mit Versandnachweis */}
       {!istBV && sitzung.status !== "ENTWURF" && sitzung.status !== "ABGESAGT" && (
@@ -2388,6 +2390,168 @@ function TeilnahmeKarte({ sitzung, onAktualisieren }: { sitzung: Sitzung; onAktu
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Scans unterschriebener Nachweise (Anwesenheitsliste, Protokoll-Unterschriften) ──
+// Ersetzt den Komplettausdruck des Protokolls zum Unterschreiben durch eine eigene
+// Unterschriftenseite (Version + Prüfsumme) und zwei Upload-Plätze für die Scans –
+// eine kombinierte Datei darf beide Plätze füllen (Paket 4, Stufe 4).
+function SitzungScanKarte({
+  sitzung, meineRolle, onAktualisieren,
+}: { sitzung: Sitzung; meineRolle: Rolle | null; onAktualisieren: () => void }) {
+  const istBV = istBetriebsversammlung(sitzung.sitzungstyp);
+  const kannBearbeiten = meineRolle === "VORSITZ" || meineRolle === "STELLVERTRETER" || meineRolle === "ADMIN";
+
+  const alSichtbar = !istBV && (
+    sitzung.status === "TAGESORDNUNG_FIXIERT" || sitzung.status === "PROTOKOLL_ENTWURF" || sitzung.status === "PROTOKOLL_FINAL"
+  );
+  const protokollSichtbar = sitzung.status === "PROTOKOLL_FINAL";
+
+  const alScan        = sitzung.scans.find(s => s.typ === "ANWESENHEITSLISTE");
+  const protokollScan = sitzung.scans.find(s => s.typ === "PROTOKOLL_UNTERSCHRIFTEN");
+  const beideMoeglich = alSichtbar && protokollSichtbar && !alScan && !protokollScan;
+
+  const alInputRef        = useRef<HTMLInputElement>(null);
+  const protokollInputRef = useRef<HTMLInputElement>(null);
+  const beideInputRef     = useRef<HTMLInputElement>(null);
+  const [laden, setLaden] = useState<string | null>(null);
+  const [fehler, setFehler] = useState("");
+
+  if (!alSichtbar && !protokollSichtbar) return null;
+
+  async function hochladen(ziel: "ANWESENHEITSLISTE" | "PROTOKOLL_UNTERSCHRIFTEN" | "BEIDE", datei: File) {
+    setLaden(ziel);
+    setFehler("");
+    try {
+      const form = new FormData();
+      form.append("file", datei);
+      form.append("ziel", ziel);
+      await api.sitzungen.scanHochladen(sitzung.id, form);
+      onAktualisieren();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Hochladen fehlgeschlagen");
+    } finally {
+      setLaden(null);
+    }
+  }
+
+  async function loeschen(typ: SitzungScanTyp) {
+    if (!confirm("Scan wirklich löschen?")) return;
+    setLaden(typ);
+    setFehler("");
+    try {
+      await api.sitzungen.scanLoeschen(sitzung.id, typ);
+      onAktualisieren();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Löschen fehlgeschlagen");
+    } finally {
+      setLaden(null);
+    }
+  }
+
+  function slot(label: string, typ: SitzungScanTyp, scan: SitzungScan | undefined, inputRef: RefObject<HTMLInputElement>) {
+    return (
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <p className="text-sm font-medium text-amber-900">{label}</p>
+          <p className="text-xs text-amber-700">
+            {scan
+              ? `${scan.dateiname} · hochgeladen am ${formatDatum(scan.hochgeladenAm)} von ${scan.hochgeladenVon.name}`
+              : "Noch kein Scan hochgeladen"}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {scan && (
+            <button
+              onClick={() => pdfInTabOeffnen(api.sitzungen.scanDownloadUrl(sitzung.id, typ))}
+              className="flex items-center gap-1 text-amber-800 hover:text-amber-900 text-xs font-medium"
+            >
+              <Download size={13} /> Öffnen
+            </button>
+          )}
+          {kannBearbeiten && (
+            <>
+              <input
+                ref={inputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden"
+                onChange={e => {
+                  const datei = e.target.files?.[0];
+                  if (datei) hochladen(typ, datei);
+                  e.target.value = "";
+                }}
+              />
+              <button
+                onClick={() => inputRef.current?.click()}
+                disabled={laden === typ}
+                className="flex items-center gap-1 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-medium px-3 py-1.5 rounded-lg"
+              >
+                {laden === typ && <Loader2 size={12} className="animate-spin" />}
+                {scan ? "Ersetzen" : "Hochladen"}
+              </button>
+              {scan && (
+                <button
+                  onClick={() => loeschen(typ)}
+                  disabled={laden === typ}
+                  title="Scan löschen"
+                  className="p-1.5 text-amber-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5 space-y-3">
+      {protokollSichtbar && (
+        <div className="flex items-center justify-between gap-3 flex-wrap pb-2 border-b border-amber-200">
+          <p className="text-xs text-amber-700">
+            Unterschriftenseite {istBV ? "zur Niederschrift" : "zum Protokoll"} – mit Version und Prüfsumme,
+            statt das ganze {istBV ? "Niederschrift" : "Protokoll"} auszudrucken
+          </p>
+          <a
+            href={api.sitzungen.unterschriftenseiteUrl(sitzung.id)}
+            onClick={e => { e.preventDefault(); pdfInTabOeffnen(api.sitzungen.unterschriftenseiteUrl(sitzung.id)); }}
+            className="flex items-center gap-1 bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg whitespace-nowrap"
+          >
+            <Download size={13} /> Unterschriftenseite öffnen
+          </a>
+        </div>
+      )}
+
+      {alSichtbar && slot("Anwesenheitsliste (Scan)", "ANWESENHEITSLISTE", alScan, alInputRef)}
+      {protokollSichtbar && slot(
+        istBV ? "Niederschrift-Unterschriften (Scan)" : "Protokoll-Unterschriften (Scan)",
+        "PROTOKOLL_UNTERSCHRIFTEN", protokollScan, protokollInputRef,
+      )}
+
+      {kannBearbeiten && beideMoeglich && (
+        <div className="pt-1 border-t border-amber-200">
+          <input
+            ref={beideInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden"
+            onChange={e => {
+              const datei = e.target.files?.[0];
+              if (datei) hochladen("BEIDE", datei);
+              e.target.value = "";
+            }}
+          />
+          <button
+            onClick={() => beideInputRef.current?.click()}
+            disabled={laden === "BEIDE"}
+            className="flex items-center gap-1 text-amber-700 hover:text-amber-900 disabled:opacity-50 text-xs underline"
+          >
+            {laden === "BEIDE" && <Loader2 size={12} className="animate-spin" />}
+            Eine Datei für beide hochladen
+          </button>
+        </div>
+      )}
+
+      {fehler && <p className="text-xs text-red-600">{fehler}</p>}
     </div>
   );
 }
