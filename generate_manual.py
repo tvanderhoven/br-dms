@@ -260,7 +260,19 @@ class Manual(FPDF):
         self.set_y(y0 + zeilen * 4.8 + 9)
         self.set_text_color(*C_INK)
 
-    def tabelle(self, kopf, zeilen, breiten=None):
+    def tabelle(self, kopf, zeilen, breiten=None, ueberschrift=None):
+        """ueberschrift: h2 direkt vor der Tabelle – beide wandern zusammen auf die
+        nächste Seite, wenn die Tabelle sonst umbrechen würde."""
+        if ueberschrift:
+            with self.offset_rendering() as probe:
+                probe.h2(ueberschrift)
+                probe._tabelle_zeichnen(kopf, zeilen, breiten)
+            if probe.page_break_triggered:
+                self.add_page()
+            self.h2(ueberschrift)
+        self._tabelle_zeichnen(kopf, zeilen, breiten)
+
+    def _tabelle_zeichnen(self, kopf, zeilen, breiten):
         self.set_font("S", "", 9)
         self.set_text_color(*C_INK)
         self.set_draw_color(*C_LINE)
@@ -757,7 +769,7 @@ def build():
     pdf.h2("4.7  Gremien und Fremdprotokolle")
     pdf.body(
         "Die Seite Gremien verwaltet die anderen Gremien, die der Betriebsrat begleitet – etwa "
-        "Arbeitsschutzausschuss (§ 89), Wirtschaftsausschuss (§§ 106–110), Gesamtbetriebsrat oder JAV/SBV. "
+        "Arbeitsschutzausschuss (§ 11 ASiG), Wirtschaftsausschuss (§§ 106–110), Gesamtbetriebsrat oder JAV/SBV. "
         "Der Betriebsrat selbst taucht hier bewusst nicht auf und bleibt wie gewohnt auf der Seite Sitzungen."
     )
     pdf.bild("gremien", "Gremien-Übersicht mit Fremdprotokollen und Sitzungen", hoehe_anteil=0.6)
@@ -1020,7 +1032,6 @@ def build():
                 "Das Dokument bleibt für die Dauer der Aufbewahrungsfrist erhalten und wird danach "
                 "automatisch zur Löschung vorgemerkt und sicher gelöscht.")
 
-    pdf.h2("8.2  Daily Business")
     pdf.tabelle(
         ["Aufgabe", "Wer", "Wo im System"],
         [
@@ -1034,6 +1045,7 @@ def build():
             ["Backups kontrollieren", "Admin", "Einstellungen → System"],
         ],
         (68, 50, 52),
+        ueberschrift="8.2  Daily Business",
     )
 
     # ════════════════════════════════════════════════════════════════
