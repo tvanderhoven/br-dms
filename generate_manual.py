@@ -317,7 +317,7 @@ class Manual(FPDF):
         self.set_text_color(*C_INK)
         self.ln(2.5)
 
-    def bild(self, name, beschriftung, ausschnitt="inhalt", hoehe_anteil=1.0, vertikal=(0.12, 0.82)):
+    def bild(self, name, beschriftung, ausschnitt="inhalt", hoehe_anteil=1.0, vertikal=(0.12, 0.82), waagerecht=(0.3, 0.7)):
         """Screenshot einbetten. ausschnitt: "voll" (mit Sidebar) oder "inhalt"
         (nur Arbeitsbereich). hoehe_anteil < 1 schneidet unten ab."""
         breite = self.w - self.l_margin - self.r_margin
@@ -327,13 +327,13 @@ class Manual(FPDF):
         self.abb_nr += 1
         if os.path.exists(quelle):
             os.makedirs(CACHE, exist_ok=True)
-            ziel = os.path.join(CACHE, f"{name}-{ausschnitt}-{hoehe_anteil}-{vertikal[0]}-{vertikal[1]}.jpg")
+            ziel = os.path.join(CACHE, f"{name}-{ausschnitt}-{hoehe_anteil}-{vertikal[0]}-{vertikal[1]}-{waagerecht[0]}-{waagerecht[1]}.jpg")
             with Image.open(quelle) as im:
                 im = im.convert("RGB")
                 b, h = im.size
                 if ausschnitt == "mitte":
                     # z.B. Login-Karte: mittleres Drittel, ohne leere Ränder
-                    im = im.crop((int(b * 0.3), int(h * vertikal[0]), int(b * 0.7), int(h * vertikal[1])))
+                    im = im.crop((int(b * waagerecht[0]), int(h * vertikal[0]), int(b * waagerecht[1]), int(h * vertikal[1])))
                 else:
                     links = int(b * 0.156) if ausschnitt == "inhalt" else 0
                     im = im.crop((links, 0, b, int(h * hoehe_anteil)))
@@ -476,6 +476,7 @@ def build():
         "anfordern. Alternativ setzen Vorsitz oder Admin das Passwort in der Benutzerverwaltung zurück. "
         "Das eigene Passwort ändern Sie jederzeit per Klick auf Ihren Namen oben in der Seitenleiste.",
         "tipp", "Passwort vergessen?")
+    pdf.bild("passwort-aendern", "Eigenes Passwort ändern (Klick auf den Namen)", ausschnitt="mitte", vertikal=(0.28, 0.72), waagerecht=(0.35, 0.65))
 
     pdf.h2("1.3  Die Oberfläche")
     pdf.body(
@@ -539,7 +540,14 @@ def build():
         "Neue Version – Als neue Fassung eines vorhandenen Dokuments speichern",
         "Wiedervorlage – Datum setzen, an dem das Dokument erneut im Eingang auftaucht",
         "Widerspruch/Ablehnung – Vorausgefülltes Schreiben für § 99 bzw. § 102 als PDF erzeugen",
+        "Download – Die Originaldatei herunterladen",
+        "Erledigt – Das Dokument verlässt den Eingang und liegt nur noch im Dokumentenarchiv",
     ])
+    pdf.body(
+        "Ein Klick auf einen Eintrag klappt ihn auf: oben die Aktionen als Knopfleiste, darunter die "
+        "PDF-Vorschau. Jede Aktion öffnet ein kleines Formular direkt unter der Leiste."
+    )
+    pdf.bild("eingang-aktionen", "Aufgeklappter Eintrag mit Aktionsleiste und Vorschau", hoehe_anteil=0.55)
     pdf.body("Der Eingang ist Vorsitz, Stellvertretung und Admin vorbehalten.")
 
     pdf.h2("3.2  Dokumentenarchiv")
@@ -567,6 +575,20 @@ def build():
         ],
         (32, 138),
     )
+    pdf.h3("Vorschau, Bearbeiten und Kommentare")
+    pdf.body(
+        "Ein Klick auf eine Zeile öffnet rechts die Vorschau mit dem PDF, den Sitzungen, in denen das Dokument "
+        "behandelt wurde, und den Versionen. Darüber stehen „Neues Fenster“, „Herunterladen“ und „Bearbeiten“; "
+        "ein Doppelklick auf die Zeile öffnet das Dokument direkt in einem neuen Fenster."
+    )
+    pdf.bild("dokument-vorschau", "Vorschau mit „Behandelt in“ und PDF-Ansicht", hoehe_anteil=0.6)
+    pdf.body(
+        "„Bearbeiten“ ändert Kategorie, Titel, Alias, Aktenzeichen, Beschreibung, Löschdatum und die "
+        "Vertraulichkeit. Unten im selben Fenster steht die Diskussion zum Dokument: Kommentare mit "
+        "Formatierung, Links und Dokumentverweisen. Der Knopf „Aufgabe“ an einem Kommentar macht daraus "
+        "direkt eine Aufgabe – mit Titel, Zuständigkeit, Priorität und Fälligkeit."
+    )
+    pdf.bild("dokument-bearbeiten", "Bearbeiten-Dialog mit Kommentaren und „Aufgabe“-Knopf")
     pdf.hinweis(
         "Vertrauliche Dokumente sehen Mitglieder und Ersatzmitglieder nur, wenn sie sie selbst "
         "hochgeladen haben. Vorsitz, Stellvertretung und Admin sehen alle.", "info", "Vertraulichkeit")
@@ -649,6 +671,11 @@ def build():
                 "Ergebnis protokolliert – das ist der Nachweis der Ladung. Die JAV erhält keine vertraulichen TOPs. "
                 "Vor dem Senden öffnet sich ein Fenster für einen zusätzlichen Text, etwa den Link zu einem "
                 "Online-Meeting; er wird beim nächsten Versand für dieselbe Sitzung vorgeschlagen.")
+    pdf.bild("sitzung-einladung", "Karte „Einladung per E-Mail“ mit Versandstatus je Geladenem", hoehe_anteil=0.6)
+    pdf.body(
+        "Ohne eingerichteten Mailserver weist die Karte darauf hin und der Versand bleibt gesperrt "
+        "(Kapitel 9.7). Neben jedem Namen steht, ob und wann die Einladung zugestellt wurde."
+    )
     pdf.bild("vorlagen", "Sitzungsvorlagen für wiederkehrende Tagesordnungen", hoehe_anteil=0.35)
 
     pdf.h2("4.3  Sitzung durchführen und protokollieren")
@@ -658,6 +685,23 @@ def build():
         "PDF zum Unterschreiben ausdrucken."
     )
     pdf.bild("sitzung-entwurf", "Sitzung im Protokollmodus mit Editor, Beschluss und Anwesenheitsliste")
+    pdf.h3("Der Editor")
+    pdf.body(
+        "Beschreibung und Ergebnis eines TOPs werden in einem Editor mit Werkzeugleiste geschrieben. "
+        "Alles, was hier formatiert ist, erscheint genauso im PDF."
+    )
+    pdf.bullets([
+        "Fett, kursiv, unterstrichen – auch per Strg+B, Strg+I, Strg+U",
+        "Überschriften – zwei Ebenen zum Gliedern längerer TOPs",
+        "Aufzählung und nummerierte Liste",
+        "Markieren – Textmarker, etwa um den Beschlusstext hervorzuheben",
+        "Link – Weblink setzen oder entfernen",
+        "Dokument – Ein Dokument aus dem Archiv suchen und als Verweis einfügen; ein Klick darauf öffnet es",
+    ])
+    pdf.body(
+        "Jeder TOP hat außerdem eigene Kommentare für Rückfragen im Gremium; wie beim Dokument wird "
+        "ein Kommentar per „Aufgabe“ zur Aufgabe. Über das Menü „…“ am TOP sind weitere Aktionen erreichbar."
+    )
     pdf.h3("Anwesenheit und Ersatzmitglieder")
     pdf.body(
         "Für jedes Mitglied wird der Status gesetzt: anwesend, entschuldigt oder unentschuldigt abwesend. "
@@ -689,6 +733,13 @@ def build():
         "Nach der Finalisierung lässt sich das Protokoll nicht mehr ändern. Der Zeitstempel "
         "(SHA-256 über Inhalt und Zeitpunkt) belegt, dass es seitdem unverändert ist.",
         "tipp", "Rechtssicherheit")
+    pdf.body(
+        "In der Versionsliste der Sitzung steht neben jedem PDF ein Knopf „PDF neu generieren“ (Vorsitz, "
+        "Stellvertretung, Admin). Er erzeugt "
+        "das PDF einer Version mit dem aktuellen Protokoll-Layout neu – etwa nachdem ein neues Logo "
+        "hinterlegt wurde (Kapitel 9.6). Der Inhalt der Version ändert sich dabei nicht, nur ihr Aussehen; "
+        "die gespeicherte PDF-Datei wird ersetzt."
+    )
 
     pdf.h3("Unterschreiben und Scan hochladen")
     pdf.body(
@@ -773,12 +824,20 @@ def build():
         "Der Betriebsrat selbst taucht hier bewusst nicht auf und bleibt wie gewohnt auf der Seite Sitzungen."
     )
     pdf.bild("gremien", "Gremien-Übersicht mit Fremdprotokollen und Sitzungen", hoehe_anteil=0.6)
+    pdf.body(
+        "Ein Klick auf eine Karte öffnet das Gremium: oben Rechtsgrundlage und Beschreibung (Stift zum "
+        "Bearbeiten), darunter die Mitglieder und eine gemeinsame Zeitleiste aus Fremdprotokollen und "
+        "eigenen Sitzungen des Gremiums, neueste zuerst. Fremdprotokolle lassen sich dort herunterladen, "
+        "bearbeiten und löschen; ein Schloss kennzeichnet vertrauliche."
+    )
+    pdf.bild("gremium-detail", "Gremium mit Mitgliedern und Fremdprotokollen", hoehe_anteil=0.55)
     pdf.h3("Fremdprotokoll")
     pdf.body(
         "Für Gremien, die der Betriebsrat nicht selbst im System führt, wird ein fertiges Protokoll als "
         "Fremdprotokoll abgelegt – eine hochgeladene Datei mit Gremium, Datum und Titel, ohne eigene "
         "Tagesordnungspunkte oder Anwesenheitsliste. Eine Markierung als vertraulich beschränkt Ansicht "
-        "und Download auf Vorsitz und Admin, etwa für Wirtschaftsausschuss-Protokolle."
+        "und Download auf Vorsitz und Admin, etwa für Wirtschaftsausschuss-Protokolle. Hochgeladen wird über "
+        "„Fremdprotokoll hochladen“ – PDF, JPG, PNG oder DOCX, mit Datum, Titel und optionaler Bemerkung."
     )
     pdf.h3("Mitglieder")
     pdf.body(
@@ -939,9 +998,18 @@ def build():
     pdf.bild("ressourcen", "Ressourcen nach Kategorien", hoehe_anteil=0.45)
     pdf.h2("6.3  Themensammlung")
     pdf.body(
-        "Die Themensammlung stellt TOPs zusammen, die im Protokoll als „öffentlich“ markiert wurden, "
-        "und exportiert sie formatiert für Aushänge oder einen Newsletter an die Belegschaft."
+        "Die Themensammlung bereitet Sitzungsergebnisse für die Belegschaft auf – für einen Aushang oder "
+        "einen Newsletter. Sie sammelt alle TOPs aus protokollierten Sitzungen eines Zeitraums, deren Titel "
+        "ein Stichwort enthält (Standard: „öffentlich“), und zeigt deren Ergebnis-Text. Am einfachsten "
+        "bekommt jede Sitzung einen TOP wie „Öffentlichkeitsarbeit – Aushang an die Belegschaft“, in dessen "
+        "Ergebnis der Text für die Belegschaft steht – ohne Namen und Vertrauliches."
     )
+    pdf.bild("themensammlung", "Themensammlung mit zwei Aushangtexten", hoehe_anteil=0.5)
+    pdf.bullets([
+        "Zeitraum und Stichwort wählen, dann „Themen laden“",
+        "Drucken – Die Zusammenstellung direkt ausdrucken, z. B. fürs Schwarze Brett",
+        "HTML herunterladen – Fertig formatierte Datei, etwa zum Einfügen in einen Newsletter oder ins Intranet",
+    ])
     pdf.h2("6.4  Globale Suche und Gesetzestexte")
     pdf.body(
         "Die Suche durchsucht alle Bereiche gleichzeitig – Dokumente samt PDF-Volltext, Sitzungen, TOPs "
@@ -950,9 +1018,11 @@ def build():
     )
     pdf.bild("suche", "Suchergebnisse nach Bereichen gruppiert", hoehe_anteil=0.6)
     pdf.body(
-        "Die Gesetzestexte (u. a. BetrVG, KSchG, ArbZG) werden monatlich automatisch aktualisiert und "
-        "öffnen sich als Fenster direkt in der Anwendung."
+        "Die Gesetzestexte (BetrVG, KSchG, ArbSchG, SGB IX, BUrlG, ArbZG) werden monatlich automatisch "
+        "aktualisiert (Kapitel 9.8). Ein Klick auf einen Paragraphen – in der Suche oder in der Schnellsuche "
+        "oben links – öffnet den Volltext als Fenster direkt in der Anwendung, ohne Internetverbindung."
     )
+    pdf.bild("gesetz-popup", "Paragraph als Fenster: § 87 BetrVG aus der Suche nach „Pausen“", hoehe_anteil=0.6)
 
     # 7 ─────────────────────────────────────────────────────────────
     pdf.h1("7  Personal")
@@ -976,6 +1046,15 @@ def build():
         "werden mit Zeilennummer abgelehnt."
     )
     pdf.bild("mitarbeiter", "Mitarbeiterübersicht mit Kennzahlen", hoehe_anteil=0.6)
+    pdf.h3("Filtern, bearbeiten und Standort für viele setzen")
+    pdf.body(
+        "Die Liste lässt sich nach Name oder Personalnummer, Abteilung, Standort und Beschäftigungsart "
+        "filtern; „Nur aktive“ blendet Ausgetretene aus. Der Stift am Ende einer Zeile öffnet die "
+        "Stammdaten zum Bearbeiten. Über die Kästchen vor den Namen werden mehrere Mitarbeiter markiert – "
+        "das Kästchen im Tabellenkopf wählt alle gefilterten. Dann erscheint eine Leiste, in der ein "
+        "Standort eingetragen und mit „Standort übernehmen“ für alle Markierten gesetzt wird."
+    )
+    pdf.bild("mitarbeiter-auswahl", "Drei markierte Mitarbeiter, Leiste zum Setzen des Standorts", hoehe_anteil=0.8)
     pdf.h2("7.2  Eingruppierung")
     pdf.body(
         "Die Seite Eingruppierung führt die Eingruppierungs-Historie je Mitarbeiter – Tarifgruppe und Stufe "
@@ -984,14 +1063,53 @@ def build():
     )
     pdf.bild("gehaltstabelle-liste", "Eingruppierung mit Historie und Bemerkungen", hoehe_anteil=0.6)
     pdf.body(
-        "Der Reiter Statistik zeigt die Verteilung nach Gruppe, Stufe, Zeitmodell und Standort sowie "
-        "das durchschnittliche AT-Gehalt."
+        "Die Seite hat vier Reiter: Überstunden und Zeitmodell (Kapitel 7.3), Liste und Statistik. In der "
+        "Liste wird nach Abteilung, Mitarbeiter, Zeitraum und Beschäftigungsart gefiltert; „Neuer Eintrag“ "
+        "erfasst eine Gehaltsstufe mit „gültig ab“. Das Personen-Symbol neben einem Namen öffnet dessen Stammdaten."
+    )
+    pdf.h3("CSV-Import")
+    pdf.body(
+        "„Vorlage (CSV)“ lädt eine leere Datei mit den richtigen Spalten herunter: PNR, Nachname, Vorname, "
+        "Abteilung, Eintritt, Austritt, Gehaltsstufe, Gültig ab, Bemerkung. Ausgefüllt wird sie über "
+        "„Import (CSV)“ eingelesen; eine Vorschau zeigt neue Mitarbeiter, neue Abteilungen und alle Einträge, "
+        "bevor gespeichert wird. Einen Export der Gehaltsdaten gibt es bewusst nicht."
+    )
+    pdf.h3("Sichtschutz")
+    pdf.body(
+        "Sobald das Browserfenster den Fokus verliert – Wechsel in ein anderes Programm oder einen anderen "
+        "Tab –, wird die Gehaltsliste unscharf geschaltet. Erst ein bewusster Klick auf „Ausgeblendet – "
+        "klicken zum Anzeigen“ deckt sie wieder auf. So sieht niemand die Zahlen, der kurz ins Zimmer kommt "
+        "oder über die Schulter schaut, wenn man gerade in ein anderes Fenster gewechselt ist."
+    )
+    pdf.bild("sichtschutz", "Sichtschutz: Liste nach einem Fensterwechsel verdeckt", hoehe_anteil=0.9)
+    pdf.body(
+        "Der Reiter Statistik zeigt Kennzahlen (Mitarbeiter mit Gehaltseintrag, Zahl je Beschäftigungsart, "
+        "AT-Fälle mit Durchschnittsgehalt) und Kreuztabellen: Gruppe × Stufe, Gruppe × Zeitmodell, "
+        "Standort × Gruppe, Mitarbeiter je Werk sowie je Abteilung eine Matrix aus Gruppe und Stufe."
     )
     pdf.bild("gehaltstabelle-statistik", "Statistik: Verteilung nach Gruppe und Zeitmodell", hoehe_anteil=0.6)
     pdf.h2("7.3  Zeitmodelle und Überstunden")
     pdf.body(
         "Zeitmodell und Überstundenregelung haben je eine eigene Historie mit echtem Gültigkeitszeitraum – "
-        "befristet oder unbefristet. Eine Warnliste zeigt Regelungen, die in den nächsten 30 Tagen auslaufen."
+        "von, bis oder unbefristet. Beide Reiter sind gleich aufgebaut: Filter nach Mitarbeiter, Abteilung "
+        "und Beschäftigungsart, „Nur aktive“, und die Umschaltung zwischen Tabelle und Gantt. Die "
+        "Gantt-Ansicht zeigt je Mitarbeiter einen Balken pro Zeitraum, gruppiert nach Abteilung; ein "
+        "Doppelklick auf einen Balken öffnet ihn zum Bearbeiten. Eine Warnliste oben nennt Zeiträume, die in "
+        "den nächsten 30 Tagen auslaufen."
+    )
+    pdf.h3("Überstunden")
+    pdf.body(
+        "Der erste Reiter der Eingruppierung. Mit „Neuer Zeitraum“ wird für einen Mitarbeiter festgehalten, "
+        "welche Überstundenregelung ab wann gilt – als freier Text, z. B. „Gleitzeitkonto, Kappung bei 60 h“ "
+        "oder „Mit AT-Gehalt pauschal abgegolten“, dazu eine Bemerkung."
+    )
+    pdf.bild("ueberstunden", "Überstundenregelungen je Mitarbeiter in der Tabellenansicht", hoehe_anteil=0.55)
+    pdf.h3("Zeitmodell")
+    pdf.body(
+        "Hier wird das Arbeitszeitmodell (A, B, C oder D – was sich dahinter verbirgt, regelt die "
+        "betriebliche Vereinbarung) mit Zeitraum geführt. "
+        "Läuft ein Zeitmodell oder eine Überstundenregelung im laufenden Monat aus, erhalten Vorsitz und "
+        "Stellvertretung am 15. eine Erinnerung (Kapitel 9.5)."
     )
     pdf.bild("gehaltstabelle-zeitmodell", "Zeitmodell-Historie mit Ablaufwarnung", hoehe_anteil=0.55)
     pdf.h2("7.4  Betriebsvereinbarungen")
@@ -1064,14 +1182,15 @@ def build():
     pdf.tabelle(
         ["Reiter", "Inhalt"],
         [
-            ["Fristen", "Aufbewahrungsfristen je Dokumentkategorie"],
+            ["Löschfristen", "Aufbewahrungsfristen je Dokumentkategorie, Test der Erinnerungsmails"],
             ["Protokoll-Layout", "Kopf- und Fußzeile, Farbe, Logo und Unterschriftszeilen der PDFs"],
             ["Benutzerverwaltung", "Benutzer, Rollen, Wahlrang, ständige Vertretung, Geschlechterquote, "
                                    "Zugriff des Admins"],
             ["Design", "Farbschema, Schriftgröße, Hell/Dunkel"],
-            ["System", "Watch-Folder-Status, Backup-Übersicht, automatisches Abmelden"],
+            ["System", "E-Mail-Absender, Watch-Folder, Backup-Übersicht, automatisches Abmelden, "
+                       "Gefahrenzone (Admin)"],
             ["Module", "Optionale Bereiche ein- und ausschalten (nur Admin)"],
-            ["Gesetzestexte", "Stand der Gesetzesdatenbank, manuelles Aktualisieren"],
+            ["Gesetzestexte", "Stand der Gesetzesdatenbank, manuelles Aktualisieren (nur Admin)"],
             ["Amtsübergabe", "PDF mit Mitgliederliste, aktiven Dokumenten und Beschlussregister"],
         ],
         (40, 130),
@@ -1146,7 +1265,14 @@ def build():
     )
     pdf.bild("einstellungen-module", "Module ein- und ausschalten (Admin)", hoehe_anteil=0.55)
 
-    pdf.h2("9.5  Aufbewahrung, Protokoll-Layout und System")
+    pdf.h2("9.5  Löschfristen und Erinnerungsmails")
+    pdf.body(
+        "Der Reiter legt je Dokumentkategorie fest, nach wie vielen Tagen ein Dokument zur Löschung "
+        "vorgemerkt wird; „Bearbeiten“ in der Zeile ändert die Frist, „Angepasst“ zeigt Abweichungen vom "
+        "Standard. Änderungen gelten nur für neu hochgeladene Dokumente – bestehende behalten ihr Löschdatum, "
+        "das sich je Dokument im Bearbeiten-Dialog ändern lässt."
+    )
+    pdf.bild("einstellungen-fristen", "Aufbewahrungsfristen je Dokumentkategorie", hoehe_anteil=0.5)
     pdf.tabelle(
         ["Kategorie", "Standard-Aufbewahrung"],
         [
@@ -1162,13 +1288,82 @@ def build():
         ],
         (100, 70),
     )
+    pdf.body(
+        "Darunter stehen zwei Erinnerungsmails, die das System selbst verschickt. Mit „Jetzt testen“ lässt "
+        "sich jede sofort auslösen, statt auf den nächsten Termin zu warten:"
+    )
     pdf.bullets([
-        "Protokoll-Layout – Logo hochladen, Kopf- und Fußzeile, Akzentfarbe, Unterschriftszeilen und der Ort vor dem Datum an den Unterschriften (leer = nur Datum)",
-        "System – E-Mail-Absender (Name und Adresse für alle Mails; ohne Eintrag gilt SMTP_FROM) und Signatur unter den Einladungen, Status des Watch-Folders und Übersicht der Backups (Anzahl, Alter, Größe, Vollständigkeit)",
-        "Automatisches Abmelden – Nach 0 bis 480 Minuten Inaktivität (0 = aus)",
+        "Fristen-Erinnerung – Täglich um 7:00 Uhr an Vorsitz und Stellvertretung, aber nur, wenn in den nächsten 7 Tagen Fristen fällig werden",
+        "Zeitmodell-/Überstunden-Ablauf – Monatlich am 15. um 7:00 Uhr, wenn im laufenden Monat Zeiträume auslaufen",
     ])
 
-    pdf.h2("9.6  Audit-Log")
+    pdf.h2("9.6  Protokoll-Layout")
+    pdf.body(
+        "Hier wird das Aussehen der Sitzungs-PDFs festgelegt – Tagesordnungen, Einladungen, Protokolle "
+        "und Niederschriften. Bestehende PDFs behalten ihr Aussehen, bis sie in der Sitzung "
+        "neu generiert werden (Kapitel 4.4)."
+    )
+    pdf.bild("einstellungen-protokoll", "Logo und Anordnung von Kopf- und Fußzeile", hoehe_anteil=0.5)
+    pdf.bullets([
+        "Logo – PNG oder JPG bis 2 MB; ohne Logo erscheint ein farbiger Balken",
+        "Layout – Logo links, rechts oder kein Logo; in der Fußzeile Bezeichnung links und Seitenzahl rechts oder umgekehrt",
+        "Kopfzeile & Farbe – Kopfzeile groß (z. B. „Betriebsrat“), Unterzeile klein (z. B. die Firma) und die Akzentfarbe",
+        "Fußzeile & Unterschriften – Fußzeilentext, Bezeichnung der Unterschriftszeilen für Vorsitz und Zeuge/Zeugin sowie der Ort vor dem Datum (leer = nur Datum)",
+    ])
+
+    pdf.h2("9.7  System")
+    pdf.bild("einstellungen-system", "E-Mail-Absender und Watch-Folder", hoehe_anteil=0.6)
+    pdf.bullets([
+        "E-Mail-Absender – Name und Adresse für alle Mails (ohne Eintrag gilt SMTP_FROM) und die Signatur unter Einladungen. Ein Hinweis erscheint, solange kein Mailserver eingerichtet ist",
+        "Watch-Folder – Ob die Ordnerüberwachung läuft, der Basispfad und welcher Unterordner zu welcher Kategorie gehört (Kapitel 12.4)",
+        "Backup & Restore – Anzahl, Alter, Größe und Vollständigkeit der Backups; dazu die Hinweise zum Schlüssel und zur Wiederherstellung (Kapitel 13.2)",
+        "Sicherheit – Automatisches Abmelden nach 0 bis 480 Minuten Inaktivität (0 = aus)",
+    ])
+    pdf.h3("Gefahrenzone – Eingruppierung")
+    pdf.body(
+        "Nur für den Admin. „Nur Gehaltsstufen-Einträge löschen“ entfernt alle Gehaltsstufen, Mitarbeiter und "
+        "Abteilungen bleiben – gedacht für einen fehlerhaften Import. „Eingruppierung komplett löschen“ "
+        "entfernt zusätzlich alle Mitarbeiter und Abteilungen, etwa für einen Neustart nach Testdaten. Beide "
+        "Knöpfe werden erst aktiv, wenn „LÖSCHEN“ eingetippt ist, und sind nicht umkehrbar."
+    )
+    pdf.bild("einstellungen-gefahrenzone", "Gefahrenzone mit Bestätigung durch Eintippen")
+    pdf.hinweis(
+        "Vor dem Löschen ein Datenbank-Backup ziehen (./backup.sh, Kapitel 13.2) – aus der App heraus "
+        "gibt es bewusst keinen Export der Gehaltsdaten.", "achtung", "Vorher sichern")
+
+    pdf.h2("9.8  Gesetzestexte")
+    pdf.body(
+        "Nur für den Admin. Die Tabelle zeigt je Gesetz die Zahl der Paragraphen und den Stand des letzten "
+        "Imports von gesetze-im-internet.de. Der Import läuft automatisch am 1. jedes Monats um 3:00 Uhr; "
+        "„Jetzt aktualisieren“ startet ihn sofort. „Automatischen Ablauf testen“ führt genau den nächtlichen "
+        "Ablauf aus – einschließlich der Nachricht an Vorsitz und Stellvertretung, falls sich an einem bereits "
+        "bekannten Paragraphen wirklich etwas geändert hat."
+    )
+    pdf.bild("einstellungen-gesetze", "Stand der Gesetzestexte", hoehe_anteil=0.5)
+
+    pdf.h2("9.9  Amtsübergabe")
+    pdf.body(
+        "Für Vorsitz, Stellvertretung und Admin. „PDF öffnen“ erzeugt eine lesbare Übersicht als Grundlage "
+        "für das Übergabegespräch an eine neue Vorsitzende oder einen neuen Vorsitzenden – kein "
+        "vollständiger Datenexport."
+    )
+    pdf.bild("einstellungen-amtsuebergabe", "Amtsübergabe: Inhalt des PDFs und Ablauf", hoehe_anteil=0.6)
+    pdf.tabelle(
+        ["Im PDF enthalten", "Bleibt im System"],
+        [
+            ["Aktive BR-Mitglieder mit E-Mail und Rolle", "Dokument-Dateien selbst (nur Titel und Metadaten im PDF)"],
+            ["Aktive Dokumente nach Kategorie mit Aktenzeichen, offenen Fristen und Status", "Protokolle im Volltext"],
+            ["Beschlussregister mit Sitzung/TOP, Antrag, Ergebnis und Rechtsgrundlage", "Aufgaben, Themen-Backlog, Eingruppierung, Schulungen, BVs, Wissen, Audit-Log"],
+        ],
+        (85, 85),
+    )
+    pdf.schritt(1, "Neue Zugänge anlegen", "Neue/n Vorsitzende/n bzw. Stellvertretung in der Benutzerverwaltung mit passender Rolle anlegen.")
+    pdf.schritt(2, "Übergabe besprechen", "Dieses PDF exportieren und im Übergabegespräch gemeinsam durchgehen.")
+    pdf.schritt(3, "Alte Zugänge deaktivieren", "Ausscheidende deaktivieren, nicht löschen – die Historie bleibt nachvollziehbar.")
+    pdf.schritt(4, "Technik separat übergeben", "NAS-Zugang, Docker und Datenbank-Zugangsdaten liegen außerhalb der App und werden sicher getrennt weitergegeben.")
+    pdf.schritt(5, "Sichern", "Für eine vollständige technische Sicherung ein Datenbank-Backup erstellen (Kapitel 13.2).")
+
+    pdf.h2("9.10  Audit-Log")
     pdf.body(
         "Das Audit-Log protokolliert unveränderlich alle sicherheitsrelevanten Vorgänge – Anmeldungen, "
         "Dokumentzugriffe, Änderungen an Sitzungen, Benutzern und Einstellungen – mit Zeitpunkt, Person, "
@@ -1418,8 +1613,10 @@ def build():
     pdf.body(
         "Für Vorführungen startet ein Befehl eine komplett getrennte Instanz mit erfundenen Daten: "
         "„Nordwerk Maschinenbau GmbH“ mit rund 250 Beschäftigten, 9er-Gremium, drei Ersatzmitgliedern und "
-        "JAV, fünf Sitzungen, verschlüsselten Beispiel-PDFs, Fristen, Gehaltshistorie und mehr. Alle Daten "
-        "werden relativ zum aktuellen Datum erzeugt. Die Abbildungen in diesem Handbuch stammen aus dieser Demo."
+        "JAV, acht Sitzungen, vier weiteren Gremien mit Fremdprotokollen, verschlüsselten Beispiel-PDFs, "
+        "Fristen, Gehaltshistorie und mehr. Mit Internetverbindung werden auch die Gesetzestexte geladen. "
+        "Alle Daten werden relativ zum aktuellen Datum erzeugt. Die Abbildungen in diesem Handbuch stammen "
+        "aus dieser Demo."
     )
     pdf.code("./demo/demo.sh start    # bauen, starten, befüllen -> https://localhost:8444\n"
              "./demo/demo.sh reset    # alles löschen und frisch einspielen\n"
@@ -1428,7 +1625,8 @@ def build():
     pdf.hinweis(
         "Das Demo-Skript schreibt nur in eine leere Datenbank und bricht sonst ab – eine echte "
         "Installation kann es nicht verändern.", "tipp")
-    pdf.body("Die Screenshots dieses Handbuchs werden aus der laufenden Demo neu erzeugt mit:")
+    pdf.body("Die Screenshots dieses Handbuchs werden aus der laufenden Demo neu erzeugt (braucht Node.js ab "
+             "Version 22 und Chrome oder Chromium; ein anderer Browser über CHROME=/pfad/zum/browser):")
     pdf.code("node tools/handbuch-screenshots/screenshots.mjs\n"
              "python3 generate_manual.py")
 
