@@ -1,6 +1,6 @@
 # BR-DMS – Roadmap
 
-Stand: 4. Oktober 2026. Hier steht, was als Nächstes kommt und was dabei schon entschieden ist –
+Stand: 6. Oktober 2026. Hier steht, was als Nächstes kommt und was dabei schon entschieden ist –
 damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 
 ## Erledigt
@@ -15,35 +15,37 @@ damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 | Sitzungsliste + TOPs ziehen | Sitzungsliste in „Kommende“ (nächste zuerst, heute zählt dazu) und „Vergangene“ gegliedert, Spalte „Dokumente“ (verknüpfte Dokumente über alle TOPs, für die JAV ohne vertrauliche TOPs); TOPs im Entwurf am Griff per Drag & Drop verschieben, Pfeile bleiben | Okt. 2026 |
 | Dokumente: Kategorien + Herkunft | Kategorie-Leiste mit Zählern statt Dropdown; neue Kategorien Abmahnung (3 Jahre), Information des Arbeitgebers, Arbeits- und Gesundheitsschutz, Schriftverkehr (je 5 Jahre) samt Watch-Folder-Unterordnern; Kategorien/Aufbewahrung zentral in `backend/src/lib/kategorien.ts`; „Behandelt in Sitzung/TOP“ in Liste und Vorschau; Löschdatum je Dokument mit Vorschlag nach Kategorie-Regel, nur in der Zukunft | Okt. 2026 |
 | Kleinigkeiten | Protokoll-PDF zeigt angenommene Beschlüsse grün; HTTP-Weiterleitung behält den HTTPS-Port; Ort an den Unterschriften als Einstellung statt fest im Code; Fristen im Fristenkalender bearbeiten (Bezeichnung, Datum, Notiz) | Okt. 2026 |
+| Einladung, Ladung und Sitzungspaket (Paket 4) | Ladung vorab, Zweitadresse für Einladungen, Einladung per E-Mail mit Versandnachweis; Unterschriftenseite (Version + Prüfsumme) statt Komplettausdruck, Scan-Upload direkt oder per Watch-Folder-Zuordnung (`protokoll_scan` → Eingang); Sitzungspaket als ZIP, „Sitzung abschließen“ mit Checkliste → Status „Abgeschlossen“ | Okt. 2026 |
 
 ## Als Nächstes
 
 Ideen aus der BRbase-Demo (Bund-Verlag, 05.10.2026). BRbase läuft als Cloud-Dienst beim Anbieter,
 BR-DMS ist der Gegenansatz (eigener Server) – einzelne Ideen übernehmen wir trotzdem.
-Pakete 1–3 erledigt; als Nächstes 4 als Block, dann 5.
+Pakete 1–4 erledigt; als Nächstes 5.
 
 | # | Paket | Größe | Inhalt |
 |---|---|---|---|
 | 1 | ~~Sitzungsliste: kommend / vergangen~~ | S | erledigt, siehe oben |
 | 2 | ~~TOPs per Drag & Drop~~ | S | erledigt, siehe oben |
 | 3 | ~~Dokumente: Kategorien sichtbar + Herkunft~~ | S–M | erledigt, siehe oben |
-| 4 | Einladung, Ladung und Sitzungspaket | L | siehe unten |
+| 4 | ~~Einladung, Ladung und Sitzungspaket~~ | L | erledigt, siehe oben |
 | 5 | Gremien und Fremdprotokolle | M–L | siehe unten |
 
-**Paket 4 – Einladung, Ladung und Sitzungspaket** (in Arbeit, in Stufen)
+**Paket 4 – Einladung, Ladung und Sitzungspaket** (erledigt, in Stufen)
 
 | Stufe | Inhalt | Stand |
 |---|---|---|
 | 1 | Ladung vorab: Anwesenheit heißt vor der Sitzung „Ladung & Verhinderung“ (Kommt / Verhindert / Als Ersatz geladen); Anwesenheitsliste-PDF gegliedert (Mitglieder · geladene Ersatzmitglieder „für X“ · JAV · weitere Ersatzmitglieder) | erledigt |
 | 2 | Zweitadresse für Einladungen je Benutzer, Absenderadresse als Einstellung | erledigt |
 | 3 | Einladung per E-Mail mit Tagesordnung als PDF, Versandnachweis je Empfänger (Tabelle `einladung_versand`); neue Sitzungen laden nur noch ordentliche Mitglieder + JAV vor | erledigt (API getestet, Oberfläche noch vom Nutzer zu prüfen) |
-| 4 | Unterschriftenseite des Protokolls (Version + Prüfsumme) und zwei Upload-Plätze für Scans (Anwesenheitsliste, Protokoll-Unterschriften; eine kombinierte Datei darf beide füllen) | |
-| 5 | Sitzungspaket als ein PDF (Einladung + Versandnachweis, Tagesordnung, Protokoll, Scans) und „Sitzung abschließen“ mit Checkliste | |
+| 4 | Unterschriftenseite des Protokolls (Version + Prüfsumme) und zwei Upload-Plätze für Scans (Anwesenheitsliste, Protokoll-Unterschriften; eine kombinierte Datei darf beide füllen); Scans auch per Watch-Folder-Unterordner `protokoll_scan` → Zuordnung im Eingang (`ScanEingang`) | erledigt (noch nicht in der Demo getestet – kein Docker/Node auf diesem Rechner verfügbar) |
+| 5 | Sitzungspaket als ZIP (Tagesordnung/Einladung-PDF, Versandnachweis-CSV, Protokoll/Niederschrift-PDF, Scans) und „Sitzung abschließen“ mit Checkliste → neuer Status „Abgeschlossen“ | erledigt (noch nicht in der Demo getestet) |
 
-Entschieden: Paket als ein zusammengefügtes PDF. Die Anwesenheitsliste geht zu Beginn der Sitzung rum,
-das Protokoll wird später unterschrieben – deshalb zwei Upload-Plätze. Zum Unterschreiben reicht die
-Unterschriftenseite (bisher wurde das ganze Protokoll gedruckt). Die Tagesordnung braucht keine Unterschrift,
-den Nachweis der Ladung liefert der Versandnachweis.
+Entschieden (06.10.2026): Sitzungspaket als **ZIP**, nicht als zusammengefügtes PDF – braucht keine
+neue Abhängigkeit (`adm-zip` war schon im Projekt) und jede Datei (insbesondere Scans als Nachweis)
+bleibt im Original statt in ein Sammel-PDF konvertiert zu werden. Checkliste für „Sitzung abschließen“
+bewusst schlank gehalten: nur Protokoll final (ohnehin Voraussetzung) + beide Scans, nicht „alle
+Beschlüsse finalisiert“.
 
 - *Ladung vorab:* Verhinderung eines Mitglieds schon vor der Sitzung erfassen → Ersatzmitglied laden
   (bestehender Nachrück-Vorschlag). Steht dann auf Einladung und Unterschriftenliste als „Ersatz für X“
@@ -51,10 +53,10 @@ den Nachweis der Ladung liefert der Versandnachweis.
 - *Zweite E-Mail-Adresse je Benutzer* (z. B. `br-tvanderhoven@…`, `jav-jklaus@…`); Login bleibt die Hauptadresse.
 - *Einladung per E-Mail* an alle Geladenen, mit Tagesordnung als PDF, von einer einstellbaren Absenderadresse.
 - *Versand dokumentieren:* wer wann an welche Adresse eingeladen wurde – nachweisbar (§ 29 Abs. 2 BetrVG).
-- *Sitzungspaket:* Einladung, Tagesordnung, Protokoll und Unterschriftenliste gesammelt zur Sitzung
-  (Download als ZIP oder ein PDF).
-- *Sitzung abschließen:* letzter Schritt wird aktiv abgehakt (Checkliste: Protokoll final, Unterschriftenliste
-  unterschrieben hochgeladen, Beschlüsse erfasst …) → neuer Status „Abgeschlossen“.
+- *Sitzungspaket:* Tagesordnung/Einladung, Versandnachweis, Protokoll/Niederschrift und Scans gesammelt
+  zur Sitzung, Download als ein ZIP; fehlende Teile werden ausgelassen statt den Download abzubrechen.
+- *Sitzung abschließen:* letzter Schritt wird aktiv abgehakt (Checkliste: Protokoll final, beide Scans
+  hochgeladen) → neuer Status „Abgeschlossen“, danach ist nichts mehr änderbar (Downloads bleiben möglich).
 
 **Paket 5 – Gremien und Fremdprotokolle**
 - Sitzungen einem Gremium zuordnen und danach gliedern: BR, Ausschüsse (§ 28), JAV, SBV …
@@ -73,8 +75,6 @@ den Nachweis der Ladung liefert der Versandnachweis.
 - Gremien: oberste Gliederung nach Gremium, darunter die Protokolle. Je Gremium frei, ob die Sitzung
   im System geführt oder ein Fremdprotokoll abgelegt wird – auch gemischt (ASA mal selbst, mal von
   anderen). Hauptsache dokumentiert.
-
-**Noch offen:** Sitzungspaket als ZIP oder als ein zusammengefügtes PDF?
 
 Weiter offen beim Wahl-Modul: Fristen und Paragrafen juristisch gegenlesen lassen; klären, ob dual
 Studierende bei der JAV als Auszubildende zählen.

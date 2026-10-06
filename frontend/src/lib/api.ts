@@ -141,6 +141,9 @@ export const api = {
       request<Sitzung>(`/api/sitzungen/${id}/protokoll`, { method: "POST" }),
     finalisieren: (id: string) =>
       request<Sitzung>(`/api/sitzungen/${id}/finalisieren`, { method: "POST" }),
+    abschliessen: (id: string) =>
+      request<Sitzung>(`/api/sitzungen/${id}/abschliessen`, { method: "POST" }),
+    sitzungspaketUrl: (id: string) => `${BASE}/api/sitzungen/${id}/sitzungspaket`,
     topHinzufuegen: (id: string, data: { titel: string; inhalt?: string; inhaltsJson?: object; vertraulich?: boolean }) =>
       request<TOP>(`/api/sitzungen/${id}/tops`, { method: "POST", body: JSON.stringify(data) }),
     topAktualisieren: (id: string, topId: string, data: Partial<{ titel: string; inhalt: string; inhaltsJson: object; ergebnis: string; ergebnisJson: object; topStatus: TopStatus; vertraulich: boolean }>) =>
@@ -769,7 +772,7 @@ export interface DokumentVerknuepfungen {
 
 // ── Sitzungsmanagement ────────────────────────────────────────────
 export type SitzungStatus =
-  | "ENTWURF" | "TAGESORDNUNG_FIXIERT" | "PROTOKOLL_ENTWURF" | "PROTOKOLL_FINAL" | "ABGESAGT";
+  | "ENTWURF" | "TAGESORDNUNG_FIXIERT" | "PROTOKOLL_ENTWURF" | "PROTOKOLL_FINAL" | "ABGESCHLOSSEN" | "ABGESAGT";
 
 export type TopStatus =
   | "OFFEN" | "BESCHLOSSEN" | "ABGELEHNT" | "VERTAGT" | "ZUR_KENNTNIS";
@@ -973,6 +976,7 @@ export const SITZUNG_STATUS_LABEL: Record<SitzungStatus, string> = {
   TAGESORDNUNG_FIXIERT: "Tagesordnung fixiert",
   PROTOKOLL_ENTWURF:    "Protokoll in Bearbeitung",
   PROTOKOLL_FINAL:      "Protokoll final",
+  ABGESCHLOSSEN:        "Abgeschlossen",
   ABGESAGT:             "Abgesagt",
 };
 

@@ -29,6 +29,7 @@ const SITZUNG_STATUS_STYLE: Record<string, string> = {
   TAGESORDNUNG_FIXIERT: "bg-accent/10 text-accent",
   PROTOKOLL_ENTWURF:    "bg-amber-100 text-amber-700",
   PROTOKOLL_FINAL:      "bg-green-100 text-green-700",
+  ABGESCHLOSSEN:        "bg-emerald-100 text-emerald-700",
   ABGESAGT:             "bg-red-100 text-red-600",
 };
 

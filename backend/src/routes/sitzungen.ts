@@ -24,7 +24,7 @@
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { SitzungStatus, TopStatus, AuditAktion, Role } from "@prisma/client";
+import { SitzungStatus, TopStatus, AuditAktion, Role, SitzungScanTyp } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { rundnachrichtFilter } from "../lib/adminZugriff.js";
 import { authenticate } from "../middleware/auth.js";
@@ -247,7 +247,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
       const sitzung = await prisma.sitzung.findUnique({ where: { id }, select: { status: true, sitzungstyp: true } });
       if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
 
-      if (sitzung.status === SitzungStatus.PROTOKOLL_FINAL || sitzung.status === SitzungStatus.ABGESAGT) {
+      if (sitzung.status === SitzungStatus.PROTOKOLL_FINAL || sitzung.status === SitzungStatus.ABGESCHLOSSEN || sitzung.status === SitzungStatus.ABGESAGT) {
         return reply.status(409).send({ fehler: "Finalisierte Sitzungen können nicht bearbeitet werden" });
       }
 
@@ -300,7 +300,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
       const sitzung = await prisma.sitzung.findUnique({ where: { id }, select: { status: true, titel: true, sitzungstyp: true } });
       if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
 
-      if (sitzung.status === SitzungStatus.PROTOKOLL_FINAL) {
+      if (sitzung.status === SitzungStatus.PROTOKOLL_FINAL || sitzung.status === SitzungStatus.ABGESCHLOSSEN) {
         return reply.status(409).send({ fehler: "Finalisierte Protokolle können nicht gelöscht werden" });
       }
 
@@ -508,6 +508,41 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
     }
   );
 
+  // ── POST /:id/abschliessen – PROTOKOLL_FINAL → ABGESCHLOSSEN ──
+  app.post(
+    "/:id/abschliessen",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const sitzung = await prisma.sitzung.findUnique({
+        where:  { id },
+        select: { status: true, scans: { select: { typ: true } } },
+      });
+      if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
+
+      if (sitzung.status !== SitzungStatus.PROTOKOLL_FINAL) {
+        return reply.status(409).send({ fehler: "Nur finalisierte Protokolle können abgeschlossen werden" });
+      }
+
+      const vorhandeneTypen = new Set(sitzung.scans.map(s => s.typ));
+      const fehlend: string[] = [];
+      if (!vorhandeneTypen.has(SitzungScanTyp.ANWESENHEITSLISTE)) fehlend.push("Anwesenheitsliste-Scan");
+      if (!vorhandeneTypen.has(SitzungScanTyp.PROTOKOLL_UNTERSCHRIFTEN)) fehlend.push("Protokoll-Unterschriften-Scan");
+      if (fehlend.length > 0) {
+        return reply.status(409).send({ fehler: `Es fehlt noch: ${fehlend.join(", ")}` });
+      }
+
+      const aktualisiert = await prisma.sitzung.update({
+        where:  { id },
+        data:   { status: SitzungStatus.ABGESCHLOSSEN },
+        select: SITZUNG_SELECT,
+      });
+
+      await audit(id, request.benutzer.sub, AuditAktion.SITZUNG_ABGESCHLOSSEN, request);
+      return reply.send(aktualisiert);
+    }
+  );
+
   // ── POST /:id/tops – TOP hinzufügen ───────────────────────────
   app.post(
     "/:id/tops",
@@ -672,7 +707,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
         return reply.status(409).send({ fehler: "Ergebnis und Status können nur im Status PROTOKOLL_ENTWURF bearbeitet werden" });
       }
 
-      if (status === SitzungStatus.PROTOKOLL_FINAL || status === SitzungStatus.ABGESAGT) {
+      if (status === SitzungStatus.PROTOKOLL_FINAL || status === SitzungStatus.ABGESCHLOSSEN || status === SitzungStatus.ABGESAGT) {
         return reply.status(409).send({ fehler: "Finalisierte Sitzungen sind unveränderlich" });
       }
 
@@ -740,7 +775,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
       const sitzung = await prisma.sitzung.findUnique({ where: { id }, select: { status: true } });
       if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
 
-      if (sitzung.status === SitzungStatus.PROTOKOLL_FINAL || sitzung.status === SitzungStatus.ABGESAGT) {
+      if (sitzung.status === SitzungStatus.PROTOKOLL_FINAL || sitzung.status === SitzungStatus.ABGESCHLOSSEN || sitzung.status === SitzungStatus.ABGESAGT) {
         return reply.status(409).send({ fehler: "Finalisierte Sitzungen sind unveränderlich" });
       }
 
@@ -790,7 +825,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
       const sitzung = await prisma.sitzung.findUnique({ where: { id }, select: { status: true } });
       if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
 
-      if (sitzung.status === SitzungStatus.PROTOKOLL_FINAL || sitzung.status === SitzungStatus.ABGESAGT) {
+      if (sitzung.status === SitzungStatus.PROTOKOLL_FINAL || sitzung.status === SitzungStatus.ABGESCHLOSSEN || sitzung.status === SitzungStatus.ABGESAGT) {
         return reply.status(409).send({ fehler: "Finalisierte Sitzungen sind unveränderlich" });
       }
 

@@ -27,7 +27,7 @@ export async function themenRouten(app: FastifyInstance) {
           titel: { contains: stichwort.trim(), mode: "insensitive" },
           sitzung: {
             sitzungsdatum: { gte: vonDatum, lte: bisDatum },
-            status: { in: ["PROTOKOLL_ENTWURF", "PROTOKOLL_FINAL"] },
+            status: { in: ["PROTOKOLL_ENTWURF", "PROTOKOLL_FINAL", "ABGESCHLOSSEN"] },
           },
         },
         select: {

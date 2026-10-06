@@ -465,7 +465,7 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
       // Gleiche Regel wie auf der Sitzungsseite (routes/sitzungen.ts, POST /:id/tops bzw.
       // POST /:id/tops/:topId/dokumente): eine fixierte Tagesordnung ist eingefroren –
       // neue TOPs nur im ENTWURF, neue Dokumente danach nur noch bei Spontan-TOPs.
-      if (sitzung.status === SitzungStatus.PROTOKOLL_FINAL || sitzung.status === SitzungStatus.ABGESAGT) {
+      if (sitzung.status === SitzungStatus.PROTOKOLL_FINAL || sitzung.status === SitzungStatus.ABGESCHLOSSEN || sitzung.status === SitzungStatus.ABGESAGT) {
         return reply.status(409).send({ fehler: "Finalisierte Sitzungen sind unveränderlich" });
       }
 
