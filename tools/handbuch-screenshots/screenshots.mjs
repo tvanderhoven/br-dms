@@ -48,6 +48,7 @@ const AUFNAHMEN = [
   { datei: "sitzung-entwurf",  pfad: "/sitzungen", js: klickText("Protokoll in Bearbeitung", "tr"), warte: 2500 },
   { datei: "sitzung-betriebsversammlung", pfad: "/sitzungen", js: klickZeile("Betriebsversammlung", "Niederschrift final"), warte: 2500 },
   { datei: "beschluesse",      pfad: "/beschluesse" },
+  { datei: "gremien",          pfad: "/gremien" },
   { datei: "vorlagen",         pfad: "/vorlagen" },
   { datei: "aufgaben",         pfad: "/aufgaben?ansicht=board" },
   { datei: "aufgaben-liste",   pfad: "/aufgaben?ansicht=liste" },

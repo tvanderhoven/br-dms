@@ -32,6 +32,7 @@ import { encryptFile } from "../lib/encryption.js";
 import { pdfAutomatischGenerieren } from "../routes/pdf.js";
 import { betriebsversammlungFristAbgleichen } from "../lib/betriebsversammlungFrist.js";
 import { wahlFristenAbgleichen } from "../lib/wahlFristen.js";
+import { sitzungAnlegen } from "../lib/sitzungAnlegen.js";
 
 const STORAGE     = process.env.STORAGE_PATH ?? "/data/storage";
 const MASTER_KEY  = process.env.ENCRYPTION_KEY!;
@@ -185,6 +186,62 @@ async function dokumentAnlegen(opts: {
     },
   });
   return dok;
+}
+
+// Fremdprotokoll eines anderen Gremiums – abgelegt wie ein Upload in routes/fremdprotokolle.ts
+async function fremdprotokollAnlegen(opts: {
+  gremiumId: string;
+  gremium: string;
+  titel: string;
+  datum: Date;
+  abschnitte: [string, string][];
+  vonId: string;
+  bemerkung?: string;
+  vertraulich?: boolean;
+}) {
+  const id      = randomUUID();
+  const relPfad = "fremdprotokolle";
+  const encName = `${id}.enc`;
+  const tmpPfad = path.join(STORAGE, "tmp", `${id}.tmp`);
+
+  const pdf = await pdfErzeugen(`${opts.gremium} · Sitzung vom ${fmt(opts.datum)}`, opts.titel, opts.abschnitte);
+  await fs.mkdir(path.join(STORAGE, "tmp"), { recursive: true });
+  await fs.mkdir(path.join(STORAGE, relPfad), { recursive: true });
+  await fs.writeFile(tmpPfad, pdf);
+  const { checksum } = await encryptFile({
+    sourcePath: tmpPfad,
+    destPath:   path.join(STORAGE, relPfad, encName),
+    masterKey:  MASTER_KEY,
+    documentId: id,
+  });
+  await fs.unlink(tmpPfad);
+
+  const dateiname = `Protokoll_${opts.gremium.replace(/[^A-Za-z0-9ÄÖÜäöüß]+/g, "_")}_${opts.datum.toISOString().slice(0, 10)}.pdf`;
+  await prisma.fremdprotokoll.create({
+    data: {
+      id,
+      gremiumId:    opts.gremiumId,
+      datum:        opts.datum,
+      titel:        opts.titel,
+      bemerkung:    opts.bemerkung ?? null,
+      vertraulich:  opts.vertraulich ?? false,
+      dateiname,
+      speicherpfad: relPfad,
+      verschlPfad:  encName,
+      dateigroesse: pdf.length,
+      mimeTyp:      "application/pdf",
+      pruefsumme:   checksum,
+      hochgeladenVonId: opts.vonId,
+      erstelltAm:   tage(2, opts.datum),
+    },
+  });
+  await prisma.auditLog.create({
+    data: {
+      benutzerId: opts.vonId, aktion: AuditAktion.FREMDPROTOKOLL_ERSTELLT,
+      details: { id, titel: opts.titel, gremium: opts.gremium },
+      zeitpunkt: tage(2, opts.datum),
+    },
+  });
 }
 
 // ── Sicherheitsprüfung ──────────────────────────────────────────
@@ -1083,6 +1140,82 @@ async function main() {
     where: { wahlId: javWahl.id, faelligAm: { lt: HEUTE } },
     data:  { status: "ERLEDIGT", erledigtAm: tage(-3), erledigtVonId: user["j.hoffmann"] },
   });
+
+  // ── Andere Gremien mit Fremdprotokollen (+ eine eigene ASA-Sitzung) ──
+  const GREMIEN_DEMO: {
+    name: string; rechtsgrundlage: string; bemerkung: string; mitglieder: string[];
+    protokolle: { titel: string; vorTagen: number; abschnitte: [string, string][]; vertraulich?: boolean; bemerkung?: string }[];
+  }[] = [
+    {
+      name: "Wirtschaftsausschuss", rechtsgrundlage: "§ 106 BetrVG",
+      bemerkung: "Tagt monatlich mit der Geschäftsführung, Bericht an den BR nach § 108 Abs. 4 BetrVG.",
+      mitglieder: ["s.kroeger", "j.hoffmann", "a.schulte"],
+      protokolle: [
+        { titel: "Wirtschaftliche Lage Q3", vorTagen: 12, vertraulich: true, bemerkung: "Betriebs- und Geschäftsgeheimnisse – nur BR-intern",
+          abschnitte: [["Auftragslage", "Auftragseingang 4 % über Vorjahr, Schwerpunkt Ersatzteilgeschäft. Großprojekt Skandinavien in Verhandlung."],
+                       ["Investitionen", "Neue Lackieranlage Halle 3 genehmigt, Inbetriebnahme im Frühjahr. Auswirkungen auf Personalbedarf werden im nächsten WA erläutert."]] },
+        { titel: "Personalplanung und Investitionsvorhaben", vorTagen: 42,
+          abschnitte: [["Personalplanung", "Geplant sind sechs Neueinstellungen in Konstruktion und Service, keine Reduzierung in der Produktion."],
+                       ["Verschiedenes", "Unterlagen zum Jahresabschluss werden in der nächsten Sitzung vorgelegt."]] },
+        { titel: "Jahresabschluss und Planung", vorTagen: 75,
+          abschnitte: [["Jahresabschluss", "Erläuterung des Jahresabschlusses durch die kaufmännische Leitung (§ 108 Abs. 5 BetrVG)."]] },
+      ],
+    },
+    {
+      name: "Arbeitsschutzausschuss", rechtsgrundlage: "§ 11 ASiG",
+      bemerkung: "Vierteljährlich; Teilnehmer: AG, Fachkraft für Arbeitssicherheit, Betriebsärztin, zwei BR-Mitglieder.",
+      mitglieder: ["t.brandt", "k.lehmann"],
+      protokolle: [
+        { titel: "ASA-Sitzung 3. Quartal", vorTagen: 20,
+          abschnitte: [["Unfallgeschehen", "Zwei meldepflichtige Unfälle (Montage, Logistik), Ursachenanalyse abgeschlossen."],
+                       ["Gefährdungsbeurteilung", "Psychische Belastung Schichtbetrieb: Befragung startet im nächsten Monat."]] },
+        { titel: "ASA-Sitzung 2. Quartal", vorTagen: 110,
+          abschnitte: [["Begehungen", "Begehung Halle 2: Mängel an Fluchtwegkennzeichnung, Behebung bis Monatsende zugesagt."]] },
+      ],
+    },
+    {
+      name: "Schwerbehindertenvertretung", rechtsgrundlage: "§ 178 SGB IX",
+      bemerkung: "Protokolle der SBV-Versammlung und Gespräche mit dem Inklusionsbeauftragten.",
+      mitglieder: ["s.pohl"],
+      protokolle: [
+        { titel: "Versammlung der schwerbehinderten Menschen", vorTagen: 55,
+          abschnitte: [["Bericht der SBV", "Tätigkeitsbericht, Stand der Inklusionsvereinbarung, Hinweise zum BEM-Verfahren."]] },
+      ],
+    },
+    {
+      name: "Jugend- und Auszubildendenvertretung", rechtsgrundlage: "§ 60 BetrVG",
+      bemerkung: "Eigene JAV-Sitzungen; Protokolle werden dem BR zur Kenntnis gegeben.",
+      mitglieder: ["f.albers"],
+      protokolle: [
+        { titel: "JAV-Sitzung: Übernahme der Auszubildenden", vorTagen: 30,
+          abschnitte: [["Übernahme", "Antrag an den BR: unbefristete Übernahme aller Auszubildenden des Abschlussjahrgangs (§ 78a BetrVG)."]] },
+      ],
+    },
+  ];
+
+  let fremdAnzahl = 0;
+  for (const g of GREMIEN_DEMO) {
+    const gremium = await prisma.gremium.create({
+      data: {
+        name: g.name, rechtsgrundlage: g.rechtsgrundlage, bemerkung: g.bemerkung, erstelltAm: tage(-150),
+        mitglieder: { create: g.mitglieder.map(login => ({ benutzerId: user[login] })) },
+      },
+    });
+    for (const p of g.protokolle) {
+      await fremdprotokollAnlegen({
+        gremiumId: gremium.id, gremium: g.name, titel: p.titel, datum: tage(-p.vorTagen),
+        abschnitte: p.abschnitte, vertraulich: p.vertraulich, bemerkung: p.bemerkung, vonId: vorsitz,
+      });
+      fremdAnzahl++;
+    }
+    if (g.name === "Arbeitsschutzausschuss") {
+      await sitzungAnlegen({
+        titel: `ASA-Sitzung am ${fmt(tage(24))}`, sitzungsdatum: new Date(tage(24).getTime() + 10 * 36e5),
+        ort: "Besprechungsraum Werkleitung", sitzungstyp: "ORDENTLICH", gremiumId: gremium.id, erstelltVonId: vorsitz,
+      });
+    }
+  }
+  console.log(`[Demo] ${GREMIEN_DEMO.length} Gremien mit ${fremdAnzahl} Fremdprotokollen angelegt`);
 
   // ── Audit-Log: ein paar Logins für die Übersicht ─────────────
   await prisma.auditLog.createMany({
