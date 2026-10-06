@@ -704,7 +704,7 @@ export default function Layout() {
               meineRolle && ["MITGLIED", "VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && (
               <NavLink to="/gehaltstabelle" className={linkKlasse} onClick={() => setMobileOffen(false)}>
                 <Wallet size={16} />
-                Gehaltstabelle
+                Eingruppierung
               </NavLink>
             )}
             {modulAktiv("personalverwaltung") && (

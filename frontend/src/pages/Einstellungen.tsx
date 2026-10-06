@@ -688,13 +688,13 @@ function GefahrenzonenAktion({
   );
 }
 
-// ── Gefahrenzone: Gehaltstabelle löschen (nur ADMIN) ────────────────
+// ── Gefahrenzone: Eingruppierung löschen (nur ADMIN) ────────────────
 function GehaltstabelleGefahrenzone() {
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
       <div className="flex items-center gap-2 mb-1">
         <AlertTriangle size={16} className="text-red-500" />
-        <h2 className="font-semibold text-gray-800">Gefahrenzone – Gehaltstabelle</h2>
+        <h2 className="font-semibold text-gray-800">Gefahrenzone – Eingruppierung</h2>
       </div>
       <p className="text-sm text-gray-500 mb-4">
         Nur für Admins. Beide Aktionen können nicht rückgängig gemacht werden. Es gibt bewusst keinen Daten-Export aus der App
@@ -709,7 +709,7 @@ function GehaltstabelleGefahrenzone() {
           erfolgText={r => `${r.geloescht && typeof r.geloescht === "object" && "eintraege" in r.geloescht ? (r.geloescht as { eintraege: number }).eintraege : "?"} Einträge gelöscht.`}
         />
         <GefahrenzonenAktion
-          titel="Gehaltstabelle komplett löschen"
+          titel="Eingruppierung komplett löschen"
           beschreibung="Löscht alle Gehaltsstufen-Einträge, Mitarbeiter UND Abteilungen unwiderruflich. Für einen kompletten Neustart, z.B. nach Testdaten."
           buttonText="Alles löschen"
           ausfuehren={() => api.gehaltstabelle.alleLoeschen()}
@@ -1132,7 +1132,7 @@ function SystemTab() {
               <b>QNAP Task Scheduler</b> einrichten, statt es manuell zu machen.
             </p>
             <ul className="list-disc list-inside mt-1.5 space-y-0.5">
-              <li>Sichert die komplette Datenbank (alle Sitzungen, Dokument-Metadaten, Beschlüsse, Aufgaben, Gehaltstabelle, Benutzer, Audit-Log, …)</li>
+              <li>Sichert die komplette Datenbank (alle Sitzungen, Dokument-Metadaten, Beschlüsse, Aufgaben, Eingruppierung, Benutzer, Audit-Log, …)</li>
               <li>Sichert zusätzlich den <code className="font-mono">storage/</code>-Ordner mit den eigentlichen (verschlüsselten) Dokument-Dateien</li>
               <li>Behält automatisch nur die letzten 30 Tage, ältere Backups werden gelöscht</li>
             </ul>
@@ -1403,7 +1403,7 @@ function AmtsuebergabeTab() {
             <li>Die Dokument-Dateien selbst (nur Titel/Metadaten werden gelistet)</li>
             <li>Sitzungsprotokolle im Volltext</li>
             <li>Aufgaben, Zeiträume, Themen-Backlog</li>
-            <li>Gehaltstabelle, Schulungsverwaltung/Qualifikationsmatrix</li>
+            <li>Eingruppierung, Schulungsverwaltung/Qualifikationsmatrix</li>
             <li>Betriebsvereinbarungs-Register, Wissensarchiv, Ressourcen</li>
             <li>Audit-Log, Kommentare, Kummerkasten-Einträge</li>
             <li>Benutzerkonten selbst (keine Zugangsdaten im Export)</li>

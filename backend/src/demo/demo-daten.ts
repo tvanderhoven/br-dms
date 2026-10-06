@@ -677,7 +677,7 @@ async function main() {
     [
       { titel: "Genehmigung des Protokolls der letzten Sitzung", inhalt: ["Das Protokoll wurde mit der Einladung versandt."], ergebnis: ["Das Protokoll wurde ohne Änderungen genehmigt."],
         beschluesse: [{ antrag: "Das Protokoll der letzten Sitzung wird genehmigt.", grundlage: "Sonstige Beschlussfassung", ja: 9, nein: 0, enth: 0 }] },
-      { titel: "Personelle Einzelmaßnahmen nach § 99 BetrVG", inhalt: ["Höhergruppierungen nach Abschluss der Weiterbildung zum Industriemeister (3 Fälle)."], ergebnis: ["Den Höhergruppierungen wird zugestimmt. Die Eingruppierung wurde in der Gehaltstabelle hinterlegt."], vertraulich: true,
+      { titel: "Personelle Einzelmaßnahmen nach § 99 BetrVG", inhalt: ["Höhergruppierungen nach Abschluss der Weiterbildung zum Industriemeister (3 Fälle)."], ergebnis: ["Den Höhergruppierungen wird zugestimmt. Die neue Eingruppierung wurde hinterlegt."], vertraulich: true,
         beschluesse: [{ antrag: "Der Betriebsrat stimmt den drei beantragten Höhergruppierungen zu.", grundlage: "§ 99 BetrVG – Einstellung / Versetzung", ja: 9, nein: 0, enth: 0 }] },
       { titel: "Anhörung § 102 – Kündigung in der Probezeit", inhalt: ["Anhörung zur ordentlichen Kündigung eines Beschäftigten in der Probezeit (Logistik)."], ergebnis: ["Der Betriebsrat äußert Bedenken, sieht aber von einem Widerspruch ab. Er regt an, künftig früher Gespräche zu führen."], vertraulich: true, dokumente: [dok102.id],
         beschluesse: [{ antrag: "Der Betriebsrat erhebt gegen die Kündigung Bedenken gemäß § 102 Abs. 2 BetrVG, widerspricht jedoch nicht.", grundlage: "§ 102 BetrVG – Kündigung", ja: 6, nein: 2, enth: 1 }] },

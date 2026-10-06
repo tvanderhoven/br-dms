@@ -1545,7 +1545,7 @@ export const MODULE_KEYS: ModuleKey[] = [
 ];
 
 export const MODULE_LABEL: Record<ModuleKey, { name: string; beschreibung: string }> = {
-  personalverwaltung:     { name: "Personalverwaltung",     beschreibung: "Gehaltstabelle, Mitarbeiter-Stammdaten und Schulungsverwaltung/Qualifikationsmatrix" },
+  personalverwaltung:     { name: "Personalverwaltung",     beschreibung: "Eingruppierung, Mitarbeiter-Stammdaten und Schulungsverwaltung/Qualifikationsmatrix" },
   betriebsvereinbarungen: { name: "Betriebsvereinbarungen", beschreibung: "Register aller Betriebsvereinbarungen mit Status und Laufzeit" },
   wissensarchiv:          { name: "Wissensarchiv",          beschreibung: "Interne Problem-Lösungs-Sammlung, teils aus Protokollen extrahiert" },
   ressourcen:             { name: "Ressourcen",              beschreibung: "Externe Links zu Gesetzen, KI-Werkzeugen, Behörden, Vorlagen" },

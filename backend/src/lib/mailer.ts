@@ -118,7 +118,7 @@ export async function sendeAblaufZusammenfassung(
           <tbody>${zeilen}</tbody>
         </table>
         <p style="margin-top:20px">
-          <a href="${appUrl}/gehaltstabelle" style="background:#1e40af;color:white;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block">→ Zur Gehaltstabelle</a>
+          <a href="${appUrl}/gehaltstabelle" style="background:#1e40af;color:white;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block">→ Zur Eingruppierung</a>
         </p>
         <p style="color:#9ca3af;font-size:11px;margin-top:20px">Automatische Nachricht von BR-DMS · Monatlich am 15. um 07:00 Uhr</p>
       </div>

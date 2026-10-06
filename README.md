@@ -29,7 +29,7 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 - **Sitzungsvorlagen** – Wiederverwendbare TOP-Sets für neue Sitzungen
 - **Sitzungsarten** – Ordentlich, außerordentlich, konstituierend (Standard-Tagesordnung nach § 29) und Betriebsversammlung (§§ 42–46: Standard-Tagesordnung nach § 43, Teilnehmerzahl statt Anwesenheitsliste, keine Beschlüsse, Anträge ins Themen-Backlog, Fragen aus dem Kummerkasten, PDF als Einladung zum Aushang und Niederschrift, Quartals-Frist nach § 43 Abs. 1)
 - **Automatische Einladung** – Interne Nachricht an alle Mitglieder bei Fixierung der Tagesordnung
-- **Cross-Modul-Aktionen aus TOPs** – Aufgabe erstellen, ins Wissensarchiv übernehmen, Gehaltsbeschluss direkt in die Gehaltstabelle übernehmen
+- **Cross-Modul-Aktionen aus TOPs** – Aufgabe erstellen, ins Wissensarchiv übernehmen, Gehaltsbeschluss direkt in die Eingruppierung übernehmen
 
 ### Aufgaben, Vorhaben & Themen
 - **Aufgaben** – Drei Ansichten: Board (Neu/In Bearbeitung/Auf Hold/Erledigt), Liste gruppiert nach Vorhaben, Zeitplan als Gantt-Diagramm; Priorität, Fälligkeit, Zuweisung, Sichtbarkeit (privat/öffentlich), Verknüpfung zu TOP/Dokument, Doppelklick öffnet die Detailansicht
@@ -40,7 +40,7 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 
 ### Personalverwaltung *(abschaltbar)*
 - **Mitarbeiter-Stammdaten** – Name, PNR, Abteilung, Ein-/Austritt, Standort, Beschäftigungsart (Mitarbeiter/Azubi/Student/dual Studierende/Zeitarbeiter), für Wahlen Geburtsdatum und Geschlecht; CSV-Import mit Vorschau/Dry-Run
-- **Gehaltstabelle** – Gehaltsstufen-Historie (Tarif-Gruppe/Stufe oder individuelles AT-Gehalt) je Mitarbeiter, CSV-Import/-Export, direkte Übernahme aus Sitzungsbeschlüssen, Statistik-Tab
+- **Eingruppierung** – Gehaltsstufen-Historie (Tarif-Gruppe/Stufe oder individuelles AT-Gehalt) je Mitarbeiter, CSV-Import/-Export, direkte Übernahme aus Sitzungsbeschlüssen, Statistik-Tab
 - **Zeitmodell-Historie** – Echter Gültigkeitszeitraum je Mitarbeiter, Filter nach befristet/unbefristet, Warnliste für bald auslaufende Zeiträume
 - **Überstunden-Regelungen** – Freitext-Historie nach demselben Muster wie das Zeitmodell (Zeitraum, befristet/unbefristet-Filter, Ablaufwarnung)
 
@@ -81,7 +81,7 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 - **Einheitliches Vollbreiten-Layout** – Alle Seiten responsiv und konsistent; alle Textfelder vertikal skalierbar
 - **Design-Einstellungen** – Sidebar-/Akzentfarbe, Schriftgröße, Hell/Dunkel/Automatisch
 - **System-Tab** – Watch-Folder-Pfad/Status sowie eine Backup-Übersicht (Anzahl, Alter, Größe und Vollständigkeit der Backups, ohne den Verschlüsselungsschlüssel offenzulegen)
-- **Abschaltbare Module** – Personalverwaltung (Gehaltstabelle/Mitarbeiterübersicht), Betriebsvereinbarungen, Wissensarchiv, Ressourcen und Themensammlung lassen sich im Admin-Bereich (Einstellungen → Module) pro Installation ein-/ausblenden – praktisch bei Installation für andere Betriebsräte mit abweichendem Funktionsumfang
+- **Abschaltbare Module** – Personalverwaltung (Eingruppierung/Mitarbeiterübersicht), Betriebsvereinbarungen, Gremien, Wissensarchiv, Ressourcen und Themensammlung lassen sich im Admin-Bereich (Einstellungen → Module) pro Installation ein-/ausblenden – praktisch bei Installation für andere Betriebsräte mit abweichendem Funktionsumfang
 
 ---
 

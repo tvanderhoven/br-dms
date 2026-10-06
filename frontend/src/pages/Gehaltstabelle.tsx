@@ -202,7 +202,7 @@ export default function Gehaltstabelle() {
             <Wallet className="w-5 h-5" style={{ color: "rgb(var(--accent))" }} />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Gehaltstabelle</h1>
+            <h1 className="text-xl font-bold text-gray-900">Eingruppierung</h1>
             <p className="text-sm text-gray-500">Gehaltsstufen-Historie je Mitarbeiter</p>
           </div>
         </div>
