@@ -531,7 +531,7 @@ function MatrixTab() {
       <div className="text-center py-16 text-gray-400">
         <LayoutGrid size={40} className="mx-auto mb-3 opacity-20" />
         <p className="font-medium">Noch keine Daten für die Matrix</p>
-        <p className="text-sm mt-1">Lege Mitarbeiter (Gehaltstabelle) und Schulungstermine an, damit hier eine Matrix erscheint.</p>
+        <p className="text-sm mt-1">Lege Mitarbeiter (Eingruppierung) und Schulungstermine an, damit hier eine Matrix erscheint.</p>
       </div>
     );
   }

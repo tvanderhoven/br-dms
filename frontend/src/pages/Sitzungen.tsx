@@ -1407,7 +1407,7 @@ function TopZeile({
                     title={readonly ? "Protokoll ist finalisiert – nachträgliche Übertragung nur für Vorsitz/Stellvertretung" : undefined}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 text-left"
                   >
-                    <Wallet size={14} className="text-amber-500" /> In Gehaltstabelle übertragen
+                    <Wallet size={14} className="text-amber-500" /> In Eingruppierung übertragen
                     {readonly && <Lock size={11} className="text-gray-400 ml-auto" />}
                   </button>
                 )}
@@ -1691,7 +1691,7 @@ function TopGehaltModal({
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
-            <h2 className="font-semibold text-gray-900">In Gehaltstabelle übertragen</h2>
+            <h2 className="font-semibold text-gray-900">In Eingruppierung übertragen</h2>
             {gespeicherteAnzahl > 0 && (
               <p className="text-xs text-gray-400 mt-0.5">{gespeicherteAnzahl} Eintrag{gespeicherteAnzahl !== 1 ? "e" : ""} in dieser Sitzung gespeichert</p>
             )}
