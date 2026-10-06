@@ -151,7 +151,7 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
                 select: {
                   nummer: true,
                   titel:  true,
-                  sitzung: { select: { id: true, titel: true, sitzungsdatum: true } },
+                  sitzung: { select: { id: true, titel: true, sitzungsdatum: true, gremium: { select: { id: true, name: true } } } },
                 },
               },
             },
@@ -421,7 +421,7 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
             top: {
               select: {
                 id: true, nummer: true, titel: true, status: true,
-                sitzung: { select: { id: true, titel: true, sitzungsdatum: true } },
+                sitzung: { select: { id: true, titel: true, sitzungsdatum: true, gremium: { select: { id: true, name: true } } } },
                 beschluesse: { select: { id: true, antragstext: true, ergebnis: true } },
               },
             },

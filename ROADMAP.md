@@ -16,12 +16,13 @@ damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 | Dokumente: Kategorien + Herkunft | Kategorie-Leiste mit Zählern statt Dropdown; neue Kategorien Abmahnung (3 Jahre), Information des Arbeitgebers, Arbeits- und Gesundheitsschutz, Schriftverkehr (je 5 Jahre) samt Watch-Folder-Unterordnern; Kategorien/Aufbewahrung zentral in `backend/src/lib/kategorien.ts`; „Behandelt in Sitzung/TOP“ in Liste und Vorschau; Löschdatum je Dokument mit Vorschlag nach Kategorie-Regel, nur in der Zukunft | Okt. 2026 |
 | Kleinigkeiten | Protokoll-PDF zeigt angenommene Beschlüsse grün; HTTP-Weiterleitung behält den HTTPS-Port; Ort an den Unterschriften als Einstellung statt fest im Code; Fristen im Fristenkalender bearbeiten (Bezeichnung, Datum, Notiz) | Okt. 2026 |
 | Einladung, Ladung und Sitzungspaket (Paket 4) | Ladung vorab, Zweitadresse für Einladungen, Einladung per E-Mail mit Versandnachweis; Unterschriftenseite (Version + Prüfsumme) statt Komplettausdruck, Scan-Upload direkt oder per Watch-Folder-Zuordnung (`protokoll_scan` → Eingang); Sitzungspaket als ZIP, „Sitzung abschließen“ mit Checkliste → Status „Abgeschlossen“ | Okt. 2026 |
+| Gremien und Fremdprotokolle (Paket 5) | Neue Seite „Gremien“ für Ausschüsse/JAV/SBV/GBR/Wirtschaftsausschuss (nicht den BR selbst); Sitzungen optional einem Gremium zuordnen; Fremdprotokolle (hochgeladenes Protokoll mit Gremium+Datum, ohne TOPs/Anwesenheit, mit vertraulich-Flag); neues togglebares Modul „Gremien“ | Okt. 2026 |
 
 ## Als Nächstes
 
 Ideen aus der BRbase-Demo (Bund-Verlag, 05.10.2026). BRbase läuft als Cloud-Dienst beim Anbieter,
 BR-DMS ist der Gegenansatz (eigener Server) – einzelne Ideen übernehmen wir trotzdem.
-Pakete 1–4 erledigt; als Nächstes 5.
+Pakete 1–5 erledigt.
 
 | # | Paket | Größe | Inhalt |
 |---|---|---|---|
@@ -29,7 +30,7 @@ Pakete 1–4 erledigt; als Nächstes 5.
 | 2 | ~~TOPs per Drag & Drop~~ | S | erledigt, siehe oben |
 | 3 | ~~Dokumente: Kategorien sichtbar + Herkunft~~ | S–M | erledigt, siehe oben |
 | 4 | ~~Einladung, Ladung und Sitzungspaket~~ | L | erledigt, siehe oben |
-| 5 | Gremien und Fremdprotokolle | M–L | siehe unten |
+| 5 | ~~Gremien und Fremdprotokolle~~ | M–L | erledigt, siehe unten |
 
 **Paket 4 – Einladung, Ladung und Sitzungspaket** (erledigt, in Stufen)
 
@@ -58,11 +59,21 @@ Beschlüsse finalisiert“.
 - *Sitzung abschließen:* letzter Schritt wird aktiv abgehakt (Checkliste: Protokoll final, beide Scans
   hochgeladen) → neuer Status „Abgeschlossen“, danach ist nichts mehr änderbar (Downloads bleiben möglich).
 
-**Paket 5 – Gremien und Fremdprotokolle**
-- Sitzungen einem Gremium zuordnen und danach gliedern: BR, Ausschüsse (§ 28), JAV, SBV …
+**Paket 5 – Gremien und Fremdprotokolle** (erledigt, noch nicht in der Demo getestet)
+- Neue Seite „Gremien” verwaltet die anderen Gremien (Ausschüsse § 28, JAV, SBV, Gesamtbetriebsrat,
+  Wirtschaftsausschuss, ASA, …) – der Betriebsrat selbst bleibt bewusst exklusiv auf der bestehenden
+  Sitzungen-Seite, taucht dort nicht als Gremium auf.
+- Sitzungen können beim Anlegen/Bearbeiten optional einem Gremium zugeordnet werden (`Sitzung.gremiumId`,
+  leer = Betriebsrat) – falls ein Ausschuss seine Sitzungen doch voll im System führen will.
 - *Fremdprotokoll:* Protokoll eines Gremiums, das der BR nicht selbst führt (ASA, Wirtschaftsausschuss,
-  GBR …), als einzelnes Dokument mit Gremium und Datum ablegen – ohne TOPs/Anwesenheit.
-- Überschneidet sich mit „Ausschüsse“, „Schwerbehindertenvertretung“ und „Wirtschaftsausschuss“ unter „Später“.
+  GBR …), als einzelnes hochgeladenes Dokument mit Gremium und Datum abgelegt – ohne TOPs/Anwesenheit,
+  eigenes Modell `Fremdprotokoll` mit AES-256-GCM-Verschlüsselung wie bei Dokumenten/Scans. Eigenes
+  `vertraulich`-Flag (z.B. für Wirtschaftsausschuss-Protokolle), beschränkt Ansicht/Download auf VORSITZ/ADMIN.
+- Je Gremium zeigt die Detailansicht eine chronologische, gemischte Liste aus eigenen Sitzungen und
+  Fremdprotokollen.
+- Neues togglebares Modul „Gremien” (Einstellungen → Module).
+- Überschneidet sich mit „Ausschüsse”, „Schwerbehindertenvertretung” und „Wirtschaftsausschuss” unter „Später” –
+  mit dem Gremien-Register sind diese jetzt zumindest dokumentierbar, auch ohne eigene Fachlogik.
 
 **Entschieden (05.10.2026):**
 - Kategorien: vorerst fest (erweitert). Zusätzlich die Aufbewahrungsfrist *pro Dokument* nachträglich

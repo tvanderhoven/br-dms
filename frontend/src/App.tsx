@@ -24,6 +24,7 @@ import MitarbeiterUebersicht from "./pages/MitarbeiterUebersicht";
 import KummerkastenOeffentlich from "./pages/KummerkastenOeffentlich";
 import KummerkastenVerwaltung from "./pages/KummerkastenVerwaltung";
 import Betriebsvereinbarungen from "./pages/Betriebsvereinbarungen";
+import Gremien from "./pages/Gremien";
 import Schulungen from "./pages/Schulungen";
 import Wahlen from "./pages/Wahlen";
 import Layout from "./components/Layout";
@@ -85,6 +86,7 @@ export default function App() {
         <Route path="/mitarbeiter"    element={geschuetzt(<MitarbeiterUebersicht />)} />
         <Route path="/kummerkasten-verwaltung" element={geschuetzt(<KummerkastenVerwaltung />)} />
         <Route path="/betriebsvereinbarungen" element={geschuetzt(<Betriebsvereinbarungen />)} />
+        <Route path="/gremien"        element={geschuetzt(<Gremien />)} />
         <Route path="/schulungen"     element={geschuetzt(<Schulungen />)} />
         <Route path="/audit"          element={geschuetzt(<Auditlog />)} />
         <Route path="/einstellungen" element={geschuetzt(<Einstellungen />)} />

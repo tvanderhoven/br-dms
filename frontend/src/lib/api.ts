@@ -127,9 +127,9 @@ export const api = {
   sitzungen: {
     liste: () => request<SitzungListItem[]>("/api/sitzungen"),
     einzel: (id: string) => request<Sitzung>(`/api/sitzungen/${id}`),
-    erstellen: (data: { titel: string; sitzungsdatum: string; ort?: string; sitzungstyp?: string; notizen?: string; vorlageId?: string }) =>
+    erstellen: (data: { titel: string; sitzungsdatum: string; ort?: string; sitzungstyp?: string; notizen?: string; vorlageId?: string; gremiumId?: string | null }) =>
       request<Sitzung>("/api/sitzungen", { method: "POST", body: JSON.stringify(data) }),
-    aktualisieren: (id: string, data: Partial<{ titel: string; sitzungsdatum: string; ort: string; sitzungstyp: string; notizen: string; teilnehmerzahl: number | null }>) =>
+    aktualisieren: (id: string, data: Partial<{ titel: string; sitzungsdatum: string; ort: string; sitzungstyp: string; notizen: string; teilnehmerzahl: number | null; gremiumId: string | null }>) =>
       request<Sitzung>(`/api/sitzungen/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     absagen: (id: string) =>
       request<{ nachricht: string }>(`/api/sitzungen/${id}`, { method: "DELETE" }),
@@ -309,6 +309,27 @@ export const api = {
     aktualisieren: (id: string, data: Partial<BetriebsvereinbarungErstellen>) =>
       request<Betriebsvereinbarung>(`/api/betriebsvereinbarungen/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     loeschen: (id: string) => request<{ ok: boolean }>(`/api/betriebsvereinbarungen/${id}`, { method: "DELETE" }),
+  },
+
+  gremien: {
+    liste:         (aktiv?: boolean) => request<Gremium[]>(`/api/gremien${aktiv !== undefined ? `?aktiv=${aktiv}` : ""}`),
+    erstellen:     (data: GremiumErstellen) => request<Gremium>("/api/gremien", { method: "POST", body: JSON.stringify(data) }),
+    aktualisieren: (id: string, data: Partial<GremiumErstellen>) => request<Gremium>(`/api/gremien/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    loeschen:      (id: string) => request<{ ok: boolean }>(`/api/gremien/${id}`, { method: "DELETE" }),
+    mitglieder:          (id: string) => request<GremiumMitglied[]>(`/api/gremien/${id}/mitglieder`),
+    mitgliedHinzufuegen: (id: string, benutzerId: string) =>
+      request<{ ok: boolean }>(`/api/gremien/${id}/mitglieder`, { method: "POST", body: JSON.stringify({ benutzerId }) }),
+    mitgliedEntfernen:   (id: string, benutzerId: string) =>
+      request<{ ok: boolean }>(`/api/gremien/${id}/mitglieder/${benutzerId}`, { method: "DELETE" }),
+  },
+
+  fremdprotokolle: {
+    liste:         (gremiumId?: string) => request<Fremdprotokoll[]>(`/api/fremdprotokolle${gremiumId ? `?gremiumId=${gremiumId}` : ""}`),
+    hochladen:     (formData: FormData) => request<Fremdprotokoll>("/api/fremdprotokolle", { method: "POST", body: formData }),
+    aktualisieren: (id: string, data: Partial<{ titel: string; datum: string; bemerkung: string | null; vertraulich: boolean; gremiumId: string }>) =>
+      request<Fremdprotokoll>(`/api/fremdprotokolle/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    loeschen:      (id: string) => request<{ ok: boolean }>(`/api/fremdprotokolle/${id}`, { method: "DELETE" }),
+    downloadUrl:   (id: string) => `${BASE}/api/fremdprotokolle/${id}/download`,
   },
 
   qualifikationen: {
@@ -599,7 +620,7 @@ export interface Dokument {
   hochgeladenVon?: { name: string };
   fristen?: Frist[];
   // In welchen Sitzungen/TOPs behandelt (nur in der Dokumentliste)
-  topVerknuepfungen?: { top: { nummer: number; titel: string; sitzung: { id: string; titel: string; sitzungsdatum: string } } }[];
+  topVerknuepfungen?: { top: { nummer: number; titel: string; sitzung: { id: string; titel: string; sitzungsdatum: string; gremium?: { id: string; name: string } | null } } }[];
 }
 
 // ── Wahlen (Backend: routes/wahlen.ts, Fristen: lib/wahlFristen.ts) ──
@@ -853,6 +874,7 @@ export interface Sitzung {
   status: SitzungStatus;
   notizen?: string;
   teilnehmerzahl?: number | null;
+  gremium?: { id: string; name: string } | null;
   erstelltVon?: { id: string; name: string };
   versionen: SitzungVersion[];
   tops: TOP[];
@@ -885,6 +907,7 @@ export interface SitzungListItem {
   sitzungstyp: string;
   status: SitzungStatus;
   erstelltAm: string;
+  gremium?: { id: string; name: string } | null;
   erstelltVon?: { name: string };
   _count: { tops: number };
   dokumentAnzahl: number;   // verknüpfte Dokumente über alle TOPs (jedes einmal)
@@ -1403,6 +1426,45 @@ export interface BetriebsvereinbarungErstellen {
   dokumentId?: string | null;
 }
 
+export interface Gremium {
+  id: string;
+  name: string;
+  rechtsgrundlage?: string | null;
+  bemerkung?: string | null;
+  aktiv: boolean;
+  _count?: { sitzungen: number; fremdprotokolle: number };
+  erstelltAm: string;
+  aktualisiertAm: string;
+}
+
+export interface GremiumErstellen {
+  name: string;
+  rechtsgrundlage?: string;
+  bemerkung?: string;
+  aktiv?: boolean;
+}
+
+export interface GremiumMitglied {
+  id: string;
+  name: string;
+  rolle: Rolle;
+}
+
+export interface Fremdprotokoll {
+  id: string;
+  gremiumId: string;
+  gremium: { id: string; name: string };
+  datum: string;
+  titel: string;
+  bemerkung?: string | null;
+  vertraulich: boolean;
+  dateiname: string;
+  dateigroesse: number;
+  mimeTyp: string;
+  erstelltAm: string;
+  aktualisiertAm: string;
+}
+
 export type SchulungsStatus = "GEPLANT" | "ABSOLVIERT" | "ABGESAGT";
 
 export interface Qualifikation {
@@ -1476,10 +1538,10 @@ export interface WissensEintragErstellen {
 }
 
 // ── Module (Admin-Ein/Ausschalter) ──────────────────────────────────
-export type ModuleKey = "personalverwaltung" | "betriebsvereinbarungen" | "wissensarchiv" | "ressourcen" | "themensammlung";
+export type ModuleKey = "personalverwaltung" | "betriebsvereinbarungen" | "wissensarchiv" | "ressourcen" | "themensammlung" | "gremien";
 
 export const MODULE_KEYS: ModuleKey[] = [
-  "personalverwaltung", "betriebsvereinbarungen", "wissensarchiv", "ressourcen", "themensammlung",
+  "personalverwaltung", "betriebsvereinbarungen", "wissensarchiv", "ressourcen", "themensammlung", "gremien",
 ];
 
 export const MODULE_LABEL: Record<ModuleKey, { name: string; beschreibung: string }> = {
@@ -1488,6 +1550,7 @@ export const MODULE_LABEL: Record<ModuleKey, { name: string; beschreibung: strin
   wissensarchiv:          { name: "Wissensarchiv",          beschreibung: "Interne Problem-Lösungs-Sammlung, teils aus Protokollen extrahiert" },
   ressourcen:             { name: "Ressourcen",              beschreibung: "Externe Links zu Gesetzen, KI-Werkzeugen, Behörden, Vorlagen" },
   themensammlung:         { name: "Themensammlung",          beschreibung: "Auszug aus Protokollen für Öffentlichkeitsarbeit/Mitgliederinfo" },
+  gremien:                { name: "Gremien",                 beschreibung: "Andere Gremien (Ausschüsse, JAV, SBV, ...) mit Fremdprotokollen und optional eigenen Sitzungen" },
 };
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────

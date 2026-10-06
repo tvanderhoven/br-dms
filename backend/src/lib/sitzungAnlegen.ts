@@ -16,6 +16,7 @@ export interface NeueSitzung {
   sitzungstyp:   string;
   notizen?:      string | null;
   vorlageId?:    string | null;
+  gremiumId?:    string | null;
   erstelltVonId: string;
 }
 
@@ -30,6 +31,7 @@ export async function sitzungAnlegen(
       ort:           s.ort ?? null,
       sitzungstyp:   s.sitzungstyp,
       notizen:       s.notizen ?? null,
+      gremiumId:     s.gremiumId ?? null,
       status:        SitzungStatus.ENTWURF,
       erstelltVonId: s.erstelltVonId,
       versionen: {
@@ -67,10 +69,20 @@ export async function sitzungAnlegen(
   // Ordentliche Mitglieder und JAV als "Anwesend" (= geladen) vorausfüllen –
   // Ersatzmitglieder nur, wenn sie für jemanden geladen werden; Admin nie.
   // Nicht bei der Betriebsversammlung, dort zählt nur die Teilnehmerzahl.
-  const aktive = istBetriebsversammlung(s.sitzungstyp) ? [] : await client.benutzer.findMany({
-    where: { aktiv: true, rolle: { in: [Role.VORSITZ, Role.STELLVERTRETER, Role.MITGLIED, Role.JAV] } },
-    select: { id: true },
-  });
+  // Gehört die Sitzung einem anderen Gremium (nicht dem BR), werden stattdessen dessen
+  // Mitglieder vorausgefüllt – bewusst KEIN Fallback auf die BR-Mitglieder, wenn das
+  // Gremium noch keine Mitglieder hat (sonst würden stillschweigend falsche Personen
+  // als "anwesend" markiert); die Anwesenheitsliste bleibt dann leer zum Nachtragen.
+  const aktive = istBetriebsversammlung(s.sitzungstyp) ? [] :
+    s.gremiumId
+      ? (await client.gremiumMitglied.findMany({
+          where:  { gremiumId: s.gremiumId, benutzer: { aktiv: true } },
+          select: { benutzerId: true },
+        })).map(m => ({ id: m.benutzerId }))
+      : await client.benutzer.findMany({
+          where: { aktiv: true, rolle: { in: [Role.VORSITZ, Role.STELLVERTRETER, Role.MITGLIED, Role.JAV] } },
+          select: { id: true },
+        });
   if (aktive.length > 0) {
     await client.anwesenheit.createMany({
       data: aktive.map(b => ({ sitzungId: sitzung.id, benutzerId: b.id, status: "ANWESEND" })),

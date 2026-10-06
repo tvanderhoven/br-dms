@@ -4,7 +4,7 @@ import {
   Upload, Download, Trash2, FileText, Lock, X, Loader2, Search, Pencil, MessageSquare, Eye, History, ExternalLink, CalendarDays,
 } from "lucide-react";
 import {
-  api, Dokument, DokumentVersion, Kategorie, KATEGORIE_LABEL, KATEGORIE_KURZ, Aufbewahrungsregel,
+  api, Dokument, DokumentVersion, Kategorie, KATEGORIE_LABEL, KATEGORIE_KURZ, Aufbewahrungsregel, Gremium,
   formatDatum, formatDateigroesse, fristFarbe,
 } from "../lib/api";
 
@@ -35,6 +35,8 @@ export default function Dokumente() {
   const [laden, setLaden]                 = useState(true);
   const [suche, setSuche]                 = useState("");
   const [kategorieFilter, setFilter]      = useState<Kategorie | "">("");
+  const [gremiumFilter, setGremiumFilter] = useState("");
+  const [gremien, setGremien]             = useState<Gremium[]>([]);
   const [uploadOffen, setUploadOffen]     = useState(false);
   const [loeschId, setLoeschId]           = useState<string | null>(null);
   const [bearbeitenDok, setBearbeitenDok] = useState<Dokument | null>(null);
@@ -54,6 +56,7 @@ export default function Dokumente() {
   }
 
   useEffect(laden_, []);
+  useEffect(() => { api.gremien.liste().then(setGremien).catch(() => {}); }, []);
 
   // Highlight aus Suche übernehmen
   useEffect(() => {
@@ -110,7 +113,9 @@ export default function Dokumente() {
       d.titel.toLowerCase().includes(suche.toLowerCase()) ||
       d.aktenzeichen?.toLowerCase().includes(suche.toLowerCase());
     const kategorieOk = kategorieFilter === "" || d.kategorie === kategorieFilter;
-    return suchTreffer && kategorieOk;
+    const gremiumOk = gremiumFilter === "" || behandeltIn(d).some(top =>
+      gremiumFilter === "BR" ? !top.sitzung.gremium : top.sitzung.gremium?.id === gremiumFilter);
+    return suchTreffer && kategorieOk && gremiumOk;
   });
 
   async function loeschen(id: string) {
@@ -202,6 +207,15 @@ export default function Dokumente() {
               className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
             />
           </div>
+          {gremien.length > 0 && (
+            <select value={gremiumFilter} onChange={e => setGremiumFilter(e.target.value)}
+              title="Nach Gremium der behandelten Sitzung filtern"
+              className="border border-gray-300 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]">
+              <option value="">Alle Gremien</option>
+              <option value="BR">Betriebsrat</option>
+              {gremien.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+          )}
         </div>
 
         {/* Kategorien mit Anzahl – leere Kategorien nur, wenn gerade ausgewählt */}
@@ -289,6 +303,11 @@ export default function Dokumente() {
                                   <CalendarDays size={11} className="text-gray-400 shrink-0" />
                                   Sitzung {formatDatum(erste.sitzung.sitzungsdatum)}, TOP {erste.nummer}
                                   {weitere.length > 0 && <span className="text-gray-400">+{weitere.length}</span>}
+                                  {erste.sitzung.gremium && (
+                                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full border border-accent/25 bg-accent/10 text-accent whitespace-nowrap">
+                                      {erste.sitzung.gremium.name}
+                                    </span>
+                                  )}
                                 </p>
                               );
                             })()}
@@ -463,6 +482,7 @@ export default function Dokumente() {
                       <CalendarDays size={12} className="mt-0.5 text-gray-400 shrink-0" />
                       <span>
                         {formatDatum(t.sitzung.sitzungsdatum)} · TOP {t.nummer}: {t.titel}
+                        {t.sitzung.gremium && <span className="text-gray-400"> ({t.sitzung.gremium.name})</span>}
                       </span>
                     </Link>
                   </li>
