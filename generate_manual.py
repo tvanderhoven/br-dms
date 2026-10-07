@@ -514,11 +514,18 @@ def build():
     pdf.h1("2  Dashboard")
     pdf.body(
         "Das Dashboard ist die Startseite nach dem Login. Es fasst zusammen, was heute wichtig ist: "
+        "die nächste Sitzung, auslaufende Betriebsvereinbarungen und Qualifikationen, die Geschlechterquote, "
         "Kennzahlen, ablaufende Fristen, offene Aufgaben und Dokumente, die bald automatisch gelöscht werden."
     )
     pdf.bild("dashboard", "Dashboard mit Kennzahlen, offenen Fristen und Aufgaben", ausschnitt="voll")
     pdf.bullets([
         "Kopfzeile – Ungelesene Dokumente im Eingang, Tage bis zur nächsten Sitzung, Zahl kritischer Fristen",
+        "Auf einen Blick – Vier Karten mit farbigem Rand (grün = in Ordnung, gelb = Handlungsbedarf): nächste "
+        "Sitzung mit Uhrzeit, Ort und Zahl der TOPs; Betriebsvereinbarungen, die in den nächsten 90 Tagen "
+        "auslaufen oder gekündigt sind; Qualifikationen, die abgelaufen sind oder in 90 Tagen ablaufen, samt "
+        "nächstem Schulungstermin; Geschlechterquote nach § 15 Abs. 2 BetrVG (Sitze des Minderheitengeschlechts "
+        "gegen die Mindestsitze aus der Benutzerverwaltung). Ein Klick führt zur jeweiligen Seite; Karten "
+        "abgeschalteter Module und eine nicht eingetragene Quote werden ausgeblendet",
         "Kennzahlen – Dokumente gesamt, abgelaufene und kritische Fristen (≤ 3 Tage), offene Aufgaben",
         "Offene Fristen – Nach Fälligkeit sortiert, mit Resttagen farbig markiert (rot ≤ 3 Tage, gelb ≤ 7 Tage)",
         "Bald automatisch gelöscht – Dokumente, deren Aufbewahrungsfrist in den nächsten 30 Tagen endet",
