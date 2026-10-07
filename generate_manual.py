@@ -513,23 +513,26 @@ def build():
     # 2 ─────────────────────────────────────────────────────────────
     pdf.h1("2  Dashboard")
     pdf.body(
-        "Das Dashboard ist die Startseite nach dem Login. Es fasst zusammen, was heute wichtig ist: "
-        "die nächste Sitzung, auslaufende Betriebsvereinbarungen und Qualifikationen, die Geschlechterquote, "
-        "Kennzahlen, ablaufende Fristen, offene Aufgaben und Dokumente, die bald automatisch gelöscht werden."
+        "Das Dashboard ist die Startseite nach dem Login und zeigt nur, was im Alltag zählt: "
+        "die wichtigsten Punkte auf einen Blick, die eigenen und die übrigen Aufgaben und die nahen Fristen."
     )
-    pdf.bild("dashboard", "Dashboard mit Kennzahlen, offenen Fristen und Aufgaben", ausschnitt="voll")
+    pdf.bild("dashboard", "Dashboard: Auf einen Blick, Aufgaben und Fristen", ausschnitt="voll")
     pdf.bullets([
-        "Kopfzeile – Ungelesene Dokumente im Eingang, Tage bis zur nächsten Sitzung, Zahl kritischer Fristen",
+        "Kopfzeile – Begrüßung und die Zahl ungelesener Dokumente im Eingang",
         "Auf einen Blick – Vier Karten mit farbigem Rand (grün = in Ordnung, gelb = Handlungsbedarf): nächste "
         "Sitzung mit Uhrzeit, Ort und Zahl der TOPs; Betriebsvereinbarungen, die in den nächsten 90 Tagen "
         "auslaufen oder gekündigt sind; Qualifikationen, die abgelaufen sind oder in 90 Tagen ablaufen, samt "
         "nächstem Schulungstermin; Geschlechterquote nach § 15 Abs. 2 BetrVG (Sitze des Minderheitengeschlechts "
         "gegen die Mindestsitze aus der Benutzerverwaltung). Ein Klick führt zur jeweiligen Seite; Karten "
         "abgeschalteter Module und eine nicht eingetragene Quote werden ausgeblendet",
-        "Kennzahlen – Dokumente gesamt, abgelaufene und kritische Fristen (≤ 3 Tage), offene Aufgaben",
-        "Offene Fristen – Nach Fälligkeit sortiert, mit Resttagen farbig markiert (rot ≤ 3 Tage, gelb ≤ 7 Tage)",
-        "Bald automatisch gelöscht – Dokumente, deren Aufbewahrungsfrist in den nächsten 30 Tagen endet",
-        "Offene Aufgaben – Mit Fälligkeit und Priorität; „Alle anzeigen“ führt zur Aufgabenseite",
+        "Aufgaben – Oben „Für mich“: alle Ihnen zugewiesenen Aufgaben, nach Fälligkeit sortiert, mit dem Kreis "
+        "links direkt abhaken. Darunter „Alle anderen“: die Aufgaben der übrigen Mitglieder mit Namen davor; "
+        "Aufgaben ohne Zuständigkeit stehen dort als „nicht zugewiesen“",
+        "Fristen – Kompakt eine Zeile je Frist: überfällige und die der nächsten 14 Tage (höchstens sechs), "
+        "Resttage farbig (rot ≤ 3 Tage, gelb ≤ 7 Tage); das Häkchen erledigt eine Frist, der Link führt in den Fristenkalender",
+        "Hinweise – Erscheinen nur bei Bedarf: Dokumente, die in den nächsten 30 Tagen automatisch gelöscht werden, "
+        "und fehlerhafte Watch-Folder-Dateien der letzten 7 Tage. Das vollständige Importprotokoll des "
+        "Watch-Folders steht unter Einstellungen → System",
     ])
 
     # 3 ─────────────────────────────────────────────────────────────
@@ -1350,7 +1353,7 @@ def build():
     pdf.bild("einstellungen-system", "E-Mail-Absender und Watch-Folder", hoehe_anteil=0.6)
     pdf.bullets([
         "E-Mail-Absender – Name und Adresse für alle Mails (ohne Eintrag gilt SMTP_FROM) und die Signatur unter Einladungen. Ein Hinweis erscheint, solange kein Mailserver eingerichtet ist",
-        "Watch-Folder – Ob die Ordnerüberwachung läuft, der Basispfad und welcher Unterordner zu welcher Kategorie gehört (Kapitel 12.6)",
+        "Watch-Folder – Ob die Ordnerüberwachung läuft, der Basispfad, welcher Unterordner zu welcher Kategorie gehört (Kapitel 12.6) und die letzten Importe mit Fehlermeldung",
         "Backup & Restore – Anzahl, Alter, Größe und Vollständigkeit der Backups; dazu die Hinweise zum Schlüssel und zur Wiederherstellung (Kapitel 13.2)",
         "Sicherheit – Automatisches Abmelden nach 0 bis 480 Minuten Inaktivität (0 = aus)",
     ])

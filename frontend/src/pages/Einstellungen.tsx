@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Settings, Save, Loader2, RotateCcw, Users, Clock, FileText, Upload, Trash2, Palette, Download, FolderOpen, CheckCircle2, XCircle, Puzzle, Scale, RefreshCw, AlertTriangle } from "lucide-react";
-import { api, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen, Rolle, ModuleKey, MODULE_KEYS, MODULE_LABEL, GesetzStatus, Geschlecht } from "../lib/api";
+import { api, WatchfolderLogEintrag, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen, Rolle, ModuleKey, MODULE_KEYS, MODULE_LABEL, GesetzStatus, Geschlecht } from "../lib/api";
 import BenutzerVerwaltung from "./Benutzer";
 
 type Tab = "fristen" | "benutzer" | "protokoll" | "design" | "system" | "module" | "gesetze" | "amtsuebergabe";
@@ -1036,6 +1036,7 @@ function SystemTab() {
   const [laden, setLaden]       = useState(true);
   const [meineRolle, setMeineRolle] = useState<Rolle | null>(null);
   const [backups, setBackups]   = useState<{ pfadLesbar: boolean; anzahl: number; saetze: { zeitpunkt: string; groesseBytes: number; vollstaendig: boolean }[] } | null>(null);
+  const [watchLog, setWatchLog] = useState<WatchfolderLogEintrag[]>([]);
 
   useEffect(() => {
     api.einstellungen.system()
@@ -1044,6 +1045,7 @@ function SystemTab() {
       .finally(() => setLaden(false));
     api.auth.me().then(b => setMeineRolle(b.rolle)).catch(() => {});
     api.einstellungen.backups().then(setBackups).catch(() => {});
+    api.watchfolder.log().then(setWatchLog).catch(() => {});
   }, []);
 
   // wie ORDNER_KATEGORIE in backend/src/services/watchfolder.service.ts
@@ -1112,6 +1114,31 @@ function SystemTab() {
                 Dokument, sondern tauchen im Eingang als "wartender Scan" auf und werden dort per Klick einer
                 Sitzung zugeordnet. Erlaubte Dateitypen: .pdf · .jpg · .jpeg · .png
               </p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Letzte Importe</p>
+              {watchLog.length === 0 ? (
+                <p className="text-xs text-gray-400">Noch keine Watch-Folder-Aktivität</p>
+              ) : (
+                <ul className="divide-y divide-gray-50 border border-gray-100 rounded-lg">
+                  {watchLog.slice(0, 15).map(e => {
+                    const ok = e.aktion === "WATCHFOLDER_DATEI_EMPFANGEN";
+                    return (
+                      <li key={e.id} className="px-3 py-2 flex items-start gap-2 text-xs">
+                        {ok ? <CheckCircle2 size={14} className="text-green-500 mt-0.5 shrink-0" />
+                            : <XCircle      size={14} className="text-red-500 mt-0.5 shrink-0" />}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-gray-800 truncate">{e.details?.dateiname ?? "–"}</p>
+                          {!ok && e.details?.fehler && <p className="text-red-500 truncate">{e.details.fehler}</p>}
+                        </div>
+                        <span className="shrink-0 text-gray-400 whitespace-nowrap">
+                          {new Date(e.zeitpunkt).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
           </div>
         )}
