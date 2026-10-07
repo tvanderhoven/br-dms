@@ -424,7 +424,7 @@ export const api = {
     backups: () => request<{
       pfadLesbar: boolean;
       anzahl: number;
-      saetze: { zeitpunkt: string; groesseBytes: number; vollstaendig: boolean }[];
+      saetze: { zeitpunkt: string; groesseBytes: number; vollstaendig: boolean; verschluesselt: boolean }[];
     }>("/api/einstellungen/backups"),
     adminZugriff: () => request<{ inhaltszugriff: boolean }>("/api/einstellungen/admin-zugriff"),
     adminZugriffSpeichern: (inhaltszugriff: boolean) =>

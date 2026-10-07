@@ -365,7 +365,19 @@ cd <DATA_PATH>
 sudo bash restore.sh
 ```
 
-Backups landen in `<DATA_PATH>/backups/` und werden nach 30 Tagen automatisch gelöscht.  
+Backups landen in `<DATA_PATH>/backups/` und werden nach 30 Tagen automatisch gelöscht.
+
+**Verschlüsselte Backups:** Steht ein `BACKUP_KEY` in der `.env` (`openssl rand -hex 32`, der
+Einrichtungsassistent erzeugt ihn), verschlüsselt `backup.sh` beide Dateien komplett
+(`db_<Zeit>.sql.gz.enc`, `storage_<Zeit>.tar.gz.enc`, AES-256 mit PBKDF2, ohne Klartext-Zwischendatei).
+Ohne Schlüssel schreibt es wie bisher unverschlüsselt und warnt – der Datenbank-Dump enthält dann
+Protokolle, Personal- und Gehaltsdaten im Klartext. Nur so verschlüsselt sollte eine Kopie das NAS
+verlassen (z. B. zur Sicherung bei der IT). `restore.sh` erkennt verschlüsselte Backups und prüft den
+Schlüssel, bevor etwas überschrieben wird. Notfall ohne Skript:
+`openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -pass pass:<BACKUP_KEY> -in db_<Zeit>.sql.gz.enc | gunzip > db.sql`
+
+`ENCRYPTION_KEY` und `BACKUP_KEY` gehören ausgedruckt an einen sicheren Ort außerhalb des NAS –
+ohne sie sind Dokumente bzw. Backups nicht wiederherstellbar.  
 Empfehlung: Tägliche Ausführung via Aufgabenplaner (QNAP/Synology) bzw. `cron` auf einem
 generischen Docker-Host.
 

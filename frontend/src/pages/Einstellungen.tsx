@@ -1035,7 +1035,7 @@ function SystemTab() {
   const [info, setInfo]         = useState<{ watchFolderPfad: string; watchFolderAktiv: boolean } | null>(null);
   const [laden, setLaden]       = useState(true);
   const [meineRolle, setMeineRolle] = useState<Rolle | null>(null);
-  const [backups, setBackups]   = useState<{ pfadLesbar: boolean; anzahl: number; saetze: { zeitpunkt: string; groesseBytes: number; vollstaendig: boolean }[] } | null>(null);
+  const [backups, setBackups]   = useState<{ pfadLesbar: boolean; anzahl: number; saetze: { zeitpunkt: string; groesseBytes: number; vollstaendig: boolean; verschluesselt: boolean }[] } | null>(null);
   const [watchLog, setWatchLog] = useState<WatchfolderLogEintrag[]>([]);
 
   useEffect(() => {
@@ -1161,19 +1161,34 @@ function SystemTab() {
             <ul className="list-disc list-inside mt-1.5 space-y-0.5">
               <li>Sichert die komplette Datenbank (alle Sitzungen, Dokument-Metadaten, Beschlüsse, Aufgaben, Eingruppierung, Benutzer, Audit-Log, …)</li>
               <li>Sichert zusätzlich den <code className="font-mono">storage/</code>-Ordner mit den eigentlichen (verschlüsselten) Dokument-Dateien</li>
+              <li>Mit <code className="font-mono">BACKUP_KEY</code> in der <code className="font-mono">.env</code> werden beide Dateien zusätzlich komplett verschlüsselt – so kann eine Kopie auch bei Dritten (z. B. der IT) liegen</li>
               <li>Behält automatisch nur die letzten 30 Tage, ältere Backups werden gelöscht</li>
             </ul>
 
             {backups && (
               backups.pfadLesbar ? (
                 backups.anzahl > 0 ? (
+                  <>
                   <div className="mt-2.5 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-600">
                     <CheckCircle2 size={14} className={backups.saetze[0].vollstaendig ? "text-green-500 shrink-0" : "text-amber-500 shrink-0"} />
                     <span>
                       <b>{backups.anzahl}</b> Backup{backups.anzahl !== 1 ? "s" : ""} im Ordner · letztes {backupAlter(backups.saetze[0].zeitpunkt)}
                       {" "}({formatGroesse(backups.saetze[0].groesseBytes)}){!backups.saetze[0].vollstaendig && " · unvollständig (DB oder Storage fehlt)"}
+                      {backups.saetze[0].verschluesselt && " · verschlüsselt"}
                     </span>
                   </div>
+                  {!backups.saetze[0].verschluesselt && (
+                    <div className="mt-2 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-800">
+                      <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                      <span>
+                        Das letzte Backup ist <b>unverschlüsselt</b> – die Datenbank darin enthält Protokolle, Personal- und
+                        Gehaltsdaten im Klartext. Einen <code className="font-mono">BACKUP_KEY</code> erzeugen
+                        (<code className="font-mono">openssl rand -hex 32</code>), in die <code className="font-mono">.env</code> eintragen
+                        und ausgedruckt wegschließen; ab dem nächsten Lauf verschlüsselt backup.sh beide Dateien.
+                      </span>
+                    </div>
+                  )}
+                  </>
                 ) : (
                   <div className="mt-2.5 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700">
                     <XCircle size={14} className="shrink-0" />
