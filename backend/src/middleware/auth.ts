@@ -19,15 +19,15 @@ declare module "fastify" {
   }
 }
 
-// JAV: stark eingeschränkte Rolle, darf nur Sitzungen/Protokolle LESEN.
+// JAV und SBV: stark eingeschränkte Rollen, dürfen nur Sitzungen/Protokolle LESEN.
 // Zentral hier durchgesetzt (statt in jeder einzelnen Route), damit kein
 // Modul versehentlich offen bleibt, wenn später neue Routen dazukommen.
-const JAV_ERLAUBTE_GET_PFADE = [/^\/api\/sitzungen(\/|$)/];
+const EINGESCHRAENKT_ERLAUBTE_GET_PFADE = [/^\/api\/sitzungen(\/|$)/];
 
-function javDarfZugreifen(request: FastifyRequest): boolean {
+function eingeschraenkteRolleDarfZugreifen(request: FastifyRequest): boolean {
   const pfad = request.url.split("?")[0];
   if (pfad === "/api/auth/me") return true; // Rolle/Name fürs eigene Profil laden
-  return request.method === "GET" && JAV_ERLAUBTE_GET_PFADE.some(r => r.test(pfad));
+  return request.method === "GET" && EINGESCHRAENKT_ERLAUBTE_GET_PFADE.some(r => r.test(pfad));
 }
 
 // Admin ohne Inhaltszugriff (Einstellung von Vorsitz/Stellvertretung, siehe
@@ -69,7 +69,7 @@ export async function authenticate(
 
     request.benutzer = { sub: benutzer.id, email: benutzer.email, rolle: benutzer.rolle };
 
-    if (benutzer.rolle === Role.JAV && !javDarfZugreifen(request)) {
+    if ((benutzer.rolle === Role.JAV || benutzer.rolle === Role.SBV) && !eingeschraenkteRolleDarfZugreifen(request)) {
       return reply.status(403).send({ fehler: "Kein Zugriff für diese Rolle" });
     }
 

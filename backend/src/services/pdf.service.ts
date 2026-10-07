@@ -760,7 +760,7 @@ function anwesenheitAbschnitt(doc: InstanceType<typeof PDFDocument>, anwesenheit
   );
 
   const rolleLabel = (r: string) =>
-    ({ VORSITZ: "Vorsitz", STELLVERTRETER: "Stellv. Vorsitz", MITGLIED: "Mitglied", ERSATZMITGLIED: "Ersatzmitglied", ADMIN: "", JAV: "JAV" }[r] ?? r);
+    ({ VORSITZ: "Vorsitz", STELLVERTRETER: "Stellv. Vorsitz", MITGLIED: "Mitglied", ERSATZMITGLIED: "Ersatzmitglied", ADMIN: "", JAV: "JAV", SBV: "SBV" }[r] ?? r);
 
   if (anwesend.length > 0) {
     doc.fontSize(8).font("Helvetica-Bold").fillColor(FARBE_GRAU)
@@ -937,7 +937,7 @@ export async function anwesenheitslistePdfGenerieren(
     doc.on("end",   () => resolve(Buffer.concat(chunks)));
 
     const rolleLabel = (r: string) =>
-      ({ VORSITZ: "Vorsitz", STELLVERTRETER: "Stellv. Vorsitz", MITGLIED: "Mitglied", ERSATZMITGLIED: "Ersatzmitglied", ADMIN: "", JAV: "JAV" }[r] ?? r);
+      ({ VORSITZ: "Vorsitz", STELLVERTRETER: "Stellv. Vorsitz", MITGLIED: "Mitglied", ERSATZMITGLIED: "Ersatzmitglied", ADMIN: "", JAV: "JAV", SBV: "SBV" }[r] ?? r);
 
     // Briefkopf
     const y0 = doc.y;
@@ -979,11 +979,12 @@ export async function anwesenheitslistePdfGenerieren(
     const COL_UNTER  = RAND_LINKS + 380;
 
     // Gruppen: ordentliche Mitglieder, geladene Ersatzmitglieder (mit "für X"),
-    // JAV, übrige Ersatzmitglieder (unterschreiben nur bei kurzfristiger Nachladung)
+    // JAV, SBV, übrige Ersatzmitglieder (unterschreiben nur bei kurzfristiger Nachladung)
     const ORDENTLICH = ["VORSITZ", "STELLVERTRETER", "MITGLIED"];
     const ordentliche = mitglieder.filter(m => ORDENTLICH.includes(m.rolle));
     const geladen     = mitglieder.filter(m => m.status === "ERSATZ_FUER");
     const jav         = mitglieder.filter(m => m.rolle === "JAV");
+    const sbv         = mitglieder.filter(m => m.rolle === "SBV");
     const weitere     = mitglieder.filter(m => m.rolle === "ERSATZMITGLIED" && m.status !== "ERSATZ_FUER");
     // verhindertes Mitglied → Name des Ersatzes
     const vertretenDurch = new Map(geladen.filter(m => m.vertretungFuerName).map(m => [m.vertretungFuerName!, m.name]));
@@ -1078,6 +1079,7 @@ export async function anwesenheitslistePdfGenerieren(
     gruppe("Betriebsratsmitglieder", ordentliche);
     gruppe("Geladene Ersatzmitglieder", geladen);
     gruppe("Jugend- und Auszubildendenvertretung", jav);
+    gruppe("Schwerbehindertenvertretung", sbv);
     gruppe("Weitere Ersatzmitglieder", weitere, "Nur unterschreiben, wenn kurzfristig als Ersatz nachgeladen.");
 
     // Externe Gäste – neue Seite wenn < 210pt übrig (4 Zeilen + Unterschrift)

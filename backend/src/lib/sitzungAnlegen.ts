@@ -80,7 +80,7 @@ export async function sitzungAnlegen(
           select: { benutzerId: true },
         })).map(m => ({ id: m.benutzerId }))
       : await client.benutzer.findMany({
-          where: { aktiv: true, rolle: { in: [Role.VORSITZ, Role.STELLVERTRETER, Role.MITGLIED, Role.JAV] } },
+          where: { aktiv: true, rolle: { in: [Role.VORSITZ, Role.STELLVERTRETER, Role.MITGLIED, Role.JAV, Role.SBV] } },
           select: { id: true },
         });
   if (aktive.length > 0) {

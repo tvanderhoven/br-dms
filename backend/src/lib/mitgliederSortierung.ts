@@ -17,7 +17,7 @@ function nachname(name: string): string {
 
 function gruppenRang(rolle: Role): number {
   if (rolle === Role.ERSATZMITGLIED) return 1;
-  if (rolle === Role.JAV) return 2;
+  if (rolle === Role.JAV || rolle === Role.SBV) return 2;
   return 0;
 }
 

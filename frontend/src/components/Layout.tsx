@@ -435,9 +435,9 @@ export default function Layout() {
     return <Navigate to="/einstellungen" replace />;
   }
 
-  // JAV: stark eingeschränkte Rolle, darf im Frontend nur /sitzungen sehen
+  // JAV und SBV: stark eingeschränkte Rollen, dürfen im Frontend nur /sitzungen sehen
   // (Backend erzwingt das ohnehin zusätzlich auf API-Ebene, siehe middleware/auth.ts)
-  if (meineRolle === "JAV" && !location.pathname.startsWith("/sitzungen")) {
+  if ((meineRolle === "JAV" || meineRolle === "SBV") && !location.pathname.startsWith("/sitzungen")) {
     return <Navigate to="/sitzungen" replace />;
   }
 
@@ -512,8 +512,8 @@ export default function Layout() {
         {/* Suche + Einstellungen + Abmelden */}
         <div className="px-3 py-2 border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
           <div className="flex items-center gap-1.5">
-            {meineRolle !== "JAV" && !ohneInhalt && <GlobaleSuche />}
-            {meineRolle !== "JAV" && meineRolle !== "ERSATZMITGLIED" && (
+            {meineRolle !== "JAV" && meineRolle !== "SBV" && !ohneInhalt && <GlobaleSuche />}
+            {meineRolle !== "JAV" && meineRolle !== "SBV" && meineRolle !== "ERSATZMITGLIED" && (
             <NavLink
               to="/einstellungen"
               title="Einstellungen"
@@ -565,8 +565,8 @@ export default function Layout() {
                 Technischer Zugang: Inhalte des Gremiums sind für den Admin gesperrt.
               </p>
             </>
-          ) : meineRolle === "JAV" ? (
-            // JAV: stark eingeschränkte Rolle, sieht nur Sitzungen/Protokolle
+          ) : meineRolle === "JAV" || meineRolle === "SBV" ? (
+            // JAV/SBV: stark eingeschränkte Rollen, sehen nur Sitzungen/Protokolle
             <NavLink to="/sitzungen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
               <CalendarDays size={16} />
               Sitzungen
@@ -648,6 +648,10 @@ export default function Layout() {
             <NavLink to="/dokumente" className={linkKlasse} onClick={() => setMobileOffen(false)}>
               <FileText size={16} />
               Dokumente
+            </NavLink>
+            <NavLink to="/geschaeftsordnung" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+              <Scale size={16} />
+              Geschäftsordnung
             </NavLink>
             {modulAktiv("wissensarchiv") && (
               <NavLink to="/wissen" className={linkKlasse} onClick={() => setMobileOffen(false)}>

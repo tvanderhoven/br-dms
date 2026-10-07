@@ -7,7 +7,7 @@
  *
  * Geladen ist, wer in der Anwesenheit "Kommt" (ANWESEND) oder "Als Ersatz geladen"
  * (ERSATZ_FUER) steht. Mails gehen an die Zweitadresse, sonst an die Hauptadresse.
- * Die JAV bekommt keine vertraulichen TOPs und kein PDF (das enthält alle TOPs).
+ * JAV und SBV bekommen keine vertraulichen TOPs und kein PDF (das enthält alle TOPs).
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
@@ -21,7 +21,7 @@ import { istBetriebsversammlung } from "../lib/sitzungstypen.js";
 
 const ROLLE_LABEL: Record<string, string> = {
   VORSITZ: "Vorsitz", STELLVERTRETER: "Stellv. Vorsitz", MITGLIED: "Mitglied",
-  ERSATZMITGLIED: "Ersatzmitglied", JAV: "JAV", ADMIN: "Admin",
+  ERSATZMITGLIED: "Ersatzmitglied", JAV: "JAV", SBV: "SBV", ADMIN: "Admin",
 };
 
 async function geladene(sitzungId: string) {
@@ -131,8 +131,8 @@ export async function einladungRouten(app: FastifyInstance): Promise<void> {
 
       const ergebnisse: { benutzerId: string; name: string; adresse: string; erfolgreich: boolean; fehler: string | null }[] = [];
       for (const e of empfaenger) {
-        const istJav = e.rolle === Role.JAV;
-        const anhang = pdfDa && !istJav ? { dateiname: `Tagesordnung – ${sitzung.titel}.pdf`, pfad: version!.pdfPfad! } : null;
+        const istEingeschraenkt = e.rolle === Role.JAV || e.rolle === Role.SBV;
+        const anhang = pdfDa && !istEingeschraenkt ? { dateiname: `Tagesordnung – ${sitzung.titel}.pdf`, pfad: version!.pdfPfad! } : null;
         let fehler: string | null = null;
         try {
           await sendeEinladung({
@@ -141,7 +141,7 @@ export async function einladungRouten(app: FastifyInstance): Promise<void> {
             sitzungTitel:  sitzung.titel,
             sitzungsdatum: sitzung.sitzungsdatum,
             ort:           sitzung.ort,
-            tops:          sitzung.tops.filter(t => !istJav || !t.vertraulich),
+            tops:          sitzung.tops.filter(t => !istEingeschraenkt || !t.vertraulich),
             ersatzFuer:    e.ersatzFuer,
             sitzungUrl,
             anhang,

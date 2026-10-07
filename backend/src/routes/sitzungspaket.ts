@@ -18,7 +18,7 @@ import { istBetriebsversammlung } from "../lib/sitzungstypen.js";
 
 const ROLLE_LABEL: Record<string, string> = {
   VORSITZ: "Vorsitz", STELLVERTRETER: "Stellv. Vorsitz", MITGLIED: "Mitglied",
-  ERSATZMITGLIED: "Ersatzmitglied", JAV: "JAV", ADMIN: "Admin",
+  ERSATZMITGLIED: "Ersatzmitglied", JAV: "JAV", SBV: "SBV", ADMIN: "Admin",
 };
 
 function csvZelle(v: string): string {

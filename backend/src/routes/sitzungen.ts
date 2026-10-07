@@ -169,9 +169,9 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
       });
 
       // Verknüpfte Dokumente je Sitzung (über die TOPs, jedes Dokument nur einmal);
-      // die JAV sieht vertrauliche TOPs nicht, also zählen sie für sie auch nicht mit
+      // JAV und SBV sehen vertrauliche TOPs nicht, also zählen sie für sie auch nicht mit
       const verknuepfungen = await prisma.topDokument.findMany({
-        where:  request.benutzer.rolle === Role.JAV ? { top: { vertraulich: false } } : {},
+        where:  (request.benutzer.rolle === Role.JAV || request.benutzer.rolle === Role.SBV) ? { top: { vertraulich: false } } : {},
         select: { dokumentId: true, top: { select: { sitzungId: true } } },
       });
       const dokumenteJeSitzung = new Map<string, Set<string>>();
@@ -237,8 +237,8 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
       const sitzung = await prisma.sitzung.findUnique({ where: { id }, select: SITZUNG_SELECT });
       if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
 
-      // JAV sieht als vertraulich markierte TOPs nicht
-      if (request.benutzer.rolle === Role.JAV) {
+      // JAV und SBV sehen als vertraulich markierte TOPs nicht
+      if (request.benutzer.rolle === Role.JAV || request.benutzer.rolle === Role.SBV) {
         return reply.send({ ...sitzung, tops: sitzung.tops.filter(t => !t.vertraulich) });
       }
 
