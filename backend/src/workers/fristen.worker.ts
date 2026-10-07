@@ -3,6 +3,15 @@ import cron from "node-cron";
 import { sendeFristenZusammenfassung } from "../lib/mailer.js";
 import { fristTitel } from "../lib/fristen.js";
 import { betriebsversammlungFristAbgleichen } from "../lib/betriebsversammlungFrist.js";
+import prisma from "../lib/prisma.js";
+
+/** Schalter in Einstellungen → System ("Jetzt testen" bleibt davon unberührt). */
+async function erinnerungsmailAktiv(): Promise<boolean> {
+  const einstellung = await prisma.systemEinstellung.findUnique({
+    where: { schluessel: "fristen.erinnerungsmail_aktiv" },
+  });
+  return einstellung?.wert !== "false";
+}
 
 export interface FristenWorkerErgebnis {
   fristenAnzahl: number;
@@ -86,6 +95,10 @@ export function startFristenWorker(): void {
   cron.schedule(
     "0 7 * * *",
     async () => {
+      if (!(await erinnerungsmailAktiv())) {
+        console.log("[FristenWorker] Erinnerungsmail deaktiviert (Einstellungen → System) – überspringe.");
+        return;
+      }
       const w = new FristenWorker();
       await w.run().catch(err => console.error("[FristenWorker] Unbehandelter Fehler:", err));
     },

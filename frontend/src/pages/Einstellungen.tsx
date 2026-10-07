@@ -1515,6 +1515,25 @@ function FristenErinnerungTestBox() {
   const [laeuft, setLaeuft]     = useState(false);
   const [ergebnis, setErgebnis] = useState<Awaited<ReturnType<typeof api.fristen.erinnerungTesten>> | null>(null);
   const [fehler, setFehler]     = useState("");
+  const [aktiv, setAktiv]       = useState<boolean | null>(null);
+  const [umschaltet, setUmschaltet] = useState(false);
+
+  useEffect(() => {
+    api.einstellungen.fristenErinnerung().then(r => setAktiv(r.aktiv)).catch(() => {});
+  }, []);
+
+  async function umschalten() {
+    if (aktiv === null) return;
+    setUmschaltet(true);
+    try {
+      const r = await api.einstellungen.fristenErinnerungSpeichern(!aktiv);
+      setAktiv(r.ok ? !aktiv : aktiv);
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler beim Umschalten");
+    } finally {
+      setUmschaltet(false);
+    }
+  }
 
   async function testen() {
     setLaeuft(true);
@@ -1547,6 +1566,27 @@ function FristenErinnerungTestBox() {
         >
           {laeuft ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
           Jetzt testen
+        </button>
+      </div>
+
+      <div className="px-6 py-3 border-b border-gray-100 flex items-center justify-between gap-4 bg-gray-50">
+        <div>
+          <p className="text-sm font-medium text-gray-800">Automatischer Versand (täglich 07:00 Uhr)</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Zum Pausieren ausschalten – „Jetzt testen" oben funktioniert unabhängig davon immer.
+          </p>
+        </div>
+        <button
+          onClick={umschalten}
+          disabled={aktiv === null || umschaltet}
+          role="switch"
+          aria-checked={aktiv ?? false}
+          title={aktiv ? "Aktiv – klicken zum Pausieren" : "Pausiert – klicken zum Aktivieren"}
+          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-60 ${
+            aktiv ? "bg-[rgb(var(--accent))]" : "bg-gray-300"
+          }`}
+        >
+          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${aktiv ? "translate-x-6" : "translate-x-1"}`} />
         </button>
       </div>
 

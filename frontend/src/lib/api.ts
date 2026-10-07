@@ -405,6 +405,9 @@ export const api = {
     designSpeichern: (data: Partial<DesignEinstellungen>) =>
       request<{ ok: boolean }>("/api/einstellungen/design", { method: "PUT", body: JSON.stringify(data) }),
     system: () => request<{ watchFolderPfad: string; watchFolderAktiv: boolean }>("/api/einstellungen/system"),
+    fristenErinnerung: () => request<{ aktiv: boolean }>("/api/einstellungen/fristen-erinnerung"),
+    fristenErinnerungSpeichern: (aktiv: boolean) =>
+      request<{ ok: boolean }>("/api/einstellungen/fristen-erinnerung", { method: "PUT", body: JSON.stringify({ aktiv }) }),
     module: () => request<Record<ModuleKey, boolean>>("/api/einstellungen/module"),
     moduleSpeichern: (data: Partial<Record<ModuleKey, boolean>>) =>
       request<{ ok: boolean }>("/api/einstellungen/module", { method: "PUT", body: JSON.stringify(data) }),
