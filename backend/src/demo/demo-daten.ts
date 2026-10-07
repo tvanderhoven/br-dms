@@ -3,7 +3,7 @@
  *
  * Befüllt eine LEERE Instanz mit einer komplett erfundenen Firma
  * ("Nordwerk Maschinenbau GmbH", ~250 Beschäftigte, 9er-Gremium):
- * Benutzer aller Rollen, Mitarbeiter mit Gehalts-/Zeitmodell-Historie,
+ * Benutzer aller Rollen (inkl. JAV und SBV), Mitarbeiter mit Gehalts-/Zeitmodell-Historie,
  * 5 Sitzungen (3 final, 1 Protokoll in Arbeit, 1 geplant), Fake-Dokumente
  * als echte (verschlüsselte) PDFs, Fristen, Aufgaben, BVs, Schulungen usw.
  *
@@ -289,7 +289,7 @@ const ABTEILUNGEN: { name: string; anzahl: number; gruppe: [number, number]; sta
   { name: "Geschäftsführung",    anzahl: 2,  gruppe: [6, 6], standort: "Verwaltung" },
 ];
 
-// Betriebsrat (9er-Gremium, § 9 BetrVG bei 201–400 Beschäftigten) + Ersatz + JAV
+// Betriebsrat (9er-Gremium, § 9 BetrVG bei 201–400 Beschäftigten) + Ersatz + JAV + SBV
 const GREMIUM: { name: string; rolle: Role; geschlecht: Geschlecht; rang: number | null; abteilung: string; login: string }[] = [
   { name: "Sabine Kröger",   rolle: Role.VORSITZ,        geschlecht: Geschlecht.WEIBLICH,  rang: 1,  abteilung: "Montage",               login: "s.kroeger" },
   { name: "Thomas Brandt",   rolle: Role.STELLVERTRETER, geschlecht: Geschlecht.MAENNLICH, rang: 2,  abteilung: "Produktion",            login: "t.brandt" },
@@ -304,6 +304,7 @@ const GREMIUM: { name: string; rolle: Role; geschlecht: Geschlecht; rang: number
   { name: "Lena Vogt",       rolle: Role.ERSATZMITGLIED, geschlecht: Geschlecht.WEIBLICH,  rang: 11, abteilung: "Einkauf",               login: "l.vogt" },
   { name: "Peter Krause",    rolle: Role.ERSATZMITGLIED, geschlecht: Geschlecht.MAENNLICH, rang: 12, abteilung: "Produktion",            login: "p.krause" },
   { name: "Finn Albers",     rolle: Role.JAV,            geschlecht: Geschlecht.MAENNLICH, rang: null, abteilung: "Ausbildung",          login: "f.albers" },
+  { name: "Ute Tiedemann",   rolle: Role.SBV,            geschlecht: Geschlecht.WEIBLICH,  rang: null, abteilung: "Einkauf",             login: "u.tiedemann" },
 ];
 
 // ── Hauptablauf ─────────────────────────────────────────────────
@@ -348,8 +349,8 @@ async function main() {
     const b = await prisma.benutzer.create({
       data: {
         email: `${g.login}@${DEMO_DOMAIN}`,
-        // Zweitadresse für Einladungen wie im echten Betrieb: br-… bzw. jav-…
-        einladungEmail: `${g.rolle === Role.JAV ? "jav" : "br"}-${g.login}@${DEMO_DOMAIN}`,
+        // Zweitadresse für Einladungen wie im echten Betrieb: br-…, jav-… bzw. sbv-…
+        einladungEmail: `${g.rolle === Role.JAV ? "jav" : g.rolle === Role.SBV ? "sbv" : "br"}-${g.login}@${DEMO_DOMAIN}`,
         name: g.name,
         passwortHash: pwHash,
         rolle: g.rolle,
@@ -698,6 +699,34 @@ async function main() {
     data: { titel: "BV Kantinenbetrieb (alt)", abschlussdatum: datum(2012, 4, 1), status: BVStatus.ABGELOEST, bemerkung: "Abgelöst durch Dienstleistervertrag 2022", erstelltVonId: vorsitz },
   });
 
+  // ── Geschäftsordnung (§ 36 BetrVG): aktuelle Fassung + Vorgänger der letzten Amtszeit ──
+  const goTexte: [Date, string, string, string, [string, string][]][] = [
+    [datum(2026, 5, 21), "Geschäftsordnung des Betriebsrats (Fassung 2026)", "Geschaeftsordnung_BR_2026.pdf",
+      "Zu Beginn der Amtszeit neu beschlossen; Einladungsfrist auf 5 Arbeitstage verlängert, Regeln für Video-Teilnahme (§ 30 Abs. 2 BetrVG) ergänzt.", [
+      ["§ 1 Sitzungen", "Der Betriebsrat tritt in der Regel alle vier Wochen donnerstags um 09:00 Uhr zusammen. Die Einladung mit Tagesordnung erfolgt mindestens fünf Arbeitstage vorher durch die Vorsitzende."],
+      ["§ 2 Teilnahme per Video", "Die Teilnahme mittels Video- und Telefonkonferenz ist zulässig, sofern nicht ein Viertel der Mitglieder binnen einer Frist widerspricht. Die Präsenzsitzung bleibt der Regelfall."],
+      ["§ 3 Beschlussfassung", "Beschlüsse werden mit der Mehrheit der anwesenden Mitglieder gefasst (§ 33 BetrVG). Der Betriebsrat ist beschlussfähig, wenn mindestens die Hälfte der Mitglieder teilnimmt."],
+      ["§ 4 Protokoll", "Über jede Sitzung wird eine Niederschrift gefertigt, die von der Vorsitzenden und einem weiteren Mitglied unterzeichnet wird (§ 34 BetrVG)."],
+      ["§ 5 Teilnahme von JAV und SBV", "Die Jugend- und Auszubildendenvertretung und die Schwerbehindertenvertretung werden zu allen Sitzungen eingeladen und nehmen beratend teil."],
+    ]],
+    [datum(2022, 5, 19), "Geschäftsordnung des Betriebsrats (Fassung 2022)", "Geschaeftsordnung_BR_2022.pdf",
+      "Abgelöst durch die Fassung 2026.", [
+      ["§ 1 Sitzungen", "Der Betriebsrat tritt in der Regel alle vier Wochen zusammen. Die Einladung erfolgt mindestens drei Arbeitstage vorher."],
+      ["§ 2 Beschlussfassung", "Beschlüsse werden mit der Mehrheit der anwesenden Mitglieder gefasst (§ 33 BetrVG)."],
+      ["§ 3 Protokoll", "Über jede Sitzung wird eine Niederschrift gefertigt (§ 34 BetrVG)."],
+    ]],
+  ];
+  for (const [beschlossenAm, titel, datei, bemerkung, abschnitte] of goTexte) {
+    const d = await dokumentAnlegen({
+      titel, kategorie: Kategorie.GESCHAEFTSORDNUNG, dateiname: datei,
+      kopf: `Beschlossen in der Sitzung vom ${fmt(beschlossenAm)} (§ 36 BetrVG)`,
+      abschnitte, erstelltAm: tage(2, beschlossenAm), vonId: vorsitz, tags: ["Geschäftsordnung"],
+    });
+    await prisma.geschaeftsordnung.create({
+      data: { beschlossenAm, bemerkung, dokumentId: d.id, erstelltVonId: vorsitz },
+    });
+  }
+
   // ── Sitzungen ────────────────────────────────────────────────
   const plan = [
     { titel: "Ordentliche Betriebsratssitzung", datum: donnerstag(tage(-84)), status: SitzungStatus.PROTOKOLL_FINAL },
@@ -854,6 +883,8 @@ async function main() {
       anwesenheiten.push({ sitzungId: sitzung.id, benutzerId: ersatzReihenfolge[i], status: AnwesenheitsStatus.ERSATZ_FUER, vertretungFuerId: fehlt });
     });
     if (istVergangen) anwesenheiten.push({ sitzungId: sitzung.id, benutzerId: user["f.albers"], status: si % 2 === 0 ? AnwesenheitsStatus.ANWESEND : AnwesenheitsStatus.ABWESEND_ENTSCHULDIGT });
+    // SBV nimmt beratend teil (§ 178 Abs. 4 SGB IX), fehlt selten
+    if (istVergangen) anwesenheiten.push({ sitzungId: sitzung.id, benutzerId: user["u.tiedemann"], status: si === 1 ? AnwesenheitsStatus.ABWESEND_ENTSCHULDIGT : AnwesenheitsStatus.ANWESEND });
     // Betriebsversammlung: keine Anwesenheitsliste, nur die Teilnehmerzahl
     if (!istBV) await prisma.anwesenheit.createMany({ data: anwesenheiten });
     const stimmberechtigt = mitgliederOhne(abwesend).length + abwesend.length;
@@ -1182,8 +1213,8 @@ async function main() {
     },
     {
       name: "Schwerbehindertenvertretung", rechtsgrundlage: "§ 178 SGB IX",
-      bemerkung: "Protokolle der SBV-Versammlung und Gespräche mit dem Inklusionsbeauftragten.",
-      mitglieder: ["s.pohl"],
+      bemerkung: "Vertrauensperson: Ute Tiedemann. Protokolle der SBV-Versammlung und Gespräche mit dem Inklusionsbeauftragten.",
+      mitglieder: ["u.tiedemann", "s.pohl"],
       protokolle: [
         { titel: "Versammlung der schwerbehinderten Menschen", vorTagen: 55,
           abschnitte: [["Bericht der SBV", "Tätigkeitsbericht, Stand der Inklusionsvereinbarung, Hinweise zum BEM-Verfahren."]] },
@@ -1254,7 +1285,7 @@ async function main() {
 
   console.log("\n[Demo] Fertig. Anmeldung z.B. als Vorsitzende:");
   console.log(`[Demo]   Benutzer: s.kroeger   Passwort: ${DEMO_PW}`);
-  console.log(`[Demo]   Weitere: t.brandt (Stellv.), m.yilmaz (Mitglied), m.engel (Ersatz), f.albers (JAV)`);
+  console.log(`[Demo]   Weitere: t.brandt (Stellv.), m.yilmaz (Mitglied), m.engel (Ersatz), f.albers (JAV), u.tiedemann (SBV)`);
 }
 
 main()
