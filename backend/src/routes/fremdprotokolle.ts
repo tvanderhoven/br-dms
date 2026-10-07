@@ -21,6 +21,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { AuditAktion, Role } from "@prisma/client";
 import prisma from "../lib/prisma.js";
+import { fremdprotokollVertraulichFilter } from "../lib/vertraulich.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { encryptFile, decryptFile, secureDelete } from "../lib/encryption.js";
@@ -51,6 +52,7 @@ interface Update {
 
 const GREMIUM_SELECT = { id: true, name: true };
 
+
 export async function fremdprotokolleRouten(app: FastifyInstance): Promise<void> {
 
   // ── GET / – Liste ────────────────────────────────────────────────
@@ -65,10 +67,7 @@ export async function fremdprotokolleRouten(app: FastifyInstance): Promise<void>
       const protokolle = await prisma.fremdprotokoll.findMany({
         where: {
           ...(gremiumId ? { gremiumId } : {}),
-          // Vertrauliche Fremdprotokolle nur für VORSITZ/ADMIN oder den Hochladenden selbst
-          ...(rolle === Role.MITGLIED || rolle === Role.ERSATZMITGLIED
-            ? { OR: [{ vertraulich: false }, { hochgeladenVonId: sub }] }
-            : {}),
+          ...fremdprotokollVertraulichFilter(rolle, sub),
         },
         include: { gremium: { select: GREMIUM_SELECT } },
         orderBy: [{ datum: "desc" }],
@@ -173,12 +172,15 @@ export async function fremdprotokolleRouten(app: FastifyInstance): Promise<void>
     "/:id/download",
     { preHandler: [authenticate] },
     async (request, reply) => {
-      const protokoll = await prisma.fremdprotokoll.findUnique({ where: { id: request.params.id } });
-      if (!protokoll) return reply.status(404).send({ fehler: "Nicht gefunden" });
-
-      const rolle = request.benutzer.rolle;
-      if (protokoll.vertraulich && rolle !== Role.VORSITZ && rolle !== Role.ADMIN) {
-        return reply.status(403).send({ fehler: "Vertrauliches Fremdprotokoll" });
+      const { rolle, sub } = request.benutzer;
+      const protokoll = await prisma.fremdprotokoll.findFirst({
+        where: { id: request.params.id, ...fremdprotokollVertraulichFilter(rolle, sub) },
+      });
+      if (!protokoll) {
+        const vorhanden = await prisma.fremdprotokoll.count({ where: { id: request.params.id } });
+        return vorhanden
+          ? reply.status(403).send({ fehler: "Vertrauliches Fremdprotokoll – nur für Vorsitz, Stellvertretung und Mitglieder des Gremiums" })
+          : reply.status(404).send({ fehler: "Nicht gefunden" });
       }
 
       const encPfad  = path.join(STORAGE, protokoll.speicherpfad, protokoll.verschlPfad);

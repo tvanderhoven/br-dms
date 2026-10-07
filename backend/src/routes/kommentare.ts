@@ -96,10 +96,11 @@ export async function kommentarRouten(app: FastifyInstance): Promise<void> {
         return reply.status(404).send({ fehler: "Kommentar nicht gefunden" });
       }
 
-      // Nur Autor oder ADMIN/VORSITZ kann löschen
+      // Nur Autor oder ADMIN/VORSITZ/STELLVERTRETER kann löschen
       if (kommentar.autorId !== request.benutzer.sub &&
           request.benutzer.rolle !== "ADMIN" &&
-          request.benutzer.rolle !== "VORSITZ") {
+          request.benutzer.rolle !== "VORSITZ" &&
+          request.benutzer.rolle !== "STELLVERTRETER") {
         return reply.status(403).send({ fehler: "Keine Berechtigung zum Löschen" });
       }
 
@@ -178,7 +179,8 @@ export async function kommentarRouten(app: FastifyInstance): Promise<void> {
 
       if (kommentar.autorId !== request.benutzer.sub &&
           request.benutzer.rolle !== "ADMIN" &&
-          request.benutzer.rolle !== "VORSITZ") {
+          request.benutzer.rolle !== "VORSITZ" &&
+          request.benutzer.rolle !== "STELLVERTRETER") {
         return reply.status(403).send({ fehler: "Keine Berechtigung zum Löschen" });
       }
 
@@ -257,7 +259,8 @@ export async function kommentarRouten(app: FastifyInstance): Promise<void> {
 
       if (kommentar.autorId !== request.benutzer.sub &&
           request.benutzer.rolle !== "ADMIN" &&
-          request.benutzer.rolle !== "VORSITZ") {
+          request.benutzer.rolle !== "VORSITZ" &&
+          request.benutzer.rolle !== "STELLVERTRETER") {
         return reply.status(403).send({ fehler: "Keine Berechtigung zum Löschen" });
       }
 

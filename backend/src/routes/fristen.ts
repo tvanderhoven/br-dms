@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest } from "fastify";
 import { AuditAktion, FristStatus, FristTyp, Role } from "@prisma/client";
 import prisma from "../lib/prisma.js";
+import { dokumentVertraulichFilter } from "../lib/vertraulich.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { FristenWorker } from "../workers/fristen.worker.js";
@@ -38,7 +39,6 @@ export async function fristenRouten(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const { von, bis, status } = request.query;
       const { rolle, sub } = request.benutzer;
-      const isEingeschraenkt = rolle === Role.MITGLIED || rolle === Role.ERSATZMITGLIED;
 
       const fristen = await prisma.frist.findMany({
         where: {
@@ -56,9 +56,7 @@ export async function fristenRouten(app: FastifyInstance): Promise<void> {
             {
               dokument: {
                 status: { not: "GELOESCHT" },
-                ...(isEingeschraenkt
-                  ? { OR: [{ vertraulich: false }, { hochgeladenVonId: sub }] }
-                  : {}),
+                ...dokumentVertraulichFilter(rolle, sub),
               },
             },
           ],
