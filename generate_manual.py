@@ -1901,6 +1901,11 @@ def build():
         "Bei einer Wiederherstellung auf einem anderen System muss der ENCRYPTION_KEY in der .env schon "
         "vorher exakt dem des Quellsystems entsprechen, bei verschlüsselten Backups zusätzlich der BACKUP_KEY.",
         "achtung", "Wiederherstellung")
+    pdf.hinweis(
+        "Das Sicherungskonzept zum Erklären im Gremium, das Einrichten der nächtlichen Sicherung auf QNAP "
+        "und Synology, die Wiederherstellung für jeden Schadensfall sowie Vordrucke für Schlüsselblatt und "
+        "Testprotokoll stehen in der eigenen Anleitung BR-DMS_Backup-Anleitung.pdf.", "tipp",
+        "Ausführliche Anleitung")
     pdf.h3("Verschlüsselte Backups")
     pdf.body(
         "Steht ein BACKUP_KEY in der .env (der Einrichtungsassistent erzeugt ihn, sonst openssl rand -hex 32), "
