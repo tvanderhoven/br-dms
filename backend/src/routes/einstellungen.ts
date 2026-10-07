@@ -505,6 +505,34 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
     }
   );
 
+  // ── Fristen-Erinnerungsmail: täglich 7 Uhr an Vorsitz/Stellvertretung ──
+  // Schaltet nur den automatischen Cron-Lauf ab (workers/fristen.worker.ts); der
+  // "Jetzt testen"-Knopf funktioniert bewusst weiterhin, auch wenn hier deaktiviert.
+  app.get(
+    "/fristen-erinnerung",
+    { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      const einstellung = await prisma.systemEinstellung.findUnique({
+        where: { schluessel: "fristen.erinnerungsmail_aktiv" },
+      });
+      return reply.send({ aktiv: einstellung?.wert !== "false" });
+    }
+  );
+
+  app.put<{ Body: { aktiv: boolean } }>(
+    "/fristen-erinnerung",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (request, reply) => {
+      const { aktiv } = request.body;
+      await prisma.systemEinstellung.upsert({
+        where:  { schluessel: "fristen.erinnerungsmail_aktiv" },
+        update: { wert: aktiv ? "true" : "false" },
+        create: { schluessel: "fristen.erinnerungsmail_aktiv", wert: aktiv ? "true" : "false" },
+      });
+      return reply.send({ ok: true, aktiv });
+    }
+  );
+
   // ── GET /system ───────────────────────────────────────────────────
   app.get(
     "/system",
