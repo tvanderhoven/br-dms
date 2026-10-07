@@ -800,7 +800,7 @@ function UploadModal({ onSchliessen, onErfolg }: { onSchliessen: () => void; onE
                   onChange={e => setVertraulich(e.target.checked)}
                   className="rounded border-gray-300 text-[rgb(var(--accent))]"
                 />
-                <span className="text-sm text-gray-700">Vertraulich (nur Vorsitz)</span>
+                <span className="text-sm text-gray-700">Vertraulich (nur Vorsitz und Stellvertretung)</span>
               </label>
             </>
           )}
@@ -992,7 +992,7 @@ function BearbeitenModal({ dokument, onSchliessen, onErfolg }: {
               onChange={e => setVertraulich(e.target.checked)}
               className="rounded border-gray-300 text-[rgb(var(--accent))]"
             />
-            <span className="text-sm text-gray-700">Vertraulich (nur Vorsitz)</span>
+            <span className="text-sm text-gray-700">Vertraulich (nur Vorsitz und Stellvertretung)</span>
           </label>
 
           {/* Volltext-Indikator */}

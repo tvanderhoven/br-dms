@@ -28,6 +28,31 @@ function fremdprotokollHerunterladen(id: string, dateiname: string) {
     .catch(err => alert(err instanceof Error ? err.message : "Datei konnte nicht heruntergeladen werden"));
 }
 
+// Doppelklick: PDF und Bilder im neuen Tab anzeigen wie bei Dokumenten, alles andere (DOCX) herunterladen
+function fremdprotokollOeffnen(p: Fremdprotokoll) {
+  if (p.mimeTyp !== "application/pdf" && !p.mimeTyp.startsWith("image/")) {
+    fremdprotokollHerunterladen(p.id, p.dateiname);
+    return;
+  }
+  const tab = window.open("", "_blank");
+  const token = localStorage.getItem("brdms_token");
+  fetch(api.fremdprotokolle.downloadUrl(p.id), { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+    .then(async r => {
+      if (!r.ok) throw new Error((await r.json().catch(() => null))?.fehler ?? `HTTP ${r.status}`);
+      return r.blob();
+    })
+    .then(blob => {
+      const url = URL.createObjectURL(new Blob([blob], { type: p.mimeTyp }));
+      if (tab) tab.location.href = url;
+      else window.location.href = url;
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    })
+    .catch(err => {
+      if (tab) tab.close();
+      alert(err instanceof Error ? err.message : "Fremdprotokoll konnte nicht geöffnet werden");
+    });
+}
+
 export default function Gremien() {
   const [liste, setListe]   = useState<Gremium[]>([]);
   const [laden, setLaden]   = useState(true);
@@ -254,7 +279,12 @@ function GremiumDetail({
               <span className="text-xs text-gray-400 whitespace-nowrap">{sitzungStatusLabel(e.sitzung.status, e.sitzung.sitzungstyp)}</span>
             </Link>
           ) : (
-            <div key={`f-${e.protokoll.id}`} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
+            <div
+              key={`f-${e.protokoll.id}`}
+              onDoubleClick={() => fremdprotokollOeffnen(e.protokoll)}
+              title="Doppelklick: in neuem Fenster öffnen"
+              className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer select-none"
+            >
               <div className="flex items-center gap-3">
                 <FileText size={16} className="text-gray-400 shrink-0" />
                 <div>
@@ -266,7 +296,7 @@ function GremiumDetail({
                   {e.protokoll.bemerkung && <p className="text-xs text-gray-400 mt-0.5">{e.protokoll.bemerkung}</p>}
                 </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex items-center gap-1 shrink-0" onDoubleClick={ev => ev.stopPropagation()}>
                 <button
                   onClick={() => fremdprotokollHerunterladen(e.protokoll.id, e.protokoll.dateiname)}
                   title="Herunterladen"
@@ -591,7 +621,7 @@ function FremdprotokollModal({
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input type="checkbox" checked={vertraulich} onChange={e => setVertraulich(e.target.checked)}
               className="rounded border-gray-300" />
-            Vertraulich (nur Vorsitz/Admin können es ansehen und herunterladen)
+            Vertraulich (nur Vorsitz, Stellvertretung und Mitglieder dieses Gremiums können es sehen und öffnen)
           </label>
 
           {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}

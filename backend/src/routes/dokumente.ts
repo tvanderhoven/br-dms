@@ -19,6 +19,7 @@ import fs from "node:fs/promises";
 import { decryptFile, encryptFile } from "../lib/encryption.js";
 import path from "node:path";
 import prisma from "../lib/prisma.js";
+import { dokumentVertraulichFilter, darfDokumentSehen } from "../lib/vertraulich.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { verarbeiteDokument } from "../services/dokument-pipeline.service.js";
@@ -40,9 +41,7 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
         where: {
           inboxGelesen: false,
           status: { notIn: [DokumentStatus.GELOESCHT] },
-          ...(rolle === Role.MITGLIED || rolle === Role.ERSATZMITGLIED
-            ? { OR: [{ vertraulich: false }, { hochgeladenVonId: sub }] }
-            : {}),
+          ...dokumentVertraulichFilter(rolle, sub),
         },
         select: {
           id:           true,
@@ -79,9 +78,7 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
       const dokumente = await prisma.dokument.findMany({
         where: {
           status: { notIn: [DokumentStatus.GELOESCHT] },
-          ...(rolle === Role.MITGLIED || rolle === Role.ERSATZMITGLIED
-            ? { OR: [{ vertraulich: false }, { hochgeladenVonId: sub }] }
-            : {}),
+          ...dokumentVertraulichFilter(rolle, sub),
           ...(kategorie && Object.values(Kategorie).includes(kategorie as Kategorie)
             ? { kategorie: kategorie as Kategorie }
             : {}),
@@ -120,10 +117,8 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
       const dokumente = await prisma.dokument.findMany({
         where: {
           status: { notIn: [DokumentStatus.GELOESCHT] },
-          // Vertrauliche Dokumente nur für VORSITZ und ADMIN
-          ...(rolle === Role.MITGLIED || rolle === Role.ERSATZMITGLIED
-            ? { OR: [{ vertraulich: false }, { hochgeladenVonId: sub }] }
-            : {}),
+          // Vertrauliche Dokumente: Vorsitz, Stellvertretung, Admin oder wer sie hochgeladen hat
+          ...dokumentVertraulichFilter(rolle, sub),
         },
         select: {
           id:            true,
@@ -223,8 +218,7 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
         return reply.status(404).send({ fehler: "Nicht gefunden" });
       }
 
-      const rolle = request.benutzer.rolle;
-      if (dokument.vertraulich && rolle !== Role.VORSITZ && rolle !== Role.ADMIN) {
+      if (!darfDokumentSehen(dokument, request.benutzer.rolle, request.benutzer.sub)) {
         return reply.status(403).send({ fehler: "Vertrauliches Dokument" });
       }
 
@@ -255,8 +249,7 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
         return reply.status(404).send({ fehler: "Nicht gefunden" });
       }
 
-      const rolle = request.benutzer.rolle;
-      if (dokument.vertraulich && rolle !== Role.VORSITZ && rolle !== Role.ADMIN) {
+      if (!darfDokumentSehen(dokument, request.benutzer.rolle, request.benutzer.sub)) {
         return reply.status(403).send({ fehler: "Vertrauliches Dokument" });
       }
 
@@ -391,8 +384,7 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
         return reply.status(415).send({ fehler: "Nur PDF-Vorschau unterstützt" });
       }
 
-      const rolle = request.benutzer.rolle;
-      if (dokument.vertraulich && rolle !== Role.VORSITZ && rolle !== Role.ADMIN) {
+      if (!darfDokumentSehen(dokument, request.benutzer.rolle, request.benutzer.sub)) {
         return reply.status(403).send({ fehler: "Vertrauliches Dokument" });
       }
 
@@ -753,8 +745,7 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
         return reply.status(404).send({ fehler: "Nicht gefunden" });
       }
 
-      const rolle = request.benutzer.rolle;
-      if (dokument.vertraulich && rolle !== Role.VORSITZ && rolle !== Role.ADMIN) {
+      if (!darfDokumentSehen(dokument, request.benutzer.rolle, request.benutzer.sub)) {
         return reply.status(403).send({ fehler: "Vertrauliches Dokument" });
       }
 

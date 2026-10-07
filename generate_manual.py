@@ -829,8 +829,9 @@ def build():
     pdf.body(
         "Ein Klick auf eine Karte öffnet das Gremium: oben Rechtsgrundlage und Beschreibung (Stift zum "
         "Bearbeiten), darunter die Mitglieder und eine gemeinsame Zeitleiste aus Fremdprotokollen und "
-        "eigenen Sitzungen des Gremiums, neueste zuerst. Fremdprotokolle lassen sich dort herunterladen, "
-        "bearbeiten und löschen; ein Schloss kennzeichnet vertrauliche."
+        "eigenen Sitzungen des Gremiums, neueste zuerst. Ein Doppelklick öffnet ein Fremdprotokoll in "
+        "einem neuen Fenster (PDF und Bilder; DOCX wird heruntergeladen). Daneben lässt es sich "
+        "herunterladen, bearbeiten und löschen; ein Schloss kennzeichnet vertrauliche."
     )
     pdf.bild("gremium-detail", "Gremium mit Mitgliedern und Fremdprotokollen", hoehe_anteil=0.55)
     pdf.h3("Fremdprotokoll")
@@ -838,7 +839,8 @@ def build():
         "Für Gremien, die der Betriebsrat nicht selbst im System führt, wird ein fertiges Protokoll als "
         "Fremdprotokoll abgelegt – eine hochgeladene Datei mit Gremium, Datum und Titel, ohne eigene "
         "Tagesordnungspunkte oder Anwesenheitsliste. Eine Markierung als vertraulich beschränkt Ansicht "
-        "und Download auf Vorsitz und Admin, etwa für Wirtschaftsausschuss-Protokolle. Hochgeladen wird über "
+        "und Download auf Vorsitz, Stellvertretung, Admin und die Mitglieder dieses Gremiums – etwa für "
+        "Wirtschaftsausschuss-Protokolle, die nur dessen Mitglieder sehen sollen. Hochgeladen wird über "
         "„Fremdprotokoll hochladen“ – PDF, JPG, PNG oder DOCX, mit Datum, Titel und optionaler Bemerkung."
     )
     pdf.h3("Mitglieder")

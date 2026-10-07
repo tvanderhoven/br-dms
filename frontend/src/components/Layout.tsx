@@ -79,7 +79,11 @@ function GlobaleSuche() {
 
   return (
     <div className="relative flex-1">
-      <div className="flex items-center rounded-lg px-2 py-1.5 gap-2" style={{ backgroundColor: "rgb(var(--sidebar-active) / 0.5)" }}>
+      {/* Leicht aufgehellt + feiner Rand, damit das Feld im Kopfbalken als Suchfeld erkennbar ist;
+          aus der Textfarbe abgeleitet, passt so zu hellen und dunklen Farbschemata */}
+      <div
+        className="flex items-center rounded-lg px-2.5 py-1.5 gap-2 border border-[rgb(var(--sidebar-text)/0.18)] bg-[rgb(var(--sidebar-text)/0.08)] focus-within:border-[rgb(var(--sidebar-text)/0.4)] focus-within:bg-[rgb(var(--sidebar-text)/0.12)] transition-colors"
+      >
         <Search className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "rgb(var(--sidebar-text-muted))" }} />
         <input
           type="text"
@@ -96,7 +100,7 @@ function GlobaleSuche() {
         )}
       </div>
       {offen && (
-        <div className="absolute left-0 top-full mt-1 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-96 overflow-y-auto min-w-[300px]">
+        <div className="absolute left-0 top-full mt-1 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-96 overflow-y-auto w-full max-w-2xl min-w-[300px]">
           {laden ? (
             <p className="text-xs text-gray-400 px-3 py-2">Suche…</p>
           ) : !hatErgebnisse ? (
@@ -710,7 +714,7 @@ export default function Layout() {
           <NavGruppe
             titel="Verwaltung"
             gruppenKey="verwaltung"
-            sichtbar={meineRolle === "ADMIN" || meineRolle === "VORSITZ"}
+            sichtbar={meineRolle === "ADMIN" || meineRolle === "VORSITZ" || meineRolle === "STELLVERTRETER"}
             zu={!!navGruppenZu.verwaltung}
             onToggle={navGruppeUmschalten}
           >
@@ -757,7 +761,7 @@ export default function Layout() {
 
       {/* Hauptbereich */}
       <main className="flex-1 overflow-auto">
-        {/* Kopfbalken: Hamburger nur mobil, Suche + Einstellungen + Abmelden immer */}
+        {/* Kopfbalken: Hamburger nur mobil, Suche über die volle Breite, Einstellungen + Abmelden am rechten Rand */}
         <div
           className="flex items-center gap-3 px-4 py-2 sticky top-0 z-10"
           style={{ background: "rgb(var(--sidebar-bg))", borderBottom: "1px solid rgba(255,255,255,0.08)" }}
@@ -766,7 +770,7 @@ export default function Layout() {
             <Menu size={20} />
           </button>
           <span className="md:hidden font-semibold text-sm shrink-0" style={{ color: "rgb(var(--sidebar-text))" }}>BR-DMS</span>
-          <div className="flex-1 max-w-3xl">
+          <div className="flex-1 min-w-0">
             {meineRolle !== "JAV" && meineRolle !== "SBV" && !ohneInhalt && <GlobaleSuche />}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">

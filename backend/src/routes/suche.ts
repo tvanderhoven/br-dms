@@ -14,6 +14,7 @@
 
 import { FastifyInstance, FastifyRequest } from "fastify";
 import prisma from "../lib/prisma.js";
+import { dokumentVertraulichFilter } from "../lib/vertraulich.js";
 import { authenticate } from "../middleware/auth.js";
 import { DokumentStatus, Role } from "@prisma/client";
 
@@ -32,10 +33,7 @@ export async function sucheRouten(app: FastifyInstance): Promise<void> {
 
       const suchbegriff = q.trim();
 
-      const vertraulichFilter =
-        rolle === Role.MITGLIED || rolle === Role.ERSATZMITGLIED
-          ? { OR: [{ vertraulich: false }, { hochgeladenVonId: sub }] }
-          : {};
+      const vertraulichFilter = dokumentVertraulichFilter(rolle, sub);
 
       const dokumente = await prisma.dokument.findMany({
         where: {
