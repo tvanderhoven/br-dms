@@ -501,6 +501,7 @@ def build():
             ["Mitglied", "Ordentliche Mitglieder", "Dokumente, TOPs, Aufgaben, Personal; keine vertraulichen Dokumente anderer"],
             ["Ersatzmitglied", "Nachrückende", "Lesend; bei aktiver Vertretung wie ein Mitglied"],
             ["JAV", "Jugend- und Auszubildendenvertretung", "Nur Lesezugriff auf Sitzungen, vertrauliche TOPs ausgeblendet"],
+            ["SBV", "Schwerbehindertenvertretung (§ 178 SGB IX)", "Wie JAV: nur Sitzungen und Protokolle lesen, ohne vertrauliche TOPs"],
             ["Admin", "Technische Betreuung", "Alle Rechte inkl. Module – aber kein Sitzungsmitglied; "
                       "auf Wunsch ohne Zugriff auf Inhalte (Kapitel 9.2)"],
         ],
@@ -668,7 +669,7 @@ def build():
                 "In der Karte „Einladung per E-Mail“ verschickt der Vorsitz die Einladung mit der Tagesordnung als PDF an "
                 "alle Geladenen – an deren Adresse für Einladungen (z. B. br-…), sonst an die Hauptadresse. Wer später "
                 "nachgeladen wird, bekommt sie mit „An Neue senden“. Jeder Versand wird mit Zeitpunkt, Adresse und "
-                "Ergebnis protokolliert – das ist der Nachweis der Ladung. Die JAV erhält keine vertraulichen TOPs. "
+                "Ergebnis protokolliert – das ist der Nachweis der Ladung. JAV und SBV erhalten keine vertraulichen TOPs. "
                 "Vor dem Senden öffnet sich ein Fenster für einen zusätzlichen Text, etwa den Link zu einem "
                 "Online-Meeting; er wird beim nächsten Versand für dieselbe Sitzung vorgeschlagen.")
     pdf.bild("sitzung-einladung", "Karte „Einladung per E-Mail“ mit Versandstatus je Geladenem", hoehe_anteil=0.6)
@@ -1119,7 +1120,27 @@ def build():
         "hinterlegte PDF ist verknüpft und im Volltext durchsuchbar."
     )
     pdf.bild("betriebsvereinbarungen", "Register der Betriebsvereinbarungen", hoehe_anteil=0.4)
-    pdf.h2("7.5  Schulungen und Qualifikationsmatrix")
+    pdf.h2("7.5  Geschäftsordnung")
+    pdf.body(
+        "Nach § 36 BetrVG gibt sich der Betriebsrat eine schriftliche Geschäftsordnung – meist zu Beginn "
+        "der Amtszeit, mit Regeln zu Einladungsfrist, Sitzungsrhythmus, Video-Teilnahme oder Protokoll. "
+        "Unter Dokumente & Wissen → Geschäftsordnung liegen alle Fassungen mit Beschlussdatum, Bemerkung "
+        "und verknüpftem PDF. Die Fassung mit dem jüngsten Beschlussdatum ist als „Aktuell gültig“ "
+        "markiert, ältere bleiben als Nachweis erhalten."
+    )
+    pdf.schritt(1, "Neue Fassung erfassen",
+                "Das PDF der beschlossenen Geschäftsordnung zuerst unter Dokumente hochladen (Kategorie "
+                "„Geschäftsordnung“, 10 Jahre Aufbewahrung).")
+    pdf.schritt(2, "Im Register eintragen",
+                "„Neue Fassung“: Beschlussdatum, kurze Bemerkung (z. B. was sich geändert hat) und das "
+                "Dokument auswählen. Die bisherige Fassung rückt automatisch nach unten.")
+    pdf.body(
+        "Lesen dürfen alle Mitglieder; anlegen, ändern und löschen nur Vorsitz und Stellvertretung. "
+        "Ob der Beschluss wirksam zustande kam (Mehrheit der Mitglieder, § 36 BetrVG), prüft BR-DMS "
+        "nicht – das Register ist reine Ablage."
+    )
+    pdf.bild("geschaeftsordnung", "Geschäftsordnung mit aktueller und abgelöster Fassung", hoehe_anteil=0.4)
+    pdf.h2("7.6  Schulungen und Qualifikationsmatrix")
     pdf.body(
         "Schulungstermine werden mit Datum, Ort, Anbieter, Kosten, Status und Teilnehmenden erfasst. "
         "Daraus berechnet BR-DMS laufend die Qualifikationsmatrix – wer welche Qualifikation hat und wann "
@@ -1379,29 +1400,33 @@ def build():
     )
     j, n, v = "Ja", "–", "Vertr."
     pdf.tabelle(
-        ["Berechtigung", "Vorsitz", "Stellv.", "Mitglied", "Ersatz", "JAV", "Admin"],
+        ["Berechtigung", "Vorsitz", "Stellv.", "Mitglied", "Ersatz", "JAV", "SBV", "Admin"],
         [
-            ["Dokumente lesen", j, j, j, j, n, j],
-            ["Dokumente hochladen und bearbeiten", j, j, j, v, n, j],
-            ["Vertrauliche Dokumente anderer", j, j, n, n, n, j],
-            ["Eingang bearbeiten", j, j, n, n, n, j],
-            ["Sitzungen und Protokolle lesen", j, j, j, j, j, j],
-            ["Vertrauliche TOPs sehen", j, j, j, j, n, j],
-            ["TOPs bearbeiten", j, j, j, v, n, j],
-            ["Sitzung anlegen, fixieren, finalisieren", j, j, n, n, n, j],
-            ["Beschlüsse erfassen und finalisieren", j, j, n, n, n, j],
-            ["Eingruppierung bearbeiten", j, j, j, v, n, j],
-            ["Betriebsvereinbarungen anlegen", j, j, n, n, n, j],
-            ["Gremien, Mitglieder und Fremdprotokolle verwalten", j, j, n, n, n, j],
-            ["Benutzer verwalten, Design ändern", j, j, n, n, n, j],
-            ["Audit-Log einsehen", j, j, n, n, n, j],
-            ["Module ein-/ausschalten", n, n, n, n, n, j],
+            ["Dokumente lesen", j, j, j, j, n, n, j],
+            ["Dokumente hochladen und bearbeiten", j, j, j, v, n, n, j],
+            ["Vertrauliche Dokumente anderer", j, j, n, n, n, n, j],
+            ["Eingang bearbeiten", j, j, n, n, n, n, j],
+            ["Sitzungen und Protokolle lesen", j, j, j, j, j, j, j],
+            ["Vertrauliche TOPs sehen", j, j, j, j, n, n, j],
+            ["TOPs bearbeiten", j, j, j, v, n, n, j],
+            ["Sitzung anlegen, fixieren, finalisieren", j, j, n, n, n, n, j],
+            ["Beschlüsse erfassen und finalisieren", j, j, n, n, n, n, j],
+            ["Eingruppierung bearbeiten", j, j, j, v, n, n, j],
+            ["Betriebsvereinbarungen anlegen", j, j, n, n, n, n, j],
+            ["Geschäftsordnung pflegen", j, j, n, n, n, n, j],
+            ["Gremien, Mitglieder und Fremdprotokolle verwalten", j, j, n, n, n, n, j],
+            ["Benutzer verwalten, Design ändern", j, j, n, n, n, n, j],
+            ["Audit-Log einsehen", j, j, n, n, n, n, j],
+            ["Module ein-/ausschalten", n, n, n, n, n, n, j],
         ],
-        (64, 18, 17, 18, 17, 14, 17),
+        (57, 17, 16, 17, 16, 13, 13, 16),
     )
     pdf.body(
         "„Vertr.“ = nur solange das Ersatzmitglied aktiv als Vertretung eingetragen ist, sonst lesend. "
-        "Die JAV-Rolle darf ausschließlich Sitzungen und Protokolle lesen."
+        "Die Rollen JAV und SBV dürfen ausschließlich Sitzungen und Protokolle lesen. Beide nehmen an "
+        "Sitzungen beratend teil (§ 67 BetrVG, § 178 Abs. 4 SGB IX), werden automatisch geladen, in "
+        "Einladung, Unterschriftenliste und Sitzungspaket als eigene Gruppe geführt und sehen in der "
+        "Sidebar nur „Sitzungen“."
     )
     pdf.hinweis(
         "Admin gehört nicht zum Gremium: Er taucht nicht auf Anwesenheitslisten auf und nimmt nicht an "
@@ -1783,8 +1808,8 @@ def build():
     pdf.h2("13.3  Demo-Instanz")
     pdf.body(
         "Für Vorführungen startet ein Befehl eine komplett getrennte Instanz mit erfundenen Daten: "
-        "„Nordwerk Maschinenbau GmbH“ mit rund 250 Beschäftigten, 9er-Gremium, drei Ersatzmitgliedern und "
-        "JAV, acht Sitzungen, vier weiteren Gremien mit Fremdprotokollen, verschlüsselten Beispiel-PDFs, "
+        "„Nordwerk Maschinenbau GmbH“ mit rund 250 Beschäftigten, 9er-Gremium, drei Ersatzmitgliedern, "
+        "JAV und SBV, acht Sitzungen, vier weiteren Gremien mit Fremdprotokollen, verschlüsselten Beispiel-PDFs, "
         "Fristen, Gehaltshistorie und mehr. Mit Internetverbindung werden auch die Gesetzestexte geladen. "
         "Alle Daten werden relativ zum aktuellen Datum erzeugt. Die Abbildungen in diesem Handbuch stammen "
         "aus dieser Demo."
@@ -1836,7 +1861,7 @@ def build():
     pdf.tabelle(
         ["Feld", "Werte"],
         [
-            ["Rolle", "VORSITZ, STELLVERTRETER, MITGLIED, ERSATZMITGLIED, JAV, ADMIN"],
+            ["Rolle", "VORSITZ, STELLVERTRETER, MITGLIED, ERSATZMITGLIED, JAV, SBV, ADMIN"],
             ["Sitzungsstatus", "ENTWURF, TAGESORDNUNG_FIXIERT, PROTOKOLL_ENTWURF, PROTOKOLL_FINAL, ABGESAGT"],
             ["TOP-Status", "OFFEN, BESCHLOSSEN, ABGELEHNT, VERTAGT, ZUR_KENNTNIS"],
             ["Dokumentstatus", "AKTIV, ARCHIVIERT, LOESCHVORMERKUNG, GELOESCHT"],
