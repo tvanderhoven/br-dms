@@ -407,9 +407,9 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
 
   // ── GET /backups – Übersicht der backup.sh-Sicherungen (nur lesend) ─
   // BACKUP_PATH wird read-only in den Container gemountet (siehe docker-compose.yml).
-  // backup.sh legt je Lauf ein Paar db_<ts>.sql.gz + storage_<ts>.tar.gz an.
+  // backup.sh legt je Lauf ein Paar db_<ts>.sql.gz + storage_<ts>.tar.gz an, mit BACKUP_KEY jeweils mit Endung .enc.
   const BACKUP_PATH = process.env.BACKUP_PATH ?? "/data/backups";
-  const BACKUP_DATEI_REGEX = /^(db|storage)_(\d{8}_\d{6})\.(?:sql\.gz|tar\.gz)$/;
+  const BACKUP_DATEI_REGEX = /^(db|storage)_(\d{8}_\d{6})\.(?:sql\.gz|tar\.gz)(\.enc)?$/;
 
   app.get(
     "/backups",
@@ -417,18 +417,19 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
     async (_request: FastifyRequest, reply: FastifyReply) => {
       try {
         const dateinamen = await fs.readdir(BACKUP_PATH);
-        const saetze = new Map<string, { zeitpunkt: Date; groesseBytes: number; hatDb: boolean; hatStorage: boolean }>();
+        const saetze = new Map<string, { zeitpunkt: Date; groesseBytes: number; hatDb: boolean; hatStorage: boolean; unverschluesselt: boolean }>();
 
         for (const name of dateinamen) {
           const treffer = name.match(BACKUP_DATEI_REGEX);
           if (!treffer) continue;
-          const [, art, ts] = treffer;
+          const [, art, ts, enc] = treffer;
           const zeitpunkt = new Date(
             `${ts.slice(0, 4)}-${ts.slice(4, 6)}-${ts.slice(6, 8)}T${ts.slice(9, 11)}:${ts.slice(11, 13)}:${ts.slice(13, 15)}`
           );
           const { size } = await fs.stat(path.join(BACKUP_PATH, name));
 
-          const eintrag = saetze.get(ts) ?? { zeitpunkt, groesseBytes: 0, hatDb: false, hatStorage: false };
+          const eintrag = saetze.get(ts) ?? { zeitpunkt, groesseBytes: 0, hatDb: false, hatStorage: false, unverschluesselt: false };
+          if (!enc) eintrag.unverschluesselt = true;
           eintrag.groesseBytes += size;
           if (art === "db") eintrag.hatDb = true;
           if (art === "storage") eintrag.hatStorage = true;
@@ -444,6 +445,7 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
             zeitpunkt:    s.zeitpunkt.toISOString(),
             groesseBytes: s.groesseBytes,
             vollstaendig: s.hatDb && s.hatStorage,
+            verschluesselt: !s.unverschluesselt,
           })),
         });
       } catch {

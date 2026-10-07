@@ -142,7 +142,7 @@ def main():
     note("Felder ohne Vorschlag (z. B. Passwörter) müssen ausgefüllt werden.")
     note("Bei Ja/Nein-Fragen gilt mit Enter der Großbuchstabe: [J/n] = Ja, [j/N] = Nein.")
     print()
-    warn("ENCRYPTION_KEY  sichern! Ohne ihn sind alle Dokumente verloren.")
+    warn("ENCRYPTION_KEY und BACKUP_KEY sichern! Ohne sie sind Dokumente und Backups verloren.")
     print()
 
     # Bestehende .env / nas.env als Quelle für Voreinstellungen
@@ -253,6 +253,7 @@ def main():
 
     existing_jwt = defaults.get("JWT_SECRET", "")
     existing_enc = defaults.get("ENCRYPTION_KEY", "")
+    existing_bak = defaults.get("BACKUP_KEY", "")
     existing_dbpw = defaults.get("POSTGRES_PASSWORD", "")
 
     def resolve_hex_secret(name, existing):
@@ -283,6 +284,10 @@ def main():
     jwt_secret     = resolve_hex_secret("JWT_SECRET", existing_jwt)
     print()
     encryption_key = resolve_hex_secret("ENCRYPTION_KEY", existing_enc)
+    print()
+    note("BACKUP_KEY verschlüsselt die Backups von backup.sh (Datenbank + Dokumente),")
+    note("damit eine Kopie auch bei Dritten liegen kann, ohne lesbar zu sein.")
+    backup_key = resolve_hex_secret("BACKUP_KEY", existing_bak)
 
     print()
     warn(c("ENCRYPTION_KEY separat sichern (Passwortmanager o.ä.)!", BOLD))
@@ -428,6 +433,7 @@ def main():
         ("Zertifikat für",     zert_namen),
         ("JWT_SECRET",         jwt_secret[:16] + "…"),
         ("ENCRYPTION_KEY",     encryption_key[:16] + "…"),
+        ("BACKUP_KEY",         backup_key[:16] + "…"),
         ("POSTGRES_PASSWORD",  db_password[:6] + "…"),
         ("Admin-E-Mail",       admin_email),
         ("Admin-Passwort",     "●●●●●●●●"),
@@ -501,6 +507,10 @@ JWT_SECRET={jwt_secret}
 # AES-256-Schlüssel – BACKUP PFLICHT!
 # Verlust = alle Dokumente dauerhaft unlesbar
 ENCRYPTION_KEY={encryption_key}
+
+# Verschlüsselt die Backups von backup.sh – nur auf dem Host gelesen, nicht im Container.
+# Ausgedruckt wegschließen: ohne ihn sind die Backups nicht wiederherstellbar.
+BACKUP_KEY={backup_key}
 
 # Intern im Container – nicht ändern
 STORAGE_PATH=/data/storage
@@ -600,7 +610,7 @@ PGID={pgid}
         print()
 
     print()
-    warn(c("Jetzt den ENCRYPTION_KEY aus der .env in einen Passwort-Manager kopieren!", BOLD))
+    warn(c("Jetzt ENCRYPTION_KEY und BACKUP_KEY aus der .env ausdrucken bzw. in einen Passwort-Manager kopieren!", BOLD))
     note("Probleme beim Start? Log ansehen mit: " + docker_cmd + " compose logs backend")
     print()
 

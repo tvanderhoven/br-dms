@@ -1480,24 +1480,103 @@ def build():
         "Dokumente nach Ablauf der Aufbewahrungsfrist."
     )
     pdf.h2("11.2  Sicherheit")
+    pdf.body(
+        "BR-DMS schützt die Daten in mehreren Schichten: Netz und Container, Anmeldung und Rechte in der "
+        "Anwendung, Verschlüsselung der Daten und verschlüsselte Backups. Dazu kommt, was organisatorisch "
+        "geregelt sein muss – denn wer den Server selbst verwaltet, steht technisch über jeder Anwendung."
+    )
+
+    pdf.h3("Netz und Container")
     pdf.tabelle(
         ["Mechanismus", "Umsetzung"],
         [
-            ["Verschlüsselung", "AES-256-GCM je Dokument mit eigenem, per scrypt abgeleitetem Schlüssel; Prüfsumme SHA-256"],
-            ["Transport", "Ausschließlich HTTPS über den Proxy"],
-            ["Anmeldung", "JWT, 24 Stunden („eingeloggt bleiben“) bzw. 1 Stunde; Begrenzung von Anmeldeversuchen"],
-            ["Passwörter", "scrypt-Hash mit Salt, mindestens 8 Zeichen"],
-            ["Berechtigungen", "Rollenprüfung in jeder API-Route"],
-            ["Protokolle", "Unveränderliche Versionen mit SHA-256-Zeitstempel"],
-            ["Audit-Trail", "Über 30 Aktionstypen mit Zeitpunkt, Person, IP und Browser"],
-            ["Löschung", "Dateien werden vor dem Löschen überschrieben"],
+            ["Ein einziger Zugang", "Nur der Proxy (Nginx) hat Ports zum Host: HTTPS (Standard 8443) und HTTP, das "
+             "ausschließlich auf HTTPS umleitet. Frontend, Backend und Datenbank haben keine eigenen Ports"],
+            ["Datenbank abgeschottet", "PostgreSQL ist nur im internen Docker-Netz von BR-DMS erreichbar, "
+             "nicht vom NAS oder aus dem Firmennetz"],
+            ["Transport", "TLS 1.2 und 1.3; eigenes Zertifikat (selbstsigniert oder von der Firmen-CA, Kapitel 12.4)"],
+            ["Intranet-Betrieb", "Gedacht für das interne Netz; eine Freigabe ins Internet ist nicht vorgesehen"],
+            ["Ohne Root-Rechte", "Das Backend läuft als eigener, nicht privilegierter Benutzer (PUID/PGID)"],
+            ["Nur lesend eingebunden", "Zertifikate, Proxy-Konfiguration und Backup-Ordner sind im Container "
+             "schreibgeschützt eingebunden"],
         ],
-        (34, 136),
+        (40, 130),
     )
+
+    pdf.h3("Anmeldung und Rechte")
+    pdf.tabelle(
+        ["Mechanismus", "Umsetzung"],
+        [
+            ["Passwörter", "scrypt-Hash mit Salt, mindestens 8 Zeichen; Vergleich in konstanter Zeit"],
+            ["Anmeldeversuche", "Höchstens 10 Versuche in 10 Minuten, danach gesperrt"],
+            ["Sitzungsdauer", "Token 24 Stunden („eingeloggt bleiben“) bzw. 1 Stunde; automatisches Abmelden "
+             "nach Inaktivität einstellbar (Kapitel 9.7)"],
+            ["Herkunft", "Die Schnittstelle nimmt Anfragen nur von der eigenen Adresse (APP_URL) an"],
+            ["Rollen", "Jede Schnittstelle prüft die Rolle auf dem Server, nicht nur die Oberfläche (Kapitel 10)"],
+            ["Vertrauliches", "Eine zentrale Regel: Vorsitz, Stellvertretung und Admin sehen alles Vertrauliche, "
+             "andere nur eigene Uploads bzw. Fremdprotokolle ihres Gremiums"],
+            ["JAV und SBV", "Nur Sitzungen und Protokolle, vertrauliche TOPs ausgeblendet – zentral gesperrt"],
+            ["Admin ohne Inhalte", "Betreut die IT die Technik, kann der Vorsitz den Admin auf die Verwaltung "
+             "beschränken (Kapitel 9.2)"],
+            ["Sichtschutz", "Personal- und Gehaltslisten werden beim Fensterwechsel verdeckt (Kapitel 7)"],
+            ["Audit-Log", "Über 50 Aktionstypen mit Zeitpunkt, Person, IP-Adresse und Browser (Kapitel 9.10)"],
+        ],
+        (40, 130),
+    )
+
+    pdf.h3("Daten")
+    pdf.tabelle(
+        ["Mechanismus", "Umsetzung"],
+        [
+            ["Dokumente", "Jede Datei einzeln mit AES-256-GCM verschlüsselt, mit eigenem, per scrypt aus dem "
+             "ENCRYPTION_KEY abgeleiteten Schlüssel; GCM erkennt Manipulationen, dazu eine SHA-256-Prüfsumme"],
+            ["Fremdprotokolle, Scans", "Ebenso verschlüsselt wie Dokumente"],
+            ["Protokolle", "Finalisierte Versionen sind unveränderlich und tragen eine SHA-256-Prüfsumme"],
+            ["Löschen", "Aufbewahrungsfristen je Kategorie löschen automatisch; Dateien werden vor dem "
+             "Löschen überschrieben"],
+            ["Datenbank", "Metadaten, Protokolltexte, Personaldaten und der Suchtext der Dokumente liegen "
+             "in der Datenbank unverschlüsselt – geschützt durch das abgeschottete Netz und die Rechte auf "
+             "dem NAS; zusätzlich ist die Volume-Verschlüsselung des NAS möglich"],
+        ],
+        (40, 130),
+    )
+
+    pdf.h3("Backups")
+    pdf.tabelle(
+        ["Mechanismus", "Umsetzung"],
+        [
+            ["Verschlüsselt", "Mit BACKUP_KEY verschlüsselt backup.sh Datenbank-Dump und Dokumenten-Archiv "
+             "komplett (AES-256, PBKDF2), ohne Klartext-Zwischendatei (Kapitel 13.2)"],
+            ["Kopie bei Dritten", "So verschlüsselt kann eine Kopie z. B. bei der IT liegen, ohne dass sie "
+             "lesbar ist – den Schlüssel hat nur der Betriebsrat"],
+            ["Prüfung", "restore.sh prüft den Schlüssel, bevor etwas überschrieben wird; Einstellungen → "
+             "System warnt bei unverschlüsselten Backups"],
+            ["Aufbewahrung", "30 Tage rollierend auf dem NAS"],
+        ],
+        (40, 130),
+    )
+    pdf.bullets([
+        "RAID ist kein Backup – RAID 1 schützt nur gegen den Ausfall einer Platte. Löschen, Verschlüsselungstrojaner, "
+        "ein Defekt des NAS oder ein Brand treffen beide Platten. Deshalb: Snapshots auf dem NAS und eine "
+        "verschlüsselte Kopie an einem anderen Ort",
+        "Wiederherstellung üben – Ein Backup gilt erst als Backup, wenn es einmal auf einem anderen System "
+        "eingespielt wurde",
+    ])
+
+    pdf.h3("Organisatorisch")
+    pdf.bullets([
+        "Schlüssel – ENCRYPTION_KEY und BACKUP_KEY ausdrucken und außerhalb des NAS verschlossen aufbewahren. "
+        "Ohne sie sind Dokumente bzw. Backups nicht wiederherstellbar",
+        "Server-Administration – Die Schlüssel stehen in der .env auf dem NAS. Wer Administrator des NAS ist, "
+        "kommt technisch an alle Daten. Wer das ist, sollte schriftlich geregelt sein (z. B. Vereinbarung mit "
+        "der IT, Vier-Augen-Prinzip)",
+        "Freigaben auf dem NAS – Den Datenordner von BR-DMS nicht als Netzwerkfreigabe anbieten; nur der "
+        "Watch-Folder braucht eine Freigabe, und zwar nur für die Mitglieder",
+        "Updates – Neue Stände zuerst in der Demo prüfen, dann einspielen (Kapitel 13.1)",
+    ])
     pdf.hinweis(
-        "Der ENCRYPTION_KEY entschlüsselt alle Dokumente. Geht er verloren, sind die Dokumente auch mit "
-        "vollständigem Backup nicht mehr lesbar. Bewahren Sie ihn getrennt und sicher auf, z. B. in einem "
-        "Passwortmanager.", "wichtig", "Schlüssel sichern")
+        "In Arbeit: Anmeldung mit zweitem Faktor (Einmalcode per Authenticator-App) und automatische Tests, "
+        "die vor jedem Update die Rechte aller Rollen prüfen.", "info", "Geplant")
 
     # 12 ────────────────────────────────────────────────────────────
     pdf.h1("12  Installation")
@@ -1812,7 +1891,7 @@ def build():
         "älter als 30 Tage werden entfernt. restore.sh führt interaktiv durch die Wiederherstellung und "
         "verlangt vor dem Überschreiben eine ausdrückliche Bestätigung."
     )
-    pdf.code("sudo bash <DATA_PATH>/backup.sh     # Ergebnis: db_<Zeit>.sql.gz, storage_<Zeit>.tar.gz\n"
+    pdf.code("sudo bash <DATA_PATH>/backup.sh     # db_<Zeit>.sql.gz.enc, storage_<Zeit>.tar.gz.enc\n"
              "sudo bash <DATA_PATH>/restore.sh    # interaktiv")
     pdf.body(
         "Für tägliche Sicherungen den Aufgabenplaner der NAS (z. B. 02:00 Uhr, Benutzer root) bzw. cron "
@@ -1820,7 +1899,27 @@ def build():
     )
     pdf.hinweis(
         "Bei einer Wiederherstellung auf einem anderen System muss der ENCRYPTION_KEY in der .env schon "
-        "vorher exakt dem des Quellsystems entsprechen.", "achtung", "Wiederherstellung")
+        "vorher exakt dem des Quellsystems entsprechen, bei verschlüsselten Backups zusätzlich der BACKUP_KEY.",
+        "achtung", "Wiederherstellung")
+    pdf.h3("Verschlüsselte Backups")
+    pdf.body(
+        "Steht ein BACKUP_KEY in der .env (der Einrichtungsassistent erzeugt ihn, sonst openssl rand -hex 32), "
+        "verschlüsselt backup.sh Datenbank-Dump und Dokumenten-Archiv komplett (AES-256, Schlüssel per PBKDF2) – "
+        "ohne unverschlüsselte Zwischendatei. Das ist wichtig, weil der Datenbank-Dump sonst Protokolle, "
+        "Beschlüsse, Personal- und Gehaltsdaten und den Suchtext der Dokumente im Klartext enthält. Nur so "
+        "verschlüsselt sollte eine Kopie das NAS verlassen, etwa zur Sicherung bei der IT: Sie kann die "
+        "Dateien aufbewahren, aber nicht lesen. Ohne BACKUP_KEY sichert das Skript weiter unverschlüsselt "
+        "und warnt; Einstellungen → System zeigt das ebenfalls an."
+    )
+    pdf.bullets([
+        "Schlüssel sichern – ENCRYPTION_KEY und BACKUP_KEY ausdrucken und außerhalb des NAS verschlossen aufbewahren",
+        "Wiederherstellen – restore.sh erkennt die Endung .enc und prüft den Schlüssel, bevor etwas überschrieben wird",
+        "Kopie außer Haus – RAID schützt nur gegen den Ausfall einer Platte, nicht gegen Löschen, Verschlüsselungstrojaner, "
+        "Defekt oder Brand des NAS; deshalb zusätzlich eine Kopie an einem anderen Ort und Snapshots auf dem NAS",
+    ])
+    pdf.code("# Notfall: von Hand entschlüsseln (ohne restore.sh)\n"
+             "openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -pass pass:<BACKUP_KEY> \\\n"
+             "  -in db_<Zeit>.sql.gz.enc | gunzip > db.sql")
 
     pdf.h2("13.3  Demo-Instanz")
     pdf.body(
