@@ -24,6 +24,19 @@ damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 
 ## Als Nächstes
 
+**Entschieden (07.10.2026), in dieser Reihenfolge:**
+
+| # | Paket | Größe | Inhalt |
+|---|---|---|---|
+| A | Tests für Rechte und Rollen | M | Automatische Tests (Backend), die je Rolle prüfen, was sichtbar und erlaubt ist – vertrauliche Dokumente/Fremdprotokolle, JAV/SBV-Sperre, Admin ohne Inhaltszugriff, Stellvertretung = Vorsitz. Laufen vor jedem Deploy. Anlass: Stellvertretung bekam beim Öffnen vertraulicher Dokumente 403, obwohl Liste und Handbuch es erlaubten |
+| B | Zwei-Faktor-Anmeldung (2FA) | M | Einmalcode per Authenticator-App (TOTP), einrichten mit QR-Code, Wiederherstellungscodes; Pflicht je Rolle einstellbar (mindestens für Vorsitz/Stellvertretung/Admin); Zurücksetzen durch Vorsitz/Admin mit Audit-Eintrag. Voraussetzung für die Sicherheits-Präsentation bei der IT |
+| C | Anhörung als Vorgang (§ 99 / § 102) | L | Roter Faden statt Einzelteile: Status eingegangen → beraten → beschlossen → Antwort an AG; Stellungnahme aus dem Beschluss als Vorlage (Zustimmung, Zustimmungsverweigerung mit Gründen nach § 99 Abs. 2, Bedenken/Widerspruch nach § 102), Versanddatum als Nachweis, Frist erledigt sich mit dem Versand |
+| D | Kostenübersicht (§ 40) | M | Jahresübersicht der BR-Kosten: Schulungen (Kosten gibt es schon), Sachverständige, Anwalt, Einigungsstelle; verbindet sich mit „Einigungsstelle“ unter „Später“ |
+| E | Kalender-Abo + mobile Ansicht | S–M | Sitzungen und Fristen als abonnierbarer Kalender (iCal-Link mit persönlichem Token, nur eigene sichtbare Termine) für Outlook/Handy; mobile Ansicht durchgehen |
+
+Bewusst nicht: Fachkommentare/Fachzeitschriften (Lizenzthema der Verlage – Gesetzestexte + Wissensarchiv
+reichen) und Beschlüsse im Umlaufverfahren (BR-Beschlüsse brauchen eine Sitzung, auch per Video nach § 30 Abs. 2).
+
 Ideen aus der BRbase-Demo (Bund-Verlag, 05.10.2026). BRbase läuft als Cloud-Dienst beim Anbieter,
 BR-DMS ist der Gegenansatz (eigener Server) – einzelne Ideen übernehmen wir trotzdem.
 Pakete 1–5 erledigt.
