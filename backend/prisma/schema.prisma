@@ -368,6 +368,7 @@ model Dokument {
   kommentare        Kommentar[]
   aufgaben          Aufgabe[]
   betriebsvereinbarungen Betriebsvereinbarung[]
+  geschaeftsordnungen    Geschaeftsordnung[]
 
   @@index([deleteAt, status])
   @@index([kategorie, status])
