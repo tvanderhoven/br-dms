@@ -97,7 +97,7 @@ Wählerliste vorbereiten, Ergebnis übernehmen. Im Wahlvorstand sitzt jeweils ei
 Wahlvorstand braucht keinen eigenen Zugang. Wahlvorschläge und Stimmauszählung bleiben beim Wahlvorstand.
 **Alle Fristen und Paragrafen vor dem Einsatz juristisch gegenlesen lassen.**
 
-**Stufe 1 – Wahl anlegen, Fristen überwachen** ✓ (Okt. 2026: Seite „Wahlen“, Fristen in `backend/src/lib/wahlFristen.ts` mit Rechtsgrundlage und Kennzeichnung „Empfehlung“; Handbuch-Kapitel steht noch aus)
+**Stufe 1 – Wahl anlegen, Fristen überwachen** ✓ (Okt. 2026: Seite „Wahlen“, Fristen in `backend/src/lib/wahlFristen.ts` mit Rechtsgrundlage und Kennzeichnung „Empfehlung“; Handbuch-Kapitel 5.5 vorhanden)
 - Wahl anlegen: Art (BR/JAV), Verfahren (normal/vereinfacht), erster Tag der Stimmabgabe, Ende der Amtszeit
 - Fristen rückwärts berechnen → Fristen ohne Dokument + Vorhaben im Zeitplan, z. B. (normales Verfahren):
   Wahlvorstand bestellen (BR: 10 Wochen vor Amtszeitende, § 16; JAV: 8 Wochen, § 63 Abs. 2),
