@@ -1,17 +1,37 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  AlertTriangle, Clock, CheckCircle, FileText, Inbox,
-  CalendarDays, FolderInput, XCircle, ClipboardList, Scale, GraduationCap, Users,
+  AlertTriangle, Clock, CheckCircle, Circle, Inbox, CalendarDays, XCircle, ClipboardList,
+  Scale, GraduationCap, Users, Trash2,
 } from "lucide-react";
 import {
   api, Dokument, FristMitDokument, SitzungListItem, Aufgabe, WatchfolderLogEintrag, fristFarbe, formatDatum,
-  KATEGORIE_LABEL, FRIST_TYP_LABEL, fristTitel, sitzungStatusLabel, ModuleKey, Betriebsvereinbarung,
+  FRIST_TYP_LABEL, fristTitel, sitzungStatusLabel, ModuleKey, Betriebsvereinbarung,
   QualifikationsMatrix, Schulungstermin, Benutzer, Geschlecht,
 } from "../lib/api";
 
 // Vorlauf, ab dem auslaufende BVs bzw. Qualifikationen auf dem Dashboard auftauchen
 const VORLAUF_TAGE = 90;
+// Fristen-Widget: überfällige + die nächsten 14 Tage, höchstens 6 Zeilen
+const FRISTEN_TAGE = 14;
+const FRISTEN_MAX  = 6;
+
+const PRIO_SORT: Record<string, number> = { HOCH: 0, MITTEL: 1, NIEDRIG: 2 };
+const PRIO_PUNKT: Record<string, string> = {
+  HOCH:    "text-red-500",
+  MITTEL:  "text-amber-500",
+  NIEDRIG: "text-gray-300",
+};
+
+const tageBis = (iso: string) => Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000);
+
+// Fällige zuerst, ohne Datum ans Ende; bei gleichem Datum nach Priorität
+function aufgabenSortierung(a: Aufgabe, b: Aufgabe): number {
+  const ta = a.faelligAm ? new Date(a.faelligAm).getTime() : Infinity;
+  const tb = b.faelligAm ? new Date(b.faelligAm).getTime() : Infinity;
+  if (ta !== tb) return ta - tb;
+  return PRIO_SORT[a.prioritaet] - PRIO_SORT[b.prioritaet];
+}
 
 // ── Überblick-Karte ("Auf einen Blick") ───────────────────────────
 function UeberblickKarte({ icon, titel, ton, href, children }: {
@@ -35,28 +55,38 @@ function UeberblickKarte({ icon, titel, ton, href, children }: {
   return href ? <Link to={href} className="block">{inner}</Link> : inner;
 }
 
-// ── Stat-Karte ────────────────────────────────────────────────────
-function StatKarte({ icon, titel, wert, sub, farbe, href }: {
-  icon: React.ReactElement; titel: string; wert: number | string;
-  sub?: string; farbe: "blue" | "red" | "amber" | "indigo"; href?: string;
+// ── Eine Aufgabenzeile ─────────────────────────────────────────────
+function AufgabeZeile({ aufgabe, mitName, onErledigt }: {
+  aufgabe: Aufgabe; mitName: boolean; onErledigt?: () => void;
 }) {
-  const iconKlasse: Record<string, string> = {
-    blue:   "text-accent bg-accent/5",
-    red:    "text-red-600 bg-red-50",
-    amber:  "text-amber-600 bg-amber-50",
-    indigo: "text-accent bg-accent/5",
-  };
-  const inner = (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 hover:shadow-md transition-shadow h-full">
-      <div className={`p-2 rounded-lg w-fit mb-3 ${iconKlasse[farbe]}`}>
-        {icon}
+  return (
+    <li className="px-5 py-2 flex items-center gap-3 hover:bg-gray-50 transition-colors group">
+      {onErledigt ? (
+        <button onClick={onErledigt} title="Als erledigt markieren" className="shrink-0 text-gray-300 hover:text-green-600">
+          <Circle size={16} className="group-hover:hidden" />
+          <CheckCircle size={16} className="hidden group-hover:block" />
+        </button>
+      ) : (
+        <span className={`shrink-0 text-[10px] leading-none ${PRIO_PUNKT[aufgabe.prioritaet]}`} title={`Priorität ${aufgabe.prioritaet}`}>●</span>
+      )}
+      <div className="min-w-0 flex-1 flex items-baseline gap-2">
+        {mitName && (
+          <span className={`shrink-0 text-xs ${aufgabe.zugewiesenAn ? "text-gray-500" : "text-amber-700"}`}>
+            {aufgabe.zugewiesenAn?.name ?? "nicht zugewiesen"}:
+          </span>
+        )}
+        <span className="text-sm text-gray-900 truncate" title={aufgabe.titel}>{aufgabe.titel}</span>
+        {onErledigt && aufgabe.prioritaet === "HOCH" && (
+          <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">HOCH</span>
+        )}
       </div>
-      <p className="text-2xl font-bold text-gray-900">{wert}</p>
-      <p className="text-sm text-gray-500 mt-1">{titel}</p>
-      {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
-    </div>
+      {aufgabe.faelligAm && (
+        <span className={`shrink-0 text-xs px-1.5 py-0.5 rounded-full border ${fristFarbe(aufgabe.faelligAm)}`}>
+          {formatDatum(aufgabe.faelligAm)}
+        </span>
+      )}
+    </li>
   );
-  return href ? <Link to={href} className="block">{inner}</Link> : inner;
 }
 
 export default function Dashboard() {
@@ -74,7 +104,7 @@ export default function Dashboard() {
   const [quote, setQuote]         = useState<{ minderheitengeschlecht: Geschlecht | null; mindestsitzeMinderheit: number } | null>(null);
   const navigate = useNavigate();
   const [laden, setLaden]         = useState(true);
-  const [meinVorname, setMeinVorname] = useState("");
+  const [ich, setIch]             = useState<{ id: string; vorname: string } | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -93,7 +123,7 @@ export default function Dashboard() {
       setAufgaben(aufg);
       setWatchLog(wlog);
     }).catch(console.error).finally(() => setLaden(false));
-    api.auth.me().then(b => setMeinVorname(b.name.split(" ")[0])).catch(() => {});
+    api.auth.me().then(b => setIch({ id: b.id, vorname: b.name.split(" ")[0] })).catch(() => {});
 
     // "Auf einen Blick": jede Quelle einzeln, damit ein fehlendes Recht oder abgeschaltetes Modul
     // nur die eine Karte ausblendet statt das ganze Dashboard
@@ -118,37 +148,32 @@ export default function Dashboard() {
     }
   }
 
-  const tageVergangen = (iso: string) =>
-    Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000);
+  async function aufgabeErledigen(id: string) {
+    try {
+      await api.aufgaben.aktualisieren(id, { erledigt: true });
+      setAufgaben(prev => prev.filter(a => a.id !== id));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Speichern fehlgeschlagen");
+    }
+  }
 
-  const abgelaufen  = alleFristen.filter(f => tageVergangen(f.faelligAm) < 0);
-  const kritisch    = alleFristen.filter(f => { const t = tageVergangen(f.faelligAm); return t >= 0 && t <= 3; });
-  const diese_woche = alleFristen.filter(f => { const t = tageVergangen(f.faelligAm); return t > 3 && t <= 7; });
-
-  const baldGeloescht = dokumente
-    .filter(d => d.deleteAt && tageVergangen(d.deleteAt) <= 30 && tageVergangen(d.deleteAt) >= 0)
-    .sort((a, b) => new Date(a.deleteAt!).getTime() - new Date(b.deleteAt!).getTime());
-
+  // ── Auf einen Blick ──────────────────────────────────────────────
   const heute = new Date();
   const naechsteSitzung = sitzungen
     .filter(s => new Date(s.sitzungsdatum) >= heute && s.status !== "ABGESAGT")
     .sort((a, b) => new Date(a.sitzungsdatum).getTime() - new Date(b.sitzungsdatum).getTime())[0];
-  const tageBisNaechste = naechsteSitzung
-    ? Math.ceil((new Date(naechsteSitzung.sitzungsdatum).getTime() - heute.getTime()) / 86_400_000)
-    : null;
 
-  // ── Auf einen Blick ──────────────────────────────────────────────
   const bvAuslaufend = bvs
-    .filter(b => b.status === "AKTIV" && b.laufzeitEnde && tageVergangen(b.laufzeitEnde) <= VORLAUF_TAGE)
+    .filter(b => b.status === "AKTIV" && b.laufzeitEnde && tageBis(b.laufzeitEnde) <= VORLAUF_TAGE)
     .sort((a, b) => new Date(a.laufzeitEnde!).getTime() - new Date(b.laufzeitEnde!).getTime());
   const bvGekuendigt = bvs.filter(b => b.status === "GEKUENDIGT");
 
   const qualiZellen     = matrix?.zeilen.flatMap(z => z.zellen) ?? [];
   const qualiAbgelaufen = qualiZellen.filter(z => z.status === "ABGELAUFEN").length;
   const qualiLaeuftAb   = qualiZellen.filter(z =>
-    z.status === "GUELTIG" && z.gueltigBis && tageVergangen(z.gueltigBis) <= VORLAUF_TAGE).length;
+    z.status === "GUELTIG" && z.gueltigBis && tageBis(z.gueltigBis) <= VORLAUF_TAGE).length;
   const naechsteSchulung = geplanteSchulungen
-    .filter(t => tageVergangen(t.datum) >= 0)
+    .filter(t => tageBis(t.datum) >= 0)
     .sort((a, b) => new Date(a.datum).getTime() - new Date(b.datum).getTime())[0];
 
   // Quote nach § 15 Abs. 2: zählt die aktuell gewählten ordentlichen Mitglieder
@@ -157,18 +182,26 @@ export default function Dashboard() {
   const minderheitSitze = quoteAktiv ? gremium.filter(b => b.geschlecht === quote!.minderheitengeschlecht).length : 0;
   const ohneGeschlecht  = gremium.filter(b => !b.geschlecht).length;
 
-  const ungelesen      = inboxDoks.filter(d => !d.inboxGelesen).length;
-  // Themen aus dem Kanban-Backlog zählen hier nicht mit – das sind Ideen, keine ToDos
-  // Nur eigenständige ToDos (wie auf der "Aufgaben"-Seite) – keine Zeitraum-Einträge/-Kinder
+  // ── Aufgaben: für mich / alle anderen ───────────────────────────
+  // Nur eigenständige ToDos (wie auf der "Aufgaben"-Seite) – keine Vorhaben und keine Themen aus dem Backlog
   const offeneAufgaben = aufgaben.filter(a => !a.erledigt && a.typ === "AUFGABE" && a.kanbanStatus == null);
-  const kritischGesamt = abgelaufen.length + kritisch.length;
+  const fuerMich   = offeneAufgaben.filter(a => a.zugewiesenAn?.id === ich?.id).sort(aufgabenSortierung);
+  const fuerAndere = offeneAufgaben.filter(a => a.zugewiesenAn?.id !== ich?.id).sort(aufgabenSortierung);
 
-  const PRIO_SORT: Record<string, number> = { HOCH: 0, MITTEL: 1, NIEDRIG: 2 };
-  const PRIO_BADGE: Record<string, string> = {
-    HOCH:    "bg-red-100 text-red-700",
-    MITTEL:  "bg-amber-100 text-amber-700",
-    NIEDRIG: "bg-gray-100 text-gray-600",
-  };
+  // ── Fristen kompakt ─────────────────────────────────────────────
+  const fristenNah = [...alleFristen]
+    .sort((a, b) => new Date(a.faelligAm).getTime() - new Date(b.faelligAm).getTime())
+    .filter(f => tageBis(f.faelligAm) <= FRISTEN_TAGE);
+  const ueberfaellig = fristenNah.filter(f => tageBis(f.faelligAm) < 0).length;
+  const kritisch     = fristenNah.filter(f => { const t = tageBis(f.faelligAm); return t >= 0 && t <= 3; }).length;
+
+  // ── Hinweise (nur wenn etwas ansteht) ───────────────────────────
+  const baldGeloescht = dokumente
+    .filter(d => d.deleteAt && tageBis(d.deleteAt) <= 30 && tageBis(d.deleteAt) >= 0)
+    .sort((a, b) => new Date(a.deleteAt!).getTime() - new Date(b.deleteAt!).getTime());
+  const watchFehler = watchLog.filter(e => e.aktion === "WATCHFOLDER_FEHLER" && tageBis(e.zeitpunkt) >= -7);
+
+  const ungelesen = inboxDoks.filter(d => !d.inboxGelesen).length;
 
   const wochentag = heute.toLocaleDateString("de-DE", { weekday: "long" });
   const datumText = heute.toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" });
@@ -185,32 +218,14 @@ export default function Dashboard() {
         <div>
           <p className="text-sm text-gray-400">{wochentag}, {datumText}</p>
           <h1 className="text-xl font-bold text-gray-900 mt-0.5">
-            {meinVorname ? `Hallo, ${meinVorname}` : "Dashboard"}
+            {ich ? `Hallo, ${ich.vorname}` : "Dashboard"}
           </h1>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link to="/eingang" className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 transition-colors rounded-lg px-3 py-1.5 text-sm">
-            <Inbox size={14} className="text-gray-500" />
-            <span className="font-semibold text-gray-800">{ungelesen}</span>
-            <span className="text-gray-500 text-xs">im Eingang</span>
-          </Link>
-          {naechsteSitzung && (
-            <div className="flex items-center gap-1.5 bg-gray-100 rounded-lg px-3 py-1.5">
-              <CalendarDays size={14} className="text-gray-500" />
-              <span className="text-gray-700 text-xs">
-                {tageBisNaechste === 0 ? "Sitzung heute" :
-                 tageBisNaechste === 1 ? "Sitzung morgen" :
-                 `Sitzung in ${tageBisNaechste} Tagen`}
-              </span>
-            </div>
-          )}
-          {kritischGesamt > 0 && (
-            <div className="flex items-center gap-1.5 bg-red-50 border border-red-100 rounded-lg px-3 py-1.5">
-              <AlertTriangle size={14} className="text-red-500" />
-              <span className="text-red-700 text-xs font-medium">{kritischGesamt} kritische Fristen</span>
-            </div>
-          )}
-        </div>
+        <Link to="/eingang" className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 transition-colors rounded-lg px-3 py-1.5 text-sm">
+          <Inbox size={14} className="text-gray-500" />
+          <span className="font-semibold text-gray-800">{ungelesen}</span>
+          <span className="text-gray-500 text-xs">im Eingang</span>
+        </Link>
       </div>
 
       {/* ── Auf einen Blick ───────────────────────────────────────── */}
@@ -296,190 +311,123 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* ── Stat-Karten ───────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatKarte
-          icon={<FileText size={18} />}
-          titel="Dokumente gesamt" wert={dokumente.length} farbe="blue"
-          sub={`${inboxDoks.length} im Eingang`} href="/dokumente"
-        />
-        <StatKarte
-          icon={<AlertTriangle size={18} />}
-          titel="Abgelaufene Fristen" wert={abgelaufen.length} farbe="red"
-          sub={abgelaufen.length > 0 ? "Sofort handeln" : "Alles im grünen Bereich"}
-        />
-        <StatKarte
-          icon={<Clock size={18} />}
-          titel="Kritisch (≤ 3 Tage)" wert={kritisch.length} farbe="amber"
-          sub={`${diese_woche.length} diese Woche`}
-        />
-        <StatKarte
-          icon={<ClipboardList size={18} />}
-          titel="Offene Aufgaben" wert={offeneAufgaben.length} farbe="indigo"
-          sub={offeneAufgaben.filter(a => a.prioritaet === "HOCH").length > 0
-            ? `${offeneAufgaben.filter(a => a.prioritaet === "HOCH").length} mit hoher Priorität`
-            : undefined}
-          href="/aufgaben"
-        />
-      </div>
+      {/* ── Hinweise: nur sichtbar, wenn etwas ansteht ──────────────── */}
+      {(baldGeloescht.length > 0 || watchFehler.length > 0) && (
+        <div className="space-y-2">
+          {baldGeloescht.length > 0 && (
+            <Link to="/dokumente" className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-lg px-4 py-2 text-sm text-amber-800 hover:bg-amber-100 transition-colors">
+              <Trash2 size={14} className="shrink-0" />
+              <span className="truncate">
+                {baldGeloescht.length === 1 ? "1 Dokument wird" : `${baldGeloescht.length} Dokumente werden`} in den nächsten 30 Tagen
+                automatisch gelöscht – zuerst „{baldGeloescht[0].alias ?? baldGeloescht[0].titel}“ am {formatDatum(baldGeloescht[0].deleteAt!)}
+              </span>
+            </Link>
+          )}
+          {watchFehler.length > 0 && (
+            <Link to="/einstellungen" className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-lg px-4 py-2 text-sm text-red-700 hover:bg-red-100 transition-colors">
+              <XCircle size={14} className="shrink-0" />
+              <span className="truncate">
+                Watch-Folder: {watchFehler.length} fehlerhafte {watchFehler.length === 1 ? "Datei" : "Dateien"} in den letzten 7 Tagen –
+                Details unter Einstellungen → System
+              </span>
+            </Link>
+          )}
+        </div>
+      )}
 
-      {/* ── Fristen + Löschdatum ──────────────────────────────────── */}
-      <div className="grid lg:grid-cols-2 gap-5">
+      {/* ── Aufgaben + Fristen ────────────────────────────────────── */}
+      <div className="grid lg:grid-cols-3 gap-5 items-start">
+
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ClipboardList size={15} className="text-gray-400" />
+              <h2 className="font-semibold text-gray-900 text-sm">Aufgaben</h2>
+            </div>
+            <Link to="/aufgaben" className="text-xs text-[rgb(var(--accent))] hover:underline">Alle anzeigen →</Link>
+          </div>
+
+          <p className="px-5 pt-3 pb-1 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            Für mich <span className="text-gray-400 font-normal normal-case">({fuerMich.length})</span>
+          </p>
+          {fuerMich.length === 0 ? (
+            <p className="px-5 py-3 text-sm text-gray-400 flex items-center gap-2">
+              <CheckCircle size={15} className="text-green-400" /> Nichts offen für dich
+            </p>
+          ) : (
+            <ul className="divide-y divide-gray-50">
+              {fuerMich.slice(0, 8).map(a => (
+                <AufgabeZeile key={a.id} aufgabe={a} mitName={false} onErledigt={() => aufgabeErledigen(a.id)} />
+              ))}
+              {fuerMich.length > 8 && <li className="px-5 py-2 text-xs text-gray-400">+ {fuerMich.length - 8} weitere</li>}
+            </ul>
+          )}
+
+          <p className="px-5 pt-4 pb-1 text-xs font-semibold text-gray-500 uppercase tracking-wide border-t border-gray-50">
+            Alle anderen <span className="text-gray-400 font-normal normal-case">({fuerAndere.length})</span>
+          </p>
+          {fuerAndere.length === 0 ? (
+            <p className="px-5 py-3 text-sm text-gray-400">Keine offenen Aufgaben</p>
+          ) : (
+            <ul className="divide-y divide-gray-50 pb-2">
+              {fuerAndere.slice(0, 6).map(a => <AufgabeZeile key={a.id} aufgabe={a} mitName />)}
+              {fuerAndere.length > 6 && <li className="px-5 py-2 text-xs text-gray-400">+ {fuerAndere.length - 6} weitere</li>}
+            </ul>
+          )}
+        </div>
+
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Clock size={15} className="text-gray-400" />
-              <h2 className="font-semibold text-gray-900 text-sm">Offene Fristen</h2>
+              <h2 className="font-semibold text-gray-900 text-sm">Fristen</h2>
             </div>
-            <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">{alleFristen.length}</span>
+            {ueberfaellig + kritisch > 0 && (
+              <span className="flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full">
+                <AlertTriangle size={11} />
+                {ueberfaellig > 0 ? `${ueberfaellig} überfällig` : `${kritisch} kritisch`}
+              </span>
+            )}
           </div>
-          {alleFristen.length === 0 ? (
-            <div className="px-5 py-10 text-center text-gray-400 text-sm">
-              <CheckCircle className="mx-auto mb-2 text-green-400" size={26} />
-              Keine offenen Fristen
+          {fristenNah.length === 0 ? (
+            <div className="px-5 py-6 text-center text-gray-400 text-sm">
+              <CheckCircle className="mx-auto mb-2 text-green-400" size={22} />
+              Keine Fristen in den nächsten {FRISTEN_TAGE} Tagen
             </div>
           ) : (
             <ul className="divide-y divide-gray-50">
-              {alleFristen.slice(0, 10).map(f => {
-                const tage = tageVergangen(f.faelligAm);
+              {fristenNah.slice(0, FRISTEN_MAX).map(f => {
+                const tage = tageBis(f.faelligAm);
                 return (
-                  <li key={f.id} className="px-5 py-3 hover:bg-gray-50 transition-colors group">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <button
-                          onClick={() => f.dokument ? navigate("/dokumente", { state: { markiere: f.dokument.id } }) : navigate("/fristen")}
-                          className="text-left text-sm font-medium text-gray-900 hover:text-[rgb(var(--accent))] truncate block max-w-full"
-                        >
-                          {fristTitel(f)}
-                        </button>
-                        <p className="text-xs text-gray-400 mt-0.5">{FRIST_TYP_LABEL[f.typ] ?? f.typ}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          onClick={() => fristErledigen(f.id)}
-                          title="Als erledigt markieren"
-                          className="text-gray-300 hover:text-green-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <CheckCircle size={15} />
-                        </button>
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${fristFarbe(f.faelligAm)}`}>
-                          {tage < 0 ? `${Math.abs(tage)}T übf.` : tage === 0 ? "Heute" : `${tage}T`}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-400 mt-0.5">{formatDatum(f.faelligAm)}</p>
+                  <li key={f.id} className="px-5 py-2 flex items-center gap-2 hover:bg-gray-50 transition-colors group">
+                    <button
+                      onClick={() => f.dokument ? navigate("/dokumente", { state: { markiere: f.dokument.id } }) : navigate("/fristen")}
+                      title={`${fristTitel(f)} · ${FRIST_TYP_LABEL[f.typ] ?? f.typ} · ${formatDatum(f.faelligAm)}`}
+                      className="min-w-0 flex-1 text-left text-sm text-gray-900 hover:text-[rgb(var(--accent))] truncate"
+                    >
+                      {fristTitel(f)}
+                    </button>
+                    <button
+                      onClick={() => fristErledigen(f.id)}
+                      title="Als erledigt markieren"
+                      className="shrink-0 text-gray-300 hover:text-green-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <CheckCircle size={14} />
+                    </button>
+                    <span className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full border ${fristFarbe(f.faelligAm)}`}>
+                      {tage < 0 ? `${Math.abs(tage)}T übf.` : tage === 0 ? "Heute" : `${tage}T`}
+                    </span>
                   </li>
                 );
               })}
             </ul>
           )}
+          <Link to="/fristen" className="block px-5 py-2.5 border-t border-gray-50 text-xs text-[rgb(var(--accent))] hover:underline">
+            {fristenNah.length > FRISTEN_MAX
+              ? `+ ${fristenNah.length - FRISTEN_MAX} weitere · alle im Fristenkalender →`
+              : "Alle im Fristenkalender →"}
+          </Link>
         </div>
-
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertTriangle size={15} className="text-gray-400" />
-              <h2 className="font-semibold text-gray-900 text-sm">Bald automatisch gelöscht</h2>
-            </div>
-            <span className="text-xs text-gray-400">≤ 30 Tage</span>
-          </div>
-          {baldGeloescht.length === 0 ? (
-            <div className="px-5 py-10 text-center text-gray-400 text-sm">
-              <CheckCircle className="mx-auto mb-2 text-green-400" size={26} />
-              Keine Dokumente mit baldigem Löschdatum
-            </div>
-          ) : (
-            <ul className="divide-y divide-gray-50">
-              {baldGeloescht.map(d => (
-                <li key={d.id} className="px-5 py-3 hover:bg-gray-50 transition-colors flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{d.titel}</p>
-                    <p className="text-xs text-gray-400">{KATEGORIE_LABEL[d.kategorie]}</p>
-                  </div>
-                  <span className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full border ${fristFarbe(d.deleteAt!)}`}>
-                    {formatDatum(d.deleteAt!)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-
-      {/* ── Aufgaben ──────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ClipboardList size={15} className="text-gray-400" />
-            <h2 className="font-semibold text-gray-900 text-sm">Offene Aufgaben</h2>
-          </div>
-          <Link to="/aufgaben" className="text-xs text-[rgb(var(--accent))] hover:underline">Alle anzeigen</Link>
-        </div>
-        {offeneAufgaben.length === 0 ? (
-          <div className="px-5 py-10 text-center text-gray-400 text-sm">
-            <CheckCircle className="mx-auto mb-2 text-green-400" size={26} />
-            Keine offenen Aufgaben
-          </div>
-        ) : (
-          <ul className="divide-y divide-gray-50">
-            {offeneAufgaben
-              .sort((a, b) => {
-                const pd = PRIO_SORT[a.prioritaet] - PRIO_SORT[b.prioritaet];
-                if (pd !== 0) return pd;
-                if (a.faelligAm && b.faelligAm) return new Date(a.faelligAm).getTime() - new Date(b.faelligAm).getTime();
-                return 0;
-              })
-              .slice(0, 8)
-              .map(a => (
-                <li key={a.id} className="px-5 py-3 hover:bg-gray-50 transition-colors flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900 truncate">{a.titel}</p>
-                    {a.zugewiesenAn && <p className="text-xs text-gray-400 mt-0.5">{a.zugewiesenAn.name}</p>}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {a.faelligAm && (
-                      <span className={`text-xs px-1.5 py-0.5 rounded-full border ${fristFarbe(a.faelligAm)}`}>
-                        {formatDatum(a.faelligAm)}
-                      </span>
-                    )}
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${PRIO_BADGE[a.prioritaet]}`}>
-                      {a.prioritaet}
-                    </span>
-                  </div>
-                </li>
-              ))}
-          </ul>
-        )}
-      </div>
-
-      {/* ── WatchFolder ───────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-2">
-          <FolderInput size={15} className="text-gray-400" />
-          <h2 className="font-semibold text-gray-900 text-sm">WatchFolder – letzte Importe</h2>
-        </div>
-        {watchLog.length === 0 ? (
-          <div className="px-5 py-8 text-center text-gray-400 text-sm">Noch keine WatchFolder-Aktivität</div>
-        ) : (
-          <ul className="divide-y divide-gray-50">
-            {watchLog.slice(0, 10).map(e => {
-              const ok = e.aktion === "WATCHFOLDER_DATEI_EMPFANGEN";
-              return (
-                <li key={e.id} className="px-5 py-3 flex items-start gap-3 hover:bg-gray-50 transition-colors">
-                  {ok ? <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-                      : <XCircle    className="w-4 h-4 text-red-500  mt-0.5 shrink-0" />}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900 truncate">{e.details?.dateiname ?? "–"}</p>
-                    {!ok && e.details?.fehler && <p className="text-xs text-red-500 truncate mt-0.5">{e.details.fehler}</p>}
-                  </div>
-                  <span className="shrink-0 text-xs text-gray-400 whitespace-nowrap">
-                    {new Date(e.zeitpunkt).toLocaleString("de-DE", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" })}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
       </div>
     </div>
   );
