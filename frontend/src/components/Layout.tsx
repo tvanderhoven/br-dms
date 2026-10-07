@@ -256,6 +256,17 @@ function browserNotification(titel: string, text: string) {
 }
 
 // ── Einklappbare Menü-Gruppe (Oberthema in der Sidebar) ────────────
+// Farbiger linker Rand je Gruppe – rein zur schnelleren Wiedererkennung beim
+// Scannen der Sidebar, keine semantische Bedeutung (Status/Warnung o.ä.).
+const GRUPPEN_FARBE: Record<string, string> = {
+  postfach:    "#6B8AFD",
+  sitzungen:   "#5DCAA5",
+  dokumente:   "#F0997B",
+  planung:     "#F4C06B",
+  personal:    "#ED93B1",
+  verwaltung:  "#AFA9EC",
+};
+
 function NavGruppe({
   titel, gruppenKey, sichtbar = true, zu, onToggle, children,
 }: {
@@ -268,7 +279,7 @@ function NavGruppe({
 }) {
   if (!sichtbar) return null;
   return (
-    <div className="mt-3 first:mt-0">
+    <div className="mt-3 first:mt-0 pl-2" style={{ borderLeft: `2px solid ${GRUPPEN_FARBE[gruppenKey] ?? "transparent"}` }}>
       <button
         onClick={() => onToggle(gruppenKey)}
         className="w-full flex items-center justify-between px-3 py-1 text-[11px] font-bold uppercase tracking-wider opacity-75 hover:opacity-100 transition-opacity"
@@ -509,36 +520,6 @@ export default function Layout() {
           </button>
         )}
 
-        {/* Suche + Einstellungen + Abmelden */}
-        <div className="px-3 py-2 border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-          <div className="flex items-center gap-1.5">
-            {meineRolle !== "JAV" && meineRolle !== "SBV" && !ohneInhalt && <GlobaleSuche />}
-            {meineRolle !== "JAV" && meineRolle !== "SBV" && meineRolle !== "ERSATZMITGLIED" && (
-            <NavLink
-              to="/einstellungen"
-              title="Einstellungen"
-              className={({ isActive }) =>
-                `p-1.5 rounded-lg transition-colors flex-shrink-0 ${
-                  isActive
-                    ? "bg-[rgb(var(--sidebar-active))] text-[rgb(var(--sidebar-text))]"
-                    : "text-[rgb(var(--sidebar-text-muted))] hover:text-[rgb(var(--sidebar-text))] hover:bg-[rgb(var(--sidebar-hover))]"
-                }`
-              }
-              onClick={() => setMobileOffen(false)}
-            >
-              <Settings size={15} />
-            </NavLink>
-            )}
-            <button
-              onClick={abmelden}
-              title="Abmelden"
-              className="p-1.5 rounded-lg text-[rgb(var(--sidebar-text-muted))] hover:text-[rgb(var(--sidebar-text))] hover:bg-[rgb(var(--sidebar-hover))] transition-colors flex-shrink-0"
-            >
-              <UserCircle size={15} />
-            </button>
-          </div>
-        </div>
-
         {/* Navigation */}
         <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
           {ohneInhalt ? (
@@ -577,11 +558,6 @@ export default function Layout() {
             <LayoutDashboard size={16} />
             Dashboard
           </NavLink>
-          <NavLink to="/suche" className={linkKlasse} onClick={() => setMobileOffen(false)}>
-            <Search size={16} />
-            Suche
-          </NavLink>
-
           <NavGruppe titel="Postfach" gruppenKey="postfach" zu={!!navGruppenZu.postfach} onToggle={navGruppeUmschalten}>
             {meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && (
               <NavLink to="/eingang" className={linkKlasse} onClick={() => setMobileOffen(false)}>
@@ -781,12 +757,42 @@ export default function Layout() {
 
       {/* Hauptbereich */}
       <main className="flex-1 overflow-auto">
-        {/* Mobile Top Bar */}
-        <div className="md:hidden flex items-center gap-3 px-4 py-2 border-b border-gray-200 bg-white sticky top-0 z-10">
-          <button onClick={() => setMobileOffen(true)} className="p-1.5 rounded-lg hover:bg-gray-100">
+        {/* Kopfbalken: Hamburger nur mobil, Suche + Einstellungen + Abmelden immer */}
+        <div
+          className="flex items-center gap-3 px-4 py-2 sticky top-0 z-10"
+          style={{ background: "rgb(var(--sidebar-bg))", borderBottom: "1px solid rgba(255,255,255,0.08)" }}
+        >
+          <button onClick={() => setMobileOffen(true)} className="md:hidden p-1.5 rounded-lg hover:bg-white/10 text-[rgb(var(--sidebar-text))] shrink-0">
             <Menu size={20} />
           </button>
-          <span className="font-semibold text-gray-800 text-sm">BR-DMS</span>
+          <span className="md:hidden font-semibold text-sm shrink-0" style={{ color: "rgb(var(--sidebar-text))" }}>BR-DMS</span>
+          <div className="flex-1 max-w-3xl">
+            {meineRolle !== "JAV" && meineRolle !== "SBV" && !ohneInhalt && <GlobaleSuche />}
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {meineRolle !== "JAV" && meineRolle !== "SBV" && meineRolle !== "ERSATZMITGLIED" && (
+              <NavLink
+                to="/einstellungen"
+                title="Einstellungen"
+                className={({ isActive }) =>
+                  `p-1.5 rounded-lg transition-colors ${
+                    isActive
+                      ? "bg-[rgb(var(--sidebar-active))] text-[rgb(var(--sidebar-text))]"
+                      : "text-[rgb(var(--sidebar-text-muted))] hover:text-[rgb(var(--sidebar-text))] hover:bg-[rgb(var(--sidebar-hover))]"
+                  }`
+                }
+              >
+                <Settings size={16} />
+              </NavLink>
+            )}
+            <button
+              onClick={abmelden}
+              title="Abmelden"
+              className="p-1.5 rounded-lg text-[rgb(var(--sidebar-text-muted))] hover:text-[rgb(var(--sidebar-text))] hover:bg-[rgb(var(--sidebar-hover))] transition-colors"
+            >
+              <UserCircle size={16} />
+            </button>
+          </div>
         </div>
         <Outlet />
       </main>
