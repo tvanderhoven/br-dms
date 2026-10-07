@@ -481,10 +481,11 @@ def build():
     pdf.h2("1.3  Die Oberfläche")
     pdf.body(
         "Links befindet sich die Seitenleiste mit allen Bereichen, thematisch gruppiert "
-        "(Postfach, Sitzungen, Dokumente & Wissen, Planung, Personal, Verwaltung). Die Gruppen "
-        "lassen sich auf- und zuklappen; das merkt sich der Browser. Oben in der Leiste stehen "
-        "Ihr Name, die Schnellsuche und der Zugang zu den Einstellungen. Zahlen an den Einträgen "
-        "zeigen Ungelesenes oder Offenes an."
+        "(Postfach, Sitzungen, Dokumente & Wissen, Planung, Personal, Verwaltung). Jede Gruppe hat "
+        "zur schnelleren Orientierung einen eigenen farbigen Rand; die Gruppen lassen sich auf- und "
+        "zuklappen, das merkt sich der Browser. Oben in der Leiste steht Ihr Name. Der Kopfbalken "
+        "über dem Inhalt enthält die Schnellsuche, das Zahnrad für die Einstellungen und rechts "
+        "daneben „Abmelden“. Zahlen an den Einträgen zeigen Ungelesenes oder Offenes an."
     )
     pdf.bullets([
         "Schnellsuche – Ab zwei Zeichen erscheinen Treffer aus allen Bereichen; Enter öffnet die ausführliche Suche",
@@ -1197,7 +1198,7 @@ def build():
     # 9 ─────────────────────────────────────────────────────────────
     pdf.h1("9  Einstellungen")
     pdf.body(
-        "Die Einstellungen erreichen Sie über das Zahnrad oben in der Seitenleiste. Welche Reiter "
+        "Die Einstellungen erreichen Sie über das Zahnrad oben rechts im Kopfbalken. Welche Reiter "
         "sichtbar sind, hängt von der Rolle ab."
     )
     pdf.tabelle(
@@ -1317,6 +1318,10 @@ def build():
         "Fristen-Erinnerung – Täglich um 7:00 Uhr an Vorsitz und Stellvertretung, aber nur, wenn in den nächsten 7 Tagen Fristen fällig werden",
         "Zeitmodell-/Überstunden-Ablauf – Monatlich am 15. um 7:00 Uhr, wenn im laufenden Monat Zeiträume auslaufen",
     ])
+    pdf.body(
+        "Die tägliche Fristen-Erinnerung lässt sich mit dem Schalter „Automatischer Versand“ pausieren, "
+        "etwa während der Betriebsferien. „Jetzt testen“ funktioniert auch im pausierten Zustand."
+    )
 
     pdf.h2("9.6  Protokoll-Layout")
     pdf.body(
