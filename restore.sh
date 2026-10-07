@@ -10,6 +10,9 @@
 
 set -euo pipefail
 
+# Im Aufgabenplaner (cron) fehlt docker oft im PATH – bekannte Orte auf QNAP und Synology ergänzen
+PATH="$PATH:/share/CACHEDEV1_DATA/.qpkg/container-station/bin:/usr/local/bin"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="$SCRIPT_DIR/.env"
 if [ ! -f "$ENV_FILE" ]; then

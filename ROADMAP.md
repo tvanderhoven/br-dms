@@ -176,4 +176,5 @@ Personalabteilung aktuelle Listen; der Import gleicht über die PNR ab und korri
 - Neue Funktionen zuerst in der Demo-Instanz prüfen (`./demo/demo.sh reset`), dann aufs NAS deployen.
 - Handbuch nach Änderungen neu erzeugen: Demo starten, `npx -y node@22 tools/handbuch-screenshots/screenshots.mjs`
   (braucht Node ≥ 22; findet google-chrome oder chromium selbst),
-  `python3 generate_manual.py`, PDF auch nach `br-dms-website/assets/` kopieren.
+  `python3 generate_manual.py`, PDF auch nach `br-dms-website/assets/` kopieren. Ebenso
+  `python3 generate_backup_anleitung.py` (Sicherung und Wiederherstellung) → `br-dms-website/assets/`.

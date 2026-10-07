@@ -376,6 +376,10 @@ verlassen (z. B. zur Sicherung bei der IT). `restore.sh` erkennt verschlüsselte
 Schlüssel, bevor etwas überschrieben wird. Notfall ohne Skript:
 `openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -pass pass:<BACKUP_KEY> -in db_<Zeit>.sql.gz.enc | gunzip > db.sql`
 
+Konzept, Einrichtung (QNAP/Synology, Snapshots, Kopie außer Haus), Wiederherstellung und Vordrucke stehen
+ausführlich in [BR-DMS_Backup-Anleitung.pdf](BR-DMS_Backup-Anleitung.pdf)
+(neu erzeugen: `python3 generate_backup_anleitung.py`).
+
 `ENCRYPTION_KEY` und `BACKUP_KEY` gehören ausgedruckt an einen sicheren Ort außerhalb des NAS –
 ohne sie sind Dokumente bzw. Backups nicht wiederherstellbar.  
 Empfehlung: Tägliche Ausführung via Aufgabenplaner (QNAP/Synology) bzw. `cron` auf einem
