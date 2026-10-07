@@ -41,7 +41,7 @@ const STATUS_LABEL_VORAB: Record<AnwesenheitsStatus, string> = {
 
 const ROLLE_LABEL: Record<string, string> = {
   VORSITZ: "Vorsitz", STELLVERTRETER: "Stellv. Vorsitz", MITGLIED: "Mitglied",
-  ERSATZMITGLIED: "Ersatzmitglied", JAV: "JAV",
+  ERSATZMITGLIED: "Ersatzmitglied", JAV: "JAV", SBV: "SBV",
 };
 
 const STATUS_ICON: Record<AnwesenheitsStatus, React.ReactNode> = {

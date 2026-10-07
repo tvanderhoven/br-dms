@@ -276,7 +276,7 @@ function EinzelBeschluss({
             />
             <StimmenFeld
               label="Nicht teilg."
-              titel="Anwesend, aber nicht stimmberechtigt (z.B. JAV)"
+              titel="Anwesend, aber nicht stimmberechtigt (z.B. JAV/SBV)"
               wert={istFinalisiert ? (beschluss.nichtTeilgenommen ?? 0) : nichtTeilg}
               onChange={setNichtTeilg}
               farbe="amber"

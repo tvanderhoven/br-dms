@@ -7,7 +7,7 @@ const GESCHLECHT_LABEL: Record<Geschlecht, string> = {
   WEIBLICH:  "Weiblich",
 };
 
-const ROLLEN: Rolle[] = ["VORSITZ", "STELLVERTRETER", "MITGLIED", "ERSATZMITGLIED", "JAV"];
+const ROLLEN: Rolle[] = ["VORSITZ", "STELLVERTRETER", "MITGLIED", "ERSATZMITGLIED", "JAV", "SBV"];
 
 export const ROLLEN_LABEL: Record<Rolle, string> = {
   VORSITZ:         "Vorsitz",
@@ -16,6 +16,7 @@ export const ROLLEN_LABEL: Record<Rolle, string> = {
   ERSATZMITGLIED:  "Ersatzmitglied",
   ADMIN:           "Administrator",
   JAV:             "JAV (nur Sitzungen/Protokolle)",
+  SBV:             "SBV (nur Sitzungen/Protokolle)",
 };
 
 export const ROLLEN_FARBE: Record<Rolle, string> = {
@@ -25,6 +26,7 @@ export const ROLLEN_FARBE: Record<Rolle, string> = {
   ERSATZMITGLIED:  "bg-amber-100 text-amber-700",
   ADMIN:           "bg-purple-100 text-purple-700",
   JAV:             "bg-teal-100 text-teal-700",
+  SBV:             "bg-blue-100 text-blue-700",
 };
 
 export default function BenutzerVerwaltung({ eingebettet = false }: { eingebettet?: boolean }) {

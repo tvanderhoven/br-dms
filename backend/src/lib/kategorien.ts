@@ -18,6 +18,7 @@ export const KATEGORIE_LABEL: Record<Kategorie, string> = {
   ARBEITSSCHUTZ:        "Arbeits- und Gesundheitsschutz",
   SCHRIFTVERKEHR:       "Schriftverkehr",
   PROTOKOLL:            "Sitzungsprotokoll",
+  GESCHAEFTSORDNUNG:    "Geschäftsordnung",
   SONSTIGES:            "Sonstiges",
 };
 
@@ -34,6 +35,7 @@ export const STANDARD_AUFBEWAHRUNG_TAGE: Record<Kategorie, number> = {
   ARBEITSSCHUTZ:        1825,
   SCHRIFTVERKEHR:       1825,
   PROTOKOLL:            1460,   // 4 Jahre
+  GESCHAEFTSORDNUNG:    3650,   // 10 Jahre
   SONSTIGES:            1825,
 };
 

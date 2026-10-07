@@ -1163,7 +1163,7 @@ function TopZeile({
             <p className="font-medium text-gray-900 text-sm">{top.titel}</p>
             {top.vertraulich && (
               <span
-                title="Vertraulich – für JAV-Zugang ausgeblendet"
+                title="Vertraulich – für JAV/SBV-Zugang ausgeblendet"
                 className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600"
               >
                 <Lock size={10} /> Vertraulich
@@ -2072,7 +2072,7 @@ function TopModal({
               onChange={e => setVertraulich(e.target.checked)}
               className="rounded border-gray-300 text-[rgb(var(--accent))]"
             />
-            <span className="text-sm text-gray-700">Vertraulich (für JAV-Zugang ausgeblendet)</span>
+            <span className="text-sm text-gray-700">Vertraulich (für JAV/SBV-Zugang ausgeblendet)</span>
           </label>
           {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
           <div className="flex gap-3 pt-2">

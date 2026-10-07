@@ -311,6 +311,13 @@ export const api = {
     loeschen: (id: string) => request<{ ok: boolean }>(`/api/betriebsvereinbarungen/${id}`, { method: "DELETE" }),
   },
 
+  geschaeftsordnung: {
+    liste:         () => request<Geschaeftsordnung[]>("/api/geschaeftsordnung"),
+    erstellen:     (data: GeschaeftsordnungErstellen) => request<Geschaeftsordnung>("/api/geschaeftsordnung", { method: "POST", body: JSON.stringify(data) }),
+    aktualisieren: (id: string, data: Partial<GeschaeftsordnungErstellen>) => request<Geschaeftsordnung>(`/api/geschaeftsordnung/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    loeschen:      (id: string) => request<{ ok: boolean }>(`/api/geschaeftsordnung/${id}`, { method: "DELETE" }),
+  },
+
   gremien: {
     liste:         (aktiv?: boolean) => request<Gremium[]>(`/api/gremien${aktiv !== undefined ? `?aktiv=${aktiv}` : ""}`),
     erstellen:     (data: GremiumErstellen) => request<Gremium>("/api/gremien", { method: "POST", body: JSON.stringify(data) }),
@@ -526,7 +533,7 @@ export interface ProtokollEinstellungen {
   hat_logo:             string; // "true" | "false"
 }
 
-export type Rolle = "VORSITZ" | "STELLVERTRETER" | "MITGLIED" | "ERSATZMITGLIED" | "ADMIN" | "JAV";
+export type Rolle = "VORSITZ" | "STELLVERTRETER" | "MITGLIED" | "ERSATZMITGLIED" | "ADMIN" | "JAV" | "SBV";
 export type Prioritaet = "HOCH" | "MITTEL" | "NIEDRIG";
 export type Sichtbarkeit = "PRIVAT" | "OEFFENTLICH";
 export type AufgabeTyp = "PROJEKT" | "AUFGABE";
@@ -604,7 +611,7 @@ export type Kategorie =
   | "BEWERBUNG" | "BEWERBUNG_ALTERNATIV"
   | "ZEITMODELL_87"
   | "BETRIEBSVEREINBARUNG" | "ARBEITGEBER_INFO" | "ARBEITSSCHUTZ" | "SCHRIFTVERKEHR"
-  | "PROTOKOLL" | "SONSTIGES";
+  | "PROTOKOLL" | "GESCHAEFTSORDNUNG" | "SONSTIGES";
 
 export type DokumentStatus = "AKTIV" | "ARCHIVIERT" | "LOESCHVORMERKUNG" | "GELOESCHT";
 
@@ -1429,6 +1436,22 @@ export interface BetriebsvereinbarungErstellen {
   dokumentId?: string | null;
 }
 
+export interface Geschaeftsordnung {
+  id: string;
+  beschlossenAm: string;
+  bemerkung?: string | null;
+  dokumentId?: string | null;
+  dokument?: { id: string; titel: string; dateiname: string } | null;
+  erstelltAm: string;
+  aktualisiertAm: string;
+}
+
+export interface GeschaeftsordnungErstellen {
+  beschlossenAm: string;
+  bemerkung?: string;
+  dokumentId?: string | null;
+}
+
 export interface Gremium {
   id: string;
   name: string;
@@ -1570,6 +1593,7 @@ export const KATEGORIE_LABEL: Record<Kategorie, string> = {
   ARBEITSSCHUTZ:        "Arbeits- und Gesundheitsschutz",
   SCHRIFTVERKEHR:       "Schriftverkehr",
   PROTOKOLL:            "Sitzungsprotokoll",
+  GESCHAEFTSORDNUNG:    "Geschäftsordnung",
   SONSTIGES:            "Sonstiges",
 };
 
@@ -1586,6 +1610,7 @@ export const KATEGORIE_KURZ: Record<Kategorie, string> = {
   ARBEITSSCHUTZ:        "Arbeitsschutz",
   SCHRIFTVERKEHR:       "Schriftverkehr",
   PROTOKOLL:            "Protokoll",
+  GESCHAEFTSORDNUNG:    "Geschäftsordnung",
   SONSTIGES:            "Sonstiges",
 };
 

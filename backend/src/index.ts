@@ -50,6 +50,7 @@ import { kummerkastenRouten } from "./routes/kummerkasten.js";
 import { ablaufRouten } from "./routes/ablauf.js";
 import { gremienRouten } from "./routes/gremien.js";
 import { fremdprotokolleRouten } from "./routes/fremdprotokolle.js";
+import { geschaeftsordnungRouten } from "./routes/geschaeftsordnung.js";
 
 konfigPruefen();
 
@@ -134,6 +135,7 @@ await app.register(kummerkastenRouten,       { prefix: "/api/kummerkasten" });
 await app.register(ablaufRouten,             { prefix: "/api/ablauf" });
 await app.register(gremienRouten,            { prefix: "/api/gremien" });
 await app.register(fremdprotokolleRouten,    { prefix: "/api/fremdprotokolle" });
+await app.register(geschaeftsordnungRouten,  { prefix: "/api/geschaeftsordnung" });
 
 // ── Erster Admin (nur bei leerer Benutzertabelle) ─────────────────
 await erstAdminAnlegen();

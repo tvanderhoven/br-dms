@@ -113,7 +113,7 @@ export async function pdfRouten(app: FastifyInstance): Promise<void> {
       if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
 
       const alleBenutzer = await prisma.benutzer.findMany({
-        where: { aktiv: true, rolle: { in: ["VORSITZ", "STELLVERTRETER", "MITGLIED", "ERSATZMITGLIED", "JAV"] } },
+        where: { aktiv: true, rolle: { in: ["VORSITZ", "STELLVERTRETER", "MITGLIED", "ERSATZMITGLIED", "JAV", "SBV"] } },
         select: { id: true, name: true, rolle: true, wahlReihenfolge: true },
       });
       alleBenutzer.sort(vergleicheNachMitgliederSortierung);

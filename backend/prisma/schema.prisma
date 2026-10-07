@@ -26,6 +26,8 @@ enum Role {
   // Stark eingeschränkte Rolle: nur Lesezugriff auf Sitzungen/Protokolle
   // (z.B. JAV-Vertretung, die im Raum ist, aber nicht Betriebsratsmitglied ist)
   JAV
+  // Schwerbehindertenvertretung (§ 178 SGB IX) – dieselbe Einschränkung wie JAV
+  SBV
 }
 
 enum Prioritaet {
@@ -82,6 +84,7 @@ enum Kategorie {
   ARBEITGEBER_INFO
   ARBEITSSCHUTZ
   SCHRIFTVERKEHR
+  GESCHAEFTSORDNUNG
 }
 
 enum DokumentStatus {
@@ -201,6 +204,9 @@ enum AuditAktion {
   FREMDPROTOKOLL_HERUNTERGELADEN
   GREMIUM_MITGLIED_HINZUGEFUEGT
   GREMIUM_MITGLIED_ENTFERNT
+  GESCHAEFTSORDNUNG_ERSTELLT
+  GESCHAEFTSORDNUNG_AKTUALISIERT
+  GESCHAEFTSORDNUNG_GELOESCHT
 }
 
 // ================================================================
@@ -244,6 +250,7 @@ model Benutzer {
   wissenEintraege        WissensEintrag[] @relation("WissensErstelltVon")
   ressourcen             Ressource[]      @relation("RessourceErstellt")
   betriebsvereinbarungenErstellt Betriebsvereinbarung[] @relation("BVErstellt")
+  geschaeftsordnungenErstellt Geschaeftsordnung[] @relation("GeschaeftsordnungErstellt")
   schulungenErstellt     Schulungstermin[] @relation("SchulungErstellt")
   kummerkastenBearbeitet KummerkastenEintrag[]
   sitzungScansHochgeladen SitzungScan[]    @relation("SitzungScanHochgeladen")
@@ -1282,6 +1289,27 @@ model Betriebsvereinbarung {
   @@index([status])
   @@index([laufzeitEnde])
   @@map("betriebsvereinbarungen")
+}
+
+// Geschäftsordnung des Betriebsrats (§ 36 BetrVG) – reine Dokument-Referenz, meist nur
+// 1-3 Einträge über die Jahre (aktuelle Fassung + abgelöste Vorgänger), daher kein eigener
+// Status wie bei Betriebsvereinbarung, nur das Beschlussdatum entscheidet, welche aktuell gilt.
+model Geschaeftsordnung {
+  id             String   @id @default(uuid())
+  beschlossenAm  DateTime @map("beschlossen_am")
+  bemerkung      String?
+
+  dokumentId     String?   @map("dokument_id")
+  dokument       Dokument? @relation(fields: [dokumentId], references: [id], onDelete: SetNull)
+
+  erstelltVonId  String   @map("erstellt_von_id")
+  erstelltVon    Benutzer @relation("GeschaeftsordnungErstellt", fields: [erstelltVonId], references: [id])
+
+  erstelltAm     DateTime @default(now()) @map("erstellt_am")
+  aktualisiertAm DateTime @updatedAt @map("aktualisiert_am")
+
+  @@index([beschlossenAm])
+  @@map("geschaeftsordnungen")
 }
 
 // ================================================================

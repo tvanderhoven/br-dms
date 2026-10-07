@@ -15,10 +15,11 @@ const RANG: Record<Role, number> = {
   STELLVERTRETER: 3,
   MITGLIED:       2,
   ERSATZMITGLIED: 1,
-  // JAV steht bewusst außerhalb der normalen Rangleiter (0 = niedrigster Rang) –
+  // JAV und SBV stehen bewusst außerhalb der normalen Rangleiter (0 = niedrigster Rang) –
   // der eigentliche Zugriff wird schon in middleware/auth.ts auf GET /api/sitzungen/*
   // beschränkt, dieser Rang ist nur eine zusätzliche Absicherung für erfordert()-Checks.
   JAV:            0,
+  SBV:            0,
 };
 
 /**

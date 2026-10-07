@@ -8,7 +8,7 @@ import { api, Rolle, EinladungStand } from "../lib/api";
 
 const ROLLE_LABEL: Record<string, string> = {
   VORSITZ: "Vorsitz", STELLVERTRETER: "Stellv. Vorsitz", MITGLIED: "Mitglied",
-  ERSATZMITGLIED: "Ersatzmitglied", JAV: "JAV",
+  ERSATZMITGLIED: "Ersatzmitglied", JAV: "JAV", SBV: "SBV",
 };
 
 function zeitpunkt(iso: string) {
@@ -70,7 +70,7 @@ export default function EinladungKarte({ sitzungId, meineRolle, aktualisierung }
             <Mail size={15} className="text-gray-400" /> Einladung per E-Mail
           </h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            {eingeladen} von {stand.empfaenger.length} Geladenen eingeladen · mit Tagesordnung als PDF (JAV ohne vertrauliche TOPs)
+            {eingeladen} von {stand.empfaenger.length} Geladenen eingeladen · mit Tagesordnung als PDF (JAV/SBV ohne vertrauliche TOPs)
           </p>
         </div>
         {darfSenden && stand.kannVersenden && stand.smtpAktiv && offen.length > 0 && (
