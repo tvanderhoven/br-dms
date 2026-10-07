@@ -7,6 +7,7 @@
 // Ergebnis: tools/handbuch-screenshots/bilder/*.png
 
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -15,7 +16,9 @@ const BASIS   = process.env.DEMO_URL ?? "https://localhost:8444";
 const BENUTZER = process.env.DEMO_BENUTZER ?? "s.kroeger";
 const PASSWORT = process.env.DEMO_PASSWORT ?? "Demo2026!";
 const ADMIN    = process.env.DEMO_ADMIN ?? "admin@nordwerk-demo.lokal";
-const CHROME  = process.env.CHROME ?? "google-chrome";
+// google-chrome, sonst chromium (z. B. Linux Mint/Ubuntu) – mit CHROME=… überschreibbar
+const CHROME  = process.env.CHROME ?? ["google-chrome", "chromium", "chromium-browser"]
+  .find(p => process.env.PATH.split(":").some(d => existsSync(path.join(d, p)))) ?? "google-chrome";
 const ZIEL    = path.join(path.dirname(new URL(import.meta.url).pathname), "bilder");
 const PORT    = 9333;
 const BREITE  = 1440, HOEHE = 900, SKALIERUNG = 2;
@@ -161,6 +164,9 @@ async function token(benutzer = BENUTZER) {
 }
 
 async function main() {
+  if (typeof WebSocket === "undefined") {
+    throw new Error(`Node ${process.version} hat kein eingebautes WebSocket – Node 22 nötig, z. B.: npx -y node@22 ${path.relative(process.cwd(), new URL(import.meta.url).pathname)}`);
+  }
   const jwt = await token();
   const adminJwt = await token(ADMIN);
   await fs.mkdir(ZIEL, { recursive: true });
