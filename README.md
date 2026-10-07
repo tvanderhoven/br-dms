@@ -21,7 +21,7 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 
 ### Sitzungen & Protokoll
 - **Vollständiger Lifecycle** – Entwurf → Tagesordnung fixiert → Protokoll-Entwurf → Finalisiert (mit digitalem Zeitstempel), inkl. Absage; jeder Übergang ist unumkehrbar und rollengebunden (VORSITZ)
-- **TOPs** – Rich-Text-Inhalt/Ergebnis, Status, Spontan-TOPs, vertrauliche TOPs (vor der JAV-Rolle ausgeblendet)
+- **TOPs** – Rich-Text-Inhalt/Ergebnis, Status, Spontan-TOPs, vertrauliche TOPs (vor den Rollen JAV und SBV ausgeblendet)
 - **Anwesenheitsliste** – Mit Vertretungslogik, automatisch vorbefüllt, eigener PDF-Export
 - **Beschlussregister** – Mehrere Beschlüsse pro TOP mit Rechtsgrundlage und Stimmergebnis, zentrales, sitzungsübergreifendes Register
 - **Abstimmungen** – Einfache Ja/Nein/Enthaltung-Abstimmung je TOP mit Rechtsgrundlage und automatischer Ergebnisberechnung
@@ -46,6 +46,7 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 
 ### Weitere Module *(teilweise abschaltbar)*
 - **Betriebsvereinbarungs-Register** *(abschaltbar)* – Status (Aktiv/Gekündigt/Abgelöst/Befristet ausgelaufen), Laufzeitüberwachung mit Warnhinweis vor Ablauf, Verknüpfung zum hinterlegten PDF, Volltextsuche im Dokumenttext
+- **Geschäftsordnung** – Register aller Fassungen nach § 36 BetrVG mit Beschlussdatum, Bemerkung und verknüpftem PDF; die jüngste Fassung ist als „Aktuell gültig“ markiert, nur Vorsitz/Stellvertretung pflegen
 - **Schulungsverwaltung & Qualifikationsmatrix** – Schulungstermine mit Teilnehmerverwaltung (Ort, Anbieter, Kosten, Status); Qualifikationsmatrix (Mitarbeiter × Qualifikation) wird automatisch aus den Terminen abgeleitet, inkl. Ablaufüberwachung bei zeitlich befristeten Qualifikationen (z.B. Ersthelfer)
 - **Wissensarchiv** *(abschaltbar)* – Erfahrungen und Beschlüsse strukturiert ablegen, Sachverhalt UND Lösung als Rich-Text, Kategorien/Tags, Herkunft (manuell oder aus Protokoll übernommen)
 - **Ressourcen** *(abschaltbar)* – Kuratierte Linksammlung (Gesetz/KI-Werkzeug/Behörde/Vorlage/Sonstiges) mit Tags und automatisch geladenem Favicon der Zielseite
@@ -57,7 +58,7 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 - **Globale Suche** – Durchsucht Dokumente, Sitzungen/TOPs/Beschlüsse, Aufgaben, Wissensarchiv, Ressourcen, Betriebsvereinbarungen, Schulungen, Mitarbeiter und Gesetzestexte; Ergebnisse nach Bereich gruppiert, auch als Schnellsuche in der Kopfleiste verfügbar
 
 ### Benutzer, Rollen & Sicherheit
-- **Rollenbasierte Zugriffskontrolle** – VORSITZ, STELLVERTRETER, MITGLIED, ERSATZMITGLIED, ADMIN sowie **JAV** (stark eingeschränkte Rolle für Jugend- und Auszubildendenvertretung: nur Lesezugriff, vertrauliche TOPs ausgeblendet)
+- **Rollenbasierte Zugriffskontrolle** – VORSITZ, STELLVERTRETER, MITGLIED, ERSATZMITGLIED, ADMIN sowie **JAV** und **SBV** (stark eingeschränkte Rollen für Jugend- und Auszubildendenvertretung bzw. Schwerbehindertenvertretung: nur Lesezugriff auf Sitzungen, vertrauliche TOPs ausgeblendet)
 - **Admin ohne Inhaltszugriff** (optional) – Vorsitz/Stellvertretung können den Admin auf die technische Verwaltung beschränken (Benutzer, Einstellungen, Module, Gesetzestexte); Sitzungen, Dokumente, Personaldaten und Audit-Log sind dann für ihn gesperrt. Neue Konten des Admins werden dem Vorsitz gemeldet
 - **Login mit E-Mail oder Benutzername** – Anmeldung wahlweise mit der vollständigen E-Mail-Adresse oder nur dem Teil vor dem `@`
 - **Passwort-Reset per E-Mail** und admin-/VORSITZ-ausgelöster Reset für andere Benutzer
@@ -342,7 +343,7 @@ Gehaltshistorie usw.):
 ./demo/demo.sh entfernen  # Demo komplett löschen: Container, Volumes, Images, Schlüssel (fragt nach)
 ```
 
-Anmeldung z.B. mit `s.kroeger` / `Demo2026!` (Vorsitz). Die Demo hat eigene Container, Volumes,
+Anmeldung z.B. mit `s.kroeger` / `Demo2026!` (Vorsitz), `f.albers` (JAV) oder `u.tiedemann` (SBV). Die Demo hat eigene Container, Volumes,
 Schlüssel und Port und läuft neben einer echten Installation. Demodaten lassen sich bewusst nicht in
 eine echte Installation einspielen: Das Skript schreibt nur in eine leere Datenbank und bricht sonst ab.
 
