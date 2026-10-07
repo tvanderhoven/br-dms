@@ -111,6 +111,7 @@ const AUFNAHMEN = [
   { datei: "gehaltstabelle-zeitmodell", pfad: "/gehaltstabelle", js: klickText("Zeitmodell", "button") },
   { datei: "mitarbeiter",      pfad: "/mitarbeiter" },
   { datei: "betriebsvereinbarungen", pfad: "/betriebsvereinbarungen" },
+  { datei: "geschaeftsordnung", pfad: "/geschaeftsordnung" },
   { datei: "schulungen",       pfad: "/schulungen" },
   { datei: "audit",            pfad: "/audit" },
   { datei: "einstellungen-design", pfad: "/einstellungen", js: klickText("Design", "button") },
