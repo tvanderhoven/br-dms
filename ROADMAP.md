@@ -1,6 +1,6 @@
 # BR-DMS – Roadmap
 
-Stand: 6. Oktober 2026. Hier steht, was als Nächstes kommt und was dabei schon entschieden ist –
+Stand: 7. Oktober 2026. Hier steht, was als Nächstes kommt und was dabei schon entschieden ist –
 damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 
 ## Erledigt
@@ -16,6 +16,10 @@ damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 | Dokumente: Kategorien + Herkunft | Kategorie-Leiste mit Zählern statt Dropdown; neue Kategorien Abmahnung (3 Jahre), Information des Arbeitgebers, Arbeits- und Gesundheitsschutz, Schriftverkehr (je 5 Jahre) samt Watch-Folder-Unterordnern; Kategorien/Aufbewahrung zentral in `backend/src/lib/kategorien.ts`; „Behandelt in Sitzung/TOP“ in Liste und Vorschau; Löschdatum je Dokument mit Vorschlag nach Kategorie-Regel, nur in der Zukunft | Okt. 2026 |
 | Kleinigkeiten | Protokoll-PDF zeigt angenommene Beschlüsse grün; HTTP-Weiterleitung behält den HTTPS-Port; Ort an den Unterschriften als Einstellung statt fest im Code; Fristen im Fristenkalender bearbeiten (Bezeichnung, Datum, Notiz) | Okt. 2026 |
 | Einladung, Ladung und Sitzungspaket (Paket 4) | Ladung vorab, Zweitadresse für Einladungen, Einladung per E-Mail mit Versandnachweis; Unterschriftenseite (Version + Prüfsumme) statt Komplettausdruck, Scan-Upload direkt oder per Watch-Folder-Zuordnung (`protokoll_scan` → Eingang); Sitzungspaket als ZIP, „Sitzung abschließen“ mit Checkliste → Status „Abgeschlossen“ | Okt. 2026 |
+| Geschäftsordnung + SBV-Rolle | Register der Geschäftsordnung (§ 36) unter „Dokumente & Wissen“, neueste Fassung „Aktuell gültig“, nur Vorsitz/Stellvertretung pflegen (ohne Prüfung nach § 33); Rolle SBV (§ 178 SGB IX) verhält sich wie JAV; Demodaten für beides | Okt. 2026 |
+| Vertraulichkeit einheitlich | Eine Regel in `backend/src/lib/vertraulich.ts`: Vorsitz, Stellvertretung und Admin sehen alles Vertrauliche, andere nur eigene Uploads bzw. Fremdprotokolle ihres Gremiums; Stellvertretung dem Vorsitz gleichgestellt (Kommentare löschen, Audit-Log im Menü) | Okt. 2026 |
+| Dashboard „Auf einen Blick“ | Vier Karten oben auf dem Dashboard: nächste Sitzung, BVs die in 90 Tagen auslaufen oder gekündigt sind, ablaufende Qualifikationen + nächster Schulungstermin, Geschlechterquote (§ 15 Abs. 2); Module/Rechte blenden Karten einzeln aus | Okt. 2026 |
+| Kopfbalken + Fremdprotokolle öffnen | Suche über die volle Breite, Einstellungen/Abmelden am rechten Rand, Suchfeld abgesetzt; Fremdprotokolle per Doppelklick öffnen; Fristen-Erinnerungsmail pausierbar | Okt. 2026 |
 | Gremien und Fremdprotokolle (Paket 5) | Neue Seite „Gremien“ für Ausschüsse/JAV/SBV/GBR/Wirtschaftsausschuss (nicht den BR selbst); Sitzungen optional einem Gremium zuordnen; Fremdprotokolle (hochgeladenes Protokoll mit Gremium+Datum, ohne TOPs/Anwesenheit, mit vertraulich-Flag); neues togglebares Modul „Gremien“ | Okt. 2026 |
 
 ## Als Nächstes
@@ -68,7 +72,8 @@ Beschlüsse finalisiert“.
 - *Fremdprotokoll:* Protokoll eines Gremiums, das der BR nicht selbst führt (ASA, Wirtschaftsausschuss,
   GBR …), als einzelnes hochgeladenes Dokument mit Gremium und Datum abgelegt – ohne TOPs/Anwesenheit,
   eigenes Modell `Fremdprotokoll` mit AES-256-GCM-Verschlüsselung wie bei Dokumenten/Scans. Eigenes
-  `vertraulich`-Flag (z.B. für Wirtschaftsausschuss-Protokolle), beschränkt Ansicht/Download auf VORSITZ/ADMIN.
+  `vertraulich`-Flag (z.B. für Wirtschaftsausschuss-Protokolle), beschränkt Ansicht/Download auf Vorsitz,
+  Stellvertretung, Admin und die Mitglieder des Gremiums (seit 07.10.2026).
 - Je Gremium zeigt die Detailansicht eine chronologische, gemischte Liste aus eigenen Sitzungen und
   Fremdprotokollen.
 - Neues togglebares Modul „Gremien” (Einstellungen → Module).
@@ -130,10 +135,8 @@ Personalabteilung aktuelle Listen; der Import gleicht über die PNR ab und korri
 
 ## Später (unpriorisiert)
 
-- Geschäftsordnung (§ 36 BetrVG), verknüpft mit einer Prüfung der Beschlussfähigkeit (§ 33)
+- Prüfung der Beschlussfähigkeit (§ 33), verknüpft mit der Geschäftsordnung (das Register selbst ist erledigt)
 - Ausschüsse des BR (§ 28) mit eigener Mitgliederliste und Sitzungen
-- Dashboard-Bündelung: nächste Sitzung, auslaufende BVs, Schulungsablauf, Quoten-Status an einer Stelle
-- Schwerbehindertenvertretung als Rolle analog JAV (§ 178 SGB IX) und SGB IX §§ 164–178 als Gesetzestexte
 - Wirtschaftsausschuss (§§ 106–110)
 - Einigungsstelle: eskalierte Fälle (Antrag, Spruch, Kosten)
 - Weitere Gesetzestexte
@@ -157,5 +160,6 @@ Personalabteilung aktuelle Listen; der Import gleicht über die PNR ab und korri
   Hintere Zahl: nur Fehlerbehebungen; mittlere: neue Funktionen; vordere: großer Umbruch
   (z. B. Update passt nicht mehr ohne Weiteres auf alte Daten).
 - Neue Funktionen zuerst in der Demo-Instanz prüfen (`./demo/demo.sh reset`), dann aufs NAS deployen.
-- Handbuch nach Änderungen neu erzeugen: Demo starten, `node tools/handbuch-screenshots/screenshots.mjs`,
+- Handbuch nach Änderungen neu erzeugen: Demo starten, `npx -y node@22 tools/handbuch-screenshots/screenshots.mjs`
+  (braucht Node ≥ 22; findet google-chrome oder chromium selbst),
   `python3 generate_manual.py`, PDF auch nach `br-dms-website/assets/` kopieren.

@@ -2,9 +2,38 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   AlertTriangle, Clock, CheckCircle, FileText, Inbox,
-  CalendarDays, FolderInput, XCircle, ClipboardList,
+  CalendarDays, FolderInput, XCircle, ClipboardList, Scale, GraduationCap, Users,
 } from "lucide-react";
-import { api, Dokument, FristMitDokument, SitzungListItem, Aufgabe, WatchfolderLogEintrag, fristFarbe, formatDatum, KATEGORIE_LABEL, FRIST_TYP_LABEL, fristTitel } from "../lib/api";
+import {
+  api, Dokument, FristMitDokument, SitzungListItem, Aufgabe, WatchfolderLogEintrag, fristFarbe, formatDatum,
+  KATEGORIE_LABEL, FRIST_TYP_LABEL, fristTitel, sitzungStatusLabel, ModuleKey, Betriebsvereinbarung,
+  QualifikationsMatrix, Schulungstermin, Benutzer, Geschlecht,
+} from "../lib/api";
+
+// Vorlauf, ab dem auslaufende BVs bzw. Qualifikationen auf dem Dashboard auftauchen
+const VORLAUF_TAGE = 90;
+
+// ── Überblick-Karte ("Auf einen Blick") ───────────────────────────
+function UeberblickKarte({ icon, titel, ton, href, children }: {
+  icon: React.ReactElement; titel: string; ton: "ok" | "warnung" | "neutral"; href?: string;
+  children: React.ReactNode;
+}) {
+  const rand: Record<string, string> = {
+    ok:      "border-l-green-500",
+    warnung: "border-l-amber-500",
+    neutral: "border-l-gray-300",
+  };
+  const inner = (
+    <div className={`bg-white rounded-xl border border-gray-100 border-l-4 ${rand[ton]} shadow-sm p-4 h-full hover:shadow-md transition-shadow`}>
+      <div className="flex items-center gap-2 mb-2 text-gray-500">
+        {icon}
+        <h2 className="text-xs font-semibold uppercase tracking-wide">{titel}</h2>
+      </div>
+      <div className="text-sm text-gray-700 space-y-1">{children}</div>
+    </div>
+  );
+  return href ? <Link to={href} className="block">{inner}</Link> : inner;
+}
 
 // ── Stat-Karte ────────────────────────────────────────────────────
 function StatKarte({ icon, titel, wert, sub, farbe, href }: {
@@ -37,6 +66,12 @@ export default function Dashboard() {
   const [aufgaben, setAufgaben]   = useState<Aufgabe[]>([]);
   const [watchLog, setWatchLog]   = useState<WatchfolderLogEintrag[]>([]);
   const [alleFristen, setAlleFristen] = useState<FristMitDokument[]>([]);
+  const [module, setModule]       = useState<Record<ModuleKey, boolean> | null>(null);
+  const [bvs, setBvs]             = useState<Betriebsvereinbarung[]>([]);
+  const [matrix, setMatrix]       = useState<QualifikationsMatrix | null>(null);
+  const [geplanteSchulungen, setGeplanteSchulungen] = useState<Schulungstermin[]>([]);
+  const [benutzer, setBenutzer]   = useState<Benutzer[]>([]);
+  const [quote, setQuote]         = useState<{ minderheitengeschlecht: Geschlecht | null; mindestsitzeMinderheit: number } | null>(null);
   const navigate = useNavigate();
   const [laden, setLaden]         = useState(true);
   const [meinVorname, setMeinVorname] = useState("");
@@ -59,6 +94,19 @@ export default function Dashboard() {
       setWatchLog(wlog);
     }).catch(console.error).finally(() => setLaden(false));
     api.auth.me().then(b => setMeinVorname(b.name.split(" ")[0])).catch(() => {});
+
+    // "Auf einen Blick": jede Quelle einzeln, damit ein fehlendes Recht oder abgeschaltetes Modul
+    // nur die eine Karte ausblendet statt das ganze Dashboard
+    api.einstellungen.module().then(m => {
+      setModule(m);
+      if (m.betriebsvereinbarungen !== false) api.betriebsvereinbarungen.liste().then(setBvs).catch(() => {});
+      if (m.personalverwaltung !== false) {
+        api.schulungen.matrix().then(setMatrix).catch(() => {});
+        api.schulungen.liste({ status: "GEPLANT" }).then(setGeplanteSchulungen).catch(() => {});
+      }
+    }).catch(() => {});
+    api.get<Benutzer[]>("/api/benutzer").then(setBenutzer).catch(() => {});
+    api.einstellungen.wahlquote().then(setQuote).catch(() => {});
   }, []);
 
   async function fristErledigen(id: string) {
@@ -88,6 +136,26 @@ export default function Dashboard() {
   const tageBisNaechste = naechsteSitzung
     ? Math.ceil((new Date(naechsteSitzung.sitzungsdatum).getTime() - heute.getTime()) / 86_400_000)
     : null;
+
+  // ── Auf einen Blick ──────────────────────────────────────────────
+  const bvAuslaufend = bvs
+    .filter(b => b.status === "AKTIV" && b.laufzeitEnde && tageVergangen(b.laufzeitEnde) <= VORLAUF_TAGE)
+    .sort((a, b) => new Date(a.laufzeitEnde!).getTime() - new Date(b.laufzeitEnde!).getTime());
+  const bvGekuendigt = bvs.filter(b => b.status === "GEKUENDIGT");
+
+  const qualiZellen     = matrix?.zeilen.flatMap(z => z.zellen) ?? [];
+  const qualiAbgelaufen = qualiZellen.filter(z => z.status === "ABGELAUFEN").length;
+  const qualiLaeuftAb   = qualiZellen.filter(z =>
+    z.status === "GUELTIG" && z.gueltigBis && tageVergangen(z.gueltigBis) <= VORLAUF_TAGE).length;
+  const naechsteSchulung = geplanteSchulungen
+    .filter(t => tageVergangen(t.datum) >= 0)
+    .sort((a, b) => new Date(a.datum).getTime() - new Date(b.datum).getTime())[0];
+
+  // Quote nach § 15 Abs. 2: zählt die aktuell gewählten ordentlichen Mitglieder
+  const gremium = benutzer.filter(b => b.aktiv && ["VORSITZ", "STELLVERTRETER", "MITGLIED"].includes(b.rolle));
+  const quoteAktiv = !!quote?.minderheitengeschlecht && quote.mindestsitzeMinderheit > 0;
+  const minderheitSitze = quoteAktiv ? gremium.filter(b => b.geschlecht === quote!.minderheitengeschlecht).length : 0;
+  const ohneGeschlecht  = gremium.filter(b => !b.geschlecht).length;
 
   const ungelesen      = inboxDoks.filter(d => !d.inboxGelesen).length;
   // Themen aus dem Kanban-Backlog zählen hier nicht mit – das sind Ideen, keine ToDos
@@ -143,6 +211,89 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* ── Auf einen Blick ───────────────────────────────────────── */}
+      <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <UeberblickKarte
+          icon={<CalendarDays size={15} />} titel="Nächste Sitzung"
+          ton={naechsteSitzung ? "neutral" : "warnung"}
+          href={naechsteSitzung ? `/sitzungen?id=${naechsteSitzung.id}` : "/sitzungen"}
+        >
+          {naechsteSitzung ? (
+            <>
+              <p className="font-semibold text-gray-900 truncate">{naechsteSitzung.titel}</p>
+              <p>
+                {new Date(naechsteSitzung.sitzungsdatum).toLocaleString("de-DE", {
+                  weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+                })} Uhr{naechsteSitzung.ort ? ` · ${naechsteSitzung.ort}` : ""}
+              </p>
+              <p className="text-xs text-gray-400">
+                {naechsteSitzung._count.tops} TOPs · {sitzungStatusLabel(naechsteSitzung.status, naechsteSitzung.sitzungstyp)}
+              </p>
+            </>
+          ) : (
+            <p>Keine Sitzung geplant</p>
+          )}
+        </UeberblickKarte>
+
+        {module?.betriebsvereinbarungen !== false && (
+          <UeberblickKarte
+            icon={<Scale size={15} />} titel="Betriebsvereinbarungen"
+            ton={bvAuslaufend.length + bvGekuendigt.length > 0 ? "warnung" : "ok"}
+            href="/betriebsvereinbarungen"
+          >
+            {bvAuslaufend.length === 0 && bvGekuendigt.length === 0 && (
+              <p>Keine läuft in den nächsten {VORLAUF_TAGE} Tagen aus</p>
+            )}
+            {bvAuslaufend.slice(0, 2).map(b => (
+              <p key={b.id} className="flex justify-between gap-2">
+                <span className="truncate">{b.titel}</span>
+                <span className="shrink-0 text-xs text-amber-700">{formatDatum(b.laufzeitEnde!)}</span>
+              </p>
+            ))}
+            {bvAuslaufend.length > 2 && <p className="text-xs text-gray-400">+ {bvAuslaufend.length - 2} weitere</p>}
+            {bvGekuendigt.length > 0 && (
+              <p className="text-xs text-gray-500">{bvGekuendigt.length} gekündigt (Nachwirkung/Neuverhandlung)</p>
+            )}
+          </UeberblickKarte>
+        )}
+
+        {module?.personalverwaltung !== false && matrix && (
+          <UeberblickKarte
+            icon={<GraduationCap size={15} />} titel="Schulungen"
+            ton={qualiAbgelaufen + qualiLaeuftAb > 0 ? "warnung" : "ok"}
+            href="/schulungen"
+          >
+            {qualiAbgelaufen > 0 && <p><span className="font-semibold text-red-600">{qualiAbgelaufen}</span> Qualifikationen abgelaufen</p>}
+            {qualiLaeuftAb > 0 && <p><span className="font-semibold text-amber-700">{qualiLaeuftAb}</span> laufen in {VORLAUF_TAGE} Tagen ab</p>}
+            {qualiAbgelaufen + qualiLaeuftAb === 0 && <p>Alle Qualifikationen gültig</p>}
+            <p className="text-xs text-gray-400 truncate">
+              {naechsteSchulung
+                ? `Nächster Termin: ${formatDatum(naechsteSchulung.datum)} · ${naechsteSchulung.titel ?? naechsteSchulung.qualifikation.name}`
+                : "Kein Schulungstermin geplant"}
+            </p>
+          </UeberblickKarte>
+        )}
+
+        {quoteAktiv && (
+          <UeberblickKarte
+            icon={<Users size={15} />} titel="Geschlechterquote"
+            ton={minderheitSitze >= quote!.mindestsitzeMinderheit ? "ok" : "warnung"}
+          >
+            <p>
+              <span className="font-semibold text-gray-900">{minderheitSitze}</span> von mind.{" "}
+              <span className="font-semibold text-gray-900">{quote!.mindestsitzeMinderheit}</span> Sitzen{" "}
+              {quote!.minderheitengeschlecht === "WEIBLICH" ? "weiblich" : "männlich"}
+            </p>
+            <p className="text-xs text-gray-400">
+              {minderheitSitze >= quote!.mindestsitzeMinderheit
+                ? `Erfüllt (§ 15 Abs. 2 BetrVG) · ${gremium.length} ordentliche Mitglieder`
+                : "Unterschritten – beim Nachrücken auf die Quote achten"}
+            </p>
+            {ohneGeschlecht > 0 && <p className="text-xs text-amber-700">{ohneGeschlecht} Mitglied(er) ohne Angabe zum Geschlecht</p>}
+          </UeberblickKarte>
+        )}
       </div>
 
       {/* ── Stat-Karten ───────────────────────────────────────────── */}
