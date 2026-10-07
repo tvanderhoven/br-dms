@@ -1654,6 +1654,48 @@ def build():
         (55, 115),
     )
 
+    pdf.h2("12.8  Datei-Links im Editor (Windows)")
+    pdf.body(
+        "Ein UNC-Pfad (\\\\server\\freigabe\\...), der im Editor einer Sitzung, Aufgabe oder im "
+        "Wissensarchiv eingefügt wird, wird automatisch in einen brdmsfile://-Link umgewandelt. "
+        "Browser blockieren file://-Links auf Netzwerkfreigaben aus Sicherheitsgründen – der Link "
+        "öffnet die Datei stattdessen über einen kleinen, lokal installierten Protokoll-Handler mit "
+        "der Standard-App (Word, Explorer, …), genau wie ein Doppelklick im Explorer."
+    )
+    pdf.body(
+        "Jeder Windows-PC, auf dem jemand solche Links anklicken will, richtet den Handler einmalig "
+        "selbst ein – keine Admin-Rechte nötig, es wird nur in HKEY_CURRENT_USER geschrieben:"
+    )
+    pdf.schritt(1, "Ordner kopieren",
+                "tools/brdmsfile-protokoll aus dem Projekt auf den PC kopieren (Netzlaufwerk oder USB-Stick).")
+    pdf.schritt(2, "Installieren.ps1 ausführen",
+                "Rechtsklick → „Mit PowerShell ausführen“. Das Skript kompiliert einen kleinen Helfer "
+                "(BrdmsFileOpener.exe) mit dem in jedem Windows 10/11 enthaltenen C#-Compiler und "
+                "registriert ihn für das brdmsfile://-Protokoll.")
+    pdf.schritt(3, "Einmal bestätigen",
+                "Beim ersten Klick auf einen Link fragt der Browser, ob er „BR-DMS Datei-Link“ öffnen "
+                "darf – bestätigen.")
+    pdf.hinweis(
+        "Wurde brdmsfile:// auf einem PC schon vor dieser .exe-Variante eingerichtet, ruft die Registry "
+        "dort noch die ältere, rein skriptbasierte Lösung auf: powershell.exe -WindowStyle Hidden "
+        "-ExecutionPolicy Bypass -File OpenBrdmsFile.ps1 \"<Link>\". Genau diese Kombination "
+        "(Hidden + Bypass, aus dem Browser heraus gestartet) schlägt bei praktisch jedem Virenscanner "
+        "oder EDR an – unabhängig vom Inhalt des Skripts. Abhilfe: Installieren.ps1 auf diesem PC "
+        "erneut ausführen; das überschreibt die Registry-Verknüpfung und zeigt danach direkt auf die "
+        "kompilierte .exe, ganz ohne PowerShell-Aufruf.",
+        "achtung", "Virenscanner-Meldung bei einer älteren Einrichtung")
+    pdf.hinweis(
+        "Auch die .exe-Variante kann vereinzelt auffallen, weil sie lokal frisch kompiliert, unsigniert "
+        "ist und einen URL-Protokoll-Handler registriert – ein Muster, das auch Schadsoftware nutzt. "
+        "Der Quellcode (tools/brdmsfile-protokoll/BrdmsFileOpener.cs) ist kurz und für die IT einsehbar: "
+        "Das Programm liest nur die übergebene Adresse, baut daraus einen Pfad und öffnet ihn mit der "
+        "Standard-App – ohne Internetzugriff oder Datenversand. Bei einer Meldung trotzdem: "
+        "%LOCALAPPDATA%\\BR-DMS\\BrdmsFileOpener.exe von der Prüfung ausnehmen oder firmenintern signieren.",
+        "info")
+    pdf.body(
+        "Öffnet ein Link trotzdem nichts, steht die Fehlermeldung in %LOCALAPPDATA%\\BR-DMS\\log.txt."
+    )
+
     # 13 ────────────────────────────────────────────────────────────
     pdf.h1("13  Betrieb")
     pdf.h2("13.1  Updates einspielen")
