@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
   Inbox, FileText, Clock, Tag, CheckSquare, Eye, X, ChevronRight, ChevronDown, ChevronUp,
-  Loader2, Check, CheckCheck, History, Search, RotateCcw, ScrollText, ScanLine, Trash2,
+  Loader2, Check, CheckCheck, History, Search, RotateCcw, ScanLine, Trash2,
 } from "lucide-react";
 import {
   api, Dokument, SitzungListItem, Benutzer, TOP, KATEGORIE_LABEL, formatDatum, formatDateigroesse,
@@ -450,13 +450,6 @@ export default function Eingang() {
                         className="flex items-center gap-2 px-3 py-2 bg-accent text-white text-sm rounded-lg hover:bg-accent-hover transition-colors">
                         <RotateCcw className="w-4 h-4" /> Wiedervorlage
                       </button>
-                      {(ausgewaehlt.kategorie === "ANHOERUNG_99" || ausgewaehlt.kategorie === "ANHOERUNG_102") && (
-                        <button
-                          onClick={() => dateiInTabOeffnen(api.export.briefvorlageUrl(ausgewaehlt.id, ausgewaehlt.kategorie === "ANHOERUNG_99" ? "widerspruch_99" : "zustimmungsverweigerung_102"))}
-                          className="flex items-center gap-2 px-3 py-2 bg-rose-600 text-white text-sm rounded-lg hover:bg-rose-700 transition-colors">
-                          <ScrollText className="w-4 h-4" /> Briefvorlage
-                        </button>
-                      )}
                       <button onClick={() => dateiInTabOeffnen(api.dokumente.downloadUrl(ausgewaehlt.id))}
                         className="flex items-center gap-2 px-3 py-2 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300 transition-colors">
                         <Eye className="w-4 h-4" /> Download

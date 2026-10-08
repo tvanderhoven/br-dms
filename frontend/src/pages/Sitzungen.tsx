@@ -11,6 +11,7 @@ import {
   api, Sitzung, SitzungListItem, SitzungStatus, TOP, TopStatus, Dokument, Mitarbeiter, Abteilung, Zeitmodell, Rolle,
   TOP_STATUS_LABEL, KATEGORIE_LABEL, SITZUNGSTYP_LABEL, KummerkastenEintrag, SitzungScan, SitzungScanTyp,
   istBetriebsversammlung, sitzungStatusLabel, formatDatum,
+  AnhoerungVorgangAntwort, AnhoerungArt, ANHOERUNG_ART_LABEL, gruendeFuerArt,
 } from "../lib/api";
 import SitzungsEditor from "../components/SitzungsEditor";
 import AnwesenheitsListe from "../components/AnwesenheitsListe";
@@ -1087,9 +1088,13 @@ function TopZeile({
   useEffect(() => {
     if (!inhaltGeaendert) setInhaltJson(top.inhaltsJson ?? null);
   }, [top.aktualisiertAm]); // eslint-disable-line react-hooks/exhaustive-deps
+  const anhoerungsDokument = top.dokumente.find(
+    d => d.dokument.kategorie === "ANHOERUNG_99" || d.dokument.kategorie === "ANHOERUNG_102"
+  );
   const [kommentareOffen, setKommentareOffen]   = useState(false);
   const [kommentarAnzahl, setKommentarAnzahl]   = useState(top._count?.kommentare ?? 0);
   const [extraktModal, setExtraktModal]         = useState(false);
+  const [stellungnahmeModal, setStellungnahmeModal] = useState(false);
   const [aufgabeModal, setAufgabeModal]         = useState(false);
   const [gehaltModal, setGehaltModal]           = useState(false);
   const [antragModal, setAntragModal]           = useState(false);
@@ -1417,6 +1422,14 @@ function TopZeile({
                 >
                   <BookmarkPlus size={14} className="text-[rgb(var(--accent))]" /> Ins Wissensarchiv extrahieren
                 </button>
+                {anhoerungsDokument && (
+                  <button
+                    onClick={() => { setStellungnahmeModal(true); setMehrOffen(false); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 text-left"
+                  >
+                    <Send size={14} className="text-[rgb(var(--accent))]" /> Stellungnahme erzeugen
+                  </button>
+                )}
                 {(imProtokoll || readonly) && (
                   <button
                     onClick={() => {
@@ -1480,6 +1493,13 @@ function TopZeile({
         offen={extraktModal}
         onSchliessen={() => setExtraktModal(false)}
       />
+      {stellungnahmeModal && anhoerungsDokument && (
+        <StellungnahmeModal
+          dokumentId={anhoerungsDokument.dokument.id}
+          dokumentTitel={anhoerungsDokument.dokument.alias ?? anhoerungsDokument.dokument.titel}
+          onSchliessen={() => setStellungnahmeModal(false)}
+        />
+      )}
       {aufgabeModal && (
         <AufgabeUebernehmenModal
           headerTitel="Aus TOP übernehmen"
@@ -2198,6 +2218,127 @@ function ExtraktModal({
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Stellungnahme aus Beschluss erzeugen (§ 99 / § 102 BetrVG) ───────
+function StellungnahmeModal({
+  dokumentId, dokumentTitel, onSchliessen,
+}: {
+  dokumentId: string; dokumentTitel: string; onSchliessen: () => void;
+}) {
+  const [laden, setLaden]           = useState(true);
+  const [speichern, setSpeichern]   = useState(false);
+  const [daten, setDaten]           = useState<AnhoerungVorgangAntwort | null>(null);
+  const [beschlussId, setBeschlussId] = useState("");
+  const [fehler, setFehler]         = useState<string | null>(null);
+
+  useEffect(() => {
+    api.dokumente.vorgang(dokumentId)
+      .then(d => {
+        setDaten(d);
+        if (d.verfuegbareBeschluesse.length === 1) setBeschlussId(d.verfuegbareBeschluesse[0].id);
+      })
+      .catch(() => setFehler("Vorgang konnte nicht geladen werden"))
+      .finally(() => setLaden(false));
+  }, [dokumentId]);
+
+  const gewaehlterBeschluss = daten?.verfuegbareBeschluesse.find(b => b.id === beschlussId);
+  const artVorschau: AnhoerungArt | "" = gewaehlterBeschluss
+    ? gewaehlterBeschluss.rechtsgrundlage.includes("§ 99") ? "ZUSTIMMUNGSVERWEIGERUNG"
+    : gewaehlterBeschluss.rechtsgrundlage.includes("§ 102") ? "WIDERSPRUCH"
+    : "ZUSTIMMUNG"
+    : "";
+
+  async function speichernKlick() {
+    if (!beschlussId) return;
+    setSpeichern(true);
+    setFehler(null);
+    try {
+      await api.dokumente.vorgangAusBeschluss(dokumentId, beschlussId);
+      onSchliessen();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler beim Speichern");
+    } finally {
+      setSpeichern(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <Send size={20} className="text-[rgb(var(--accent))]" />
+            Stellungnahme erzeugen
+          </h2>
+          <button onClick={onSchliessen} className="text-gray-400 hover:text-gray-600">
+            <X size={20} />
+          </button>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">Für: {dokumentTitel}</p>
+
+        {laden ? (
+          <div className="flex items-center gap-2 text-sm text-gray-400 py-6 justify-center">
+            <Loader2 size={16} className="animate-spin" /> Laden…
+          </div>
+        ) : !daten || daten.verfuegbareBeschluesse.length === 0 ? (
+          <p className="text-sm text-gray-500 py-6 text-center">
+            Noch kein finalisierter Beschluss zu diesem Dokument vorhanden. Bitte zuerst einen
+            Beschluss fassen und finalisieren.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Beschluss *</label>
+              <select
+                value={beschlussId}
+                onChange={e => setBeschlussId(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              >
+                <option value="">Beschluss wählen…</option>
+                {daten.verfuegbareBeschluesse.map(b => (
+                  <option key={b.id} value={b.id}>
+                    TOP {b.topNummer}: {b.topTitel} ({b.rechtsgrundlage})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {gewaehlterBeschluss && (
+              <div className="bg-gray-50 rounded-lg p-3 space-y-2 text-sm">
+                <p className="text-gray-500">
+                  Vorgeschlagene Art: <span className="font-medium text-gray-700">{artVorschau && ANHOERUNG_ART_LABEL[artVorschau]}</span>
+                </p>
+                <p className="text-gray-700 whitespace-pre-wrap">{gewaehlterBeschluss.antragstext}</p>
+                {gruendeFuerArt(artVorschau).length > 0 && (
+                  <ul className="text-xs text-gray-500 list-disc pl-4 space-y-0.5">
+                    {gruendeFuerArt(artVorschau).map(g => <li key={g.code}>{g.text}</li>)}
+                  </ul>
+                )}
+                <p className="text-xs text-gray-400">
+                  Art, Gründe und Begründungstext können danach im Dokument unter „Vorgang" noch angepasst werden.
+                </p>
+              </div>
+            )}
+
+            {fehler && <p className="text-sm text-red-600">{fehler}</p>}
+
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={onSchliessen}
+                className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
+                Abbrechen
+              </button>
+              <button type="button" onClick={speichernKlick} disabled={speichern || !beschlussId}
+                className="flex-1 bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
+                {speichern && <Loader2 size={14} className="animate-spin" />}
+                Übernehmen
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

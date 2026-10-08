@@ -12,6 +12,7 @@ import fs from "node:fs/promises";
 import fsSync from "node:fs";
 import { istBetriebsversammlung } from "../lib/sitzungstypen.js";
 import { KATEGORIE_LABEL } from "../lib/kategorien.js";
+import { gruendeFuerArt } from "../lib/anhoerungGruende.js";
 import prisma from "../lib/prisma.js";
 
 // ── Typen (Subset aus Prisma) ─────────────────────────────────────
@@ -1339,6 +1340,125 @@ export async function topAuszugPdfGenerieren(
          .strokeColor("#e5e7eb").lineWidth(0.5).stroke();
       doc.fontSize(7.5).font("Helvetica").fillColor(FARBE_GRAU)
          .text(`Auszug  ·  ${pdfText(sitzung.titel)}  ·  Seite ${i + 1} von ${seiten}`, RAND_LINKS, fy + 5, { width: BREITE });
+    }
+
+    doc.end();
+  });
+}
+
+// ── Stellungnahme zu Anhörung § 99 / § 102 BetrVG ────────────────
+// Brief an den Arbeitgeber mit dem echten Briefkopf aus den Protokoll-
+// Layout-Einstellungen (Logo, Farbe, Absenderzeile).
+export async function stellungnahmePdfGenerieren(
+  dokument: { titel: string; alias?: string | null; aktenzeichen?: string | null },
+  vorgang: {
+    stellungnahmeArt?:     string | null;
+    stellungnahmeGruende:  string[];
+    stellungnahmeText?:    string | null;
+  },
+): Promise<Buffer> {
+  const layout     = await layoutLaden();
+  const logoBuffer = layout.logo_pfad ? await fs.readFile(layout.logo_pfad).catch(() => null) : null;
+
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: "A4", margin: 60, bufferPages: true });
+    registriereSchriften(doc);
+    const chunks: Buffer[] = [];
+
+    doc.on("data",  c  => chunks.push(c));
+    doc.on("error", reject);
+    doc.on("end",   () => resolve(Buffer.concat(chunks)));
+
+    const datum    = new Date().toLocaleDateString("de-DE", { dateStyle: "long" });
+    const dokTitel = dokument.alias ?? dokument.titel;
+    const az       = dokument.aktenzeichen ?? "–";
+
+    const ueberschrift =
+      vorgang.stellungnahmeArt === "ZUSTIMMUNGSVERWEIGERUNG"
+        ? "Verweigerung der Zustimmung gemäß § 99 Abs. 2 BetrVG"
+        : vorgang.stellungnahmeArt === "WIDERSPRUCH"
+        ? "Widerspruch gegen die Kündigung gemäß § 102 Abs. 3 BetrVG"
+        : "Stellungnahme des Betriebsrats";
+
+    // ── Briefkopf (wiederverwendet aus dem Protokoll-Layout) ───────
+    briefkopf(
+      doc,
+      {
+        titel: ueberschrift, sitzungsdatum: new Date(), ort: null, notizen: null,
+        erstelltVon: { name: "" }, anwesenheiten: [], tops: [], sitzungstyp: "SITZUNG",
+      } as unknown as PdfSitzung,
+      { versionNummer: "Stellungnahme", typ: "STELLUNGNAHME", erstelltAm: new Date(), finalisiertAm: null },
+      false,
+      layout,
+      logoBuffer,
+    );
+    doc.moveDown(0.8);
+
+    doc.fillColor("black").fontSize(10).font("Helvetica")
+       .text("Geschäftsführung / Personalabteilung", RAND_LINKS, doc.y);
+    doc.moveDown(2);
+    doc.text(`Ort, ${datum}`, RAND_LINKS, doc.y, { align: "right", width: BREITE });
+    doc.moveDown(1.5);
+
+    doc.fontSize(13).font("Helvetica-Bold").fillColor("#111827")
+       .text(ueberschrift, RAND_LINKS, doc.y, { width: BREITE });
+    doc.fontSize(10).font("Helvetica").fillColor(FARBE_GRAU).moveDown(0.3)
+       .text(`Betreff: ${pdfText(dokTitel)}  |  Aktenzeichen: ${az}`, RAND_LINKS, doc.y, { width: BREITE });
+    doc.fillColor("black").moveDown(1.2);
+
+    doc.fontSize(10).font("Helvetica")
+       .text("Sehr geehrte Damen und Herren,", RAND_LINKS, doc.y, { width: BREITE })
+       .moveDown(0.5);
+
+    if (vorgang.stellungnahmeArt === "ZUSTIMMUNGSVERWEIGERUNG") {
+      doc.text(
+        "der Betriebsrat verweigert hiermit nach § 99 Abs. 2 BetrVG seine Zustimmung zu der " +
+        "beabsichtigten personellen Maßnahme aus folgendem Grund / folgenden Gründen:",
+        RAND_LINKS, doc.y, { width: BREITE },
+      );
+    } else if (vorgang.stellungnahmeArt === "WIDERSPRUCH") {
+      doc.text(
+        "der Betriebsrat erhebt hiermit gemäß § 102 Abs. 3 BetrVG Widerspruch gegen die " +
+        "beabsichtigte Kündigung aus folgendem Grund / folgenden Gründen:",
+        RAND_LINKS, doc.y, { width: BREITE },
+      );
+    } else {
+      doc.text("der Betriebsrat nimmt hiermit wie folgt Stellung:", RAND_LINKS, doc.y, { width: BREITE });
+    }
+    doc.moveDown(1);
+
+    const gruende = gruendeFuerArt(vorgang.stellungnahmeArt);
+    for (const g of gruende) {
+      const angekreuzt = vorgang.stellungnahmeGruende.includes(g.code);
+      doc.fontSize(10).text(`${angekreuzt ? "☑" : "☐"}  ${pdfText(g.text)}`, RAND_LINKS + 10, doc.y, { width: BREITE - 10 });
+      doc.moveDown(0.3);
+    }
+
+    doc.moveDown(0.7);
+    doc.font("Helvetica-Bold").text("Begründung / Weitere Ausführungen:", RAND_LINKS, doc.y, { underline: true });
+    doc.font("Helvetica").moveDown(0.4)
+       .text(pdfText(vorgang.stellungnahmeText) || "–", RAND_LINKS, doc.y, { width: BREITE });
+
+    if (vorgang.stellungnahmeArt === "WIDERSPRUCH") {
+      doc.moveDown(1.5);
+      doc.fontSize(9).fillColor(FARBE_GRAU).text(
+        "Gemäß § 102 Abs. 5 BetrVG ist der Arbeitnehmer nach Ablauf der Kündigungsfrist bis zur " +
+        "rechtskräftigen Entscheidung eines Gerichts weiterzubeschäftigen, sofern er dies verlangt.",
+        RAND_LINKS, doc.y, { width: BREITE },
+      );
+      doc.fillColor("black");
+    }
+
+    // ── Unterschrift ───────────────────────────────────────────────
+    doc.moveDown(2.5);
+    doc.moveTo(RAND_LINKS, doc.y).lineTo(RAND_LINKS + 220, doc.y).strokeColor("#9ca3af").lineWidth(1).stroke();
+    doc.moveDown(0.3);
+    doc.fontSize(10).font("Helvetica").fillColor("black").text(layout.unterschrift_vorsitz, RAND_LINKS, doc.y);
+
+    const seiten = (doc as any).bufferedPageRange().count;
+    for (let i = 0; i < seiten; i++) {
+      doc.switchToPage(i);
+      fusszeile(doc, i + 1, seiten, "Stellungnahme", layout);
     }
 
     doc.end();
