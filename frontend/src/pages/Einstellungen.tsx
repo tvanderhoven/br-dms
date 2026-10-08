@@ -1188,6 +1188,35 @@ function SystemTab() {
                       </span>
                     </div>
                   )}
+                  <div className="mt-3 border border-gray-200 rounded-lg overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-gray-50 text-left text-gray-500">
+                          <th className="px-3 py-1.5 font-medium">Zeitpunkt</th>
+                          <th className="px-3 py-1.5 font-medium">Größe</th>
+                          <th className="px-3 py-1.5 font-medium">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {backups.saetze.slice(0, 8).map(s => (
+                          <tr key={s.zeitpunkt}>
+                            <td className="px-3 py-1.5 text-gray-700 whitespace-nowrap">{new Date(s.zeitpunkt).toLocaleString("de-DE")}</td>
+                            <td className="px-3 py-1.5 text-gray-500 whitespace-nowrap">{formatGroesse(s.groesseBytes)}</td>
+                            <td className="px-3 py-1.5 whitespace-nowrap">
+                              {!s.vollstaendig && <span className="text-amber-600">unvollständig</span>}
+                              {s.vollstaendig && !s.verschluesselt && <span className="text-amber-600">unverschlüsselt</span>}
+                              {s.vollstaendig && s.verschluesselt && <span className="text-green-600">vollständig · verschlüsselt</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {backups.saetze.length > 8 && (
+                      <p className="px-3 py-1.5 text-xs text-gray-400 bg-gray-50 border-t border-gray-100">
+                        + {backups.saetze.length - 8} weitere im Ordner (automatisch nach 30 Tagen gelöscht)
+                      </p>
+                    )}
+                  </div>
                   </>
                 ) : (
                   <div className="mt-2.5 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700">
@@ -1227,6 +1256,8 @@ function SystemTab() {
           </div>
         </div>
       </div>
+
+      {meineRolle === "VORSITZ" && <BackupStatusTestBox />}
 
       {meineRolle === "ADMIN" && <SicherheitEinstellung />}
       {meineRolle === "ADMIN" && <GehaltstabelleGefahrenzone />}
@@ -1641,6 +1672,77 @@ function FristenErinnerungTestBox() {
               ? `${ergebnis.fristenAnzahl} fällige Frist(en) gefunden, aber keine aktiven Benutzer mit Rolle VORSITZ/STELLVERTRETER.`
               : `${ergebnis.fristenAnzahl} fällige Frist(en) · ${ergebnis.gesendetAn.length}/${ergebnis.empfaengerAnzahl} Mail(s) erfolgreich versendet.`}
           </p>
+          {ergebnis.gesendetAn.length > 0 && (
+            <p className="text-green-700 text-xs">✓ Gesendet an: {ergebnis.gesendetAn.join(", ")}</p>
+          )}
+          {ergebnis.fehlgeschlagenAn.length > 0 && (
+            <div className="text-red-700 text-xs">
+              {ergebnis.fehlgeschlagenAn.map(f => (
+                <p key={f.email}>✗ {f.email}: {f.fehler}</p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {fehler && (
+        <div className="px-6 py-3 bg-red-50 border-t border-red-100 text-red-700 text-sm">{fehler}</div>
+      )}
+    </div>
+  );
+}
+
+// ── Backup-Wochenübersicht testen ────────────────────────────────────
+// Läuft normalerweise wöchentlich montags um 07:00 Uhr automatisch (nur an
+// VORSITZ, nicht Stellvertretung) – hier direkt testen statt bis Montag zu warten.
+function BackupStatusTestBox() {
+  const [laeuft, setLaeuft]     = useState(false);
+  const [ergebnis, setErgebnis] = useState<Awaited<ReturnType<typeof api.einstellungen.backupStatusTesten>> | null>(null);
+  const [fehler, setFehler]     = useState("");
+
+  async function testen() {
+    setLaeuft(true);
+    setFehler("");
+    setErgebnis(null);
+    try {
+      setErgebnis(await api.einstellungen.backupStatusTesten());
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler beim Testen");
+    } finally {
+      setLaeuft(false);
+    }
+  }
+
+  return (
+    <div className="mt-6 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-100 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="font-semibold text-gray-800">Backup-Wochenübersicht</h2>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Läuft automatisch montags um 07:00 Uhr – schickt nur an den Vorsitz eine Übersicht der Backups
+            und warnt, wenn das jüngste älter als 2 Tage, unvollständig oder unverschlüsselt ist.
+          </p>
+        </div>
+        <button
+          onClick={testen}
+          disabled={laeuft}
+          className="flex items-center gap-1.5 shrink-0 bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+        >
+          {laeuft ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+          Jetzt testen
+        </button>
+      </div>
+
+      {ergebnis && (
+        <div className="px-6 py-4 text-sm space-y-1">
+          <p className="text-gray-700">
+            {ergebnis.empfaengerAnzahl === 0
+              ? "Kein aktiver Vorsitz-Benutzer gefunden – es wurde niemand benachrichtigt."
+              : `${ergebnis.anzahl} Backup(s) gefunden · ${ergebnis.gesendetAn.length}/${ergebnis.empfaengerAnzahl} Mail(s) erfolgreich versendet.`}
+          </p>
+          {ergebnis.warnung && (
+            <p className="text-amber-700 text-xs">⚠ {ergebnis.warnung}</p>
+          )}
           {ergebnis.gesendetAn.length > 0 && (
             <p className="text-green-700 text-xs">✓ Gesendet an: {ergebnis.gesendetAn.join(", ")}</p>
           )}

@@ -21,6 +21,7 @@ damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 | Dashboard „Auf einen Blick“ | Vier Karten oben auf dem Dashboard: nächste Sitzung, BVs die in 90 Tagen auslaufen oder gekündigt sind, ablaufende Qualifikationen + nächster Schulungstermin, Geschlechterquote (§ 15 Abs. 2); Module/Rechte blenden Karten einzeln aus | Okt. 2026 |
 | Kopfbalken + Fremdprotokolle öffnen | Suche über die volle Breite, Einstellungen/Abmelden am rechten Rand, Suchfeld abgesetzt; Fremdprotokolle per Doppelklick öffnen; Fristen-Erinnerungsmail pausierbar | Okt. 2026 |
 | Gremien und Fremdprotokolle (Paket 5) | Neue Seite „Gremien“ für Ausschüsse/JAV/SBV/GBR/Wirtschaftsausschuss (nicht den BR selbst); Sitzungen optional einem Gremium zuordnen; Fremdprotokolle (hochgeladenes Protokoll mit Gremium+Datum, ohne TOPs/Anwesenheit, mit vertraulich-Flag); neues togglebares Modul „Gremien“ | Okt. 2026 |
+| Backup-Wochenübersicht | Einstellungen → System zeigt jetzt die letzten 8 Backups einzeln (Zeitpunkt, Größe, Status) statt nur das jüngste; wöchentliche Mail montags 07:00 Uhr nur an Vorsitz mit derselben Liste, warnt wenn das jüngste Backup älter als 2 Tage, unvollständig oder unverschlüsselt ist (`backend/src/lib/backups.ts`, `workers/backup.worker.ts`) | Okt. 2026 |
 
 ## Als Nächstes
 
