@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   AlertTriangle, Clock, CheckCircle, Circle, Inbox, CalendarDays, XCircle, ClipboardList,
-  Scale, GraduationCap, Users, Trash2,
+  Scale, GraduationCap, Users, Trash2, Mail,
 } from "lucide-react";
 import {
   api, Dokument, FristMitDokument, SitzungListItem, Aufgabe, WatchfolderLogEintrag, fristFarbe, formatDatum,
   FRIST_TYP_LABEL, fristTitel, sitzungStatusLabel, ModuleKey, Betriebsvereinbarung,
-  QualifikationsMatrix, Schulungstermin, Benutzer, Geschlecht,
+  QualifikationsMatrix, Schulungstermin, Benutzer, Geschlecht, Nachricht,
 } from "../lib/api";
 
 // Vorlauf, ab dem auslaufende BVs bzw. Qualifikationen auf dem Dashboard auftauchen
@@ -96,6 +96,7 @@ export default function Dashboard() {
   const [aufgaben, setAufgaben]   = useState<Aufgabe[]>([]);
   const [watchLog, setWatchLog]   = useState<WatchfolderLogEintrag[]>([]);
   const [alleFristen, setAlleFristen] = useState<FristMitDokument[]>([]);
+  const [ungelesen, setUngelesen] = useState<Nachricht[]>([]);
   const [module, setModule]       = useState<Record<ModuleKey, boolean> | null>(null);
   const [bvs, setBvs]             = useState<Betriebsvereinbarung[]>([]);
   const [matrix, setMatrix]       = useState<QualifikationsMatrix | null>(null);
@@ -115,13 +116,15 @@ export default function Dashboard() {
       api.watchfolder.log().catch(() => [] as WatchfolderLogEintrag[]),
       // Direkt aus der Fristen-API, damit auch Fristen ohne Dokument erscheinen
       api.fristen.liste({ status: "OFFEN" }).catch(() => [] as FristMitDokument[]),
-    ]).then(([docs, inbox, sits, aufg, wlog, fristen]) => {
+      api.nachrichten.ungelesen().catch(() => [] as Nachricht[]),
+    ]).then(([docs, inbox, sits, aufg, wlog, fristen, nachr]) => {
       setAlleFristen(fristen);
       setDokumente(docs);
       setInboxDoks(inbox);
       setSitzungen(sits);
       setAufgaben(aufg);
       setWatchLog(wlog);
+      setUngelesen(nachr);
     }).catch(console.error).finally(() => setLaden(false));
     api.auth.me().then(b => setIch({ id: b.id, vorname: b.name.split(" ")[0] })).catch(() => {});
 
@@ -376,6 +379,7 @@ export default function Dashboard() {
           )}
         </div>
 
+        <div className="flex flex-col gap-5">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -427,6 +431,38 @@ export default function Dashboard() {
               ? `+ ${fristenNah.length - FRISTEN_MAX} weitere · alle im Fristenkalender →`
               : "Alle im Fristenkalender →"}
           </Link>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Mail size={15} className="text-gray-400" />
+              <h2 className="font-semibold text-gray-900 text-sm">Nachrichten</h2>
+            </div>
+            {ungelesen.length > 0 && (
+              <span className="text-xs font-medium text-white bg-[rgb(var(--accent))] px-2 py-0.5 rounded-full">
+                {ungelesen.length} ungelesen
+              </span>
+            )}
+          </div>
+          {ungelesen.length === 0 ? (
+            <p className="px-5 py-6 text-center text-gray-400 text-sm">Keine ungelesenen Nachrichten</p>
+          ) : (
+            <ul className="divide-y divide-gray-50">
+              {ungelesen.slice(0, 4).map(n => (
+                <li key={n.id}>
+                  <Link to="/posteingang" className="px-5 py-2 flex items-center gap-2 hover:bg-gray-50 transition-colors block">
+                    <span className="min-w-0 flex-1 text-sm text-gray-900 truncate" title={n.betreff}>{n.betreff}</span>
+                    <span className="shrink-0 text-xs text-gray-400">{n.absender?.name ?? "System"}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Link to="/posteingang" className="block px-5 py-2.5 border-t border-gray-50 text-xs text-[rgb(var(--accent))] hover:underline">
+            {ungelesen.length > 4 ? `+ ${ungelesen.length - 4} weitere · alle Nachrichten →` : "Alle Nachrichten →"}
+          </Link>
+        </div>
         </div>
       </div>
     </div>
