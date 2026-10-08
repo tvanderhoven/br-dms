@@ -1546,7 +1546,10 @@ def build():
         ["Mechanismus", "Umsetzung"],
         [
             ["Verschlüsselt", "Mit BACKUP_KEY verschlüsselt backup.sh Datenbank-Dump und Dokumenten-Archiv "
-             "komplett (AES-256, PBKDF2), ohne Klartext-Zwischendatei (Kapitel 13.2)"],
+             "komplett mit AES-256 (256-Bit-Schlüssel), ohne Klartext-Zwischendatei (Kapitel 13.2)"],
+            ["Schlüssel", "Der BACKUP_KEY ist ein 256-Bit-Zufallswert; der eigentliche Schlüssel wird per "
+             "PBKDF2 (HMAC-SHA256, 600.000 Durchläufe, eigener Zufalls-Salt je Datei) daraus abgeleitet – "
+             "das macht systematisches Durchprobieren praktisch aussichtslos"],
             ["Kopie bei Dritten", "So verschlüsselt kann eine Kopie z. B. bei der IT liegen, ohne dass sie "
              "lesbar ist – den Schlüssel hat nur der Betriebsrat"],
             ["Prüfung", "restore.sh prüft den Schlüssel, bevor etwas überschrieben wird; Einstellungen → "
@@ -1909,8 +1912,10 @@ def build():
     pdf.h3("Verschlüsselte Backups")
     pdf.body(
         "Steht ein BACKUP_KEY in der .env (der Einrichtungsassistent erzeugt ihn, sonst openssl rand -hex 32), "
-        "verschlüsselt backup.sh Datenbank-Dump und Dokumenten-Archiv komplett (AES-256, Schlüssel per PBKDF2) – "
-        "ohne unverschlüsselte Zwischendatei. Das ist wichtig, weil der Datenbank-Dump sonst Protokolle, "
+        "verschlüsselt backup.sh Datenbank-Dump und Dokumenten-Archiv komplett – ohne unverschlüsselte "
+        "Zwischendatei. Verfahren: AES-256-CBC mit 256-Bit-Schlüssel (OpenSSL); der Schlüssel wird per PBKDF2 "
+        "(HMAC-SHA256, 600.000 Durchläufe, eigener Zufalls-Salt je Datei) aus dem BACKUP_KEY abgeleitet, der "
+        "selbst ein 256-Bit-Zufallswert ist. Das ist wichtig, weil der Datenbank-Dump sonst Protokolle, "
         "Beschlüsse, Personal- und Gehaltsdaten und den Suchtext der Dokumente im Klartext enthält. Nur so "
         "verschlüsselt sollte eine Kopie das NAS verlassen, etwa zur Sicherung bei der IT: Sie kann die "
         "Dateien aufbewahren, aber nicht lesen. Ohne BACKUP_KEY sichert das Skript weiter unverschlüsselt "
