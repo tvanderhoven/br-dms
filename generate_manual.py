@@ -89,6 +89,19 @@ class Manual(FPDF):
         self.set_author(AUTOR)
         self.abb_nr = 0
         self.ohne_kopf = True  # Titelseite + Inhaltsverzeichnis
+        self.seite_frisch = False
+
+    def inhalt_platzhalter(self, render, seiten):
+        """Inhaltsverzeichnis reservieren. fpdf bricht danach selbst auf eine neue Seite um –
+        das nächste add_page() (Teil-Trenner) nutzt diese, statt eine leere Seite zu hinterlassen."""
+        self.insert_toc_placeholder(render, pages=seiten)
+        self.seite_frisch = True
+
+    def add_page(self, *args, **kwargs):
+        if self.seite_frisch:
+            self.seite_frisch = False
+            return
+        super().add_page(*args, **kwargs)
 
     # ── Kopf- und Fußzeile ───────────────────────────────────────────
     def header(self):
@@ -429,7 +442,7 @@ def build():
 
     # ── Inhaltsverzeichnis ───────────────────────────────────────────
     pdf.add_page()
-    pdf.insert_toc_placeholder(inhaltsverzeichnis, pages=2)
+    pdf.inhalt_platzhalter(inhaltsverzeichnis, 2)
     pdf.ohne_kopf = False
 
     # ════════════════════════════════════════════════════════════════

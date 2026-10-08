@@ -146,7 +146,7 @@ def build():
         pdf.set_text_color(*C_GREY)
 
     pdf.add_page()
-    pdf.insert_toc_placeholder(inhaltsverzeichnis, pages=1)
+    pdf.inhalt_platzhalter(inhaltsverzeichnis, 1)
     pdf.ohne_kopf = False
 
     # ════════════════════════════════════════════════════════════════
