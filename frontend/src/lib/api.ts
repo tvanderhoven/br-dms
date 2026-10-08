@@ -426,6 +426,13 @@ export const api = {
       anzahl: number;
       saetze: { zeitpunkt: string; groesseBytes: number; vollstaendig: boolean; verschluesselt: boolean }[];
     }>("/api/einstellungen/backups"),
+    backupStatusTesten: () => request<{
+      anzahl: number;
+      warnung: string | null;
+      empfaengerAnzahl: number;
+      gesendetAn: string[];
+      fehlgeschlagenAn: { email: string; fehler: string }[];
+    }>("/api/einstellungen/backup-status-testen", { method: "POST" }),
     adminZugriff: () => request<{ inhaltszugriff: boolean }>("/api/einstellungen/admin-zugriff"),
     adminZugriffSpeichern: (inhaltszugriff: boolean) =>
       request<{ inhaltszugriff: boolean }>("/api/einstellungen/admin-zugriff", { method: "PUT", body: JSON.stringify({ inhaltszugriff }) }),

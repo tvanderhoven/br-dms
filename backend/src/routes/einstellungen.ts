@@ -19,6 +19,8 @@ import { Kategorie, Role, Geschlecht, AuditAktion } from "@prisma/client";
 import { adminHatInhaltszugriff, ADMIN_INHALTSZUGRIFF } from "../lib/adminZugriff.js";
 import { ALLE_KATEGORIEN, STANDARD_AUFBEWAHRUNG_TAGE } from "../lib/kategorien.js";
 import { MAIL_ABSENDER_NAME, MAIL_ABSENDER_ADRESSE, MAIL_SIGNATUR } from "../lib/mailer.js";
+import { ermittleBackupSaetze } from "../lib/backups.js";
+import { BackupWorker } from "../workers/backup.worker.js";
 
 const STORAGE = process.env.STORAGE_PATH ?? "/data/storage";
 const LOGO_VERZ = path.join(STORAGE, "logo");
@@ -406,52 +408,27 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
   );
 
   // ── GET /backups – Übersicht der backup.sh-Sicherungen (nur lesend) ─
-  // BACKUP_PATH wird read-only in den Container gemountet (siehe docker-compose.yml).
   // backup.sh legt je Lauf ein Paar db_<ts>.sql.gz + storage_<ts>.tar.gz an, mit BACKUP_KEY jeweils mit Endung .enc.
-  const BACKUP_PATH = process.env.BACKUP_PATH ?? "/data/backups";
-  const BACKUP_DATEI_REGEX = /^(db|storage)_(\d{8}_\d{6})\.(?:sql\.gz|tar\.gz)(\.enc)?$/;
-
   app.get(
     "/backups",
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (_request: FastifyRequest, reply: FastifyReply) => {
-      try {
-        const dateinamen = await fs.readdir(BACKUP_PATH);
-        const saetze = new Map<string, { zeitpunkt: Date; groesseBytes: number; hatDb: boolean; hatStorage: boolean; unverschluesselt: boolean }>();
+      const { pfadLesbar, saetze } = await ermittleBackupSaetze();
+      return reply.send({
+        pfadLesbar,
+        anzahl: saetze.length,
+        saetze: saetze.map(s => ({ ...s, zeitpunkt: s.zeitpunkt.toISOString() })),
+      });
+    }
+  );
 
-        for (const name of dateinamen) {
-          const treffer = name.match(BACKUP_DATEI_REGEX);
-          if (!treffer) continue;
-          const [, art, ts, enc] = treffer;
-          const zeitpunkt = new Date(
-            `${ts.slice(0, 4)}-${ts.slice(4, 6)}-${ts.slice(6, 8)}T${ts.slice(9, 11)}:${ts.slice(11, 13)}:${ts.slice(13, 15)}`
-          );
-          const { size } = await fs.stat(path.join(BACKUP_PATH, name));
-
-          const eintrag = saetze.get(ts) ?? { zeitpunkt, groesseBytes: 0, hatDb: false, hatStorage: false, unverschluesselt: false };
-          if (!enc) eintrag.unverschluesselt = true;
-          eintrag.groesseBytes += size;
-          if (art === "db") eintrag.hatDb = true;
-          if (art === "storage") eintrag.hatStorage = true;
-          saetze.set(ts, eintrag);
-        }
-
-        const liste = [...saetze.values()].sort((a, b) => b.zeitpunkt.getTime() - a.zeitpunkt.getTime());
-
-        return reply.send({
-          pfadLesbar: true,
-          anzahl:     liste.length,
-          saetze:     liste.map(s => ({
-            zeitpunkt:    s.zeitpunkt.toISOString(),
-            groesseBytes: s.groesseBytes,
-            vollstaendig: s.hatDb && s.hatStorage,
-            verschluesselt: !s.unverschluesselt,
-          })),
-        });
-      } catch {
-        // Ordner nicht gemountet/lesbar (z.B. vor dem ersten Deploy mit dem neuen Volume) – kein harter Fehler
-        return reply.send({ pfadLesbar: false, anzahl: 0, saetze: [] });
-      }
+  // ── POST /backup-status-testen – Wochen-Status-Mail sofort auslösen ─
+  app.post(
+    "/backup-status-testen",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      const ergebnis = await new BackupWorker().run();
+      return reply.send(ergebnis);
     }
   );
 

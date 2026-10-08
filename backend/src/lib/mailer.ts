@@ -126,6 +126,79 @@ export async function sendeAblaufZusammenfassung(
   });
 }
 
+// ── Wöchentliche Backup-Statusmail (nur Vorsitz) ─────────────────────
+export interface BackupStatusEintrag {
+  zeitpunkt: Date;
+  groesseBytes: number;
+  vollstaendig: boolean;
+  verschluesselt: boolean;
+}
+
+function formatGroesseMail(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export async function sendeBackupWochenstatus(
+  email: string,
+  name: string,
+  opts: { pfadLesbar: boolean; saetze: BackupStatusEintrag[]; warnung: string | null }
+): Promise<void> {
+  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+  const { pfadLesbar, saetze, warnung } = opts;
+
+  const zeilen = saetze.slice(0, 10).map(s => `<tr>
+    <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">${new Date(s.zeitpunkt).toLocaleString("de-DE")}</td>
+    <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">${formatGroesseMail(s.groesseBytes)}</td>
+    <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">${s.vollstaendig ? "vollständig" : "unvollständig"}</td>
+    <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">${s.verschluesselt ? "verschlüsselt" : "unverschlüsselt"}</td>
+  </tr>`).join("");
+
+  const text = !pfadLesbar
+    ? "Backup-Ordner ist auf dem Server nicht lesbar."
+    : saetze.length === 0
+    ? "Kein Backup im Ordner gefunden."
+    : saetze.slice(0, 10).map(s =>
+        `${new Date(s.zeitpunkt).toLocaleString("de-DE")} – ${formatGroesseMail(s.groesseBytes)} – ${s.vollstaendig ? "vollständig" : "unvollständig"} – ${s.verschluesselt ? "verschlüsselt" : "unverschlüsselt"}`
+      ).join("\n");
+
+  await transporter.sendMail({
+    from:    await absender(),
+    to:      email,
+    subject: `BR-DMS – Backup-Wochenübersicht${warnung ? " (Achtung)" : ""}`,
+    text:    (warnung ? `${warnung}\n\n` : "") + text,
+    html: `<div style="font-family:sans-serif;max-width:640px;margin:0 auto">
+      <div style="background:#1e3a8a;color:white;padding:16px 20px;border-radius:8px 8px 0 0">
+        <h2 style="margin:0;font-size:18px">BR-DMS – Backup-Wochenübersicht</h2>
+      </div>
+      <div style="padding:20px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
+        <p>Hallo <strong>${name}</strong>,</p>
+        ${warnung ? `<div style="background:#fef3c7;border:1px solid #fde68a;color:#92400e;padding:10px 14px;border-radius:6px;margin-bottom:16px">${warnung}</div>` : ""}
+        ${!pfadLesbar
+          ? `<p>Der Backup-Ordner ist auf dem Server nicht lesbar – bitte den Mount prüfen.</p>`
+          : saetze.length === 0
+          ? `<p>Im Backup-Ordner liegt aktuell kein Backup.</p>`
+          : `<p>Die letzten ${Math.min(saetze.length, 10)} von insgesamt <strong>${saetze.length}</strong> Backup(s):</p>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb">
+          <thead>
+            <tr style="background:#dbeafe">
+              <th style="padding:10px 12px;text-align:left;font-size:12px;color:#1e40af">Zeitpunkt</th>
+              <th style="padding:10px 12px;text-align:left;font-size:12px;color:#1e40af">Größe</th>
+              <th style="padding:10px 12px;text-align:left;font-size:12px;color:#1e40af">Status</th>
+              <th style="padding:10px 12px;text-align:left;font-size:12px;color:#1e40af">Verschlüsselung</th>
+            </tr>
+          </thead>
+          <tbody>${zeilen}</tbody>
+        </table>`}
+        <p style="margin-top:20px">
+          <a href="${appUrl}/einstellungen" style="background:#1e40af;color:white;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block">→ Zu den Einstellungen</a>
+        </p>
+        <p style="color:#9ca3af;font-size:11px;margin-top:20px">Automatische Nachricht von BR-DMS · Wöchentlich montags um 07:00 Uhr</p>
+      </div>
+    </div>`,
+  });
+}
+
 export async function sendeFristenZusammenfassung(
   email: string,
   name: string,
