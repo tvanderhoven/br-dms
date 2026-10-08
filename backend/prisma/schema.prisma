@@ -111,6 +111,19 @@ enum FristStatus {
   ABGELAUFEN
 }
 
+enum AnhoerungStatus {
+  EINGEGANGEN
+  BERATEN
+  BESCHLOSSEN
+  BEANTWORTET
+}
+
+enum AnhoerungArt {
+  ZUSTIMMUNG
+  ZUSTIMMUNGSVERWEIGERUNG
+  WIDERSPRUCH
+}
+
 enum SitzungStatus {
   ENTWURF
   TAGESORDNUNG_FIXIERT
@@ -207,6 +220,9 @@ enum AuditAktion {
   GESCHAEFTSORDNUNG_ERSTELLT
   GESCHAEFTSORDNUNG_AKTUALISIERT
   GESCHAEFTSORDNUNG_GELOESCHT
+  ANHOERUNG_STATUS_GEAENDERT
+  ANHOERUNG_STELLUNGNAHME_GESPEICHERT
+  ANHOERUNG_VERSENDET
 }
 
 // ================================================================
@@ -256,6 +272,7 @@ model Benutzer {
   sitzungScansHochgeladen SitzungScan[]    @relation("SitzungScanHochgeladen")
   fremdprotokolleHochgeladen Fremdprotokoll[] @relation("FremdprotokollHochgeladenVon")
   gremienMitgliedschaften GremiumMitglied[]
+  anhoerungenVersendet   AnhoerungsVorgang[] @relation("AnhoerungVersendet")
 
   @@map("benutzer")
 }
@@ -369,6 +386,7 @@ model Dokument {
   aufgaben          Aufgabe[]
   betriebsvereinbarungen Betriebsvereinbarung[]
   geschaeftsordnungen    Geschaeftsordnung[]
+  anhoerungsVorgang      AnhoerungsVorgang?
 
   @@index([deleteAt, status])
   @@index([kategorie, status])
@@ -824,6 +842,7 @@ model Beschluss {
   aktualisiertAm  DateTime  @updatedAt @map("aktualisiert_am")
 
   stimmen         BeschlussStimme[]
+  anhoerungsVorgang AnhoerungsVorgang?
 
   @@index([topId, reihenfolge])
   @@map("beschluesse")
@@ -842,6 +861,42 @@ model BeschlussStimme {
 
   @@unique([beschlussId, benutzerId])
   @@map("beschluss_stimmen")
+}
+
+// ================================================================
+//  ANHÖRUNG ALS VORGANG (§ 99 / § 102 BetrVG)
+// ================================================================
+//  Begleitet ein Dokument der Kategorie ANHOERUNG_99/ANHOERUNG_102 von
+//  Eingang bis Versand der Stellungnahme. Der Versand-Schritt erledigt
+//  automatisch die zugehörigen Fristen (siehe routes/anhoerung.ts).
+
+model AnhoerungsVorgang {
+  id             String   @id @default(uuid())
+  dokumentId     String   @unique @map("dokument_id")
+  dokument       Dokument @relation(fields: [dokumentId], references: [id], onDelete: Cascade)
+
+  // Dauerhaft statt nur transient zur Fristberechnung genutzt (siehe
+  // dokument-pipeline.service.ts); nur bei ANHOERUNG_102 relevant.
+  kuendigungsArt String?  @map("kuendigungs_art")
+
+  status         AnhoerungStatus @default(EINGEGANGEN)
+
+  beschlussId    String?    @unique @map("beschluss_id")
+  beschluss      Beschluss? @relation(fields: [beschlussId], references: [id], onDelete: SetNull)
+
+  stellungnahmeArt     AnhoerungArt? @map("stellungnahme_art")
+  stellungnahmeGruende String[]     @map("stellungnahme_gruende")
+  stellungnahmeText    String?      @map("stellungnahme_text")
+
+  versendetAm       DateTime? @map("versendet_am")
+  versendetVonId    String?   @map("versendet_von_id")
+  versendetVon      Benutzer? @relation("AnhoerungVersendet", fields: [versendetVonId], references: [id])
+  versandDokumentId String?   @map("versand_dokument_id")
+
+  erstelltAm     DateTime @default(now()) @map("erstellt_am")
+  aktualisiertAm DateTime @updatedAt @map("aktualisiert_am")
+
+  @@map("anhoerungsvorgaenge")
 }
 
 // ================================================================

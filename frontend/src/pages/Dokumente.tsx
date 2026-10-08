@@ -2,10 +2,12 @@ import { useEffect, useState, useRef, FormEvent, useCallback } from "react";
 import { useLocation, Link } from "react-router-dom";
 import {
   Upload, Download, Trash2, FileText, Lock, X, Loader2, Search, Pencil, MessageSquare, Eye, History, ExternalLink, CalendarDays,
+  CheckCircle2, Send,
 } from "lucide-react";
 import {
   api, Dokument, DokumentVersion, Kategorie, KATEGORIE_LABEL, KATEGORIE_KURZ, Aufbewahrungsregel, Gremium,
   formatDatum, formatDateigroesse, fristFarbe,
+  AnhoerungVorgangAntwort, AnhoerungStatus, AnhoerungArt, ANHOERUNG_STATUS_LABEL, ANHOERUNG_ART_LABEL, gruendeFuerArt,
 } from "../lib/api";
 
 // Sitzungen/TOPs, in denen ein Dokument behandelt wurde – jüngste Sitzung zuerst
@@ -47,6 +49,15 @@ export default function Dokumente() {
   const [versionen, setVersionen]         = useState<DokumentVersion[]>([]);
   const [versionenLaden, setVersionenLaden] = useState(false);
 
+  const [vorgang, setVorgang]             = useState<AnhoerungVorgangAntwort | null>(null);
+  const [vorgangLaden, setVorgangLaden]   = useState(false);
+  const [vorgangSpeichern, setVorgangSpeichern] = useState(false);
+  const [stnArt, setStnArt]               = useState<AnhoerungArt | "">("");
+  const [stnGruende, setStnGruende]       = useState<string[]>([]);
+  const [stnText, setStnText]             = useState("");
+  const [versandDatum, setVersandDatum]   = useState(() => new Date().toISOString().slice(0, 10));
+  const [versandLaufend, setVersandLaufend] = useState(false);
+
   function laden_() {
     setLaden(true);
     api.dokumente.liste()
@@ -78,12 +89,27 @@ export default function Dokumente() {
     finally { setVersionenLaden(false); }
   }, []);
 
+  const ladeVorgang = useCallback(async (d: Dokument) => {
+    if (d.kategorie !== "ANHOERUNG_99" && d.kategorie !== "ANHOERUNG_102") { setVorgang(null); return; }
+    setVorgangLaden(true);
+    try {
+      const v = await api.dokumente.vorgang(d.id);
+      setVorgang(v);
+      setStnArt(v.vorgang.stellungnahmeArt ?? "");
+      setStnGruende(v.vorgang.stellungnahmeGruende ?? []);
+      setStnText(v.vorgang.stellungnahmeText ?? "");
+    } catch { setVorgang(null); }
+    finally { setVorgangLaden(false); }
+  }, []);
+
   const oeffneVorschau = useCallback(async (d: Dokument) => {
     if (blobRef.current) URL.revokeObjectURL(blobRef.current);
     setVorschauUrl(null);
     setVorschau(d);
     setVersionen([]);
+    setVorgang(null);
     ladeVersionen(d.id);
+    ladeVorgang(d);
     if (d.mimeTyp === "application/pdf") {
       setVorschauLaden(true);
       try {
@@ -163,6 +189,62 @@ export default function Dokumente() {
         URL.revokeObjectURL(a.href);
       })
       .catch(console.error);
+  }
+
+  function versandPdfHerunterladen(dokumentId: string) {
+    const url = api.dokumente.downloadUrl(dokumentId);
+    const token = localStorage.getItem("brdms_token");
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.blob())
+      .then(blob => {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "Stellungnahme.pdf";
+        a.click();
+        URL.revokeObjectURL(a.href);
+      })
+      .catch(console.error);
+  }
+
+  async function vorgangStatusSetzen(status: AnhoerungStatus) {
+    if (!vorgang) return;
+    try {
+      const aktualisiert = await api.dokumente.vorgangAktualisieren(vorgang.vorgang.dokumentId, { status });
+      setVorgang(v => v ? { ...v, vorgang: aktualisiert } : v);
+    } catch (err) { alert(err instanceof Error ? err.message : "Fehler beim Ändern des Status"); }
+  }
+
+  async function stellungnahmeSpeichern() {
+    if (!vorgang) return;
+    setVorgangSpeichern(true);
+    try {
+      const aktualisiert = await api.dokumente.vorgangAktualisieren(vorgang.vorgang.dokumentId, {
+        stellungnahmeArt: stnArt || null,
+        stellungnahmeGruende: stnGruende,
+        stellungnahmeText: stnText || null,
+      });
+      setVorgang(v => v ? { ...v, vorgang: aktualisiert } : v);
+    } catch (err) { alert(err instanceof Error ? err.message : "Fehler beim Speichern"); }
+    finally { setVorgangSpeichern(false); }
+  }
+
+  async function vorgangFristErledigen(fristId: string, erledigt: boolean) {
+    if (!vorschau) return;
+    try {
+      await api.fristen.aktualisieren(fristId, { erledigt });
+      await ladeVorgang(vorschau);
+    } catch (err) { alert(err instanceof Error ? err.message : "Fehler beim Aktualisieren der Frist"); }
+  }
+
+  async function vorgangAlsVersendetMarkieren() {
+    if (!vorgang || !vorschau) return;
+    if (!confirm("Stellungnahme als versendet markieren? Dabei wird ein Brief-PDF erzeugt, archiviert und alle offenen Fristen dieses Dokuments werden als erledigt markiert.")) return;
+    setVersandLaufend(true);
+    try {
+      await api.dokumente.vorgangVersenden(vorgang.vorgang.dokumentId, versandDatum);
+      await ladeVorgang(vorschau);
+    } catch (err) { alert(err instanceof Error ? err.message : "Fehler beim Versenden"); }
+    finally { setVersandLaufend(false); }
   }
 
   function ladeVersionHerunter(v: DokumentVersion) {
@@ -467,6 +549,150 @@ export default function Dokumente() {
               <Pencil size={13} /> Bearbeiten
             </button>
           </div>
+
+          {/* Anhörungs-Vorgang (§ 99 / § 102 BetrVG) */}
+          {(vorschau.kategorie === "ANHOERUNG_99" || vorschau.kategorie === "ANHOERUNG_102") && (
+            <div className="px-4 py-3 border-b border-gray-100 space-y-3">
+              <p className="text-xs font-medium text-gray-500">Vorgang</p>
+              {vorgangLaden ? (
+                <div className="flex items-center gap-1 text-xs text-gray-400">
+                  <Loader2 size={11} className="animate-spin" /> Laden…
+                </div>
+              ) : vorgang ? (
+                <>
+                  {/* Status-Stepper */}
+                  <div className="flex items-center gap-1">
+                    {(["EINGEGANGEN", "BERATEN", "BESCHLOSSEN", "BEANTWORTET"] as AnhoerungStatus[]).map((s, i) => {
+                      const aktiv = vorgang.vorgang.status === s;
+                      const stufenIndex = ["EINGEGANGEN", "BERATEN", "BESCHLOSSEN", "BEANTWORTET"].indexOf(vorgang.vorgang.status);
+                      const erreicht = i <= stufenIndex;
+                      return (
+                        <button
+                          key={s}
+                          onClick={() => vorgangStatusSetzen(s)}
+                          disabled={vorgang.vorgang.status === "BEANTWORTET"}
+                          title={ANHOERUNG_STATUS_LABEL[s]}
+                          className={`flex-1 text-[10px] py-1 rounded transition-colors truncate px-1 ${
+                            aktiv ? "bg-[rgb(var(--accent))] text-white font-medium"
+                            : erreicht ? "bg-accent/10 text-[rgb(var(--accent))]"
+                            : "bg-gray-100 text-gray-400 hover:bg-gray-200"
+                          }`}
+                        >
+                          {ANHOERUNG_STATUS_LABEL[s]}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Fristen */}
+                  {vorgang.fristen.length > 0 && (
+                    <div className="space-y-1">
+                      {vorgang.fristen.map(f => (
+                        <div key={f.id} className="flex items-center justify-between gap-2 text-xs">
+                          <span className={f.status === "ERLEDIGT" ? "text-gray-400 line-through" : fristFarbe(f.faelligAm)}>
+                            {f.bezeichnung ?? f.typ} – fällig {formatDatum(f.faelligAm)}
+                          </span>
+                          <button
+                            onClick={() => vorgangFristErledigen(f.id, f.status !== "ERLEDIGT")}
+                            className="p-1 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded flex-shrink-0"
+                            title={f.status === "ERLEDIGT" ? "Als offen markieren" : "Als erledigt markieren"}
+                          >
+                            <CheckCircle2 size={13} className={f.status === "ERLEDIGT" ? "text-green-600" : ""} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Stellungnahme */}
+                  {vorgang.vorgang.status === "BEANTWORTET" ? (
+                    <div className="text-xs text-gray-600 space-y-1 bg-gray-50 rounded p-2">
+                      <p className="font-medium text-gray-700">
+                        {vorgang.vorgang.stellungnahmeArt ? ANHOERUNG_ART_LABEL[vorgang.vorgang.stellungnahmeArt] : "Stellungnahme"} – versendet
+                      </p>
+                      <p className="text-gray-400">
+                        {vorgang.vorgang.versendetAm && formatDatum(vorgang.vorgang.versendetAm)}
+                        {vorgang.vorgang.versendetVon && ` · ${vorgang.vorgang.versendetVon.name}`}
+                      </p>
+                      {vorgang.vorgang.versandDokumentId && (
+                        <button
+                          onClick={() => versandPdfHerunterladen(vorgang.vorgang.versandDokumentId!)}
+                          className="inline-flex items-center gap-1 text-[rgb(var(--accent))] hover:underline"
+                        >
+                          <Download size={11} /> Brief-PDF herunterladen
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <select
+                        value={stnArt}
+                        onChange={e => { setStnArt(e.target.value as AnhoerungArt | ""); setStnGruende([]); }}
+                        className="w-full text-xs border border-gray-200 rounded px-2 py-1.5"
+                      >
+                        <option value="">Art der Stellungnahme wählen…</option>
+                        {(Object.keys(ANHOERUNG_ART_LABEL) as AnhoerungArt[]).map(a => (
+                          <option key={a} value={a}>{ANHOERUNG_ART_LABEL[a]}</option>
+                        ))}
+                      </select>
+
+                      {gruendeFuerArt(stnArt).length > 0 && (
+                        <div className="space-y-1 bg-gray-50 rounded p-2">
+                          {gruendeFuerArt(stnArt).map(g => (
+                            <label key={g.code} className="flex items-start gap-1.5 text-[11px] text-gray-600 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={stnGruende.includes(g.code)}
+                                onChange={e => setStnGruende(prev =>
+                                  e.target.checked ? [...prev, g.code] : prev.filter(c => c !== g.code))}
+                                className="mt-0.5"
+                              />
+                              <span>{g.text}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+
+                      <textarea
+                        value={stnText}
+                        onChange={e => setStnText(e.target.value)}
+                        placeholder="Begründung / weitere Ausführungen…"
+                        rows={3}
+                        className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 resize-none"
+                      />
+
+                      <div className="flex items-center justify-between gap-2">
+                        <button
+                          onClick={stellungnahmeSpeichern}
+                          disabled={vorgangSpeichern}
+                          className="text-xs text-gray-600 hover:text-[rgb(var(--accent))] px-2 py-1 rounded hover:bg-accent/5 disabled:opacity-50"
+                        >
+                          {vorgangSpeichern ? "Speichert…" : "Speichern"}
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1 border-t border-gray-100">
+                        <input
+                          type="date"
+                          value={versandDatum}
+                          onChange={e => setVersandDatum(e.target.value)}
+                          className="text-xs border border-gray-200 rounded px-2 py-1.5"
+                        />
+                        <button
+                          onClick={vorgangAlsVersendetMarkieren}
+                          disabled={versandLaufend}
+                          className="flex items-center gap-1.5 text-xs text-white bg-[rgb(var(--accent))] px-2 py-1.5 rounded hover:brightness-90 disabled:opacity-50"
+                        >
+                          {versandLaufend ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                          Als versendet markieren
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : null}
+            </div>
+          )}
 
           {/* In welchen Sitzungen behandelt */}
           {behandeltIn(vorschau).length > 0 && (

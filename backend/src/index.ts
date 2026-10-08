@@ -52,6 +52,7 @@ import { ablaufRouten } from "./routes/ablauf.js";
 import { gremienRouten } from "./routes/gremien.js";
 import { fremdprotokolleRouten } from "./routes/fremdprotokolle.js";
 import { geschaeftsordnungRouten } from "./routes/geschaeftsordnung.js";
+import { anhoerungRouten } from "./routes/anhoerung.js";
 
 konfigPruefen();
 
@@ -137,6 +138,7 @@ await app.register(ablaufRouten,             { prefix: "/api/ablauf" });
 await app.register(gremienRouten,            { prefix: "/api/gremien" });
 await app.register(fremdprotokolleRouten,    { prefix: "/api/fremdprotokolle" });
 await app.register(geschaeftsordnungRouten,  { prefix: "/api/geschaeftsordnung" });
+await app.register(anhoerungRouten,          { prefix: "/api/dokumente" });
 
 // ── Erster Admin (nur bei leerer Benutzertabelle) ─────────────────
 await erstAdminAnlegen();

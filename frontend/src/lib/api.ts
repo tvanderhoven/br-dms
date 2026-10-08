@@ -105,6 +105,20 @@ export const api = {
     versionHochladen: (id: string, formData: FormData) =>
       request<DokumentVersion>(`/api/dokumente/${id}/versionen`, { method: "POST", body: formData }),
     versionDownloadUrl: (id: string, vid: string) => `${BASE}/api/dokumente/${id}/versionen/${vid}/download`,
+
+    vorgang: (id: string) => request<AnhoerungVorgangAntwort>(`/api/dokumente/${id}/vorgang`),
+    vorgangAktualisieren: (id: string, data: Partial<{
+      status: AnhoerungStatus;
+      stellungnahmeArt: AnhoerungArt | null;
+      stellungnahmeGruende: string[];
+      stellungnahmeText: string | null;
+    }>) => request<AnhoerungsVorgang>(`/api/dokumente/${id}/vorgang`, { method: "PATCH", body: JSON.stringify(data) }),
+    vorgangAusBeschluss: (id: string, beschlussId: string) =>
+      request<AnhoerungsVorgang>(`/api/dokumente/${id}/vorgang/aus-beschluss`, { method: "POST", body: JSON.stringify({ beschlussId }) }),
+    vorgangVersenden: (id: string, versandDatum?: string) =>
+      request<{ vorgang: AnhoerungsVorgang; versandDokumentId: string; fristenErledigt: number }>(
+        `/api/dokumente/${id}/vorgang/versenden`, { method: "POST", body: JSON.stringify({ versandDatum }) },
+      ),
   },
 
   // Wartende Scans aus dem Watch-Folder-Unterordner "protokoll_scan" (Backend: routes/scanEingang.ts)
@@ -512,8 +526,6 @@ export const api = {
 
   export: {
     amtsuebergabeUrl: () => `${BASE}/api/export/amtsuebergabe`,
-    briefvorlageUrl:  (dokumentId: string, typ: "widerspruch_99" | "zustimmungsverweigerung_102") =>
-      `${BASE}/api/export/briefvorlage/${dokumentId}/${typ}`,
   },
 
   nachrichten: {
@@ -624,6 +636,7 @@ export type DokumentStatus = "AKTIV" | "ARCHIVIERT" | "LOESCHVORMERKUNG" | "GELO
 
 export interface Frist {
   id: string; typ: string; faelligAm: string; status: string;
+  bezeichnung?: string | null; notiz?: string | null; erledigtAm?: string | null;
 }
 
 export interface Dokument {
@@ -638,6 +651,76 @@ export interface Dokument {
   fristen?: Frist[];
   // In welchen Sitzungen/TOPs behandelt (nur in der Dokumentliste)
   topVerknuepfungen?: { top: { nummer: number; titel: string; sitzung: { id: string; titel: string; sitzungsdatum: string; gremium?: { id: string; name: string } | null } } }[];
+}
+
+// ── Anhörung als Vorgang (§ 99 / § 102 BetrVG, Backend: routes/anhoerung.ts) ──
+export type AnhoerungStatus = "EINGEGANGEN" | "BERATEN" | "BESCHLOSSEN" | "BEANTWORTET";
+export type AnhoerungArt = "ZUSTIMMUNG" | "ZUSTIMMUNGSVERWEIGERUNG" | "WIDERSPRUCH";
+
+export const ANHOERUNG_STATUS_LABEL: Record<AnhoerungStatus, string> = {
+  EINGEGANGEN: "Eingegangen", BERATEN: "Beraten", BESCHLOSSEN: "Beschlossen", BEANTWORTET: "Beantwortet",
+};
+export const ANHOERUNG_ART_LABEL: Record<AnhoerungArt, string> = {
+  ZUSTIMMUNG: "Zustimmung", ZUSTIMMUNGSVERWEIGERUNG: "Zustimmungsverweigerung (§ 99 Abs. 2)",
+  WIDERSPRUCH: "Widerspruch (§ 102 Abs. 3)",
+};
+
+export interface AnhoerungsVorgang {
+  id: string;
+  dokumentId: string;
+  kuendigungsArt?: string | null;
+  status: AnhoerungStatus;
+  beschlussId?: string | null;
+  beschluss?: {
+    id: string; antragstext: string; rechtsgrundlage: string; finalisiertAm?: string | null;
+    top: { nummer: number; titel: string; sitzung: { titel: string } };
+  } | null;
+  stellungnahmeArt?: AnhoerungArt | null;
+  stellungnahmeGruende: string[];
+  stellungnahmeText?: string | null;
+  versendetAm?: string | null;
+  versendetVonId?: string | null;
+  versendetVon?: { name: string } | null;
+  versandDokumentId?: string | null;
+  erstelltAm: string;
+}
+
+export interface AnhoerungVorgangAntwort {
+  vorgang: AnhoerungsVorgang;
+  fristen: Frist[];
+  verfuegbareBeschluesse: {
+    id: string; antragstext: string; rechtsgrundlage: string; finalisiertAm?: string | null;
+    topNummer: number; topTitel: string; sitzungTitel: string;
+  }[];
+}
+
+// Gründe-Kataloge (Spiegel von backend/src/lib/anhoerungGruende.ts) für die Checkboxen
+// im Stellungnahme-Editor. Nicht juristisch geprüft – vor Versand gegenlesen lassen.
+export interface AnhoerungGrund { code: string; text: string; }
+
+export const ZUSTIMMUNGSVERWEIGERUNG_GRUENDE: AnhoerungGrund[] = [
+  {
+    code: "99-1",
+    text:
+      "Nr. 1 – Verstoß gegen ein Gesetz, eine Verordnung, eine Unfallverhütungsvorschrift " +
+      "oder eine Bestimmung des anzuwendenden Tarifvertrages oder einer Betriebsvereinbarung",
+  },
+  { code: "99-2", text: "Nr. 2 – Benachteiligung eines Bewerbers oder Arbeitnehmers ohne sachlichen Grund" },
+  { code: "99-3", text: "Nr. 3 – Sonstige Gründe (siehe Begründungstext)" },
+];
+
+export const WIDERSPRUCH_GRUENDE: AnhoerungGrund[] = [
+  { code: "102-1", text: "Nr. 1 – Sozialwidrigkeit i. S. d. § 1 Abs. 2 und 3 KSchG" },
+  { code: "102-2", text: "Nr. 2 – Weiterbeschäftigung auf einem anderen Arbeitsplatz möglich" },
+  { code: "102-3", text: "Nr. 3 – Weiterbeschäftigung nach Umschulung oder Fortbildung möglich" },
+  { code: "102-4", text: "Nr. 4 – Weiterbeschäftigung zu geänderten Vertragsbedingungen möglich" },
+  { code: "102-5", text: "Nr. 5 – Fehlerhafter Interessenausgleich (§ 1 Abs. 5 KSchG)" },
+];
+
+export function gruendeFuerArt(art: AnhoerungArt | "" | null | undefined): AnhoerungGrund[] {
+  if (art === "ZUSTIMMUNGSVERWEIGERUNG") return ZUSTIMMUNGSVERWEIGERUNG_GRUENDE;
+  if (art === "WIDERSPRUCH") return WIDERSPRUCH_GRUENDE;
+  return [];
 }
 
 // ── Wahlen (Backend: routes/wahlen.ts, Fristen: lib/wahlFristen.ts) ──

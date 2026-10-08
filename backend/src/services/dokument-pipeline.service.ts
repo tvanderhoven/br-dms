@@ -121,6 +121,15 @@ export async function verarbeiteDokument(opts: PipelineOptionen) {
 
   await fristenAnlegen(docId, kategorie, metadata.kuendigungsArt);
 
+  if (kategorie === Kategorie.ANHOERUNG_99 || kategorie === Kategorie.ANHOERUNG_102) {
+    await prisma.anhoerungsVorgang.create({
+      data: {
+        dokumentId: docId,
+        kuendigungsArt: kategorie === Kategorie.ANHOERUNG_102 ? (metadata.kuendigungsArt ?? null) : null,
+      },
+    });
+  }
+
   await prisma.auditLog.create({
     data: {
       benutzerId: userId,
