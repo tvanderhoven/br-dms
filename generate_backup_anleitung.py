@@ -254,7 +254,8 @@ def build():
         "Die Verschlüsselung schützt Kopien, die das NAS verlassen. Gegen jemanden, der das NAS selbst "
         "verwaltet, hilft keine Technik – nur eine klare Regelung: wer Administrator ist, dass Zugriffe nur "
         "mit Wissen des Betriebsrats erfolgen, und am besten ein Vier-Augen-Prinzip. Das gehört schriftlich "
-        "in eine Vereinbarung mit der IT.", "achtung", "Der Administrator des NAS")
+        "in eine Vereinbarung mit der IT. Empfehlung: Admins des NAS sind nur Vorsitz und Stellvertretung; "
+        "die Checkliste zum Absichern des NAS steht im Handbuch, Kapitel 11.3.", "achtung", "Der Administrator des NAS")
 
     pdf.h2("2.1  Die zwei Schlüssel")
     pdf.tabelle(

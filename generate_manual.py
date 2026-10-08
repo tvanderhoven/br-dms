@@ -1584,15 +1584,84 @@ def build():
         "Schlüssel – ENCRYPTION_KEY und BACKUP_KEY ausdrucken und außerhalb des NAS verschlossen aufbewahren. "
         "Ohne sie sind Dokumente bzw. Backups nicht wiederherstellbar",
         "Server-Administration – Die Schlüssel stehen in der .env auf dem NAS. Wer Administrator des NAS ist, "
-        "kommt technisch an alle Daten. Wer das ist, sollte schriftlich geregelt sein (z. B. Vereinbarung mit "
-        "der IT, Vier-Augen-Prinzip)",
-        "Freigaben auf dem NAS – Den Datenordner von BR-DMS nicht als Netzwerkfreigabe anbieten; nur der "
-        "Watch-Folder braucht eine Freigabe, und zwar nur für die Mitglieder",
+        "kommt technisch an alle Daten. Deshalb nur Vorsitz und Stellvertretung als Admins (Kapitel 11.3); "
+        "hilft die IT, dann nur gemeinsam mit einem Admin (Vier-Augen-Prinzip)",
+        "Freigaben auf dem NAS – Den Datenordner von BR-DMS nicht als Netzwerkfreigabe anbieten. Freigaben "
+        "für die Mitglieder (Arbeitsfreigabe, Watch-Folder) liegen getrennt davon (Kapitel 11.3)",
         "Updates – Neue Stände zuerst in der Demo prüfen, dann einspielen (Kapitel 13.1)",
     ])
     pdf.hinweis(
         "In Arbeit: Anmeldung mit zweitem Faktor (Einmalcode per Authenticator-App) und automatische Tests, "
         "die vor jedem Update die Rechte aller Rollen prüfen.", "info", "Geplant")
+
+    pdf.h2("11.3  Den Server (NAS) absichern")
+    pdf.body(
+        "BR-DMS ist nur so sicher wie der Server, auf dem es läuft. Wer das NAS administriert, kommt an "
+        "alles: die .env mit ENCRYPTION_KEY und BACKUP_KEY, die Datenbank und die Backups. Keine Anwendung "
+        "kann davor schützen. Deshalb gilt: so wenige Admins wie möglich – und nur aus dem Betriebsrat. "
+        "Gemeint sind hier die Konten des NAS, nicht die Rollen in BR-DMS (Kapitel 10)."
+    )
+
+    pdf.h3("Wer darf was auf dem NAS?")
+    pdf.tabelle(
+        ["Wer", "Rechte auf dem NAS"],
+        [
+            ["Vorsitz und Stellvertretung", "Im Alltag ein normales Konto ohne Admin-Rechte wie die Mitglieder. "
+             "Für die Verwaltung (Container, Updates, Einstellungen) ein getrenntes Admin-Konto mit zweitem "
+             "Faktor, das nur dafür benutzt wird. Sonst hat niemand Admin-Rechte"],
+            ["Mitglieder", "Normales Konto ohne Admin-Rechte, nur für die Arbeitsfreigabe (Zeitschriften, "
+             "Tabellen, Arbeitsdokumente, auch für die Datei-Links aus Kapitel 12.8) und ggf. den "
+             "Watch-Folder. Kein Zugriff auf den Datenordner von BR-DMS, die Backups oder die Container"],
+            ["IT", "Kein Konto. Sie erhält nur die verschlüsselte Backup-Kopie; Hilfe am NAS nur gemeinsam "
+             "mit einem Admin (Vier-Augen-Prinzip)"],
+        ],
+        (44, 126),
+    )
+    pdf.hinweis(
+        "Wer Container starten darf, kann jeden Ordner des NAS in einen Container einbinden und damit alles "
+        "lesen. Zugriff auf Docker bzw. die Container Station ist deshalb gleichbedeutend mit Admin-Rechten "
+        "und gehört nur in die Hände der Admins.", "achtung", "Docker = Admin")
+
+    pdf.h3("Checkliste")
+    pdf.tabelle(
+        ["Maßnahme", "Warum"],
+        [
+            ["Standardkonto „admin“ deaktivieren, getrenntes Verwaltungskonto mit eigenem Namen anlegen",
+             "„admin“ ist das Erste, was Angreifer ausprobieren"],
+            ["Im Alltag ohne Admin-Rechte arbeiten, das Verwaltungskonto nur zum Verwalten benutzen",
+             "Ein Trojaner auf dem Arbeits-PC bekommt dann höchstens die Rechte eines normalen Kontos"],
+            ["Lange Passphrase (ab etwa 20 Zeichen) und zweiter Faktor (Authenticator-App) für das "
+             "Verwaltungskonto",
+             "Ein erratenes oder abgefangenes Passwort allein reicht dann nicht. Nutzen zwei Personen das "
+             "Konto, den QR-Code bei der Einrichtung auf beiden Handys scannen"],
+            ["Kein Zugang aus dem Internet: Cloud-Dienst des Herstellers (z. B. myQNAPcloud, QuickConnect), "
+             "UPnP und Portfreigaben im Router aus",
+             "Erpressungstrojaner gegen NAS-Geräte kamen fast immer über aus dem Internet erreichbare Geräte"],
+            ["Firmware und Apps zeitnah aktualisieren",
+             "Die bekannten Angriffe nutzten Lücken, für die es längst Updates gab"],
+            ["Optional: Verwaltungsoberfläche per Firewall nur von den Rechnern der Admins erreichbar",
+             "Sinnvoll in großen Firmennetzen; sonst kann jeder im Netz den Login ausprobieren"],
+            ["Automatische Sperre nach Fehlversuchen einschalten",
+             "Bremst das Durchprobieren von Passwörtern"],
+            ["Arbeitsfreigabe und Datenordner von BR-DMS strikt trennen; den Datenordner (DATA_PATH) und "
+             "die Backups nie als Freigabe anbieten",
+             "Was in BR-DMS liegt, schützen Rollen und Verschlüsselung – eine Freigabe würde beides umgehen"],
+            ["Freigaben nur über SMB 3, SMB 1 abschalten",
+             "SMB 1 ist veraltet und war Einfallstor für Trojaner wie WannaCry"],
+            ["SSH nur bei Bedarf einschalten, am besten nur mit Schlüssel",
+             "Weniger Angriffsfläche im Alltag"],
+            ["Snapshots einrichten",
+             "Schreibgeschützte Stände helfen gegen Löschen und Verschlüsselungstrojaner (Kapitel 13.2)"],
+            ["Sicherheitsprüfung des NAS regelmäßig laufen lassen (QNAP: Security Counselor, "
+             "Synology: Sicherheitsberater)",
+             "Findet unsichere Einstellungen, die sich mit der Zeit eingeschlichen haben"],
+            ["Zugangsdaten des Verwaltungskontos versiegelt zu den Schlüsseln legen (Kapitel 13.2)",
+             "Fallen beide Admins aus, ist das Gremium sonst ausgesperrt"],
+            ["Bei einem Amtswechsel Passphrase und zweiten Faktor am selben Tag neu setzen",
+             "Wer aus dem Amt scheidet, behält sonst den Zugang"],
+        ],
+        (80, 90),
+    )
 
     # 12 ────────────────────────────────────────────────────────────
     pdf.h1("12  Installation")
