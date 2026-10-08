@@ -15,6 +15,11 @@ set -euo pipefail
 # Im Aufgabenplaner (cron) fehlt docker oft im PATH – bekannte Orte auf QNAP und Synology ergänzen
 PATH="$PATH:/share/CACHEDEV1_DATA/.qpkg/container-station/bin:/usr/local/bin"
 
+# Eigenes, leeres Docker-Config-Verzeichnis – vermeidet "permission denied"-Warnungen,
+# wenn die NAS-eigene ~/.docker/config.json für den ausführenden Benutzer nicht lesbar ist
+# (Registry-Logins werden hier ohnehin nicht gebraucht)
+export DOCKER_CONFIG="$(mktemp -d)"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="$SCRIPT_DIR/.env"
 if [ ! -f "$ENV_FILE" ]; then
