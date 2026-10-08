@@ -95,7 +95,7 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 | Frontend   | React 18 + Vite + Tailwind CSS |
 | Webserver  | Nginx (im Container)     |
 | Deployment | Docker Compose           |
-| Verschlüsselung | AES-256 (Node.js crypto) |
+| Verschlüsselung | Dokumente AES-256-GCM (Node.js crypto), Backups AES-256-CBC + PBKDF2 (OpenSSL) |
 
 ---
 
@@ -369,7 +369,9 @@ Backups landen in `<DATA_PATH>/backups/` und werden nach 30 Tagen automatisch ge
 
 **Verschlüsselte Backups:** Steht ein `BACKUP_KEY` in der `.env` (`openssl rand -hex 32`, der
 Einrichtungsassistent erzeugt ihn), verschlüsselt `backup.sh` beide Dateien komplett
-(`db_<Zeit>.sql.gz.enc`, `storage_<Zeit>.tar.gz.enc`, AES-256 mit PBKDF2, ohne Klartext-Zwischendatei).
+(`db_<Zeit>.sql.gz.enc`, `storage_<Zeit>.tar.gz.enc`, ohne Klartext-Zwischendatei). Verfahren:
+**AES-256-CBC** mit 256-Bit-Schlüssel (OpenSSL), Schlüsselableitung per **PBKDF2** (HMAC-SHA256,
+600.000 Iterationen, eigener Zufalls-Salt je Datei) aus dem `BACKUP_KEY`, der selbst ein 256-Bit-Zufallswert ist.
 Ohne Schlüssel schreibt es wie bisher unverschlüsselt und warnt – der Datenbank-Dump enthält dann
 Protokolle, Personal- und Gehaltsdaten im Klartext. Nur so verschlüsselt sollte eine Kopie das NAS
 verlassen (z. B. zur Sicherung bei der IT). `restore.sh` erkennt verschlüsselte Backups und prüft den

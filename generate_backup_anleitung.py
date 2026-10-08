@@ -223,6 +223,13 @@ def build():
         "RAID 1 spiegelt jede Änderung sofort auf die zweite Platte – auch ein versehentliches Löschen "
         "oder eine Verschlüsselung durch einen Trojaner. RAID schützt nur gegen den Ausfall einer Platte "
         "und ersetzt keine Sicherung.", "wichtig", "RAID ist kein Backup")
+    pdf.hinweis(
+        "Die Sicherung wird mit AES-256 verschlüsselt (AES-256-CBC, OpenSSL) – dem Standard, den auch "
+        "Behörden und Banken einsetzen. Der BACKUP_KEY ist ein 256-Bit-Zufallswert; der eigentliche "
+        "Schlüssel wird per PBKDF2 (HMAC-SHA256, 600.000 Durchläufe, eigener Zufalls-Salt je Datei) daraus "
+        "abgeleitet. Ohne den Schlüssel lassen sich die Dateien nach heutigem Stand der Technik nicht "
+        "lesen. Die Schwachstelle ist nicht die Mathematik, sondern der Ort, an dem der Ausdruck des "
+        "Schlüssels liegt (Kapitel 2.1).", "tipp", "Wie stark ist die Verschlüsselung?")
 
     pdf.h1("2  Wer kann was lesen?")
     pdf.body(
