@@ -9,7 +9,15 @@ export function emailFensterUrl(id: string): string {
   return `${window.location.origin}/email/${id}`;
 }
 
+// Dokument-IDs sind UUIDs. Die ID kann aus Inhalten stammen, die Benutzer schreiben
+// (Verweise im Protokoll-Editor) – alles andere wird nicht in URLs eingesetzt.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function dokumentInNeuemTabOeffnen(id: string, mimeTyp?: string): void {
+  if (!UUID.test(id)) {
+    alert("Ungültiger Dokumentverweis");
+    return;
+  }
   if (mimeTyp && istEmail(mimeTyp)) {
     window.open(emailFensterUrl(id), "_blank");
     return;

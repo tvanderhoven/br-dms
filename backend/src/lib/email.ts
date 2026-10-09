@@ -209,6 +209,10 @@ export function emailVolltext(m: EmailInhalt): string {
     m.an.length ? `An: ${m.an.join(", ")}` : "", m.cc.length ? `Cc: ${m.cc.join(", ")}` : "",
     m.anhaenge.length ? `Anhänge: ${m.anhaenge.map(a => a.name).join(", ")}` : "",
   ].filter(Boolean).join("\n");
-  const text = m.text || (m.html ? m.html.replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi, " ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ") : "");
+  // Nur für die Suche (reiner Text, wird nie als HTML angezeigt): style/script samt Inhalt
+  // weg – auch mit Leerzeichen im Schluss-Tag –, dann alle übrigen Tags
+  const text = m.text || (m.html
+    ? m.html.replace(/<(style|script)\b[\s\S]*?<\/\1\s*>/gi, " ").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ")
+    : "");
   return `${kopf}\n\n${text}`.slice(0, 100_000);
 }

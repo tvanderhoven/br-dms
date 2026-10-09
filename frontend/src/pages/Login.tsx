@@ -4,6 +4,20 @@ import { Loader2 } from "lucide-react";
 import { api } from "../lib/api";
 import BrandLogo from "../components/BrandLogo";
 
+// Ziel nach dem Login (?next=…) nur auf diesem Server zulassen. Erst vollständig auflösen,
+// dann den Server vergleichen – eine reine Präfix-Prüfung ließe "/\evil.example" durch,
+// das Browser wie "//evil.example" lesen (offene Weiterleitung, z. B. für Phishing).
+function sicheresZiel(next: string | null): string {
+  if (!next) return "/dashboard";
+  try {
+    const ziel = new URL(next, window.location.origin);
+    if (ziel.origin !== window.location.origin) return "/dashboard";
+    return ziel.pathname + ziel.search + ziel.hash;
+  } catch {
+    return "/dashboard";
+  }
+}
+
 export default function Login() {
   const [email, setEmail]       = useState("");
   const [passwort, setPasswort] = useState("");
@@ -18,10 +32,7 @@ export default function Login() {
     try {
       const { token } = await api.auth.login(email, passwort, eingeloggtBleiben);
       localStorage.setItem("brdms_token", token);
-      const next = new URLSearchParams(window.location.search).get("next");
-      // Nur relative Pfade zulassen (Schutz gegen offene Weiterleitungen z.B. "//evil.com")
-      const ziel = next && next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
-      window.location.href = ziel;
+      window.location.href = sicheresZiel(new URLSearchParams(window.location.search).get("next"));
     } catch (err) {
       setFehler(err instanceof Error ? err.message : "Anmeldung fehlgeschlagen");
     } finally {

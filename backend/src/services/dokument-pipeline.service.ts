@@ -76,13 +76,22 @@ export async function verarbeiteDokument(opts: PipelineOptionen) {
     throw err;
   });
 
-  const stat = await fs.stat(tmpPfad);
+  // Größe und (bei E-Mails) Inhalt aus demselben geöffneten Handle lesen
+  const datei = await fs.open(tmpPfad, "r");
+  let stat: Awaited<ReturnType<typeof datei.stat>>;
+  let inhalt: Buffer | null = null;
+  try {
+    stat = await datei.stat();
+    if (format) inhalt = await datei.readFile();
+  } finally {
+    await datei.close();
+  }
 
   let textinhalt: string | null = null;
   let email: EmailInhalt | null = null;
   if (format) {
     try {
-      email = await emailLesen(await fs.readFile(tmpPfad), format);
+      email = await emailLesen(inhalt!, format);
       textinhalt = emailVolltext(email);
     } catch (err) {
       await fs.unlink(tmpPfad).catch(() => {});

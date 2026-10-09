@@ -11,6 +11,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { Role, AuditAktion, Geschlecht } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 import prisma from "../lib/prisma.js";
+import { istEmailAdresse } from "../lib/emailAdresse.js";
 import { hashPassword } from "../lib/password.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
@@ -24,13 +25,12 @@ interface NeuerBenutzer {
   einladungEmail?: string | null;
 }
 
-const EMAIL_MUSTER = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Leer → null; sonst kleingeschrieben und auf Form geprüft (wirft bei Unsinn) */
 function zweitadresse(wert: string | null | undefined): string | null {
   const s = (wert ?? "").trim().toLowerCase();
   if (!s) return null;
-  if (!EMAIL_MUSTER.test(s)) throw new Error("Ungültige Einladungs-Adresse");
+  if (!istEmailAdresse(s)) throw new Error("Ungültige Einladungs-Adresse");
   return s;
 }
 
