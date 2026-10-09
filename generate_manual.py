@@ -598,7 +598,7 @@ def build():
             ["Löschung", "Nach Ablauf der Aufbewahrungsfrist Löschvormerkung, danach endgültige, sichere Löschung"],
             ["Löschdatum ändern", "Im Bearbeiten-Dialog; wechselt die Kategorie, wird das Datum nach deren "
                                   "Regel ab dem Hochladen neu vorgeschlagen. Nur Daten in der Zukunft"],
-            ["Spalten", "Breite am grauen Strich rechts im Spaltenkopf ziehen, Reihenfolge durch Ziehen am "
+            ["Spalten", "Grenze zwischen zwei Spalten im Kopf ziehen (feine Linie) – wie in einer Tabellenkalkulation; Reihenfolge durch Ziehen am "
                         "Spaltennamen ändern, über das Spalten-Symbol rechts ein- und ausblenden. Der Titel nimmt "
                         "immer den restlichen Platz; reicht er nicht (z. B. bei offener Vorschau), blendet die Liste "
                         "die unwichtigsten Spalten vorübergehend selbst aus. Alles wird im Browser gemerkt"],

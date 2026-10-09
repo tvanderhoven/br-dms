@@ -30,7 +30,7 @@ const SPALTEN: SpaltenDef[] = [
   { id: "kategorie",   label: "Kategorie",   breite: 120, minBreite: 70, prioritaet: 2 },
   { id: "status",      label: "Status",      breite: 124, minBreite: 70, prioritaet: 1 },
   { id: "fristen",     label: "Fristen",     breite: 84,  minBreite: 60, prioritaet: 3 },
-  { id: "loeschdatum", label: "Löschdatum",  breite: 104, minBreite: 80, prioritaet: 4 },
+  { id: "loeschdatum", label: "Löschdatum",  breite: 116, minBreite: 80, prioritaet: 4 },
   { id: "hochgeladen", label: "Hochgeladen", breite: 130, minBreite: 80, prioritaet: 5 },
   { id: "aktionen",    label: "",            breite: 140, pflicht: true, festAmEnde: true },
 ];

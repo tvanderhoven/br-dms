@@ -22,20 +22,37 @@ export default function TabellenKopf({ spalten, defs }: {
     return () => document.removeEventListener("mousedown", zu);
   }, [menuOffen]);
 
-  function ziehenStart(e: ReactMouseEvent, id: string) {
+  // Grenze zwischen zwei Spalten ziehen – wie in einer Tabellenkalkulation: die Grenze
+  // bleibt unter der Maus, die linke Spalte wächst um genau so viel, wie die rechte
+  // schrumpft. Ist eine der beiden die flexible Spalte (Titel), gleicht sie aus.
+  function ziehenStart(e: ReactMouseEvent, links: typeof spalten.sichtbar[number], rechts: typeof spalten.sichtbar[number]) {
     e.preventDefault();
     e.stopPropagation();
-    const th = (e.currentTarget as HTMLElement).parentElement!;
-    const startX = e.clientX, startBreite = th.offsetWidth;
-    let letzte = startBreite;
-    const bewegen = (ev: MouseEvent) => { letzte = startBreite + ev.clientX - startX; spalten.breiteSetzen(id, letzte); };
+    const zeile = (e.currentTarget as HTMLElement).closest("tr")!;
+    const breite = (id: string) => (zeile.querySelector(`th[data-spalte="${id}"]`) as HTMLElement).offsetWidth;
+    const startX = e.clientX;
+    const startL = breite(links.id), startR = breite(rechts.id);
+    const minL = links.minBreite ?? (links.flexibel ? links.breite : 60);
+    const minR = rechts.minBreite ?? (rechts.flexibel ? rechts.breite : 60);
+    // Wie weit darf die Grenze wandern, ohne dass eine Seite unter ihre Mindestbreite fällt?
+    const dxMin = minL - startL, dxMax = startR - minR;
+    let neu: Record<string, number> = {};
+    const bewegen = (ev: MouseEvent) => {
+      const dx = Math.min(dxMax, Math.max(dxMin, ev.clientX - startX));
+      neu = {};
+      if (!links.flexibel)  neu[links.id]  = startL + dx;
+      if (!rechts.flexibel) neu[rechts.id] = startR - dx;
+      spalten.breitenSetzen(neu);
+    };
     const loslassen = () => {
       document.removeEventListener("mousemove", bewegen);
       document.removeEventListener("mouseup", loslassen);
       document.body.style.cursor = "";
-      spalten.breiteSetzen(id, letzte, true);
+      document.body.style.userSelect = "";
+      spalten.breitenSetzen(neu, true);
     };
     document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
     document.addEventListener("mousemove", bewegen);
     document.addEventListener("mouseup", loslassen);
   }
@@ -45,9 +62,10 @@ export default function TabellenKopf({ spalten, defs }: {
   return (
     <thead>
       <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500 uppercase tracking-wide">
-        {spalten.sichtbar.map(s => (
+        {spalten.sichtbar.map((s, i) => (
           <th
             key={s.id}
+            data-spalte={s.id}
             style={s.aktuelleBreite !== undefined ? { width: s.aktuelleBreite } : undefined}
             onDragOver={e => {
               if (s.festAmEnde || !e.dataTransfer.types.includes(DRAG_SPALTE)) return;
@@ -59,7 +77,7 @@ export default function TabellenKopf({ spalten, defs }: {
               const id = e.dataTransfer.getData(DRAG_SPALTE);
               if (id) spalten.verschieben(id, s.id);
             }}
-            className={`relative px-3 py-3 font-medium ${ziel === s.id ? "shadow-[inset_3px_0_0_rgb(var(--accent))]" : ""}`}
+            className={`relative px-3 py-3 font-medium whitespace-nowrap overflow-visible ${ziel === s.id ? "shadow-[inset_3px_0_0_rgb(var(--accent))]" : ""}`}
           >
             {s.festAmEnde ? (
               <div ref={menuRef} className="relative flex justify-end">
@@ -109,17 +127,19 @@ export default function TabellenKopf({ spalten, defs }: {
                   draggable
                   onDragStart={e => { e.dataTransfer.setData(DRAG_SPALTE, s.id); e.dataTransfer.effectAllowed = "move"; }}
                   title="Ziehen zum Verschieben"
-                  className="cursor-grab active:cursor-grabbing select-none"
+                  className="block truncate cursor-grab active:cursor-grabbing select-none"
                 >
                   {s.label}
                 </span>
-                {/* Die flexible Spalte (Titel) nimmt immer den Rest – nur die festen haben einen Griff */}
-                {!s.flexibel && (
+                {/* Griff auf der Grenze zur rechten Nachbarspalte (nicht vor der Aktionen-Spalte) */}
+                {i + 1 < spalten.sichtbar.length && !spalten.sichtbar[i + 1].festAmEnde && (
                   <span
-                    onMouseDown={e => ziehenStart(e, s.id)}
-                    title="Ziehen für die Spaltenbreite"
-                    className="absolute right-0 top-1.5 bottom-1.5 w-1.5 cursor-col-resize rounded bg-gray-200 hover:bg-[rgb(var(--accent)/0.5)]"
-                  />
+                    onMouseDown={e => ziehenStart(e, s, spalten.sichtbar[i + 1])}
+                    title="Ziehen, um die Grenze zwischen den Spalten zu verschieben"
+                    className="group absolute -right-1.5 top-0 bottom-0 w-3 z-10 cursor-col-resize flex justify-center"
+                  >
+                    <span className="w-px h-full bg-gray-200 group-hover:w-0.5 group-hover:bg-[rgb(var(--accent))]" />
+                  </span>
                 )}
               </>
             )}
