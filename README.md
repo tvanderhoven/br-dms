@@ -64,6 +64,7 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 - **Passwort-Reset per E-Mail** und admin-/VORSITZ-ausgelöster Reset für andere Benutzer
 - **Ständige Vertretung** – Verknüpfung Ersatzmitglied ↔ Mitglied, wirkt sich auf Anwesenheit und Abstimmungen aus
 - **Konfigurierbares Sicherheits-Timeout** – Automatischer Logout nach Inaktivität (0–480 Minuten)
+- **Automatische Rollentests** – `bash backend/scripts/rollentests.sh` prüft alle API-Routen je Rolle gegen eine Wegwerf-Datenbank (Docker); läuft vor jedem Deploy und auf GitHub
 - **Lückenloser Audit-Trail** – 30+ protokollierte Aktionstypen mit IP, Zeitstempel, User-Agent, einsehbar für VORSITZ/ADMIN
 
 ### Internes Nachrichtensystem
@@ -300,7 +301,7 @@ Danach erreichbar unter `https://<NAS-IP-oder-Hostname>:${PROXY_HTTPS_PORT:-8443
 
 Frontend und Backend haben keine eigenen Host-Ports mehr (`ports:`-Blöcke wurden entfernt, sobald HTTPS über den Proxy bestätigt lief) – aller Zugriff läuft ausschließlich über den HTTPS-Proxy.
 
-**Nicht vergessen:** `APP_URL` in `.env` auf die neue HTTPS-Adresse umstellen (z.B. `https://192.168.1.100:8443`, später `https://br-dms.example.de`). Der Wert steuert sowohl den Link in Passwort-Reset-E-Mails als auch die erlaubte CORS-Origin im Backend (`backend/src/index.ts`) – bei einer veralteten `APP_URL` blockiert das Backend sonst Anfragen von der neuen Adresse.
+**Nicht vergessen:** `APP_URL` in `.env` auf die neue HTTPS-Adresse umstellen (z.B. `https://192.168.1.100:8443`, später `https://br-dms.example.de`). Der Wert steuert sowohl den Link in Passwort-Reset-E-Mails als auch die erlaubte CORS-Origin im Backend (`backend/src/app.ts`) – bei einer veralteten `APP_URL` blockiert das Backend sonst Anfragen von der neuen Adresse.
 
 ---
 
@@ -331,7 +332,8 @@ Unter Windows entsprechend `.\deploy_update.ps1 -Trocken` bzw. `-Bauen`, mit Pyt
 `python3 deploy_komplett.py --trocken` bzw. `--bauen`.
 
 Vor dem Übertragen prüft `npm audit` Backend und Frontend auf bekannte Lücken (hoch/kritisch;
-überspringen mit `OHNE_AUDIT=1`). Gebaut wird mit frischen Basis-Images
+überspringen mit `OHNE_AUDIT=1`); `deploy_update.sh` lässt außerdem die Rollentests laufen und bricht
+ab, wenn eine Rolle mehr oder weniger darf als vorgesehen (braucht Docker; `OHNE_TESTS=1` überspringt). Gebaut wird mit frischen Basis-Images
 (`compose pull postgres proxy && compose build --pull && compose up -d`), damit Sicherheitsupdates
 von node, nginx und postgres auch auf dem Host ankommen. Neue Lücken meldet außerdem Dependabot
 (`.github/dependabot.yml`), den eigenen Code prüft CodeQL (`.github/workflows/codeql.yml`) –

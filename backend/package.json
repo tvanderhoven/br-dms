@@ -12,7 +12,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
-    "db:studio": "prisma studio --port 5555"
+    "db:studio": "prisma studio --port 5555",
+    "test": "bash scripts/rollentests.sh"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.1",

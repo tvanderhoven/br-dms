@@ -29,13 +29,14 @@ const RANG: Record<Role, number> = {
  *   app.delete("/api/dokumente/:id", { preHandler: [authenticate, erfordert("VORSITZ")] }, ...)
  */
 export function erfordert(mindestRolle: Role) {
-  return async function (request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const pruefen = async function (request: FastifyRequest, reply: FastifyReply): Promise<void> {
     const benutzer = request.benutzer;
     if (!benutzer) {
       return reply.status(401).send({ fehler: "Nicht authentifiziert" });
     }
 
-    // Ersatzmitglied: nur Zugriff wenn aktiv als Vertretung
+    // Ersatzmitglied: nur Zugriff wenn aktiv als Vertretung – dann mit den Rechten eines Mitglieds
+    let rang = RANG[benutzer.rolle];
     if (benutzer.rolle === Role.ERSATZMITGLIED && RANG[mindestRolle] >= RANG[Role.MITGLIED]) {
       const aktiv = await prisma.benutzer.findUnique({
         where: { id: benutzer.sub },
@@ -45,13 +46,16 @@ export function erfordert(mindestRolle: Role) {
         await auditZugriffVerweigert(request);
         return reply.status(403).send({ fehler: "Nur lesender Zugriff ohne aktive Vertretung" });
       }
+      rang = RANG[Role.MITGLIED];
     }
 
-    if (RANG[benutzer.rolle] < RANG[mindestRolle]) {
+    if (rang < RANG[mindestRolle]) {
       await auditZugriffVerweigert(request);
       return reply.status(403).send({ fehler: "Keine Berechtigung" });
     }
   };
+  // Für die Rechte-Übersicht der Rollentests (test/rechte.test.ts) ablesbar
+  return Object.assign(pruefen, { mindestRolle });
 }
 
 async function auditZugriffVerweigert(request: FastifyRequest): Promise<void> {

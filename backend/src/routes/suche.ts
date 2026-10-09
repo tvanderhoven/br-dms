@@ -38,7 +38,8 @@ export async function sucheRouten(app: FastifyInstance): Promise<void> {
       const dokumente = await prisma.dokument.findMany({
         where: {
           status: { notIn: [DokumentStatus.GELOESCHT] },
-          ...vertraulichFilter,
+          // als AND, sonst überschreibt das OR der Suchbegriffe das OR des Filters
+          AND: [vertraulichFilter],
           OR: [
             { titel:        { contains: suchbegriff, mode: "insensitive" } },
             { alias:        { contains: suchbegriff, mode: "insensitive" } },
