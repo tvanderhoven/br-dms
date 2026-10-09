@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, FormEvent, useCallback } from "react";
 import { useLocation, Link } from "react-router-dom";
 import {
   Upload, Download, Trash2, FileText, Lock, X, Loader2, Search, Pencil, MessageSquare, Eye, History, ExternalLink, CalendarDays,
-  CheckCircle2, Send, Folder, ChevronRight, Mail, Paperclip,
+  CheckCircle2, Send, Folder, ChevronRight, Mail, Paperclip, ChevronsRight,
 } from "lucide-react";
 import {
   api, Dokument, DokumentVersion, Kategorie, KATEGORIE_LABEL, KATEGORIE_KURZ, Aufbewahrungsregel, Gremium, Ordner,
@@ -23,6 +23,7 @@ import EmailVorschau from "../components/EmailVorschau";
 import { dokumentInNeuemTabOeffnen } from "../lib/dokumentOeffnen";
 
 const AUSWAHL_SPEICHER = "brdms_ordner_auswahl";
+const BAUM_SPEICHER    = "brdms_ordnerbaum_offen";
 function auswahlLaden(): OrdnerAuswahl {
   try { return localStorage.getItem(AUSWAHL_SPEICHER) || "ALLE"; } catch { return "ALLE"; }
 }
@@ -50,6 +51,14 @@ export default function Dokumente() {
   const [gremien, setGremien]             = useState<Gremium[]>([]);
   const [ordner, setOrdner]               = useState<Ordner[]>([]);
   const [auswahl, setAuswahlState]        = useState<OrdnerAuswahl>(auswahlLaden);
+  // Ordnerbaum ein-/ausgeklappt – gemerkt je Browser
+  const [baumOffen, setBaumOffenState]    = useState(() => {
+    try { return localStorage.getItem(BAUM_SPEICHER) !== "0"; } catch { return true; }
+  });
+  function setBaumOffen(offen: boolean) {
+    setBaumOffenState(offen);
+    try { localStorage.setItem(BAUM_SPEICHER, offen ? "1" : "0"); } catch { /* egal */ }
+  }
   const [uploadOffen, setUploadOffen]     = useState(false);
   const [loeschId, setLoeschId]           = useState<string | null>(null);
   const [bearbeitenDok, setBearbeitenDok] = useState<Dokument | null>(null);
@@ -312,8 +321,17 @@ export default function Dokumente() {
 
   return (
     <div className="flex flex-col md:flex-row h-full">
-      {/* ── Ordnerbaum (ab Tablet-Breite; darunter Auswahlliste im Filter) ── */}
-      <aside className="hidden md:block w-64 flex-shrink-0 border-r border-gray-200 bg-white p-3 overflow-y-auto md:sticky md:top-0 md:h-screen md:self-start">
+      {/* ── Ordnerbaum (ab 1024 px; einklappbar; sonst Auswahlliste im Filter) ── */}
+      {!baumOffen && (
+        <aside className="hidden lg:flex flex-col items-center w-10 flex-shrink-0 border-r border-gray-200 bg-white py-3 lg:sticky lg:top-0 lg:h-screen lg:self-start">
+          <button onClick={() => setBaumOffen(true)} title="Ordner einblenden"
+            className="flex flex-col items-center gap-1 p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded">
+            <ChevronsRight size={15} />
+            <Folder size={15} />
+          </button>
+        </aside>
+      )}
+      <aside className={`${baumOffen ? "hidden lg:block" : "hidden"} w-56 flex-shrink-0 border-r border-gray-200 bg-white p-3 overflow-y-auto lg:sticky lg:top-0 lg:h-screen lg:self-start`}>
         <OrdnerBaum
           ordner={ordner}
           anzahl={anzahlJeOrdner}
@@ -322,6 +340,7 @@ export default function Dokumente() {
           onAuswahl={a => { setAuswahl(a); setFilter(""); }}
           onDokumentAblegen={dokumentAblegen}
           onGeaendert={ordnerLaden}
+          onEinklappen={() => setBaumOffen(false)}
         />
       </aside>
 
@@ -366,9 +385,9 @@ export default function Dokumente() {
               className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
             />
           </div>
-          {/* Ordnerwahl auf schmalen Bildschirmen (dort ist der Baum ausgeblendet) */}
-          <select value={auswahl} onChange={e => setAuswahl(e.target.value)}
-            className="md:hidden border border-gray-300 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]">
+          {/* Ordnerwahl, solange der Baum nicht zu sehen ist (eingeklappt oder schmaler Bildschirm) */}
+          <select value={auswahl} onChange={e => setAuswahl(e.target.value)} title="Ordner"
+            className={`${baumOffen ? "lg:hidden" : ""} border border-gray-300 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]`}>
             <option value="ALLE">Alle Dokumente</option>
             <option value="OHNE">Ohne Ordner</option>
             {ordnerOptionen(ordner).map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
