@@ -30,20 +30,23 @@ export const GESETZE_QUELLEN: GesetzQuelle[] = [
 ];
 
 // ── XML → Text-Hilfsfunktionen ────────────────────────────────────
+// Alle Entitäten in einem Durchgang – sonst würde aus "&amp;lt;" erst "&lt;" und dann "<"
+// (doppelt dekodiert). Ergebnis ist reiner Text; im Frontend wird er nie als HTML eingesetzt.
+const BENANNTE_ENTITAETEN: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+
 function entitiesDekodieren(s: string): string {
-  return s
-    .replace(/&amp;/g,  "&")
-    .replace(/&lt;/g,   "<")
-    .replace(/&gt;/g,   ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&#167;/g, "§")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)));
+  return s.replace(/&(#\d{1,7}|#x[0-9a-f]{1,6}|[a-z]+);/gi, (treffer, e: string) => {
+    if (e[0] !== "#") return BENANNTE_ENTITAETEN[e.toLowerCase()] ?? treffer;
+    const code = e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+    return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : treffer;
+  });
 }
 
 function tagsEntfernen(s: string): string {
-  return entitiesDekodieren(s.replace(/<[^>]+>/g, "")).trim();
+  // Wiederholen, bis nichts mehr übrig ist – auch verschachtelte Reste wie "<a<b>>"
+  let vorher: string;
+  do { vorher = s; s = s.replace(/<[^<>]*>/g, ""); } while (s !== vorher);
+  return entitiesDekodieren(s).trim();
 }
 
 // Content-Block (Fließtext eines Paragraphen) in lesbaren Text umwandeln –

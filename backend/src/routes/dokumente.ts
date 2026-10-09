@@ -359,10 +359,11 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
         return reply.status(400).send({ fehler: "Keine änderbaren Felder angegeben" });
       }
 
-      const vorher: Record<string, unknown> = {};
-      for (const feld of Object.keys(aenderungen)) {
-        vorher[feld] = (dokument as any)[feld];
-      }
+      // Feldnamen nur aus der festen Liste – nie aus der Anfrage übernehmen
+      const protokollFelder = [...erlaubteFelder, "ordnerId", "deleteAt", "wiedervorlageAm"] as const;
+      const vorher = Object.fromEntries(
+        protokollFelder.filter(f => f in aenderungen).map(f => [f, (dokument as Record<string, unknown>)[f]]),
+      );
 
       const aktualisiert = await prisma.dokument.update({
         where: { id: dokument.id },

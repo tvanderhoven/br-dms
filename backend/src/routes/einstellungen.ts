@@ -13,6 +13,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import fs from "node:fs/promises";
 import path from "node:path";
 import prisma from "../lib/prisma.js";
+import { istEmailAdresse } from "../lib/emailAdresse.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { Kategorie, Role, Geschlecht, AuditAktion } from "@prisma/client";
@@ -396,7 +397,7 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const name    = (request.body.absenderName ?? "").trim();
       const adresse = (request.body.absenderAdresse ?? "").trim().toLowerCase();
-      if (adresse && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adresse)) {
+      if (adresse && !istEmailAdresse(adresse)) {
         return reply.status(400).send({ fehler: "Ungültige Absenderadresse" });
       }
       const signatur = (request.body.signatur ?? "").trim().slice(0, 2000);

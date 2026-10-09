@@ -16,6 +16,7 @@ import { randomBytes } from "node:crypto";
 import { AuditAktion, Geschlecht, Prisma, PrismaClient, Role, Wahl, WahlArt } from "@prisma/client";
 import defaultPrisma from "./prisma.js";
 import { hashPassword } from "./password.js";
+import { istEmailAdresse } from "./emailAdresse.js";
 import { waehlerlisteBerechnen } from "./waehlerliste.js";
 import { sitzungAnlegen } from "./sitzungAnlegen.js";
 
@@ -59,7 +60,6 @@ export interface ErgebnisPlan {
 }
 
 const BR_ROLLEN: Role[] = [Role.VORSITZ, Role.STELLVERTRETER, Role.MITGLIED, Role.ERSATZMITGLIED];
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const schluessel = (name: string) => name.trim().replace(/\s+/g, " ").toLowerCase();
 
 export async function ergebnisPlanen(
@@ -120,7 +120,7 @@ export async function ergebnisPlanen(
 
       const email = z.email?.trim().toLowerCase() ?? "";
       if (!email) return { ...plan, aktion: "FEHLER", fehler: "Kein Konto mit diesem Namen – E-Mail-Adresse für ein neues Konto angeben" };
-      if (!EMAIL.test(email)) return { ...plan, aktion: "FEHLER", fehler: "Ungültige E-Mail-Adresse" };
+      if (!istEmailAdresse(email)) return { ...plan, aktion: "FEHLER", fehler: "Ungültige E-Mail-Adresse" };
       if (vergebeneEmails.has(email)) return { ...plan, aktion: "FEHLER", fehler: "E-Mail-Adresse gehört schon zu einem anderen Konto" };
       vergebeneEmails.add(email);
       return { ...plan, aktion: "NEU" };

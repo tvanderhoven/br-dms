@@ -152,10 +152,12 @@ export async function verifyChecksum(opts: {
  */
 export async function secureDelete(filePath: string): Promise<void> {
   try {
-    const stat = await fs.stat(filePath);
+    // Erst öffnen, dann die Größe vom geöffneten Handle lesen – so wird genau die
+    // Datei überschrieben, deren Größe gemessen wurde (kein Austausch dazwischen)
+    const fd      = await fs.open(filePath, "r+");
+    const stat    = await fd.stat();
 
     // Datei mit Nullbytes überschreiben
-    const fd      = await fs.open(filePath, "r+");
     const chunk   = Buffer.alloc(65536); // 64 KB Chunks
     let remaining = stat.size;
     let offset    = 0;

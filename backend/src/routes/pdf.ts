@@ -18,6 +18,20 @@ import { vergleicheNachMitgliederSortierung } from "../lib/mitgliederSortierung.
 
 const STORAGE = process.env.STORAGE_PATH ?? "/data/storage";
 
+/**
+ * Ablageort eines Sitzungs-PDFs. ID und Versionsnummer stammen zwar aus der Datenbank,
+ * der Dateiname wird trotzdem auf harmlose Zeichen beschränkt und das Ergebnis muss im
+ * PDF-Ordner liegen – so kann kein Wert je einen Pfad wie "../" bilden.
+ */
+function pdfZiel(sitzungId: string, versionNummer: string) {
+  const pdfDir = path.join(STORAGE, "pdfs");
+  const sauber = (t: string) => t.replace(/[^A-Za-z0-9._-]/g, "_");
+  const dateiname = `sitzung-${sauber(sitzungId)}-v${sauber(versionNummer)}.pdf`;
+  const pdfPfad = path.join(pdfDir, dateiname);
+  if (path.dirname(pdfPfad) !== pdfDir) throw new Error("Ungültiger PDF-Pfad");
+  return { pdfDir, dateiname, pdfPfad };
+}
+
 async function sitzungFuerPdf(id: string) {
   return prisma.sitzung.findUnique({
     where: { id },
@@ -227,9 +241,7 @@ export async function pdfRouten(app: FastifyInstance): Promise<void> {
 
       const { buffer, zeitstempel } = await pdfGenerieren(sitzung, version, mitProtokoll);
 
-      const pdfDir      = path.join(STORAGE, "pdfs");
-      const dateiname   = `sitzung-${id}-v${versionNummer}.pdf`;
-      const pdfPfad     = path.join(pdfDir, dateiname);
+      const { pdfDir, dateiname, pdfPfad } = pdfZiel(id, version.versionNummer);
 
       await fs.mkdir(pdfDir, { recursive: true });
       await fs.writeFile(pdfPfad, buffer);
@@ -308,9 +320,7 @@ export async function pdfAutomatischGenerieren(
       mitProtokoll,
     );
 
-    const pdfDir    = path.join(STORAGE, "pdfs");
-    const dateiname = `sitzung-${sitzungId}-v${versionNummer}.pdf`;
-    const pdfPfad   = path.join(pdfDir, dateiname);
+    const { pdfDir, dateiname, pdfPfad } = pdfZiel(sitzungId, versionNummer);
 
     await fs.mkdir(pdfDir, { recursive: true });
     await fs.writeFile(pdfPfad, buffer);
