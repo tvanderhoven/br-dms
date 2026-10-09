@@ -29,6 +29,7 @@ import GeschaeftsordnungSeite from "./pages/Geschaeftsordnung";
 import Schulungen from "./pages/Schulungen";
 import Wahlen from "./pages/Wahlen";
 import Layout from "./components/Layout";
+import EmailFenster from "./pages/EmailFenster";
 import { useDesign } from "./lib/useDesign";
 
 function tokenGueltig(): boolean {
@@ -64,6 +65,8 @@ export default function App() {
       <Route path="/login"              element={<Login />} />
       <Route path="/passwort-vergessen" element={<PasswortVergessen />} />
       <Route path="/passwort-reset"     element={<PasswortReset />} />
+      {/* E-Mail im eigenen Fenster – angemeldet, aber ohne Seitenleiste */}
+      <Route path="/email/:id"          element={geschuetzt(<EmailFenster />)} />
       <Route element={<Layout />}>
         <Route path="/dashboard"  element={geschuetzt(<Dashboard />)} />
         <Route path="/eingang"    element={geschuetzt(<Eingang />)} />

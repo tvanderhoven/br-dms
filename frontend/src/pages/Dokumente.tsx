@@ -20,6 +20,7 @@ function behandeltIn(d: Dokument) {
 import KommentarBlock from "../components/KommentarBlock";
 import OrdnerBaum, { OrdnerAuswahl, DRAG_DOKUMENT, ordnerPfad, ordnerOptionen } from "../components/OrdnerBaum";
 import EmailVorschau from "../components/EmailVorschau";
+import { dokumentInNeuemTabOeffnen } from "../lib/dokumentOeffnen";
 
 const AUSWAHL_SPEICHER = "brdms_ordner_auswahl";
 function auswahlLaden(): OrdnerAuswahl {
@@ -216,25 +217,10 @@ export default function Dokumente() {
     }
   }
 
-  // Öffnet das Dokument in einem eigenen Browser-Tab (PDF inline, sonst Download) —
-  // gleiches Muster wie bei den Protokoll-Dokumentlinks/Betriebsvereinbarungen: Tab
-  // synchron öffnen (Popup-Blocker), dann authentifiziert laden und als Blob anzeigen.
+  // Öffnet das Dokument in einem eigenen Browser-Tab: E-Mails in der Mail-Ansicht,
+  // PDFs im Browser, sonst Download (lib/dokumentOeffnen.ts)
   function dokumentInNeuemFensterOeffnen(d: Dokument) {
-    const tab = window.open("", "_blank");
-    const token = localStorage.getItem("brdms_token");
-    const url = d.mimeTyp === "application/pdf" ? api.dokumente.vorschauUrl(d.id) : api.dokumente.downloadUrl(d.id);
-    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.blob(); })
-      .then(blob => {
-        const objUrl = URL.createObjectURL(blob);
-        if (tab) tab.location.href = objUrl;
-        else window.location.href = objUrl;
-        setTimeout(() => URL.revokeObjectURL(objUrl), 60_000);
-      })
-      .catch(err => {
-        if (tab) tab.close();
-        alert(err instanceof Error ? err.message : "Dokument konnte nicht geöffnet werden");
-      });
+    dokumentInNeuemTabOeffnen(d.id, d.mimeTyp);
   }
 
   function herunterladen(d: Dokument) {

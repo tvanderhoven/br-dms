@@ -5,8 +5,9 @@ import {
 } from "lucide-react";
 import {
   api, Dokument, SitzungListItem, Benutzer, TOP, KATEGORIE_LABEL, formatDatum, formatDateigroesse,
-  ScanEingangEintrag, SitzungScanTyp,
-} from "../lib/api";
+  ScanEingangEintrag, SitzungScanTyp, istEmail } from "../lib/api";
+import EmailVorschau from "../components/EmailVorschau";
+import { dokumentInNeuemTabOeffnen } from "../lib/dokumentOeffnen";
 
 type Aktion = "sitzung-top" | "wissensarchiv" | "aufgabe" | "version" | "wiedervorlage" | null;
 
@@ -706,9 +707,15 @@ export default function Eingang() {
                     </div>
                   )}
 
-                  {/* PDF-Vorschau */}
+                  {/* PDF- bzw. E-Mail-Vorschau */}
                   <div className="rounded-xl overflow-hidden border border-gray-200 mt-2 bg-gray-100" style={{ height: "60vh" }}>
-                    {ausgewaehlt.mimeTyp === "application/pdf" ? (
+                    {istEmail(ausgewaehlt.mimeTyp) ? (
+                      <EmailVorschau
+                        dokumentId={ausgewaehlt.id}
+                        onDokumentOeffnen={id => dokumentInNeuemTabOeffnen(id)}
+                        onAbgelegt={() => {}}
+                      />
+                    ) : ausgewaehlt.mimeTyp === "application/pdf" ? (
                       vorschauUrl ? (
                         <object data={vorschauUrl} type="application/pdf" className="w-full h-full">
                           <p className="p-4 text-sm text-gray-500">
@@ -725,9 +732,11 @@ export default function Eingang() {
                       <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
                         <FileText className="w-10 h-10" />
                         <p className="text-sm">Keine Vorschau für {ausgewaehlt.mimeTyp}</p>
-                        <a href={api.dokumente.downloadUrl(ausgewaehlt.id)} className="text-[rgb(var(--accent))] text-sm underline">
+                        {/* Button statt Link: der Download braucht den Auth-Header */}
+                        <button onClick={() => dateiInTabOeffnen(api.dokumente.downloadUrl(ausgewaehlt.id))}
+                          className="text-[rgb(var(--accent))] text-sm underline">
                           Herunterladen
-                        </a>
+                        </button>
                       </div>
                     )}
                   </div>

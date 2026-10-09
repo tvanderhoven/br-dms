@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, FormEvent, DragEvent, RefObject } from "react";
 import { useLocation } from "react-router-dom";
-import { SitzungsVorlage, Gremium } from "../lib/api";
+import { SitzungsVorlage, Gremium, istEmailDatei } from "../lib/api";
 import {
   CalendarDays, Plus, ChevronLeft, ChevronUp, ChevronDown, GripVertical, Lock, Unlock, FileCheck, FileText,
   Trash2, Link, Unlink, X, Loader2, CheckCircle, Circle, Clock, XCircle, RotateCcw, Eye,
@@ -20,6 +20,7 @@ import BeschlussBlock from "../components/BeschlussBlock";
 import KommentarBlock from "../components/KommentarBlock";
 import AufgabeUebernehmenModal from "../components/AufgabeUebernehmenModal";
 import { tiptapZuText, tiptapZuHtml, textZuTiptap } from "../lib/tiptap";
+import { dokumentInNeuemTabOeffnen } from "../lib/dokumentOeffnen";
 
 // PDF direkt im Browser-eigenen Viewer als neuen Tab öffnen statt als Datei
 // zu erzwingen – vermeidet Chromes "nicht sicher"-Downloadwarnung bei HTTP-
@@ -1266,6 +1267,8 @@ function TopZeile({
             <div className="mt-2 flex flex-wrap gap-1.5">
               {top.dokumente.map(td => {
                 function dokumentOeffnen() {
+                  // E-Mails in der Mail-Ansicht statt als Download
+                  if (istEmailDatei(td.dokument.dateiname)) { dokumentInNeuemTabOeffnen(td.dokument.id); return; }
                   const token = localStorage.getItem("brdms_token");
                   fetch(api.dokumente.downloadUrl(td.dokument.id), {
                     headers: token ? { Authorization: `Bearer ${token}` } : {},
