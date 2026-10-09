@@ -2082,7 +2082,14 @@ def build():
         "verlangt vor dem Überschreiben eine ausdrückliche Bestätigung."
     )
     pdf.code("sudo bash <DATA_PATH>/backup.sh     # db_<Zeit>.sql.gz.enc, storage_<Zeit>.tar.gz.enc\n"
-             "sudo bash <DATA_PATH>/restore.sh    # interaktiv")
+             "sudo bash <DATA_PATH>/restore.sh    # interaktiv\n\n"
+             "# ohne Rückfragen, z. B. mit einer Datei außerhalb von backups/:\n"
+             "sudo bash <DATA_PATH>/restore.sh /pfad/db_<Zeit>.sql.gz.enc --mit-storage --ja")
+    pdf.body(
+        "restore.sh spielt die Datenbank in einem einzigen Schritt ein: Tritt ein Fehler auf, bricht es ab und "
+        "die Datenbank bleibt auf dem Stand vor dem Restore – es bleibt nie etwas halb eingespielt zurück. "
+        "Das Skript muss nicht aus dem Datenverzeichnis gestartet werden; es findet die .env neben sich selbst."
+    )
     pdf.body(
         "Für tägliche Sicherungen den Aufgabenplaner der NAS (z. B. 02:00 Uhr, Benutzer root) bzw. cron "
         "verwenden. Den Zustand der Backups zeigt Einstellungen → System."
@@ -2141,13 +2148,93 @@ def build():
         "Installation bleibt unberührt."
     )
     pdf.hinweis(
-        "Demodaten lassen sich bewusst nicht in eine echte Installation einspielen: Das Skript schreibt nur "
-        "in eine leere Datenbank und bricht sonst ab. Zum Ausprobieren also immer die getrennte Demo nutzen.",
+        "Demodaten lassen sich nicht über echte Daten spielen: Das Demo-Skript schreibt nur in eine leere "
+        "Datenbank und bricht sonst ab. Soll das Gremium die Demo auf dem NAS ausprobieren, übernimmt "
+        "demo_modus.sh das Sichern, Umschalten und Zurückholen (Kapitel 13.4).",
         "tipp")
     pdf.body("Die Screenshots dieses Handbuchs werden aus der laufenden Demo neu erzeugt (braucht Node.js ab "
              "Version 22 und Chrome oder Chromium; ein anderer Browser über CHROME=/pfad/zum/browser):")
     pdf.code("node tools/handbuch-screenshots/screenshots.mjs\n"
              "python3 generate_manual.py")
+
+    pdf.h2("13.4  Demo auf dem Server – das Gremium ausprobieren lassen")
+    pdf.body(
+        "Bevor BR-DMS mit echten Daten genutzt wird, soll das Gremium oft erst einmal „herumspielen“ – auf dem "
+        "NAS, damit alle von ihrem Arbeitsplatz aus mitmachen können. demo_modus.sh schaltet die Installation "
+        "dafür vorübergehend auf die Demodaten aus Kapitel 13.3 um und danach zurück auf die echten Daten. "
+        "Das Skript liegt im Datenverzeichnis neben backup.sh und restore.sh (die Deploy-Skripte übertragen es) "
+        "und läuft auf QNAP, Synology und Linux gleich – das docker-Programm sucht es selbst."
+    )
+    pdf.tabelle(
+        ["Aufruf", "Was passiert"],
+        [
+            ["sudo bash demo_modus.sh status", "Zeigt, ob echte oder Demodaten laufen und welche Sicherungen es gibt"],
+            ["sudo bash demo_modus.sh demo", "Backup der echten Daten, Kopie mit .env nach sicherung_vor_demo/<Zeit>/; "
+             "E-Mail-Versand und Watch-Folder aus; Datenbank und Dokumente leeren; Demodaten einspielen"],
+            ["sudo bash demo_modus.sh neu", "Demo von vorn beginnen – alles, was das Gremium angelegt hat, ist weg; "
+             "die Sicherung der echten Daten bleibt unberührt"],
+            ["sudo bash demo_modus.sh echt", "Ursprüngliche .env zurück, Demodaten löschen, echte Daten aus der "
+             "Sicherung einspielen"],
+        ],
+        (56, 114),
+    )
+    pdf.bullets([
+        "Sicher vor dem Aufräumen – Die Sicherung liegt außerhalb von backups/, wo backup.sh nach 30 Tagen löscht; "
+        "die Demo darf also beliebig lange laufen",
+        "Keine Mails an erfundene Adressen – Während der Demo sind E-Mail-Versand und Watch-Folder aus; „echt“ "
+        "holt die ursprüngliche .env samt allen Einstellungen zurück",
+        "Nichts aus Versehen – Jeder Schritt, der Daten löscht, verlangt ein eingetipptes Wort (DEMO, NEU, ECHT); "
+        "„demo“ verweigert, wenn schon Demodaten laufen, damit sie nicht als „echte Daten“ gesichert werden",
+        "Voraussetzung – In der .env muss ADMIN_PASSWORD stehen (mind. 8 Zeichen); damit startet die geleerte "
+        "Installation. ENCRYPTION_KEY und BACKUP_KEY während der Demo nicht ändern",
+    ])
+    pdf.hinweis(
+        "Anmelden in der Demo: Alle Konten haben das Passwort Demo2026!, z. B. s.kroeger@nordwerk-demo.lokal "
+        "(Vorsitz), t.brandt@… (Stellvertretung), m.yilmaz@… (Mitglied), m.engel@… (Ersatzmitglied). Das "
+        "Skript zeigt die Liste am Ende an. Die beiden Backup-Dateien aus sicherung_vor_demo/ zusätzlich auf "
+        "einen PC kopieren.", "tipp", "Demo-Konten")
+
+    pdf.h3("Von Hand, Befehl für Befehl")
+    pdf.body(
+        "Dasselbe ohne Skript, etwa zum Nachvollziehen. Erst die Zeile mit D= für das eigene System ausführen, "
+        "dann die übrigen Befehle der Reihe nach. <Zeit> ist der Zeitstempel des Backups, PUID und PGID stehen "
+        "in der .env."
+    )
+    pdf.code("# QNAP\n"
+             "D=/share/CACHEDEV1_DATA/.qpkg/container-station/bin/docker\n"
+             "cd /share/Container/br-dms\n\n"
+             "# Synology\n"
+             "D=/usr/local/bin/docker\n"
+             "cd /volume1/docker/br-dms")
+    pdf.body("Umschalten auf Demodaten:")
+    pdf.code("# 1. echte Daten sichern, <Zeit> des neuesten Backups ablesen\n"
+             "sudo bash backup.sh\n"
+             "ls -lh backups/\n"
+             "sudo mkdir -p sicherung_vor_demo/<Zeit>\n"
+             "sudo cp -a backups/*<Zeit>* .env sicherung_vor_demo/<Zeit>/\n"
+             "# 2. E-Mail-Versand und Watch-Folder aus\n"
+             "sudo sed -i 's/^SMTP_/#SMTP_/' .env\n"
+             "sudo sed -i 's/^WATCH_FOLDER_ENABLED=.*/WATCH_FOLDER_ENABLED=false/' .env\n"
+             "# 3. stoppen, Datenbank und Dokumente leeren, leer starten\n"
+             "sudo $D compose down\n"
+             "sudo rm -rf postgres storage && sudo mkdir postgres storage\n"
+             "sudo $D compose up -d\n"
+             "# 4. warten, bis „healthy“ erscheint, dann Demodaten einspielen\n"
+             "sudo $D inspect -f '{{.State.Health.Status}}' brdms_backend\n"
+             "sudo $D exec -u <PUID>:<PGID> brdms_backend node dist/demo/demo-daten.js")
+    pdf.body("Zurück zu den echten Daten:")
+    pdf.code("sudo $D compose down\n"
+             "# ursprüngliche .env zurück\n"
+             "sudo cp -a sicherung_vor_demo/<Zeit>/.env .env\n"
+             "sudo rm -rf postgres storage && sudo mkdir postgres storage\n"
+             "# leer starten und warten, bis „healthy“ erscheint\n"
+             "sudo $D compose up -d\n"
+             "sudo bash restore.sh \\\n"
+             "  sicherung_vor_demo/<Zeit>/db_<Zeit>.sql.gz.enc --mit-storage --ja")
+    pdf.hinweis(
+        "Beim Umschalten werden Datenbank und Dokumente gelöscht. Vorher prüfen, dass in sicherung_vor_demo/<Zeit>/ "
+        "beide Backup-Dateien (db_… und storage_…) und die .env liegen – das Skript prüft das selbst und bricht "
+        "sonst ab, bevor etwas gelöscht wird.", "achtung", "Erst sichern, dann löschen")
 
     # 14 ────────────────────────────────────────────────────────────
     pdf.h1("14  Datenbank")

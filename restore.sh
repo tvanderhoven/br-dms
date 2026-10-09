@@ -3,6 +3,10 @@
 # Aufruf: ./restore.sh  (muss im selben Verzeichnis wie die .env liegen)
 # Wählt interaktiv aus vorhandenen Backups
 #
+# Ohne Rückfragen (z. B. aus demo_modus.sh):
+#   ./restore.sh <pfad/db_<Zeit>.sql.gz[.enc]> [--mit-storage] [--ja]
+#   Das Storage-Backup wird neben der DB-Datei gesucht (gleicher Zeitstempel).
+#
 # WICHTIG: Der ENCRYPTION_KEY in der .env dieses Systems muss vor dem Restore
 # bereits der gleiche sein wie im System, von dem das Backup stammt - sonst
 # lassen sich die wiederhergestellten Dokumente nicht mehr entschlüsseln.
@@ -31,10 +35,25 @@ export BACKUP_KEY
 BACKUP_DIR="$DATA_PATH/backups"
 CONTAINER="brdms_postgres"
 
-# --- Verfügbare DB-Backups anzeigen ---
+# --- Parameter (optional) ---
+ARG_DATEI=""; ARG_STORAGE=""; ARG_JA=""
+for arg in "$@"; do
+  case "$arg" in
+    --mit-storage) ARG_STORAGE="j" ;;
+    --ja)          ARG_JA="ja" ;;
+    -*)            echo "Unbekannte Option: $arg" >&2; exit 1 ;;
+    *)             ARG_DATEI="$arg" ;;
+  esac
+done
+
 echo ""
 echo "=== BR-DMS Restore ==="
 echo ""
+if [ -n "$ARG_DATEI" ]; then
+  [ -f "$ARG_DATEI" ] || { echo "Fehler: $ARG_DATEI nicht gefunden." >&2; exit 1; }
+  DB_FILE="$ARG_DATEI"
+else
+# --- Verfügbare DB-Backups anzeigen ---
 echo "Verfügbare Datenbank-Backups:"
 DB_BACKUPS=()
 i=1
@@ -54,6 +73,7 @@ fi
 echo ""
 read -rp "DB-Backup auswählen (Nummer): " DB_CHOICE
 DB_FILE="${DB_BACKUPS[$((DB_CHOICE-1))]}"
+fi
 
 # --- Verschlüsselt? Dann wird der BACKUP_KEY gebraucht ---
 ENDUNG=""
@@ -66,10 +86,12 @@ fi
 
 # --- Passenden Storage-Backup suchen ---
 TIMESTAMP=$(basename "$DB_FILE" | sed 's/db_//' | sed 's/\.sql\.gz.*//')
-STORAGE_FILE="$BACKUP_DIR/storage_${TIMESTAMP}.tar.gz${ENDUNG}"
+STORAGE_FILE="$(dirname "$DB_FILE")/storage_${TIMESTAMP}.tar.gz${ENDUNG}"
 
 echo ""
-if [ -f "$STORAGE_FILE" ]; then
+if [ -f "$STORAGE_FILE" ] && [ -n "$ARG_STORAGE" ]; then
+  RESTORE_STORAGE="j"
+elif [ -f "$STORAGE_FILE" ]; then
   read -rp "Zugehöriges Storage-Backup auch einspielen? (j/N): " RESTORE_STORAGE
 else
   echo "Kein passendes Storage-Backup gefunden (nur DB wird eingespielt)."
@@ -83,7 +105,7 @@ echo "  DB:      $(basename "$DB_FILE")"
 [ "${RESTORE_STORAGE,,}" = "j" ] && echo "  Storage: $(basename "$STORAGE_FILE")"
 echo ""
 echo "ACHTUNG: Die aktuelle Datenbank wird dabei ÜBERSCHRIEBEN."
-read -rp "Fortfahren? (ja/N): " CONFIRM
+if [ -n "$ARG_JA" ]; then CONFIRM="ja"; else read -rp "Fortfahren? (ja/N): " CONFIRM; fi
 [ "$CONFIRM" != "ja" ] && echo "Abgebrochen." && exit 0
 
 # --- Entschlüsseln ---
@@ -130,7 +152,15 @@ echo "[$(date)] Datenbank wiederherstellen..."
 DB_USER=$(docker exec "$CONTAINER" printenv POSTGRES_USER)
 DB_NAME=$(docker exec "$CONTAINER" printenv POSTGRES_DB)
 
-entschluesseln "$DB_QUELLE" | gunzip -c | docker exec -i "$CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -q
+# In einem Schritt und beim ersten Fehler abbrechen – sonst bliebe bei einem Fehler
+# eine halb eingespielte Datenbank zurück (ohne Fehler: unverändertes Ergebnis)
+if ! entschluesseln "$DB_QUELLE" | gunzip -c \
+     | docker exec -i "$CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -q -v ON_ERROR_STOP=1 --single-transaction; then
+  echo "Fehler: Die Datenbank konnte nicht eingespielt werden – sie ist unverändert (Stand vor dem Restore)." >&2
+  echo "        Backend wird wieder gestartet. Meldung oben prüfen." >&2
+  docker start brdms_backend >/dev/null 2>&1 || true
+  exit 1
+fi
 
 echo "  ✓ Datenbank eingespielt"
 

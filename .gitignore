@@ -11,3 +11,6 @@ __pycache__/
 *.key
 *.pem
 qnap_certs/
+# demo_modus.sh: Sicherung der echten Daten während einer Demo auf dem Server
+sicherung_vor_demo/
+.demo_modus

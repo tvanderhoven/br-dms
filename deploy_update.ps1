@@ -138,7 +138,7 @@ $remote = "set -e; mkdir -p '$DATA_PATH' && cd '$DATA_PATH'; " +
           "tar -xzf - -C .deploy-neu; " +
           "for d in $($ersetzen -join ' '); do rm -rf `$d; done; " +
           "cp -a .deploy-neu/. . && rm -rf .deploy-neu; " +
-          "chmod +x backup.sh restore.sh proxy/generate-selfsigned-cert.sh backend/docker-entrypoint.sh"
+          "chmod +x backup.sh restore.sh demo_modus.sh proxy/generate-selfsigned-cert.sh backend/docker-entrypoint.sh"
 
 $proc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c $tarCmd | ssh $ZIEL `"$remote`"" -WorkingDirectory $DIR -Wait -PassThru -NoNewWindow
 if ($proc.ExitCode -ne 0) {
