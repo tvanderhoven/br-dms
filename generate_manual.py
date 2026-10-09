@@ -1552,7 +1552,7 @@ def build():
     pdf.tabelle(
         ["Container", "Technologie", "Aufgabe"],
         [
-            ["proxy", "Nginx 1.25", "TLS-Terminierung, einziger Zugang (Port 8443, 8080 leitet um)"],
+            ["proxy", "Nginx 1.30", "TLS-Terminierung, einziger Zugang (Port 8443, 8080 leitet um)"],
             ["frontend", "React 18, Vite, Tailwind CSS (über Nginx)", "Benutzeroberfläche im Browser"],
             ["backend", "Node.js 24, Fastify 5, Prisma", "REST-API, Geschäftslogik, PDF-Erzeugung, Hintergrundjobs"],
             ["postgres", "PostgreSQL 16", "Datenhaltung, nur im internen Docker-Netz"],
@@ -1605,6 +1605,9 @@ def build():
              "beschränken (Kapitel 9.2)"],
             ["Sichtschutz", "Personal- und Gehaltslisten werden beim Fensterwechsel verdeckt (Kapitel 7)"],
             ["Audit-Log", "Über 50 Aktionstypen mit Zeitpunkt, Person, IP-Adresse und Browser (Kapitel 9.10)"],
+            ["Rollentests", "Automatische Tests prüfen alle Schnittstellen je Rolle gegen eine leere Test-Datenbank – "
+             "vor jedem Update (deploy_update.sh) und bei jeder Änderung auf GitHub; ein Stand mit falschen "
+             "Rechten wird nicht eingespielt"],
         ],
         (40, 130),
     )
@@ -1663,8 +1666,10 @@ def build():
         "Updates – Neue Stände zuerst in der Demo prüfen, dann einspielen (Kapitel 13.1)",
     ])
     pdf.hinweis(
-        "In Arbeit: Anmeldung mit zweitem Faktor (Einmalcode per Authenticator-App) und automatische Tests, "
-        "die vor jedem Update die Rechte aller Rollen prüfen.", "info", "Geplant")
+        "In Prüfung: Anmeldung mit zweitem Faktor (Einmalcode per Authenticator-App) – BR-DMS läuft nur im "
+        "Intranet, ob er dort nötig ist, ist noch offen. Geplant: Abmelden und Passwortwechsel machen bereits "
+        "ausgestellte Anmelde-Tokens sofort ungültig (bisher gelten sie bis zum Ablauf, höchstens 24 Stunden).",
+        "info", "Geplant")
 
     pdf.h2("11.3  Den Server (NAS) absichern")
     pdf.body(
