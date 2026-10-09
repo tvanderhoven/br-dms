@@ -85,10 +85,13 @@ export function useSpalten(schluessel: string, defs: SpaltenDef[]) {
     sichtbar,
     ohnePlatz,
     ausgeblendet: einstellung.ausgeblendet,
-    /** Breite live setzen; speichern=true beim Loslassen */
-    breiteSetzen(id: string, breite: number, dauerhaft = false) {
-      const d = defs.find(x => x.id === id);
-      const neu = { ...einstellung, breiten: { ...einstellung.breiten, [id]: Math.max(d?.minBreite ?? 60, Math.round(breite)) } };
+    /** Breiten live setzen (beim Ziehen), dauerhaft=true beim Loslassen */
+    breitenSetzen(breiten: Record<string, number>, dauerhaft = false) {
+      const neu = { ...einstellung, breiten: { ...einstellung.breiten } };
+      for (const [id, b] of Object.entries(breiten)) {
+        const d = defs.find(x => x.id === id);
+        if (d && !d.flexibel) neu.breiten[id] = Math.max(d.minBreite ?? 60, Math.round(b));
+      }
       if (dauerhaft) speichern(neu); else setEinstellung(neu);
     },
     /** Spalte `id` vor `vorId` einsortieren */
