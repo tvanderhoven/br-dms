@@ -598,6 +598,10 @@ def build():
             ["Löschung", "Nach Ablauf der Aufbewahrungsfrist Löschvormerkung, danach endgültige, sichere Löschung"],
             ["Löschdatum ändern", "Im Bearbeiten-Dialog; wechselt die Kategorie, wird das Datum nach deren "
                                   "Regel ab dem Hochladen neu vorgeschlagen. Nur Daten in der Zukunft"],
+            ["Spalten", "Breite am grauen Strich rechts im Spaltenkopf ziehen, Reihenfolge durch Ziehen am "
+                        "Spaltennamen ändern, über das Spalten-Symbol rechts ein- und ausblenden. Der Titel nimmt "
+                        "immer den restlichen Platz; reicht er nicht (z. B. bei offener Vorschau), blendet die Liste "
+                        "die unwichtigsten Spalten vorübergehend selbst aus. Alles wird im Browser gemerkt"],
         ],
         (32, 138),
     )
@@ -624,6 +628,8 @@ def build():
             ["Alle Dokumente", "Zeigt wie bisher alles, unabhängig vom Ordner; unter dem Dateinamen steht, "
                                "in welchem Ordner ein Dokument liegt"],
             ["Ohne Ordner", "Alles, was noch nicht einsortiert ist – etwa neue Dokumente aus dem Watch-Folder"],
+            ["Baum einklappen", "« neben „Ablage“ klappt den Baum zu einer schmalen Leiste zusammen (mehr Platz für die "
+                                "Liste); die Ordnerwahl steht dann als Auswahlliste neben der Suche, » klappt ihn wieder auf"],
         ],
         (40, 130),
     )
