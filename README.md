@@ -121,7 +121,10 @@ Werte in `[eckigen Klammern]` sind Vorschläge – **Enter übernimmt sie**. Fel
 (Admin-Passwort, SMTP-Zugangsdaten) sind Pflicht und werden erneut abgefragt; bei Ja/Nein-Fragen gilt
 mit Enter der Großbuchstabe (`[J/n]` = Ja). Schlüssel, Datenbankpasswort und `APP_URL` erzeugt der
 Assistent selbst. Eine vorhandene `.env` lädt er als Vorschlag – bei der Frage nach den Schlüsseln
-dann immer „behalten“ wählen. Jede Frage mit Beispiel und Standardwert: Handbuch, Kapitel 12.3.
+dann immer „behalten“ wählen. Beim NAS ist der SSH-Benutzer das Verwaltungskonto (nicht `admin`);
+ihm gehören die Dateien (PUID), als Gruppe schlägt der Assistent `administrators` statt der Gruppe
+aller Konten vor. Die `.env` schreibt er mit `chmod 600`. Jede Frage mit Beispiel und Standardwert:
+Handbuch, Kapitel 12.3.
 
 Im ersten Schritt wählst du das Zielsystem:
 - **Generischer Docker-Host** – für jede beliebige Docker-Umgebung (lokal, eigener Server,
