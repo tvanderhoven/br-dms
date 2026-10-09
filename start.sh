@@ -78,9 +78,10 @@ case "${1:-up}" in
   logs)
     docker compose logs -f --tail=100 "${2:-}" ;;
   update)
-    log "Update..."
-    docker compose pull
-    docker compose up -d --build ;;
+    log "Update (mit frischen Basis-Images)..."
+    docker compose pull postgres proxy
+    docker compose build --pull
+    docker compose up -d ;;
   backup)
     TS=$(date +%Y%m%d_%H%M%S)
     BK="${DATA_PATH}/backups/${TS}"

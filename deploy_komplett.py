@@ -92,13 +92,13 @@ def naechste_schritte():
     print(f"  ssh {ZIEL}")
     print()
     print("  OPTION A – Alles neu bauen (Backend + Frontend):")
-    print(f"  {COMPOSE} up -d --build")
+    print(f"  {COMPOSE} pull postgres proxy && {COMPOSE} build --pull && {COMPOSE} up -d")
     print()
     print("  OPTION B – Nur Backend:")
-    print(f"  {COMPOSE} build backend && {COMPOSE} up -d")
+    print(f"  {COMPOSE} build --pull backend && {COMPOSE} up -d")
     print()
     print("  OPTION C – Nur Frontend (ohne Cache):")
-    print(f"  {COMPOSE} build --no-cache frontend && {COMPOSE} up -d")
+    print(f"  {COMPOSE} build --pull --no-cache frontend && {COMPOSE} up -d")
     print()
     print("  Logs pruefen:")
     print(f"  sudo {DOCKER_BIN} logs brdms_backend --tail 40 -f")
@@ -141,7 +141,7 @@ def main():
         subprocess.run(["ssh", ZIEL, "python3 -"], input=baue_payload(dateien, ersetzen).encode("utf-8"), check=True)
         if "--bauen" in schalter:
             print("\n  Baue und starte auf dem Host (sudo-Passwort des Hosts) ...")
-            subprocess.run(["ssh", "-t", ZIEL, f"{COMPOSE} up -d --build"], check=True)
+            subprocess.run(["ssh", "-t", ZIEL, f"{COMPOSE} pull postgres proxy && {COMPOSE} build --pull && {COMPOSE} up -d"], check=True)
             print("  Container neu gebaut und gestartet")
             return
     except subprocess.CalledProcessError as e:
