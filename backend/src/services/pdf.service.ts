@@ -159,6 +159,20 @@ const DEJAVU_FONTS: Record<string, string> = {
 };
 let dejaVuVerfuegbar: boolean | null = null;
 
+/**
+ * Neues PDF mit eingebetteter Unicode-Schrift. PDFKit lädt beim Anlegen sonst sofort die
+ * eingebaute „Helvetica“ und merkt sie sich – eine danach unter demselben Namen registrierte
+ * DejaVu greift dann nur für fett/kursiv, die normale Schrift bliebe die eingebaute
+ * (türkische Namen wie „Yılmaz“, „Ayşe“ wurden so zu Zeichensalat). Deshalb ohne
+ * Standardschrift anlegen, erst registrieren, dann die Schrift setzen.
+ */
+export function neuesPdf(optionen: PDFKit.PDFDocumentOptions = {}): InstanceType<typeof PDFDocument> {
+  const doc = new PDFDocument({ ...optionen, font: "" });
+  registriereSchriften(doc);
+  doc.font("Helvetica");
+  return doc;
+}
+
 function registriereSchriften(doc: InstanceType<typeof PDFDocument>) {
   if (dejaVuVerfuegbar === null) {
     dejaVuVerfuegbar = Object.values(DEJAVU_FONTS).every(p => fsSync.existsSync(p));
@@ -255,8 +269,7 @@ export async function pdfGenerieren(
     : null;
 
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: "A4", margin: 60, bufferPages: true });
-    registriereSchriften(doc);
+    const doc = neuesPdf({ size: "A4", margin: 60, bufferPages: true });
     const chunks: Buffer[] = [];
 
     doc.on("data",  c  => chunks.push(c));
@@ -929,8 +942,7 @@ export async function anwesenheitslistePdfGenerieren(
     : null;
 
   return new Promise((resolve, reject) => {
-    const doc    = new PDFDocument({ size: "A4", margin: 60, bufferPages: true });
-    registriereSchriften(doc);
+    const doc    = neuesPdf({ size: "A4", margin: 60, bufferPages: true });
     const chunks: Buffer[] = [];
 
     doc.on("data",  c  => chunks.push(c));
@@ -1156,8 +1168,7 @@ export async function unterschriftenseitePdfGenerieren(
   const istBV = istBetriebsversammlung(sitzung.sitzungstyp);
 
   return new Promise((resolve, reject) => {
-    const doc    = new PDFDocument({ size: "A4", margin: 60, bufferPages: true });
-    registriereSchriften(doc);
+    const doc    = neuesPdf({ size: "A4", margin: 60, bufferPages: true });
     const chunks: Buffer[] = [];
 
     doc.on("data",  c  => chunks.push(c));
@@ -1246,8 +1257,7 @@ export async function topAuszugPdfGenerieren(
     : null;
 
   return new Promise((resolve, reject) => {
-    const doc    = new PDFDocument({ size: "A4", margin: 60, bufferPages: true });
-    registriereSchriften(doc);
+    const doc    = neuesPdf({ size: "A4", margin: 60, bufferPages: true });
     const chunks: Buffer[] = [];
 
     doc.on("data",  c  => chunks.push(c));
@@ -1361,8 +1371,7 @@ export async function stellungnahmePdfGenerieren(
   const logoBuffer = layout.logo_pfad ? await fs.readFile(layout.logo_pfad).catch(() => null) : null;
 
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: "A4", margin: 60, bufferPages: true });
-    registriereSchriften(doc);
+    const doc = neuesPdf({ size: "A4", margin: 60, bufferPages: true });
     const chunks: Buffer[] = [];
 
     doc.on("data",  c  => chunks.push(c));
@@ -1476,8 +1485,7 @@ export async function waehlerlistePdfGenerieren(
   const logoBuffer = layout.logo_pfad ? await fs.readFile(layout.logo_pfad).catch(() => null) : null;
 
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: "A4", margin: 60, bufferPages: true });
-    registriereSchriften(doc);
+    const doc = neuesPdf({ size: "A4", margin: 60, bufferPages: true });
     const chunks: Buffer[] = [];
     doc.on("data",  c => chunks.push(c));
     doc.on("error", reject);

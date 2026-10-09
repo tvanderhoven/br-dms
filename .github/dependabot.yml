@@ -1,8 +1,12 @@
 # Dependabot: schlägt wöchentlich Updates als Pull Request vor.
 # Sicherheitsupdates kommen unabhängig davon sofort, sobald eine Lücke bekannt wird
 # (Einstellung „Dependabot security updates“ im Repository).
-# Kleine Updates (Minor/Patch) werden je Bereich zu einem Pull Request gebündelt,
-# damit es nicht jede Woche ein Dutzend einzelne gibt.
+#
+# Damit es überschaubar bleibt:
+# - kleine Updates (Minor/Patch) je Bereich in einem gemeinsamen Pull Request,
+# - große Versionssprünge (Major) ebenfalls je Bereich gebündelt – sie brauchen
+#   meist Umbauarbeit und werden bewusst als eigenes Paket angegangen,
+# - einige Sprünge gar nicht vorschlagen, weil sie hier schaden (siehe ignore).
 version: 2
 updates:
   - package-ecosystem: npm
@@ -11,7 +15,15 @@ updates:
     open-pull-requests-limit: 5
     groups:
       backend-klein:
+        applies-to: version-updates
         update-types: [minor, patch]
+      backend-gross:
+        applies-to: version-updates
+        update-types: [major]
+    ignore:
+      # @types/node folgt der Node-Version im Dockerfile (LTS), nicht der neuesten
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: npm
     directory: /frontend
@@ -19,17 +31,37 @@ updates:
     open-pull-requests-limit: 5
     groups:
       frontend-klein:
+        applies-to: version-updates
         update-types: [minor, patch]
+      frontend-gross:
+        applies-to: version-updates
+        update-types: [major]
 
   # Basis-Images in den Dockerfiles (node, nginx)
   - package-ecosystem: docker
     directories: [/backend, /frontend]
     schedule: { interval: weekly, day: monday }
+    ignore:
+      # Nur LTS-Versionen (gerade Hauptversionen) – den Wechsel macht man bewusst von Hand;
+      # ungerade Versionen (25, 27 …) werden nach wenigen Monaten aufgegeben
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
+      # nginx: ungerade Nebenversionen (1.31, 1.33 …) sind der Entwicklungszweig;
+      # Sicherheits-Patches im stabilen Zweig kommen über --pull beim Update
+      - dependency-name: nginx
+        update-types: ["version-update:semver-minor"]
 
   # Images in docker-compose.yml (postgres, nginx-Proxy)
   - package-ecosystem: docker-compose
     directory: /
     schedule: { interval: weekly, day: monday }
+    ignore:
+      # Eine neue PostgreSQL-Hauptversion kann das vorhandene Datenverzeichnis nicht
+      # lesen – das Upgrade braucht einen Daten-Umzug und wird nie automatisch vorgeschlagen
+      - dependency-name: postgres
+        update-types: ["version-update:semver-major"]
+      - dependency-name: nginx
+        update-types: ["version-update:semver-minor"]
 
   # Versionen der GitHub-Actions im CodeQL-Workflow
   - package-ecosystem: github-actions
