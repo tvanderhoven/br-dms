@@ -18,7 +18,7 @@ services:
   #  Nur intern erreichbar – kein Port-Mapping nach außen
   # ----------------------------------------------------------------
   postgres:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     container_name: brdms_postgres
     restart: unless-stopped
     networks:
