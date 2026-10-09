@@ -28,7 +28,7 @@
     "node-cron": "^4.6.0",
     "nodemailer": "^10.0.16",
     "pdf-parse": "^2.4.5",
-    "pdfkit": "^0.15.0"
+    "pdfkit": "^0.20.2"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.5",
@@ -36,7 +36,7 @@
     "@types/node": "^24.19.1",
     "@types/nodemailer": "^8.0.2",
     "@types/pdf-parse": "^1.1.5",
-    "@types/pdfkit": "^0.13.4",
+    "@types/pdfkit": "^0.17.6",
     "prisma": "^5.14.0",
     "tsx": "^4.23.15",
     "typescript": "^5.4.5"
