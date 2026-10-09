@@ -67,6 +67,8 @@ services:
       SMTP_PASS:       ${SMTP_PASS}
       SMTP_FROM:       ${SMTP_FROM}
       APP_URL:         ${APP_URL}
+      # Reverse-Proxys vor dem Backend (eigener HTTPS-Proxy + Frontend-nginx = 2), für die echte Client-IP
+      PROXY_STATIONEN: ${PROXY_STATIONEN:-2}
       WATCH_FOLDER:         ${WATCH_FOLDER:-/data/watch_inbox}
       WATCH_FOLDER_ENABLED: ${WATCH_FOLDER_ENABLED:-false}
       WATCH_INBOX_PATH:     ${WATCH_INBOX_PATH:-}

@@ -48,7 +48,6 @@ damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 
 Offen aus dem Sicherheits-Update vom 09.10.2026 (Backend: `npm audit` 0 Lücken nach Fastify 5, @fastify/jwt 10, nodemailer 10, adm-zip 0.6, node-cron 4):
 Frontend braucht noch zwei größere Sprünge – React Router 7 (Open-Redirect über `<Link>`/`navigate`, mittel) und Tiptap 3 (`mergeAttributes`, mittel).
-Außerdem schreibt das Audit-Log wohl die IP des Proxy-Containers statt der des Arbeitsplatzes (`trustProxy` aus) – nur auf das Proxy-Netz beschränkt einschalten.
 
 Bewusst später: E-Mails per IMAP selbst aus einem Postfach abholen – dafür müsste ein weiteres Passwort auf dem NAS liegen.
 
