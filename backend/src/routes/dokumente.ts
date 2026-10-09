@@ -7,6 +7,11 @@
  * GET    /api/dokumente/:id/download – Entschlüsselt herunterladen
  * PATCH  /api/dokumente/:id      – Metadaten aktualisieren
  * DELETE /api/dokumente/:id      – Löschvormerkung setzen
+ *
+ * E-Mails (.eml/.msg):
+ * GET    /api/dokumente/:id/email                        – Kopf, Text, HTML, abgelegte Anhänge
+ * GET    /api/dokumente/:id/email/anhaenge/:nr           – Anhang herunterladen
+ * POST   /api/dokumente/:id/email/anhaenge/:nr/ablegen   – Anhang als eigenes Dokument
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
@@ -22,10 +27,22 @@ import prisma from "../lib/prisma.js";
 import { dokumentVertraulichFilter, darfDokumentSehen } from "../lib/vertraulich.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
-import { verarbeiteDokument } from "../services/dokument-pipeline.service.js";
+import { verarbeiteDokument, anhangAblegen, UngueltigeEmailError } from "../services/dokument-pipeline.service.js";
+import { emailFormat, emailLesen, istEmailMime, EmailFormat, EMAIL_MIME } from "../lib/email.js";
 
 const STORAGE = process.env.STORAGE_PATH ?? "/data/storage";
 const MASTER_KEY = process.env.ENCRYPTION_KEY!;
+
+/** Gespeicherte E-Mail entschlüsseln und lesen */
+async function gespeicherteEmail(dokument: { id: string; speicherpfad: string; verschlPfad: string; mimeTyp: string }) {
+  const format: EmailFormat = dokument.mimeTyp === EMAIL_MIME.msg ? "msg" : "eml";
+  const klartext = await decryptFile({
+    sourcePath: path.join(STORAGE, dokument.speicherpfad, dokument.verschlPfad),
+    masterKey:  MASTER_KEY,
+    documentId: dokument.id,
+  });
+  return emailLesen(klartext, format);
+}
 
 export async function dokumentRouten(app: FastifyInstance): Promise<void> {
 
@@ -132,6 +149,8 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
           aktenzeichen:  true,
           vertraulich:   true,
           ordnerId:      true,
+          emailKopf:     true,
+          quelleDokument: { select: { id: true, titel: true, alias: true } },
           deleteAt:      true,
           erstelltAm:    true,
           textinhalt:    true,
@@ -174,8 +193,9 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
         "application/vnd.ms-word.document.macroEnabled.12",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       ];
-      if (!erlaubt.includes(data.mimetype)) {
-        return reply.status(400).send({ fehler: "Nur PDF, DOCX, DOCM und XLSX erlaubt" });
+      const istEmail = !!emailFormat(data.filename, data.mimetype);
+      if (!erlaubt.includes(data.mimetype) && !istEmail) {
+        return reply.status(400).send({ fehler: "Nur PDF, DOCX, DOCM, XLSX und E-Mails (EML, MSG) erlaubt" });
       }
 
       const fields         = data.fields as Record<string, { value: string }>;
@@ -188,24 +208,30 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
       const kuendigungsArt = kuendigungsArtStr === "ORDENTLICH" || kuendigungsArtStr === "AUSSERORDENTLICH"
         ? kuendigungsArtStr : undefined;
 
-      if (!titel || !kategorieStr || !Object.values(Kategorie).includes(kategorieStr)) {
+      // Bei E-Mails darf der Titel leer bleiben – dann gilt der Betreff
+      if ((!titel && !istEmail) || !kategorieStr || !Object.values(Kategorie).includes(kategorieStr)) {
         return reply.status(400).send({ fehler: "titel und kategorie sind Pflichtfelder" });
       }
+      const anhaengeAblegen = fields.anhaengeAblegen?.value === "true";
       if (ordnerId && !(await prisma.ordner.findUnique({ where: { id: ordnerId }, select: { id: true } }))) {
         return reply.status(400).send({ fehler: "Ordner nicht gefunden" });
       }
 
-      const dokument = await verarbeiteDokument({
-        stream:            data.file as any,
-        originalDateiname: data.filename,
-        mimetype:          data.mimetype,
-        userId:            request.benutzer.sub,
-        ip:                request.ip,
-        userAgent:         request.headers["user-agent"],
-        metadata:          { titel, kategorie: kategorieStr, aktenzeichen, vertraulich, inboxQuelle: "UPLOAD", kuendigungsArt, ordnerId },
-      });
-
-      return reply.status(201).send(dokument);
+      try {
+        const dokument = await verarbeiteDokument({
+          stream:            data.file as any,
+          originalDateiname: data.filename,
+          mimetype:          data.mimetype,
+          userId:            request.benutzer.sub,
+          ip:                request.ip,
+          userAgent:         request.headers["user-agent"],
+          metadata:          { titel, kategorie: kategorieStr, aktenzeichen, vertraulich, inboxQuelle: "UPLOAD", kuendigungsArt, ordnerId, anhaengeAblegen },
+        });
+        return reply.status(201).send(dokument);
+      } catch (err) {
+        if (err instanceof UngueltigeEmailError) return reply.status(400).send({ fehler: err.message });
+        throw err;
+      }
     }
   );
 
@@ -409,6 +435,111 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
         .header("Content-Disposition", `inline; filename="${encodeURIComponent(dokument.dateiname)}"`)
         .header("Content-Length", klartext.length)
         .send(klartext);
+    }
+  );
+
+  // ── GET /:id/email – E-Mail lesen ──────────────────────────────
+  app.get<{ Params: { id: string } }>(
+    "/:id/email",
+    { preHandler: [authenticate] },
+    async (request, reply) => {
+      const dokument = await prisma.dokument.findUnique({ where: { id: request.params.id } });
+      if (!dokument || dokument.status === DokumentStatus.GELOESCHT) {
+        return reply.status(404).send({ fehler: "Nicht gefunden" });
+      }
+      if (!istEmailMime(dokument.mimeTyp)) return reply.status(415).send({ fehler: "Keine E-Mail" });
+      if (!darfDokumentSehen(dokument, request.benutzer.rolle, request.benutzer.sub)) {
+        return reply.status(403).send({ fehler: "Vertrauliches Dokument" });
+      }
+
+      const mail = await gespeicherteEmail(dokument);
+      // Bereits abgelegte Anhänge – nur die, die dieser Benutzer sehen darf
+      const abgelegt = await prisma.dokument.findMany({
+        where:  { quelleDokumentId: dokument.id, status: { not: DokumentStatus.GELOESCHT }, ...dokumentVertraulichFilter(request.benutzer.rolle, request.benutzer.sub) },
+        select: { id: true, titel: true, alias: true, dateiname: true },
+      });
+
+      return reply.send({
+        betreff: mail.betreff, von: mail.von, an: mail.an, cc: mail.cc, datum: mail.datum,
+        text: mail.text, html: mail.html,
+        anhaenge: mail.anhaenge.map(({ nr, name, mimeTyp, groesse, ablegbar }) => ({
+          nr, name, mimeTyp, groesse, ablegbar,
+          dokument: abgelegt.find(d => d.dateiname === name) ?? null,
+        })),
+      });
+    }
+  );
+
+  // ── GET /:id/email/anhaenge/:nr – Anhang herunterladen ─────────
+  app.get<{ Params: { id: string; nr: string } }>(
+    "/:id/email/anhaenge/:nr",
+    { preHandler: [authenticate] },
+    async (request, reply) => {
+      const dokument = await prisma.dokument.findUnique({ where: { id: request.params.id } });
+      if (!dokument || dokument.status === DokumentStatus.GELOESCHT || !istEmailMime(dokument.mimeTyp)) {
+        return reply.status(404).send({ fehler: "Nicht gefunden" });
+      }
+      if (!darfDokumentSehen(dokument, request.benutzer.rolle, request.benutzer.sub)) {
+        return reply.status(403).send({ fehler: "Vertrauliches Dokument" });
+      }
+
+      const mail = await gespeicherteEmail(dokument);
+      const anhang = mail.anhaenge.find(a => a.nr === Number(request.params.nr));
+      if (!anhang) return reply.status(404).send({ fehler: "Anhang nicht gefunden" });
+
+      await prisma.auditLog.create({
+        data: {
+          benutzerId: request.benutzer.sub,
+          dokumentId: dokument.id,
+          aktion:     AuditAktion.DOKUMENT_HERUNTERGELADEN,
+          ip:         request.ip,
+          userAgent:  request.headers["user-agent"] ?? null,
+          details:    { anhang: anhang.name },
+        },
+      });
+
+      return reply
+        .header("Content-Type", anhang.mimeTyp)
+        .header("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(anhang.name)}`)
+        .header("Content-Length", anhang.inhalt.length)
+        .send(anhang.inhalt);
+    }
+  );
+
+  // ── POST /:id/email/anhaenge/:nr/ablegen – Anhang als Dokument ─
+  app.post<{ Params: { id: string; nr: string } }>(
+    "/:id/email/anhaenge/:nr/ablegen",
+    { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
+    async (request, reply) => {
+      const dokument = await prisma.dokument.findUnique({ where: { id: request.params.id } });
+      if (!dokument || dokument.status === DokumentStatus.GELOESCHT || !istEmailMime(dokument.mimeTyp)) {
+        return reply.status(404).send({ fehler: "Nicht gefunden" });
+      }
+      if (!darfDokumentSehen(dokument, request.benutzer.rolle, request.benutzer.sub)) {
+        return reply.status(403).send({ fehler: "Vertrauliches Dokument" });
+      }
+
+      const mail = await gespeicherteEmail(dokument);
+      const anhang = mail.anhaenge.find(a => a.nr === Number(request.params.nr));
+      if (!anhang) return reply.status(404).send({ fehler: "Anhang nicht gefunden" });
+      if (!anhang.ablegbar) {
+        return reply.status(400).send({ fehler: "Nur PDF, DOCX, DOCM, XLSX und E-Mails können als Dokument abgelegt werden – andere Anhänge bitte herunterladen" });
+      }
+      const vorhanden = await prisma.dokument.findFirst({
+        where: { quelleDokumentId: dokument.id, dateiname: anhang.name, status: { not: DokumentStatus.GELOESCHT } },
+        select: { id: true },
+      });
+      if (vorhanden) return reply.status(409).send({ fehler: "Dieser Anhang ist schon als Dokument abgelegt" });
+
+      try {
+        const neu = await anhangAblegen(dokument, anhang, request.benutzer.sub, {
+          ip: request.ip, userAgent: request.headers["user-agent"],
+        });
+        return reply.status(201).send(neu);
+      } catch (err) {
+        if (err instanceof UngueltigeEmailError) return reply.status(400).send({ fehler: err.message });
+        throw err;
+      }
     }
   );
 

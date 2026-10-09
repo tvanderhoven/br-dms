@@ -106,6 +106,12 @@ export const api = {
       request<DokumentVersion>(`/api/dokumente/${id}/versionen`, { method: "POST", body: formData }),
     versionDownloadUrl: (id: string, vid: string) => `${BASE}/api/dokumente/${id}/versionen/${vid}/download`,
 
+    // E-Mails (.eml/.msg)
+    email: (id: string) => request<EmailAnsicht>(`/api/dokumente/${id}/email`),
+    emailAnhangUrl: (id: string, nr: number) => `${BASE}/api/dokumente/${id}/email/anhaenge/${nr}`,
+    emailAnhangAblegen: (id: string, nr: number) =>
+      request<Dokument>(`/api/dokumente/${id}/email/anhaenge/${nr}/ablegen`, { method: "POST", body: JSON.stringify({}) }),
+
     vorgang: (id: string) => request<AnhoerungVorgangAntwort>(`/api/dokumente/${id}/vorgang`),
     vorgangAktualisieren: (id: string, data: Partial<{
       status: AnhoerungStatus;
@@ -655,6 +661,9 @@ export interface Dokument {
   dateiname: string; dateigroesse: number; mimeTyp: string;
   aktenzeichen?: string; beschreibung?: string; vertraulich: boolean;
   ordnerId?: string | null;
+  // Nur bei E-Mails; quelleDokument = E-Mail, aus der dieser Anhang stammt
+  emailKopf?: EmailKopf | null;
+  quelleDokument?: { id: string; titel: string; alias?: string | null } | null;
   inboxGelesen: boolean; inboxGelesenAm?: string; inboxQuelle?: string;
   deleteAt?: string; wiedervorlageAm?: string | null; erstelltAm: string;
   textinhalt?: string | null;
@@ -662,6 +671,25 @@ export interface Dokument {
   fristen?: Frist[];
   // In welchen Sitzungen/TOPs behandelt (nur in der Dokumentliste)
   topVerknuepfungen?: { top: { nummer: number; titel: string; sitzung: { id: string; titel: string; sitzungsdatum: string; gremium?: { id: string; name: string } | null } } }[];
+}
+
+// ── E-Mails als Dokumente (Backend: lib/email.ts) ──
+export const EMAIL_MIME_TYPEN = ["message/rfc822", "application/vnd.ms-outlook"];
+export const istEmail = (mimeTyp: string) => EMAIL_MIME_TYPEN.includes(mimeTyp);
+export const istEmailDatei = (name: string) => /\.(eml|msg)$/i.test(name);
+
+export interface EmailKopf {
+  format: "eml" | "msg"; betreff: string; von: string; an: string[]; cc: string[]; datum: string | null;
+  anhaenge: { nr: number; name: string; mimeTyp: string; groesse: number; ablegbar: boolean }[];
+}
+
+export interface EmailAnsicht {
+  betreff: string; von: string; an: string[]; cc: string[]; datum: string | null;
+  text: string; html: string | null;
+  anhaenge: {
+    nr: number; name: string; mimeTyp: string; groesse: number; ablegbar: boolean;
+    dokument: { id: string; titel: string; alias?: string | null; dateiname: string } | null;
+  }[];
 }
 
 // Ordner der Dokumentablage – flach mit elternId, der Baum entsteht im Frontend

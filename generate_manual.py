@@ -587,7 +587,8 @@ def build():
     pdf.tabelle(
         ["Funktion", "Beschreibung"],
         [
-            ["Upload", "PDF, DOCX, DOCM, XLSX bis 50 MB; bei PDFs wird der Text für die Volltextsuche ausgelesen"],
+            ["Upload", "PDF, DOCX, DOCM, XLSX und E-Mails (EML, MSG) bis 50 MB, per Klick oder Hineinziehen; bei PDFs "
+                       "und E-Mails wird der Text für die Volltextsuche ausgelesen"],
             ["Kategorien", "Anhörung § 99, Kündigung § 102, Abmahnung, Bewerbung, Bewerbung (Alternativ), "
                            "Zeitmodell § 87, Betriebsvereinbarung, Information des Arbeitgebers, Arbeits- und "
                            "Gesundheitsschutz, Schriftverkehr, Protokoll, Sonstiges"],
@@ -630,6 +631,33 @@ def build():
         "Die Suche über der Liste sucht im geöffneten Ordner; ein Klick auf „in allen Dokumenten suchen“ "
         "wechselt zu allen. Ordnernamen sehen alle, vertrauliche Dokumente darin nur, wer sie sehen darf. "
         "Auf dem Handy ersetzt eine Auswahlliste über der Tabelle den Baum."
+    )
+
+    pdf.h3("E-Mails")
+    pdf.body(
+        "E-Mails von außen werden wie jedes andere Dokument abgelegt – als Datei aus dem Mailprogramm: aus "
+        "Outlook als .msg (Mail auf den Desktop ziehen oder „Speichern unter“), aus Thunderbird und den meisten "
+        "Webmailern als .eml. Der Titel darf leer bleiben, dann gilt der Betreff. Absender, Empfänger, Text und "
+        "die Namen der Anhänge sind über die Suche auffindbar."
+    )
+    pdf.bild("dokument-email", "E-Mail in der Vorschau mit Kopf, Anhängen und Inhalt", hoehe_anteil=0.62)
+    pdf.tabelle(
+        ["Was", "So funktioniert es"],
+        [
+            ["In der Liste", "Briefumschlag vor dem Titel, darunter Absender, Datum und Zahl der Anhänge"],
+            ["Vorschau", "Von, An, Cc, Datum und Betreff, darunter die Anhänge und der Inhalt – formatiert oder "
+                         "mit „Nur Text“. Bilder und Inhalte von fremden Servern werden nicht geladen, Skripte nicht "
+                         "ausgeführt: So erfährt der Absender nicht, dass und wann die Mail geöffnet wurde"],
+            ["Anhänge", "Jeder Anhang lässt sich herunterladen. PDF, Word, Excel und weitergeleitete Mails lassen "
+                        "sich zusätzlich als eigenes Dokument ablegen – beim Hochladen gleich für alle (Haken ist "
+                        "gesetzt) oder später einzeln in der Vorschau"],
+            ["Abgelegte Anhänge", "Übernehmen Kategorie, Ordner, Vertraulichkeit und Aktenzeichen der E-Mail und "
+                                  "zeigen „Anhang aus: …“ mit Link zur E-Mail. Sie bekommen keine eigenen Fristen "
+                                  "und erscheinen nicht einzeln im Eingang – das gilt für die E-Mail selbst"],
+            ["Original", "„Herunterladen“ liefert die unveränderte .eml bzw. .msg, die sich wieder im "
+                         "Mailprogramm öffnen lässt"],
+        ],
+        (34, 136),
     )
 
     pdf.h3("Vorschau, Bearbeiten und Kommentare")
@@ -1864,7 +1892,8 @@ def build():
     pdf.h2("12.6  Watch-Folder")
     pdf.body(
         "Mit WATCH_FOLDER_ENABLED=true überwacht das Backend einen Ordner – etwa die Ablage eines "
-        "Scanners – und importiert neue PDF-, DOCX-, DOCM- und XLSX-Dateien automatisch in den Eingang. "
+        "Scanners – und importiert neue PDF-, DOCX-, DOCM- und XLSX-Dateien sowie E-Mails (EML, MSG) automatisch "
+        "in den Eingang; PDF- und Office-Anhänge von E-Mails werden dabei gleich als eigene Dokumente abgelegt. "
         "Der Unterordner bestimmt die Kategorie: anhoerung_99, anhoerung_102 (ordentliche Kündigung), "
         "anhoerung_102_ausserordentlich, abmahnung, bewerbung, bewerbung_alternativ, zeitmodell_87, "
         "betriebsvereinbarung, arbeitgeber_info, arbeitsschutz, schriftverkehr, protokoll, sonstiges. "

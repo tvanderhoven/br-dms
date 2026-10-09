@@ -130,6 +130,8 @@ const AUFNAHMEN = [
   { datei: "dokument-vorschau",   pfad: "/dokumente", js: [alleDokumente, ersteZeile], warte: 4000 },
   { datei: "dokument-bearbeiten", pfad: "/dokumente", js: [alleDokumente, ersteZeile, klickText("Bearbeiten", "button"), zeigeText("Kommentare")] },
   // Ordnerbaum: Schriftverkehr öffnen, dann den Unterordner Geschäftsführung aus der Liste
+  // E-Mail aus den Demodaten (Begehung Werk 2) in der Vorschau
+  { datei: "dokument-email",      pfad: "/dokumente", js: [alleDokumente, klickZeile("Begehung Werk 2", "Thomas Brandt")], warte: 3000 },
   { datei: "dokumente-ordner",    pfad: "/dokumente", js: [klickInnen("Schriftverkehr", "nav[aria-label=Ordner] div[draggable]"), klickZeile("Geschäftsführung")] },
   { datei: "eingang-aktionen",    pfad: "/eingang", js: `(() => { const b = document.querySelector(".space-y-2 > div > button"); if (b) b.click(); return !!b; })()`, warte: 5000 },
   { datei: "gremium-detail",      pfad: "/gremien", js: klickInnen("Wirtschaftsausschuss", "div.cursor-pointer") },

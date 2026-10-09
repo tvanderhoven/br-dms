@@ -10,6 +10,11 @@ import { Kategorie, AuditAktion } from "@prisma/client";
 import { encryptFile } from "../lib/encryption.js";
 import prisma from "../lib/prisma.js";
 import { STANDARD_AUFBEWAHRUNG_TAGE } from "../lib/kategorien.js";
+import { Readable as ReadableStrom } from "node:stream";
+import { EMAIL_MIME, EmailInhalt, emailFormat, emailKopf, emailLesen, emailVolltext } from "../lib/email.js";
+
+/** Die hochgeladene Datei ist keine lesbare E-Mail (Endung .eml/.msg, Inhalt kaputt) */
+export class UngueltigeEmailError extends Error {}
 
 const execFileAsync = promisify(execFile);
 
@@ -31,6 +36,11 @@ export interface PipelineOptionen {
     vertraulich?: boolean;
     inboxQuelle?: string;
     ordnerId?: string;
+    // Anhang einer E-Mail, der als eigenes Dokument abgelegt wird: keine eigenen
+    // Fristen und kein Anhörungs-Vorgang – die gehören zur E-Mail selbst
+    quelleDokumentId?: string;
+    // Nur bei E-Mails: ablegbare Anhänge (PDF, Office, Mails) gleich als eigene Dokumente anlegen
+    anhaengeAblegen?: boolean;
     // Nur relevant bei kategorie=ANHOERUNG_102: legt fest, welche der beiden
     // Fristen erzeugt wird (7 Tage ordentlich vs. 3 Tage außerordentlich).
     // Ohne Angabe werden sicherheitshalber beide angelegt (z.B. Watchfolder).
@@ -50,7 +60,7 @@ export async function verarbeiteDokument(opts: PipelineOptionen) {
   } = opts;
 
   const kategorie = metadata.kategorie ?? Kategorie.SONSTIGES;
-  const titel = metadata.titel ?? path.basename(originalDateiname, path.extname(originalDateiname)).replace(/[_-]+/g, " ").trim();
+  const format    = emailFormat(originalDateiname, mimetype);
 
   const docId   = randomUUID();
   const tmpPfad = path.join(STORAGE, "tmp", `${docId}.tmp`);
@@ -69,7 +79,16 @@ export async function verarbeiteDokument(opts: PipelineOptionen) {
   const stat = await fs.stat(tmpPfad);
 
   let textinhalt: string | null = null;
-  if (mimetype === "application/pdf") {
+  let email: EmailInhalt | null = null;
+  if (format) {
+    try {
+      email = await emailLesen(await fs.readFile(tmpPfad), format);
+      textinhalt = emailVolltext(email);
+    } catch (err) {
+      await fs.unlink(tmpPfad).catch(() => {});
+      throw new UngueltigeEmailError(`Die E-Mail „${originalDateiname}“ konnte nicht gelesen werden${err instanceof Error ? `: ${err.message}` : ""}`);
+    }
+  } else if (mimetype === "application/pdf") {
     try {
       const { stdout } = await execFileAsync("pdftotext", [tmpPfad, "-"], {
         maxBuffer: 10 * 1024 * 1024,
@@ -99,6 +118,10 @@ export async function verarbeiteDokument(opts: PipelineOptionen) {
   const deleteAt = new Date();
   deleteAt.setDate(deleteAt.getDate() + aufbewahrungTage);
 
+  const titel = metadata.titel?.trim()
+    || email?.betreff
+    || path.basename(originalDateiname, path.extname(originalDateiname)).replace(/[_-]+/g, " ").trim();
+
   const dokument = await prisma.dokument.create({
     data: {
       id:              docId,
@@ -108,22 +131,26 @@ export async function verarbeiteDokument(opts: PipelineOptionen) {
       speicherpfad:    relPfad,
       verschlPfad:     encName,
       dateigroesse:    stat.size,
-      mimeTyp:         mimetype,
+      mimeTyp:         format ? EMAIL_MIME[format] : mimetype,
       pruefsumme:      checksum,
       aktenzeichen:    metadata.aktenzeichen ?? null,
       vertraulich:     metadata.vertraulich ?? false,
       ordnerId:        metadata.ordnerId ?? null,
+      emailKopf:       email ? (emailKopf(email) as any) : undefined,
+      quelleDokumentId: metadata.quelleDokumentId ?? null,
       inboxQuelle:     metadata.inboxQuelle ?? "UPLOAD",
-      inboxGelesen:    false,
+      // Anhänge kommen nicht einzeln in den Eingang – dort steht die E-Mail selbst
+      inboxGelesen:    !!metadata.quelleDokumentId,
       textinhalt,
       deleteAt,
       hochgeladenVonId: userId,
     },
   });
 
-  await fristenAnlegen(docId, kategorie, metadata.kuendigungsArt);
+  const istAnhang = !!metadata.quelleDokumentId;
+  if (!istAnhang) await fristenAnlegen(docId, kategorie, metadata.kuendigungsArt);
 
-  if (kategorie === Kategorie.ANHOERUNG_99 || kategorie === Kategorie.ANHOERUNG_102) {
+  if (!istAnhang && (kategorie === Kategorie.ANHOERUNG_99 || kategorie === Kategorie.ANHOERUNG_102)) {
     await prisma.anhoerungsVorgang.create({
       data: {
         dokumentId: docId,
@@ -144,6 +171,7 @@ export async function verarbeiteDokument(opts: PipelineOptionen) {
         dateiname: originalDateiname,
         groesse:   stat.size,
         quelle:    metadata.inboxQuelle ?? "UPLOAD",
+        ...(istAnhang ? { ausEmail: metadata.quelleDokumentId } : {}),
       },
     },
   });
@@ -159,7 +187,42 @@ export async function verarbeiteDokument(opts: PipelineOptionen) {
     });
   }
 
+  if (email && metadata.anhaengeAblegen) {
+    for (const a of email.anhaenge.filter(x => x.ablegbar)) {
+      await anhangAblegen(dokument, a, userId, { ip, userAgent }).catch(err =>
+        console.error(`[Pipeline] Anhang „${a.name}“ aus ${docId} nicht abgelegt:`, err));
+    }
+  }
+
   return dokument;
+}
+
+/**
+ * Anhang einer E-Mail als eigenes Dokument ablegen. Übernimmt Kategorie,
+ * Vertraulichkeit, Ordner und Aktenzeichen der E-Mail.
+ */
+export async function anhangAblegen(
+  mail: { id: string; kategorie: Kategorie; vertraulich: boolean; ordnerId: string | null; aktenzeichen: string | null; inboxQuelle: string | null },
+  anhang: { name: string; mimeTyp: string; inhalt: Buffer },
+  userId: string,
+  kontext: { ip?: string; userAgent?: string } = {},
+) {
+  return verarbeiteDokument({
+    stream:            ReadableStrom.from(anhang.inhalt),
+    originalDateiname: anhang.name,
+    mimetype:          anhang.mimeTyp,
+    userId,
+    ip:                kontext.ip,
+    userAgent:         kontext.userAgent,
+    metadata: {
+      kategorie:        mail.kategorie,
+      vertraulich:      mail.vertraulich,
+      ordnerId:         mail.ordnerId ?? undefined,
+      aktenzeichen:     mail.aktenzeichen ?? undefined,
+      inboxQuelle:      mail.inboxQuelle ?? "UPLOAD",
+      quelleDokumentId: mail.id,
+    },
+  });
 }
 
 async function fristenAnlegen(

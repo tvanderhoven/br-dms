@@ -374,6 +374,13 @@ model Dokument {
   ordnerId       String?       @map("ordner_id")
   ordner         Ordner?       @relation(fields: [ordnerId], references: [id], onDelete: SetNull)
 
+  // Nur bei E-Mails (.eml/.msg): Von, An, Cc, Datum, Betreff, Anhangliste (lib/email.ts)
+  emailKopf      Json?         @map("email_kopf")
+  // Anhang, der aus einer E-Mail als eigenes Dokument abgelegt wurde → die E-Mail
+  quelleDokumentId String?     @map("quelle_dokument_id")
+  quelleDokument   Dokument?   @relation("EmailAnhang", fields: [quelleDokumentId], references: [id], onDelete: SetNull)
+  anhangDokumente  Dokument[]  @relation("EmailAnhang")
+
   deleteAt        DateTime?     @map("delete_at")
   geloeschtAm     DateTime?     @map("geloescht_am")
   loeschgrund     String?       @map("loeschgrund")

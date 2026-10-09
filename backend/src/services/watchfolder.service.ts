@@ -12,7 +12,7 @@ const WATCH_PATH  = process.env.WATCH_FOLDER   ?? "/uploads/watch_inbox";
 // Benutzer, dem Watch-Folder-Importe zugeordnet werden. Leer = erster aktiver Admin
 // (wird in starteWatchFolder() ermittelt), damit niemand die UUID heraussuchen muss.
 let SYSTEM_USER = process.env.SYSTEM_USER_ID?.trim() ?? "";
-const ERLAUBTE_EXTS = new Set([".pdf", ".docx", ".docm", ".xlsx"]);
+const ERLAUBTE_EXTS = new Set([".pdf", ".docx", ".docm", ".xlsx", ".eml", ".msg"]);
 
 const STORAGE    = process.env.STORAGE_PATH ?? "/data/storage";
 const MASTER_KEY = process.env.ENCRYPTION_KEY!;
@@ -59,6 +59,8 @@ const MIME: Record<string, string> = {
   ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ".docm": "application/vnd.ms-word.document.macroEnabled.12",
   ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".eml":  "message/rfc822",
+  ".msg":  "application/vnd.ms-outlook",
 };
 
 async function logFehler(dateiname: string, fehler: unknown): Promise<void> {
@@ -166,6 +168,8 @@ export async function starteWatchFolder(): Promise<void> {
             kategorie:      einstufung.kategorie,
             kuendigungsArt: einstufung.kuendigungsArt,
             inboxQuelle:    "WATCHFOLDER",
+            // E-Mails: PDF-/Office-Anhänge gleich als eigene Dokumente ablegen
+            anhaengeAblegen: true,
           },
         });
 
