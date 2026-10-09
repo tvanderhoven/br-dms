@@ -53,6 +53,7 @@ import { gremienRouten } from "./routes/gremien.js";
 import { fremdprotokolleRouten } from "./routes/fremdprotokolle.js";
 import { geschaeftsordnungRouten } from "./routes/geschaeftsordnung.js";
 import { anhoerungRouten } from "./routes/anhoerung.js";
+import { ordnerRouten } from "./routes/ordner.js";
 
 konfigPruefen();
 
@@ -98,6 +99,7 @@ await app.register(rateLimit, { global: false });
 app.get("/health", async () => ({ status: "ok", zeit: new Date().toISOString() }));
 await app.register(authRouten,       { prefix: "/api/auth" });
 await app.register(dokumentRouten,   { prefix: "/api/dokumente" });
+await app.register(ordnerRouten,     { prefix: "/api/ordner" });
 await app.register(scanEingangRouten,{ prefix: "/api/scan-eingang" });
 await app.register(benutzerRouten,   { prefix: "/api/benutzer" });
 await app.register(sitzungRouten,    { prefix: "/api/sitzungen" });

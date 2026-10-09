@@ -77,7 +77,7 @@ export const api = {
     einzel: (id: string) => request<Dokument>(`/api/dokumente/${id}`),
     upload: (formData: FormData) =>
       request<Dokument>("/api/dokumente", { method: "POST", body: formData }),
-    aktualisieren: (id: string, data: Partial<Pick<Dokument, "alias" | "tags" | "kategorie" | "aktenzeichen" | "beschreibung" | "vertraulich" | "deleteAt" | "wiedervorlageAm">>) =>
+    aktualisieren: (id: string, data: Partial<Pick<Dokument, "alias" | "tags" | "kategorie" | "aktenzeichen" | "beschreibung" | "vertraulich" | "deleteAt" | "wiedervorlageAm" | "ordnerId">>) =>
       request<Dokument>(`/api/dokumente/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     loeschen: (id: string) =>
       request<{ nachricht: string }>(`/api/dokumente/${id}`, { method: "DELETE" }),
@@ -119,6 +119,16 @@ export const api = {
       request<{ vorgang: AnhoerungsVorgang; versandDokumentId: string; fristenErledigt: number }>(
         `/api/dokumente/${id}/vorgang/versenden`, { method: "POST", body: JSON.stringify({ versandDatum }) },
       ),
+  },
+
+  // Ordnerbaum der Dokumentablage (Backend: routes/ordner.ts)
+  ordner: {
+    liste:         () => request<Ordner[]>("/api/ordner"),
+    anlegen:       (name: string, elternId: string | null) =>
+      request<Ordner>("/api/ordner", { method: "POST", body: JSON.stringify({ name, elternId }) }),
+    aktualisieren: (id: string, data: { name?: string; elternId?: string | null }) =>
+      request<Ordner>(`/api/ordner/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    loeschen:      (id: string) => request<{ nachricht: string }>(`/api/ordner/${id}`, { method: "DELETE" }),
   },
 
   // Wartende Scans aus dem Watch-Folder-Unterordner "protokoll_scan" (Backend: routes/scanEingang.ts)
@@ -644,6 +654,7 @@ export interface Dokument {
   kategorie: Kategorie; status: DokumentStatus;
   dateiname: string; dateigroesse: number; mimeTyp: string;
   aktenzeichen?: string; beschreibung?: string; vertraulich: boolean;
+  ordnerId?: string | null;
   inboxGelesen: boolean; inboxGelesenAm?: string; inboxQuelle?: string;
   deleteAt?: string; wiedervorlageAm?: string | null; erstelltAm: string;
   textinhalt?: string | null;
@@ -651,6 +662,11 @@ export interface Dokument {
   fristen?: Frist[];
   // In welchen Sitzungen/TOPs behandelt (nur in der Dokumentliste)
   topVerknuepfungen?: { top: { nummer: number; titel: string; sitzung: { id: string; titel: string; sitzungsdatum: string; gremium?: { id: string; name: string } | null } } }[];
+}
+
+// Ordner der Dokumentablage – flach mit elternId, der Baum entsteht im Frontend
+export interface Ordner {
+  id: string; name: string; elternId: string | null;
 }
 
 // ── Anhörung als Vorgang (§ 99 / § 102 BetrVG, Backend: routes/anhoerung.ts) ──

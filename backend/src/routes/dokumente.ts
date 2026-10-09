@@ -131,6 +131,7 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
           mimeTyp:       true,
           aktenzeichen:  true,
           vertraulich:   true,
+          ordnerId:      true,
           deleteAt:      true,
           erstelltAm:    true,
           textinhalt:    true,
@@ -182,12 +183,16 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
       const kategorieStr   = fields.kategorie?.value as Kategorie;
       const aktenzeichen   = fields.aktenzeichen?.value?.trim() ?? undefined;
       const vertraulich    = fields.vertraulich?.value === "true";
+      const ordnerId       = fields.ordnerId?.value || undefined;
       const kuendigungsArtStr = fields.kuendigungsArt?.value;
       const kuendigungsArt = kuendigungsArtStr === "ORDENTLICH" || kuendigungsArtStr === "AUSSERORDENTLICH"
         ? kuendigungsArtStr : undefined;
 
       if (!titel || !kategorieStr || !Object.values(Kategorie).includes(kategorieStr)) {
         return reply.status(400).send({ fehler: "titel und kategorie sind Pflichtfelder" });
+      }
+      if (ordnerId && !(await prisma.ordner.findUnique({ where: { id: ordnerId }, select: { id: true } }))) {
+        return reply.status(400).send({ fehler: "Ordner nicht gefunden" });
       }
 
       const dokument = await verarbeiteDokument({
@@ -197,7 +202,7 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
         userId:            request.benutzer.sub,
         ip:                request.ip,
         userAgent:         request.headers["user-agent"],
-        metadata:          { titel, kategorie: kategorieStr, aktenzeichen, vertraulich, inboxQuelle: "UPLOAD", kuendigungsArt },
+        metadata:          { titel, kategorie: kategorieStr, aktenzeichen, vertraulich, inboxQuelle: "UPLOAD", kuendigungsArt, ordnerId },
       });
 
       return reply.status(201).send(dokument);
@@ -294,6 +299,14 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
 
       for (const feld of erlaubteFelder) {
         if (feld in body) aenderungen[feld] = body[feld];
+      }
+
+      if ("ordnerId" in body) {
+        const ordnerId = (body["ordnerId"] as string | null) || null;
+        if (ordnerId && !(await prisma.ordner.findUnique({ where: { id: ordnerId }, select: { id: true } }))) {
+          return reply.status(400).send({ fehler: "Ordner nicht gefunden" });
+        }
+        aenderungen["ordnerId"] = ordnerId;
       }
 
       if ("deleteAt" in body) {

@@ -2,10 +2,10 @@ import { useEffect, useState, useRef, FormEvent, useCallback } from "react";
 import { useLocation, Link } from "react-router-dom";
 import {
   Upload, Download, Trash2, FileText, Lock, X, Loader2, Search, Pencil, MessageSquare, Eye, History, ExternalLink, CalendarDays,
-  CheckCircle2, Send,
+  CheckCircle2, Send, Folder, ChevronRight,
 } from "lucide-react";
 import {
-  api, Dokument, DokumentVersion, Kategorie, KATEGORIE_LABEL, KATEGORIE_KURZ, Aufbewahrungsregel, Gremium,
+  api, Dokument, DokumentVersion, Kategorie, KATEGORIE_LABEL, KATEGORIE_KURZ, Aufbewahrungsregel, Gremium, Ordner,
   formatDatum, formatDateigroesse, fristFarbe,
   AnhoerungVorgangAntwort, AnhoerungStatus, AnhoerungArt, ANHOERUNG_STATUS_LABEL, ANHOERUNG_ART_LABEL, gruendeFuerArt,
 } from "../lib/api";
@@ -17,6 +17,12 @@ function behandeltIn(d: Dokument) {
     .sort((a, b) => b.sitzung.sitzungsdatum.localeCompare(a.sitzung.sitzungsdatum) || a.nummer - b.nummer);
 }
 import KommentarBlock from "../components/KommentarBlock";
+import OrdnerBaum, { OrdnerAuswahl, DRAG_DOKUMENT, ordnerPfad, ordnerOptionen } from "../components/OrdnerBaum";
+
+const AUSWAHL_SPEICHER = "brdms_ordner_auswahl";
+function auswahlLaden(): OrdnerAuswahl {
+  try { return localStorage.getItem(AUSWAHL_SPEICHER) || "ALLE"; } catch { return "ALLE"; }
+}
 
 const STATUS_BADGE: Record<string, string> = {
   AKTIV:             "bg-green-100 text-green-700",
@@ -39,6 +45,8 @@ export default function Dokumente() {
   const [kategorieFilter, setFilter]      = useState<Kategorie | "">("");
   const [gremiumFilter, setGremiumFilter] = useState("");
   const [gremien, setGremien]             = useState<Gremium[]>([]);
+  const [ordner, setOrdner]               = useState<Ordner[]>([]);
+  const [auswahl, setAuswahlState]        = useState<OrdnerAuswahl>(auswahlLaden);
   const [uploadOffen, setUploadOffen]     = useState(false);
   const [loeschId, setLoeschId]           = useState<string | null>(null);
   const [bearbeitenDok, setBearbeitenDok] = useState<Dokument | null>(null);
@@ -66,13 +74,32 @@ export default function Dokumente() {
       .finally(() => setLaden(false));
   }
 
+  function ordnerLaden() {
+    api.ordner.liste().then(setOrdner).catch(console.error);
+  }
+
+  function setAuswahl(a: OrdnerAuswahl) {
+    setAuswahlState(a);
+    try { localStorage.setItem(AUSWAHL_SPEICHER, a); } catch { /* egal */ }
+  }
+
   useEffect(laden_, []);
+  useEffect(ordnerLaden, []);
   useEffect(() => { api.gremien.liste().then(setGremien).catch(() => {}); }, []);
+
+  // Gemerkter Ordner wurde inzwischen gelöscht → zurück zu allen Dokumenten
+  useEffect(() => {
+    if (ordner.length > 0 && auswahl !== "ALLE" && auswahl !== "OHNE" && !ordner.some(o => o.id === auswahl)) {
+      setAuswahl("ALLE");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ordner]);
 
   // Highlight aus Suche übernehmen
   useEffect(() => {
     const id = (location.state as any)?.markiere as string | undefined;
     if (!id) return;
+    setAuswahl("ALLE"); // Treffer aus der Suche kann in jedem Ordner liegen
     setMarkiertId(id);
     setTimeout(() => {
       rowRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -131,10 +158,25 @@ export default function Dokumente() {
     setVorschauUrl(null);
   }
 
-  const anzahlJeKategorie: Partial<Record<Kategorie, number>> = {};
-  for (const d of dokumente) anzahlJeKategorie[d.kategorie] = (anzahlJeKategorie[d.kategorie] ?? 0) + 1;
+  // Dokumente direkt je Ordner (für die Zahlen im Baum)
+  const anzahlJeOrdner: Record<string, number> = {};
+  for (const d of dokumente) {
+    const k = d.ordnerId ?? "OHNE";
+    anzahlJeOrdner[k] = (anzahlJeOrdner[k] ?? 0) + 1;
+  }
 
-  const gefiltert = dokumente.filter(d => {
+  const imOrdner = dokumente.filter(d =>
+    auswahl === "ALLE" ? true : auswahl === "OHNE" ? !d.ordnerId : d.ordnerId === auswahl);
+  const ordnerAnsicht = auswahl !== "ALLE" && auswahl !== "OHNE";
+  const pfad = ordnerAnsicht ? ordnerPfad(ordner, auswahl) : [];
+  const unterordner = ordnerAnsicht && suche === "" && kategorieFilter === "" && gremiumFilter === ""
+    ? ordner.filter(o => o.elternId === auswahl).sort((a, b) => a.name.localeCompare(b.name, "de", { sensitivity: "base" }))
+    : [];
+
+  const anzahlJeKategorie: Partial<Record<Kategorie, number>> = {};
+  for (const d of imOrdner) anzahlJeKategorie[d.kategorie] = (anzahlJeKategorie[d.kategorie] ?? 0) + 1;
+
+  const gefiltert = imOrdner.filter(d => {
     const suchTreffer = suche === "" ||
       d.titel.toLowerCase().includes(suche.toLowerCase()) ||
       d.aktenzeichen?.toLowerCase().includes(suche.toLowerCase());
@@ -143,6 +185,18 @@ export default function Dokumente() {
       gremiumFilter === "BR" ? !top.sitzung.gremium : top.sitzung.gremium?.id === gremiumFilter);
     return suchTreffer && kategorieOk && gremiumOk;
   });
+
+  async function dokumentAblegen(dokumentId: string, ordnerId: string | null) {
+    const d = dokumente.find(x => x.id === dokumentId);
+    if (!d || (d.ordnerId ?? null) === ordnerId) return;
+    try {
+      await api.dokumente.aktualisieren(dokumentId, { ordnerId });
+      setDokumente(liste => liste.map(x => x.id === dokumentId ? { ...x, ordnerId } : x));
+      setVorschau(v => v?.id === dokumentId ? { ...v, ordnerId } : v);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Dokument konnte nicht verschoben werden");
+    }
+  }
 
   async function loeschen(id: string) {
     try {
@@ -265,7 +319,20 @@ export default function Dokumente() {
 
   return (
     <div className="flex flex-col md:flex-row h-full">
-      {/* ── Linke Spalte: Liste ─────────────────────────────────── */}
+      {/* ── Ordnerbaum (ab Tablet-Breite; darunter Auswahlliste im Filter) ── */}
+      <aside className="hidden md:block w-64 flex-shrink-0 border-r border-gray-200 bg-white p-3 overflow-y-auto md:sticky md:top-0 md:h-screen md:self-start">
+        <OrdnerBaum
+          ordner={ordner}
+          anzahl={anzahlJeOrdner}
+          gesamt={dokumente.length}
+          auswahl={auswahl}
+          onAuswahl={a => { setAuswahl(a); setFilter(""); }}
+          onDokumentAblegen={dokumentAblegen}
+          onGeaendert={ordnerLaden}
+        />
+      </aside>
+
+      {/* ── Mittlere Spalte: Liste ──────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-auto p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
@@ -278,8 +345,25 @@ export default function Dokumente() {
           </button>
         </div>
 
+        {/* Pfad des gewählten Ordners */}
+        {auswahl !== "ALLE" && (
+          <div className="flex items-center flex-wrap gap-1 text-sm text-gray-500 -mt-2 mb-4">
+            <button onClick={() => setAuswahl("ALLE")} className="hover:text-[rgb(var(--accent))]">Alle Dokumente</button>
+            {auswahl === "OHNE" ? (
+              <><ChevronRight size={13} className="text-gray-300" /><span className="text-gray-800 font-medium">Ohne Ordner</span></>
+            ) : pfad.map((o, i) => (
+              <span key={o.id} className="flex items-center gap-1">
+                <ChevronRight size={13} className="text-gray-300" />
+                {i === pfad.length - 1
+                  ? <span className="text-gray-800 font-medium">{o.name}</span>
+                  : <button onClick={() => setAuswahl(o.id)} className="hover:text-[rgb(var(--accent))]">{o.name}</button>}
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* Filter */}
-        <div className="flex gap-3 mb-4">
+        <div className="flex flex-wrap gap-3 mb-4">
           <div className="relative flex-1 max-w-sm">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -289,6 +373,13 @@ export default function Dokumente() {
               className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
             />
           </div>
+          {/* Ordnerwahl auf schmalen Bildschirmen (dort ist der Baum ausgeblendet) */}
+          <select value={auswahl} onChange={e => setAuswahl(e.target.value)}
+            className="md:hidden border border-gray-300 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]">
+            <option value="ALLE">Alle Dokumente</option>
+            <option value="OHNE">Ohne Ordner</option>
+            {ordnerOptionen(ordner).map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+          </select>
           {gremien.length > 0 && (
             <select value={gremiumFilter} onChange={e => setGremiumFilter(e.target.value)}
               title="Nach Gremium der behandelten Sitzung filtern"
@@ -299,6 +390,13 @@ export default function Dokumente() {
             </select>
           )}
         </div>
+
+        {auswahl !== "ALLE" && suche !== "" && (
+          <p className="text-xs text-gray-500 -mt-2 mb-3">
+            Gesucht wird nur in diesem Ordner –{" "}
+            <button onClick={() => setAuswahl("ALLE")} className="text-[rgb(var(--accent))] hover:underline">in allen Dokumenten suchen</button>
+          </p>
+        )}
 
         {/* Kategorien mit Anzahl – leere Kategorien nur, wenn gerade ausgewählt */}
         <div className="flex flex-wrap gap-1.5 mb-4">
@@ -319,7 +417,7 @@ export default function Dokumente() {
                 >
                   {k ? KATEGORIE_KURZ[k] : "Alle"}
                   <span className={`ml-1.5 ${aktiv ? "text-white/80" : "text-gray-400"}`}>
-                    {k ? anzahlJeKategorie[k] ?? 0 : dokumente.length}
+                    {k ? anzahlJeKategorie[k] ?? 0 : imOrdner.length}
                   </span>
                 </button>
               );
@@ -332,10 +430,12 @@ export default function Dokumente() {
             <div className="flex items-center justify-center h-48 text-gray-400">
               <Loader2 className="animate-spin mr-2" size={18} /> Laden…
             </div>
-          ) : gefiltert.length === 0 ? (
+          ) : gefiltert.length === 0 && unterordner.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 text-gray-400 text-sm">
               <FileText size={32} className="mb-2 opacity-30" />
-              Keine Dokumente gefunden
+              {ordnerAnsicht && suche === "" && kategorieFilter === "" && gremiumFilter === ""
+                ? "Ordner ist leer – Dokumente hochladen oder aus „Alle Dokumente“ hierher ziehen"
+                : "Keine Dokumente gefunden"}
             </div>
           ) : (
             <table className="w-full text-sm">
@@ -351,6 +451,26 @@ export default function Dokumente() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
+                {unterordner.map(o => (
+                  <tr
+                    key={`ordner-${o.id}`}
+                    onClick={() => setAuswahl(o.id)}
+                    onDragOver={e => { if (e.dataTransfer.types.includes(DRAG_DOKUMENT)) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } }}
+                    onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData(DRAG_DOKUMENT); if (id) dokumentAblegen(id, o.id); }}
+                    title="Ordner öffnen – Dokumente können hierher gezogen werden"
+                    className="cursor-pointer hover:bg-gray-50"
+                  >
+                    <td className="px-4 py-2.5" colSpan={7}>
+                      <div className="flex items-center gap-2 text-gray-800">
+                        <Folder size={16} className="text-[rgb(var(--accent))] shrink-0" />
+                        <span className="font-medium">{o.name}</span>
+                        {(anzahlJeOrdner[o.id] ?? 0) > 0 && (
+                          <span className="text-xs text-gray-400">{anzahlJeOrdner[o.id]} Dokument{anzahlJeOrdner[o.id] === 1 ? "" : "e"}</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
                 {gefiltert.map(d => {
                   const istMarkiert  = d.id === markiertId;
                   const istGewählt   = d.id === vorschau?.id;
@@ -360,7 +480,9 @@ export default function Dokumente() {
                       ref={el => { rowRefs.current[d.id] = el; }}
                       onClick={() => oeffneVorschau(d)}
                       onDoubleClick={() => dokumentInNeuemFensterOeffnen(d)}
-                      title="Klick: Vorschau · Doppelklick: in neuem Fenster öffnen"
+                      draggable
+                      onDragStart={e => { e.dataTransfer.setData(DRAG_DOKUMENT, d.id); e.dataTransfer.effectAllowed = "move"; }}
+                      title="Klick: Vorschau · Doppelklick: in neuem Fenster öffnen · Ziehen: in einen Ordner verschieben"
                       className={`cursor-pointer transition-colors ${
                         istMarkiert  ? "bg-yellow-100 animate-pulse" :
                         istGewählt   ? "bg-[rgb(var(--accent)/0.1)] border-l-4 border-l-[rgb(var(--accent))]" :
@@ -378,6 +500,16 @@ export default function Dokumente() {
                             <p className="text-xs text-gray-400">
                               {d.dateiname} · {formatDateigroesse(d.dateigroesse)}
                             </p>
+                            {auswahl === "ALLE" && d.ordnerId && ordnerPfad(ordner, d.ordnerId).length > 0 && (
+                              <button
+                                onClick={e => { e.stopPropagation(); setAuswahl(d.ordnerId!); }}
+                                className="text-xs text-gray-500 hover:text-[rgb(var(--accent))] flex items-center gap-1 mt-0.5 text-left"
+                                title="Ordner öffnen"
+                              >
+                                <Folder size={11} className="text-gray-400 shrink-0" />
+                                {ordnerPfad(ordner, d.ordnerId).map(o => o.name).join(" › ")}
+                              </button>
+                            )}
                             {behandeltIn(d).length > 0 && (() => {
                               const [erste, ...weitere] = behandeltIn(d);
                               return (
@@ -477,12 +609,15 @@ export default function Dokumente() {
         {bearbeitenDok && (
           <BearbeitenModal
             dokument={bearbeitenDok}
+            ordner={ordner}
             onSchliessen={() => setBearbeitenDok(null)}
             onErfolg={() => { setBearbeitenDok(null); laden_(); }}
           />
         )}
         {uploadOffen && (
           <UploadModal
+            ordner={ordner}
+            startOrdnerId={ordnerAnsicht ? auswahl : null}
             onSchliessen={() => setUploadOffen(false)}
             onErfolg={() => { setUploadOffen(false); laden_(); }}
           />
@@ -522,6 +657,12 @@ export default function Dokumente() {
               </p>
               <p className="text-xs text-gray-400 truncate">{vorschau.dateiname}</p>
               <p className="text-xs text-gray-500 mt-0.5">{KATEGORIE_LABEL[vorschau.kategorie]} · {formatDateigroesse(vorschau.dateigroesse)}</p>
+              {vorschau.ordnerId && ordnerPfad(ordner, vorschau.ordnerId).length > 0 && (
+                <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1 truncate">
+                  <Folder size={11} className="text-gray-400 shrink-0" />
+                  {ordnerPfad(ordner, vorschau.ordnerId).map(o => o.name).join(" › ")}
+                </p>
+              )}
             </div>
             <button onClick={schliesseVorschau} className="p-1 hover:bg-gray-100 rounded flex-shrink-0">
               <X size={15} className="text-gray-400" />
@@ -790,7 +931,12 @@ export default function Dokumente() {
 }
 
 // ── Upload-Modal ──────────────────────────────────────────────────
-function UploadModal({ onSchliessen, onErfolg }: { onSchliessen: () => void; onErfolg: () => void }) {
+function UploadModal({ ordner, startOrdnerId, onSchliessen, onErfolg }: {
+  ordner: Ordner[];
+  startOrdnerId: string | null;
+  onSchliessen: () => void;
+  onErfolg: () => void;
+}) {
   const [laden, setLaden]                 = useState(false);
   const [fehler, setFehler]               = useState("");
   const [datei, setDatei]                 = useState<File | null>(null);
@@ -799,6 +945,7 @@ function UploadModal({ onSchliessen, onErfolg }: { onSchliessen: () => void; onE
   const [kuendigungsArt, setKuendigungsArt] = useState<"ORDENTLICH" | "AUSSERORDENTLICH">("ORDENTLICH");
   const [aktenzeichen, setAktenzeichen]   = useState("");
   const [vertraulich, setVertraulich]     = useState(false);
+  const [ordnerId, setOrdnerId]           = useState(startOrdnerId ?? "");
   const [istVersion, setIstVersion]       = useState(false);
   const [versionSuche, setVersionSuche]   = useState("");
   const [versionTreffer, setVersionTreffer] = useState<Dokument[]>([]);
@@ -853,6 +1000,7 @@ function UploadModal({ onSchliessen, onErfolg }: { onSchliessen: () => void; onE
         if (kategorie === "ANHOERUNG_102") form.append("kuendigungsArt", kuendigungsArt);
         if (aktenzeichen) form.append("aktenzeichen", aktenzeichen);
         form.append("vertraulich", String(vertraulich));
+        if (ordnerId) form.append("ordnerId", ordnerId);
         await api.dokumente.upload(form);
       }
       onErfolg();
@@ -1009,6 +1157,8 @@ function UploadModal({ onSchliessen, onErfolg }: { onSchliessen: () => void; onE
                 </div>
               )}
 
+              <OrdnerFeld ordner={ordner} wert={ordnerId} onChange={setOrdnerId} />
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Aktenzeichen</label>
                 <input
@@ -1058,9 +1208,27 @@ function UploadModal({ onSchliessen, onErfolg }: { onSchliessen: () => void; onE
 
 const ALLE_KATEGORIEN = Object.keys(KATEGORIE_LABEL) as Kategorie[];
 
+// Ordnerauswahl in Hochladen/Bearbeiten – zeigt den ganzen Pfad
+function OrdnerFeld({ ordner, wert, onChange }: { ordner: Ordner[]; wert: string; onChange: (id: string) => void }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">Ordner</label>
+      <select
+        value={wert}
+        onChange={e => onChange(e.target.value)}
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white"
+      >
+        <option value="">– ohne Ordner –</option>
+        {ordnerOptionen(ordner).map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+      </select>
+    </div>
+  );
+}
+
 // ── Bearbeiten-Modal ──────────────────────────────────────────────
-function BearbeitenModal({ dokument, onSchliessen, onErfolg }: {
+function BearbeitenModal({ dokument, ordner, onSchliessen, onErfolg }: {
   dokument: Dokument;
+  ordner: Ordner[];
   onSchliessen: () => void;
   onErfolg: () => void;
 }) {
@@ -1071,6 +1239,7 @@ function BearbeitenModal({ dokument, onSchliessen, onErfolg }: {
   const [aktenzeichen, setAktenzeichen] = useState(dokument.aktenzeichen ?? "");
   const [beschreibung, setBeschreibung] = useState(dokument.beschreibung ?? "");
   const [vertraulich, setVertraulich]   = useState(dokument.vertraulich);
+  const [ordnerId, setOrdnerId]         = useState(dokument.ordnerId ?? "");
   const deleteAtVorher = dokument.deleteAt ? dokument.deleteAt.slice(0, 10) : "";
   const [deleteAt, setDeleteAt]         = useState(deleteAtVorher);
   const [regeln, setRegeln]             = useState<Aufbewahrungsregel[]>([]);
@@ -1108,6 +1277,7 @@ function BearbeitenModal({ dokument, onSchliessen, onErfolg }: {
         aktenzeichen: aktenzeichen || undefined,
         beschreibung: beschreibung || undefined,
         vertraulich,
+        ordnerId: ordnerId || null,
         // nur bei Änderung senden – sonst scheitert z. B. eine Alias-Änderung an
         // einem Dokument, dessen Löschdatum schon erreicht ist
         ...(deleteAt && deleteAt !== deleteAtVorher ? { deleteAt } : {}),
@@ -1154,6 +1324,8 @@ function BearbeitenModal({ dokument, onSchliessen, onErfolg }: {
               ))}
             </select>
           </div>
+
+          <OrdnerFeld ordner={ordner} wert={ordnerId} onChange={setOrdnerId} />
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Aktenzeichen</label>
