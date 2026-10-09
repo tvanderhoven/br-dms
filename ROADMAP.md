@@ -22,6 +22,7 @@ damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 | Kopfbalken + Fremdprotokolle öffnen | Suche über die volle Breite, Einstellungen/Abmelden am rechten Rand, Suchfeld abgesetzt; Fremdprotokolle per Doppelklick öffnen; Fristen-Erinnerungsmail pausierbar | Okt. 2026 |
 | Gremien und Fremdprotokolle (Paket 5) | Neue Seite „Gremien“ für Ausschüsse/JAV/SBV/GBR/Wirtschaftsausschuss (nicht den BR selbst); Sitzungen optional einem Gremium zuordnen; Fremdprotokolle (hochgeladenes Protokoll mit Gremium+Datum, ohne TOPs/Anwesenheit, mit vertraulich-Flag); neues togglebares Modul „Gremien“ | Okt. 2026 |
 | Dokumente: Ordnerbaum (Ablage) | Ordner und Unterordner zusätzlich zu den Kategorien (Kategorie = was es ist und welche Fristen/Aufbewahrung gelten, Ordner = wo es liegt); Baum links neben der Liste mit „Alle Dokumente“ und „Ohne Ordner“, Pfadleiste, Unterordner als Zeilen, Dokumente per Drag & Drop einsortieren, Ordner im Baum verschieben, nur leere Ordner löschen; Ordnerwahl beim Hochladen (vorbelegt) und Bearbeiten; auf dem Handy Auswahlliste; Tabelle `ordner`, Routen `backend/src/routes/ordner.ts`; keine Rechte je Ordner (Vertraulichkeit bleibt am Dokument) | Okt. 2026 |
+| E-Mails als Dokumente | `.eml` (Thunderbird, Webmailer) und `.msg` (Outlook) hochladen – per Klick oder Hineinziehen – und im Watch-Folder annehmen; Titel leer = Betreff; Von/An/Cc/Datum/Betreff und Anhangliste am Dokument (`email_kopf`), Kopf, Text und Anhangnamen in der Volltextsuche; Vorschau formatiert oder „Nur Text“ in abgeschottetem iframe (keine Skripte, keine externen Inhalte – kein Tracking); Anhänge herunterladen oder als eigenes Dokument ablegen (beim Hochladen alle auf einmal), abgelegte Anhänge erben Kategorie/Ordner/Vertraulichkeit, zeigen „Anhang aus …“, keine eigenen Fristen, nicht einzeln im Eingang; Parser in `backend/src/lib/email.ts` (mailparser, @kenjiuno/msgreader) | Okt. 2026 |
 | Backup-Wochenübersicht | Einstellungen → System zeigt jetzt die letzten 8 Backups einzeln (Zeitpunkt, Größe, Status) statt nur das jüngste; wöchentliche Mail montags 07:00 Uhr nur an Vorsitz mit derselben Liste, warnt wenn das jüngste Backup älter als 2 Tage, unvollständig oder unverschlüsselt ist (`backend/src/lib/backups.ts`, `workers/backup.worker.ts`) | Okt. 2026 |
 
 ## Als Nächstes
@@ -42,7 +43,7 @@ damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 | # | Paket | Größe | Inhalt |
 |---|---|---|---|
 | ✓ | Ordnerbaum | M | erledigt 09.10.2026, siehe oben |
-| F | E-Mails als Dokumente | M | `.eml` (Thunderbird, „Speichern unter“) und `.msg` (Outlook) hochladen und im Watch-Folder annehmen; Von/An/Datum/Betreff auslesen und Titel/Datum vorbelegen, Text für die Suche; Vorschau des Mail-Texts; Anhänge wahlweise als eigene, verknüpfte Dokumente |
+| ✓ | E-Mails als Dokumente | M | erledigt 09.10.2026, siehe oben. Offen: mit einer echten Outlook-`.msg` testen (es lag keine Beispieldatei vor) |
 | G | Kategorie „Muster/Vorlage“ (optional) | S | nur falls Muster (z. B. Arbeitsverträge) eine eigene Aufbewahrungsregel brauchen, etwa „nie löschen“ |
 
 Bewusst später: E-Mails per IMAP selbst aus einem Postfach abholen – dafür müsste ein weiteres Passwort auf dem NAS liegen.

@@ -2,10 +2,11 @@ import { useEffect, useState, useRef, FormEvent, useCallback } from "react";
 import { useLocation, Link } from "react-router-dom";
 import {
   Upload, Download, Trash2, FileText, Lock, X, Loader2, Search, Pencil, MessageSquare, Eye, History, ExternalLink, CalendarDays,
-  CheckCircle2, Send, Folder, ChevronRight,
+  CheckCircle2, Send, Folder, ChevronRight, Mail, Paperclip,
 } from "lucide-react";
 import {
   api, Dokument, DokumentVersion, Kategorie, KATEGORIE_LABEL, KATEGORIE_KURZ, Aufbewahrungsregel, Gremium, Ordner,
+  istEmail, istEmailDatei,
   formatDatum, formatDateigroesse, fristFarbe,
   AnhoerungVorgangAntwort, AnhoerungStatus, AnhoerungArt, ANHOERUNG_STATUS_LABEL, ANHOERUNG_ART_LABEL, gruendeFuerArt,
 } from "../lib/api";
@@ -18,6 +19,7 @@ function behandeltIn(d: Dokument) {
 }
 import KommentarBlock from "../components/KommentarBlock";
 import OrdnerBaum, { OrdnerAuswahl, DRAG_DOKUMENT, ordnerPfad, ordnerOptionen } from "../components/OrdnerBaum";
+import EmailVorschau from "../components/EmailVorschau";
 
 const AUSWAHL_SPEICHER = "brdms_ordner_auswahl";
 function auswahlLaden(): OrdnerAuswahl {
@@ -151,6 +153,11 @@ export default function Dokumente() {
       finally { setVorschauLaden(false); }
     }
   }, []);
+
+  function oeffneNachId(id: string) {
+    const d = dokumente.find(x => x.id === id);
+    if (d) oeffneVorschau(d);
+  }
 
   function schliesseVorschau() {
     if (blobRef.current) URL.revokeObjectURL(blobRef.current);
@@ -493,7 +500,31 @@ export default function Dokumente() {
                         <div className="flex items-center gap-2">
                           {d.vertraulich && <Lock size={12} className="text-amber-500 shrink-0" />}
                           <div>
-                            <p className="font-medium text-gray-900">{d.alias ?? d.titel}</p>
+                            <p className="font-medium text-gray-900 flex items-start gap-1.5">
+                              {istEmail(d.mimeTyp) && <Mail size={14} className="text-[rgb(var(--accent))] shrink-0 mt-0.5" aria-label="E-Mail" />}
+                              <span>{d.alias ?? d.titel}</span>
+                            </p>
+                            {d.emailKopf && (
+                              <p className="text-xs text-gray-500 flex items-center gap-1 flex-wrap">
+                                <span className="truncate max-w-[16rem]" title={d.emailKopf.von}>{d.emailKopf.von.replace(/\s*<.*>$/, "") || d.emailKopf.von}</span>
+                                {d.emailKopf.datum && <span className="text-gray-400">· {formatDatum(d.emailKopf.datum)}</span>}
+                                {d.emailKopf.anhaenge.length > 0 && (
+                                  <span className="text-gray-400 flex items-center gap-0.5" title={d.emailKopf.anhaenge.map(a => a.name).join("\n")}>
+                                    · <Paperclip size={11} />{d.emailKopf.anhaenge.length}
+                                  </span>
+                                )}
+                              </p>
+                            )}
+                            {d.quelleDokument && (
+                              <button
+                                onClick={e => { e.stopPropagation(); oeffneNachId(d.quelleDokument!.id); }}
+                                className="text-xs text-gray-500 hover:text-[rgb(var(--accent))] flex items-center gap-1 text-left"
+                                title="E-Mail öffnen, aus der dieser Anhang stammt"
+                              >
+                                <Paperclip size={11} className="text-gray-400 shrink-0" />
+                                Anhang aus: {d.quelleDokument.alias ?? d.quelleDokument.titel}
+                              </button>
+                            )}
                             {d.aktenzeichen && (
                               <p className="text-xs text-gray-400">Az.: {d.aktenzeichen}</p>
                             )}
@@ -894,9 +925,11 @@ export default function Dokumente() {
             </div>
           )}
 
-          {/* PDF-Vorschau */}
+          {/* PDF-Vorschau bzw. E-Mail */}
           <div className="flex-1 min-h-0 bg-gray-100">
-            {vorschau.mimeTyp === "application/pdf" ? (
+            {istEmail(vorschau.mimeTyp) ? (
+              <EmailVorschau dokumentId={vorschau.id} onDokumentOeffnen={oeffneNachId} onAbgelegt={laden_} />
+            ) : vorschau.mimeTyp === "application/pdf" ? (
               vorschauLaden ? (
                 <div className="flex items-center justify-center h-full text-gray-400">
                   <Loader2 className="animate-spin mr-2" size={18} /> Lade Vorschau…
@@ -946,6 +979,8 @@ function UploadModal({ ordner, startOrdnerId, onSchliessen, onErfolg }: {
   const [aktenzeichen, setAktenzeichen]   = useState("");
   const [vertraulich, setVertraulich]     = useState(false);
   const [ordnerId, setOrdnerId]           = useState(startOrdnerId ?? "");
+  const [anhaengeAblegen, setAnhaengeAblegen] = useState(true);
+  const [ziehen, setZiehen]               = useState(false);
   const [istVersion, setIstVersion]       = useState(false);
   const [versionSuche, setVersionSuche]   = useState("");
   const [versionTreffer, setVersionTreffer] = useState<Dokument[]>([]);
@@ -979,6 +1014,14 @@ function UploadModal({ ordner, startOrdnerId, onSchliessen, onErfolg }: {
     setVersionSuche("");
   }
 
+  const istMail = !!datei && istEmailDatei(datei.name);
+
+  function dateiWaehlen(f: File | null) {
+    setDatei(f);
+    // Bei E-Mails bleibt der Titel leer – dann übernimmt das System den Betreff
+    if (f && !titel && !istEmailDatei(f.name)) setTitel(f.name.replace(/\.[^.]+$/, ""));
+  }
+
   async function hochladen(e: FormEvent) {
     e.preventDefault();
     if (!datei) return;
@@ -1001,6 +1044,7 @@ function UploadModal({ ordner, startOrdnerId, onSchliessen, onErfolg }: {
         if (aktenzeichen) form.append("aktenzeichen", aktenzeichen);
         form.append("vertraulich", String(vertraulich));
         if (ordnerId) form.append("ordnerId", ordnerId);
+        if (istMail) form.append("anhaengeAblegen", String(anhaengeAblegen));
         await api.dokumente.upload(form);
       }
       onErfolg();
@@ -1027,23 +1071,29 @@ function UploadModal({ ordner, startOrdnerId, onSchliessen, onErfolg }: {
             <label className="block text-sm font-medium text-gray-700 mb-1">Datei</label>
             <div
               onClick={() => fileRef.current?.click()}
-              className="border-2 border-dashed border-gray-300 hover:border-accent/60 rounded-lg p-4 text-center cursor-pointer transition-colors"
+              onDragOver={e => { e.preventDefault(); setZiehen(true); }}
+              onDragLeave={() => setZiehen(false)}
+              onDrop={e => { e.preventDefault(); setZiehen(false); const f = e.dataTransfer.files?.[0]; if (f) dateiWaehlen(f); }}
+              className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+                ziehen ? "border-[rgb(var(--accent))] bg-accent/5" : "border-gray-300 hover:border-accent/60"
+              }`}
             >
               {datei ? (
-                <p className="text-sm text-gray-700 font-medium">{datei.name}</p>
+                <p className="text-sm text-gray-700 font-medium flex items-center justify-center gap-1.5">
+                  {istMail && <Mail size={14} className="text-[rgb(var(--accent))]" />}{datei.name}
+                </p>
               ) : (
-                <p className="text-sm text-gray-400">Klicken zum Auswählen</p>
+                <>
+                  <p className="text-sm text-gray-400">Klicken oder Datei hierher ziehen</p>
+                  <p className="text-xs text-gray-400 mt-0.5">PDF, Word, Excel oder E-Mail (.eml, .msg)</p>
+                </>
               )}
               <input
                 ref={fileRef}
                 type="file"
-                accept=".pdf,.docx,.docm,.xlsx"
+                accept=".pdf,.docx,.docm,.xlsx,.eml,.msg"
                 className="hidden"
-                onChange={e => {
-                  const f = e.target.files?.[0] ?? null;
-                  setDatei(f);
-                  if (f && !titel) setTitel(f.name.replace(/\.[^.]+$/, ""));
-                }}
+                onChange={e => dateiWaehlen(e.target.files?.[0] ?? null)}
               />
             </div>
           </div>
@@ -1121,11 +1171,12 @@ function UploadModal({ ordner, startOrdnerId, onSchliessen, onErfolg }: {
           {!istVersion && (
             <>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Titel *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Titel{istMail ? "" : " *"}</label>
                 <input
                   value={titel}
                   onChange={e => setTitel(e.target.value)}
-                  required
+                  required={!istMail}
+                  placeholder={istMail ? "Leer lassen = Betreff der E-Mail" : undefined}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
                 />
               </div>
@@ -1158,6 +1209,21 @@ function UploadModal({ ordner, startOrdnerId, onSchliessen, onErfolg }: {
               )}
 
               <OrdnerFeld ordner={ordner} wert={ordnerId} onChange={setOrdnerId} />
+
+              {istMail && (
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={anhaengeAblegen}
+                    onChange={e => setAnhaengeAblegen(e.target.checked)}
+                    className="rounded border-gray-300 text-[rgb(var(--accent))] mt-0.5"
+                  />
+                  <span className="text-sm text-gray-700">
+                    PDF-, Word- und Excel-Anhänge zusätzlich als eigene Dokumente ablegen
+                    <span className="block text-xs text-gray-400">mit Kategorie, Ordner und Vertraulichkeit der E-Mail</span>
+                  </span>
+                </label>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Aktenzeichen</label>
@@ -1404,7 +1470,7 @@ function BearbeitenModal({ dokument, ordner, onSchliessen, onErfolg }: {
               ? `Volltext extrahiert – ${dokument.textinhalt.length.toLocaleString("de-DE")} Zeichen durchsuchbar`
               : dokument.mimeTyp === "application/pdf"
                 ? "Kein Volltext – PDF wurde vor Aktivierung der Extraktion hochgeladen"
-                : "Kein Volltext (nur PDF wird extrahiert)"
+                : "Kein Volltext (nur bei PDF und E-Mails)"
             }
           </div>
 

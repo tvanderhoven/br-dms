@@ -29,6 +29,9 @@ import prisma from "../lib/prisma.js";
 import { STANDARD_AUFBEWAHRUNG_TAGE } from "../lib/kategorien.js";
 import { hashPassword } from "../lib/password.js";
 import { encryptFile } from "../lib/encryption.js";
+import { Readable } from "node:stream";
+import MailComposer from "nodemailer/lib/mail-composer/index.js";
+import { verarbeiteDokument } from "../services/dokument-pipeline.service.js";
 import { pdfAutomatischGenerieren } from "../routes/pdf.js";
 import { betriebsversammlungFristAbgleichen } from "../lib/betriebsversammlungFrist.js";
 import { wahlFristenAbgleichen } from "../lib/wahlFristen.js";
@@ -714,6 +717,33 @@ async function main() {
   for (const [dokumentId, ordnerId] of ablage) {
     await prisma.dokument.update({ where: { id: dokumentId }, data: { ordnerId } });
   }
+
+  // Eingegangene E-Mail mit PDF-Anhang (.eml) – der Anhang wird als eigenes Dokument abgelegt
+  const mailAnhang = await pdfErzeugen("Arbeitssicherheit · Fachkraft für Arbeitssicherheit", "Begehungsprotokoll Werk 2 – Lager und Versand", [
+    ["Mängel", "Fluchtweg am Hochregal 4 teilweise zugestellt; zwei Feuerlöscher ohne gültige Prüfplakette; Beleuchtung an Rampe 3 defekt."],
+    ["Fristen", "Fluchtweg sofort freiräumen, Feuerlöscher bis Monatsende prüfen lassen, Beleuchtung innerhalb von zwei Wochen instand setzen."],
+  ]);
+  const mailRoh = await new MailComposer({
+    from:    "Thomas Brandt <t.brandt@nordwerk-demo.lokal>",
+    to:      "Betriebsrat <br@nordwerk-demo.lokal>",
+    cc:      "Werksleitung Werk 2 <werksleitung2@nordwerk-demo.lokal>",
+    subject: "Begehung Werk 2 – Protokoll und Mängelliste",
+    date:    tage(-6),
+    text:    "Hallo zusammen,\n\nanbei das Protokoll der Begehung in Lager und Versand von letzter Woche. " +
+             "Den zugestellten Fluchtweg haben wir vor Ort direkt angesprochen, die übrigen Punkte sind mit Frist versehen.\n\n" +
+             "Gern bespreche ich die Liste in der nächsten Sitzung des Arbeitsschutzausschusses.\n\nViele Grüße\nThomas Brandt",
+    html:    "<p>Hallo zusammen,</p><p>anbei das Protokoll der Begehung in <b>Lager und Versand</b> von letzter Woche. " +
+             "Den zugestellten Fluchtweg haben wir vor Ort direkt angesprochen, die übrigen Punkte sind mit Frist versehen.</p>" +
+             "<p>Gern bespreche ich die Liste in der nächsten Sitzung des Arbeitsschutzausschusses.</p><p>Viele Grüße<br>Thomas Brandt</p>",
+    attachments: [{ filename: "Begehungsprotokoll_Werk2.pdf", content: mailAnhang, contentType: "application/pdf" }],
+  }).compile().build();
+  await verarbeiteDokument({
+    stream:            Readable.from(mailRoh),
+    originalDateiname: "Begehung_Werk2.eml",
+    mimetype:          "message/rfc822",
+    userId:            vorsitz,
+    metadata:          { kategorie: Kategorie.ARBEITSSCHUTZ, ordnerId: oAS.id, anhaengeAblegen: true, inboxQuelle: "UPLOAD" },
+  });
   console.log("[Demo] Demo-Dokumente als verschlüsselte PDFs abgelegt");
 
   // ── Betriebsvereinbarungen (Register) ────────────────────────
