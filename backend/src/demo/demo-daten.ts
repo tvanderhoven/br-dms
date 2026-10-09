@@ -18,7 +18,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import PDFDocument from "pdfkit";
+import { neuesPdf } from "../services/pdf.service.js";
 import {
   Prisma, Role, Geschlecht, Kategorie, FristTyp, SitzungStatus, TopStatus,
   AnwesenheitsStatus, Beschaeftigungsart, Zeitmodell, BVStatus, SchulungsStatus,
@@ -97,7 +97,7 @@ const tiptapText = (...inhalt: string[]) => inhalt.join("\n");
 
 function pdfErzeugen(kopf: string, titel: string, abschnitte: [string, string][]): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: "A4", margin: 60 });
+    const doc = neuesPdf({ size: "A4", margin: 60 });
     const teile: Buffer[] = [];
     doc.on("data", (c: Buffer) => teile.push(c));
     doc.on("end", () => resolve(Buffer.concat(teile)));

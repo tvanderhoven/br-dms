@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { DokumentStatus, Kategorie, Role } from "@prisma/client";
-import PDFDocument from "pdfkit";
+import { neuesPdf } from "../services/pdf.service.js";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
@@ -9,9 +9,9 @@ import { KATEGORIE_LABEL } from "../lib/kategorien.js";
 
 
 
-function pdfBuffer(cb: (doc: InstanceType<typeof PDFDocument>) => void): Promise<Buffer> {
+function pdfBuffer(cb: (doc: ReturnType<typeof neuesPdf>) => void): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 50, size: "A4" });
+    const doc = neuesPdf({ margin: 50, size: "A4" });
     const chunks: Buffer[] = [];
     doc.on("data", (c: Buffer) => chunks.push(c));
     doc.on("end",  () => resolve(Buffer.concat(chunks)));
