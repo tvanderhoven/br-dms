@@ -20,7 +20,20 @@ function behandeltIn(d: Dokument) {
 import KommentarBlock from "../components/KommentarBlock";
 import OrdnerBaum, { OrdnerAuswahl, DRAG_DOKUMENT, ordnerPfad, ordnerOptionen } from "../components/OrdnerBaum";
 import EmailVorschau from "../components/EmailVorschau";
+import TabellenKopf from "../components/TabellenKopf";
+import { useSpalten, SpaltenDef } from "../lib/tabellenSpalten";
 import { dokumentInNeuemTabOeffnen } from "../lib/dokumentOeffnen";
+
+// Spalten der Dokumentliste. Bei Platzmangel fällt zuerst die höchste Priorität weg.
+const SPALTEN: SpaltenDef[] = [
+  { id: "titel",       label: "Titel",       breite: 260, minBreite: 180, pflicht: true, flexibel: true },
+  { id: "kategorie",   label: "Kategorie",   breite: 120, minBreite: 70, prioritaet: 2 },
+  { id: "status",      label: "Status",      breite: 124, minBreite: 70, prioritaet: 1 },
+  { id: "fristen",     label: "Fristen",     breite: 84,  minBreite: 60, prioritaet: 3 },
+  { id: "loeschdatum", label: "Löschdatum",  breite: 104, minBreite: 80, prioritaet: 4 },
+  { id: "hochgeladen", label: "Hochgeladen", breite: 130, minBreite: 80, prioritaet: 5 },
+  { id: "aktionen",    label: "",            breite: 140, pflicht: true, festAmEnde: true },
+];
 
 const AUSWAHL_SPEICHER = "brdms_ordner_auswahl";
 const BAUM_SPEICHER    = "brdms_ordnerbaum_offen";
@@ -51,6 +64,7 @@ export default function Dokumente() {
   const [gremien, setGremien]             = useState<Gremium[]>([]);
   const [ordner, setOrdner]               = useState<Ordner[]>([]);
   const [auswahl, setAuswahlState]        = useState<OrdnerAuswahl>(auswahlLaden);
+  const spalten = useSpalten("brdms_dokumente_spalten", SPALTEN);
   // Ordnerbaum ein-/ausgeklappt – gemerkt je Browser
   const [baumOffen, setBaumOffenState]    = useState(() => {
     try { return localStorage.getItem(BAUM_SPEICHER) !== "0"; } catch { return true; }
@@ -436,8 +450,8 @@ export default function Dokumente() {
             })}
         </div>
 
-        {/* Tabelle */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        {/* Tabelle – Spalten einstellbar (Kopf: ziehen, verschieben, Menü rechts) */}
+        <div ref={spalten.containerRef} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
           {laden ? (
             <div className="flex items-center justify-center h-48 text-gray-400">
               <Loader2 className="animate-spin mr-2" size={18} /> Laden…
@@ -450,18 +464,8 @@ export default function Dokumente() {
                 : "Keine Dokumente gefunden"}
             </div>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500 uppercase tracking-wide">
-                  <th className="px-4 py-3 font-medium">Titel</th>
-                  <th className="px-4 py-3 font-medium hidden sm:table-cell">Kategorie</th>
-                  <th className="px-4 py-3 font-medium hidden sm:table-cell">Status</th>
-                  <th className="px-4 py-3 font-medium hidden md:table-cell">Fristen</th>
-                  <th className="px-4 py-3 font-medium hidden lg:table-cell">Löschdatum</th>
-                  <th className="px-4 py-3 font-medium hidden lg:table-cell">Hochgeladen</th>
-                  <th className="px-4 py-3 font-medium"></th>
-                </tr>
-              </thead>
+            <table className="w-full text-sm table-fixed">
+              <TabellenKopf spalten={spalten} defs={SPALTEN} />
               <tbody className="divide-y divide-gray-50">
                 {unterordner.map(o => (
                   <tr
@@ -472,7 +476,7 @@ export default function Dokumente() {
                     title="Ordner öffnen – Dokumente können hierher gezogen werden"
                     className="cursor-pointer hover:bg-gray-50"
                   >
-                    <td className="px-4 py-2.5" colSpan={7}>
+                    <td className="px-3 py-2.5" colSpan={spalten.sichtbar.length}>
                       <div className="flex items-center gap-2 text-gray-800">
                         <Folder size={16} className="text-[rgb(var(--accent))] shrink-0" />
                         <span className="font-medium">{o.name}</span>
@@ -486,23 +490,12 @@ export default function Dokumente() {
                 {gefiltert.map(d => {
                   const istMarkiert  = d.id === markiertId;
                   const istGewählt   = d.id === vorschau?.id;
-                  return (
-                    <tr
-                      key={d.id}
-                      ref={el => { rowRefs.current[d.id] = el; }}
-                      onClick={() => oeffneVorschau(d)}
-                      onDoubleClick={() => dokumentInNeuemFensterOeffnen(d)}
-                      draggable
-                      onDragStart={e => { e.dataTransfer.setData(DRAG_DOKUMENT, d.id); e.dataTransfer.effectAllowed = "move"; }}
-                      title="Klick: Vorschau · Doppelklick: in neuem Fenster öffnen · Ziehen: in einen Ordner verschieben"
-                      className={`cursor-pointer transition-colors ${
-                        istMarkiert  ? "bg-yellow-100 animate-pulse" :
-                        istGewählt   ? "bg-[rgb(var(--accent)/0.1)] border-l-4 border-l-[rgb(var(--accent))]" :
-                        "hover:bg-gray-50"
-                      }`}
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
+                  // Zelle je Spalte – Reihenfolge, Breite und Sichtbarkeit kommen aus useSpalten
+                  const zelle = (id: string) => {
+                    switch (id) {
+                      case "titel": return (
+                        <td key={id} className="px-3 py-3 break-words">
+                          <div className="flex items-center gap-2">
                           {d.vertraulich && <Lock size={12} className="text-amber-500 shrink-0" />}
                           <div>
                             <p className="font-medium text-gray-900 flex items-start gap-1.5">
@@ -563,17 +556,23 @@ export default function Dokumente() {
                             })()}
                           </div>
                         </div>
-                      </td>
-                      <td className="px-4 py-3 hidden sm:table-cell">
-                        <span className="text-xs text-gray-600">{KATEGORIE_LABEL[d.kategorie]}</span>
-                      </td>
-                      <td className="px-4 py-3 hidden sm:table-cell">
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_BADGE[d.status] ?? "bg-gray-100 text-gray-600"}`}>
-                          {STATUS_LABEL[d.status] ?? d.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 hidden md:table-cell">
-                        {(d.fristen ?? []).filter(f => f.status === "OFFEN").length > 0 ? (
+                        </td>
+                      );
+                      case "kategorie": return (
+                        <td key={id} className="px-3 py-3">
+                          <span className="block text-xs text-gray-600 truncate" title={KATEGORIE_LABEL[d.kategorie]}>{KATEGORIE_KURZ[d.kategorie]}</span>
+                        </td>
+                      );
+                      case "status": return (
+                        <td key={id} className="px-3 py-3">
+                          <span className={`inline-block max-w-full truncate align-middle text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_BADGE[d.status] ?? "bg-gray-100 text-gray-600"}`}>
+                            {STATUS_LABEL[d.status] ?? d.status}
+                          </span>
+                        </td>
+                      );
+                      case "fristen": return (
+                        <td key={id} className="px-3 py-3">
+                          {(d.fristen ?? []).filter(f => f.status === "OFFEN").length > 0 ? (
                           <div className="space-y-0.5">
                             {d.fristen!.filter(f => f.status === "OFFEN").map(f => {
                               const tage = Math.ceil((new Date(f.faelligAm).getTime() - Date.now()) / 86_400_000);
@@ -587,22 +586,28 @@ export default function Dokumente() {
                         ) : (
                           <span className="text-xs text-gray-300">–</span>
                         )}
-                      </td>
-                      <td className="px-4 py-3 hidden lg:table-cell">
-                        {d.deleteAt ? (
+                        </td>
+                      );
+                      case "loeschdatum": return (
+                        <td key={id} className="px-3 py-3">
+                          {d.deleteAt ? (
                           <span className={`text-xs ${fristFarbe(d.deleteAt)}`}>
                             {formatDatum(d.deleteAt)}
                           </span>
                         ) : (
                           <span className="text-xs text-gray-300">–</span>
                         )}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-gray-500 hidden lg:table-cell">
-                        <p>{d.hochgeladenVon?.name}</p>
-                        <p className="text-gray-400">{formatDatum(d.erstelltAm)}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                        </td>
+                      );
+                      case "hochgeladen": return (
+                        <td key={id} className="px-3 py-3 text-xs text-gray-500">
+                          <p className="truncate" title={d.hochgeladenVon?.name}>{d.hochgeladenVon?.name}</p>
+                          <p className="text-gray-400">{formatDatum(d.erstelltAm)}</p>
+                        </td>
+                      );
+                      case "aktionen": return (
+                        <td key={id} className="px-3 py-3">
+                          <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                           <button
                             onClick={() => dokumentInNeuemFensterOeffnen(d)}
                             title="In neuem Fenster öffnen"
@@ -632,7 +637,27 @@ export default function Dokumente() {
                             <Trash2 size={15} />
                           </button>
                         </div>
-                      </td>
+                        </td>
+                      );
+                      default: return null;
+                    }
+                  };
+                  return (
+                    <tr
+                      key={d.id}
+                      ref={el => { rowRefs.current[d.id] = el; }}
+                      onClick={() => oeffneVorschau(d)}
+                      onDoubleClick={() => dokumentInNeuemFensterOeffnen(d)}
+                      draggable
+                      onDragStart={e => { e.dataTransfer.setData(DRAG_DOKUMENT, d.id); e.dataTransfer.effectAllowed = "move"; }}
+                      title="Klick: Vorschau · Doppelklick: in neuem Fenster öffnen · Ziehen: in einen Ordner verschieben"
+                      className={`cursor-pointer transition-colors ${
+                        istMarkiert  ? "bg-yellow-100 animate-pulse" :
+                        istGewählt   ? "bg-[rgb(var(--accent)/0.1)] border-l-4 border-l-[rgb(var(--accent))]" :
+                        "hover:bg-gray-50"
+                      }`}
+                    >
+                      {spalten.sichtbar.map(sp => zelle(sp.id))}
                     </tr>
                   );
                 })}
