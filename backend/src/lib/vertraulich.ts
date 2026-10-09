@@ -7,7 +7,9 @@
  * Fremdprotokoll nur, wenn sie Mitglied des jeweiligen Gremiums sind.
  */
 
-import { Role } from "@prisma/client";
+import { DokumentStatus, Role } from "@prisma/client";
+import type { FastifyReply } from "fastify";
+import prisma from "./prisma.js";
 
 const SIEHT_ALLES_VERTRAULICHE: Role[] = [Role.VORSITZ, Role.STELLVERTRETER, Role.ADMIN];
 
@@ -27,6 +29,31 @@ export function darfDokumentSehen(
   benutzerId: string,
 ): boolean {
   return !dokument.vertraulich || siehtAllesVertrauliche(rolle) || dokument.hochgeladenVonId === benutzerId;
+}
+
+/**
+ * Für Routen, die nur die Dokument-ID kennen (Kommentare, Verknüpfungen …):
+ * prüft, ob das Dokument existiert und für den Benutzer sichtbar ist, und
+ * schickt sonst 404 bzw. 403. Rückgabe true = weitermachen.
+ */
+export async function dokumentZugriffPruefen(
+  dokumentId: string,
+  benutzer: { rolle: Role; sub: string },
+  reply: FastifyReply,
+): Promise<boolean> {
+  const dokument = await prisma.dokument.findUnique({
+    where:  { id: dokumentId },
+    select: { vertraulich: true, hochgeladenVonId: true, status: true },
+  });
+  if (!dokument || dokument.status === DokumentStatus.GELOESCHT) {
+    reply.status(404).send({ fehler: "Dokument nicht gefunden" });
+    return false;
+  }
+  if (!darfDokumentSehen(dokument, benutzer.rolle, benutzer.sub)) {
+    reply.status(403).send({ fehler: "Vertrauliches Dokument" });
+    return false;
+  }
+  return true;
 }
 
 // Prisma-where-Teil für Fremdprotokoll-Abfragen

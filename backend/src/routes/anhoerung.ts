@@ -14,6 +14,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { AnhoerungArt, AnhoerungStatus, AuditAktion, Kategorie, Role } from "@prisma/client";
 import prisma from "../lib/prisma.js";
+import { darfDokumentSehen } from "../lib/vertraulich.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { encryptFile } from "../lib/encryption.js";
@@ -62,6 +63,9 @@ export async function anhoerungRouten(app: FastifyInstance): Promise<void> {
       const { dokumentId } = request.params;
       const dokument = await prisma.dokument.findUnique({ where: { id: dokumentId } });
       if (!dokument) return reply.status(404).send({ fehler: "Dokument nicht gefunden" });
+      if (!darfDokumentSehen(dokument, request.benutzer.rolle, request.benutzer.sub)) {
+        return reply.status(403).send({ fehler: "Vertrauliches Dokument" });
+      }
       if (dokument.kategorie !== Kategorie.ANHOERUNG_99 && dokument.kategorie !== Kategorie.ANHOERUNG_102) {
         return reply.status(400).send({ fehler: "Kein Anhörungs-Dokument" });
       }

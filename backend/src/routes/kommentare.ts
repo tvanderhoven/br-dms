@@ -14,6 +14,7 @@
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import prisma from "../lib/prisma.js";
+import { dokumentZugriffPruefen } from "../lib/vertraulich.js";
 import { authenticate } from "../middleware/auth.js";
 
 const KOMMENTAR_SELECT = {
@@ -196,6 +197,7 @@ export async function kommentarRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { dokumentId } = request.params as { dokumentId: string };
+      if (!(await dokumentZugriffPruefen(dokumentId, request.benutzer, reply))) return reply;
 
       const kommentare = await prisma.kommentar.findMany({
         where: { dokumentId },
@@ -219,6 +221,7 @@ export async function kommentarRouten(app: FastifyInstance): Promise<void> {
         return reply.status(400).send({ fehler: "inhalt ist erforderlich" });
       }
 
+      if (!(await dokumentZugriffPruefen(dokumentId, request.benutzer, reply))) return reply;
       const dokument = await prisma.dokument.findUnique({
         where: { id: dokumentId },
         select: { id: true },
