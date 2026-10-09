@@ -7,14 +7,19 @@
  * PATCH  /api/mitarbeiter/:id   – Mitarbeiter bearbeiten
  * DELETE /api/mitarbeiter/:id   – Mitarbeiter löschen
  *
+ * Rechte: Lesen und Anlegen (auch aus Gehaltstabelle/Sitzung heraus) für Mitglieder
+ * und aktiv vertretende Ersatzmitglieder; Ändern, Import, Standort setzen und Löschen
+ * nur Vorsitz/Stellvertretung – Ausnahme: „in der Gehaltstabelle ignorieren“.
+ *
  * GET    /api/abteilungen       – alle Abteilungen
  * POST   /api/abteilungen       – neue Abteilung anlegen
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { Prisma, Mitarbeiter as MitarbeiterModell, Beschaeftigungsart, Geschlecht } from "@prisma/client";
+import { Prisma, Mitarbeiter as MitarbeiterModell, Beschaeftigungsart, Geschlecht, Role } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
+import { erfordert } from "../middleware/rbac.js";
 import { decodeCsvBuffer, parseCsv, parseImportDatum } from "../lib/csv.js";
 
 const BESCHAEFTIGUNGSARTEN = Object.values(Beschaeftigungsart);
@@ -326,10 +331,12 @@ async function verarbeiteMitarbeiterImport(
   return zusammenfassung;
 }
 
+const LEITUNG: Role[] = [Role.VORSITZ, Role.STELLVERTRETER, Role.ADMIN];
+
 export async function mitarbeiterRouten(app: FastifyInstance): Promise<void> {
 
   // ── GET / – alle Mitarbeiter ───────────────────────────────────
-  app.get("/", { preHandler: [authenticate] },
+  app.get("/", { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (_request: FastifyRequest, reply: FastifyReply) => {
       const mitarbeiter = await prisma.mitarbeiter.findMany({
         include: { abteilung: { select: ABTEILUNG_SELECT } },
@@ -342,7 +349,7 @@ export async function mitarbeiterRouten(app: FastifyInstance): Promise<void> {
   // ── POST /import – CSV-Import (Dry-Run oder tatsächlich) ────────
   app.post<{ Querystring: { dryRun?: string } }>(
     "/import",
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request: FastifyRequest<{ Querystring: { dryRun?: string } }>, reply: FastifyReply) => {
       const dryRun = request.query.dryRun !== "false"; // Standard: true, Frontend übergibt es immer explizit
 
@@ -375,7 +382,7 @@ export async function mitarbeiterRouten(app: FastifyInstance): Promise<void> {
   // ── POST / – neuen Mitarbeiter anlegen ─────────────────────────
   app.post<{ Body: NeuerMitarbeiter }>(
     "/",
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request: FastifyRequest<{ Body: NeuerMitarbeiter }>, reply: FastifyReply) => {
       const { vorname, nachname, abteilungId, pnr, eintritt, austritt, standort, geburtsdatum, geschlecht, beschaeftigungsart } = request.body;
 
@@ -418,10 +425,16 @@ export async function mitarbeiterRouten(app: FastifyInstance): Promise<void> {
   // ── PATCH /:id – Mitarbeiter bearbeiten ────────────────────────
   app.patch<{ Params: { id: string }; Body: MitarbeiterUpdate }>(
     "/:id",
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request: FastifyRequest<{ Params: { id: string }; Body: MitarbeiterUpdate }>, reply: FastifyReply) => {
       const { id } = request.params;
       const { vorname, nachname, abteilungId, pnr, eintritt, austritt, standort, geburtsdatum, geschlecht, gehaltIgnorieren, beschaeftigungsart } = request.body;
+
+      // Mitglieder dürfen nur den Gehaltstabellen-Schalter setzen, alles andere Vorsitz/Stellvertretung
+      const nurGehaltSchalter = Object.keys(request.body ?? {}).every(k => k === "gehaltIgnorieren");
+      if (!nurGehaltSchalter && !LEITUNG.includes(request.benutzer.rolle)) {
+        return reply.status(403).send({ fehler: "Mitarbeiterdaten ändern dürfen nur Vorsitz und Stellvertretung" });
+      }
 
       if (beschaeftigungsart !== undefined && !BESCHAEFTIGUNGSARTEN.includes(beschaeftigungsart)) {
         return reply.status(400).send({ fehler: "Ungültige Beschäftigungsart" });
@@ -463,7 +476,7 @@ export async function mitarbeiterRouten(app: FastifyInstance): Promise<void> {
   // ── PATCH /standort-batch – Standort für mehrere MA auf einmal setzen ──
   app.patch<{ Body: StandortBatch }>(
     "/standort-batch",
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request: FastifyRequest<{ Body: StandortBatch }>, reply: FastifyReply) => {
       const { ids, standort } = request.body;
       if (!Array.isArray(ids) || ids.length === 0) {
@@ -482,7 +495,7 @@ export async function mitarbeiterRouten(app: FastifyInstance): Promise<void> {
   // ── DELETE /:id – Mitarbeiter löschen ──────────────────────────
   app.delete<{ Params: { id: string } }>(
     "/:id",
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
       const { id } = request.params;
       const vorhandener = await prisma.mitarbeiter.findUnique({ where: { id } });
@@ -497,7 +510,7 @@ export async function mitarbeiterRouten(app: FastifyInstance): Promise<void> {
 export async function abteilungenRouten(app: FastifyInstance): Promise<void> {
 
   // ── GET / – alle Abteilungen ────────────────────────────────────
-  app.get("/", { preHandler: [authenticate] },
+  app.get("/", { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (_request: FastifyRequest, reply: FastifyReply) => {
       const abteilungen = await prisma.abteilung.findMany({
         orderBy: { name: "asc" },
@@ -509,7 +522,7 @@ export async function abteilungenRouten(app: FastifyInstance): Promise<void> {
   // ── POST / – neue Abteilung anlegen ────────────────────────────
   app.post<{ Body: NeueAbteilung }>(
     "/",
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request: FastifyRequest<{ Body: NeueAbteilung }>, reply: FastifyReply) => {
       const { name } = request.body;
       if (!name?.trim()) return reply.status(400).send({ fehler: "name ist ein Pflichtfeld" });

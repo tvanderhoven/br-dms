@@ -167,7 +167,13 @@ export default function MitarbeiterUebersicht() {
   const [importLaden, setImportLaden] = useState(false);
   const [importFehler, setImportFehler] = useState("");
 
+  // Ändern, Import und Standort setzen nur Vorsitz/Stellvertretung (Backend prüft ebenso)
+  const [darfVerwalten, setDarfVerwalten] = useState(false);
+
   useEffect(() => { laden_(); }, []);
+  useEffect(() => {
+    api.auth.me().then(b => setDarfVerwalten(["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(b.rolle))).catch(() => {});
+  }, []);
 
   async function laden_() {
     setLaden(true);
@@ -328,7 +334,7 @@ export default function MitarbeiterUebersicht() {
           </h1>
           <p className="text-gray-500 text-sm mt-0.5">Stammdaten, Standortverteilung und Sammel-Bearbeitung</p>
         </div>
-        <div>
+        {darfVerwalten && <div>
           <input ref={importInputRef} type="file" accept=".csv" className="hidden" onChange={importDateiGewaehlt} />
           <button
             onClick={() => importInputRef.current?.click()}
@@ -341,7 +347,7 @@ export default function MitarbeiterUebersicht() {
             {importLaden ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
             Import (CSV)
           </button>
-        </div>
+        </div>}
       </div>
 
       {/* Stat-Karten */}
@@ -491,10 +497,12 @@ export default function MitarbeiterUebersicht() {
           <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
             <tr>
               <th className="px-4 py-2.5 w-8">
-                <button onClick={alleUmschalten} className="text-gray-400 hover:text-gray-600" title="Alle sichtbaren auswählen/abwählen">
-                  {gefiltert.length > 0 && gefiltert.every(m => ausgewaehlt.has(m.id))
-                    ? <CheckSquare size={15} /> : <Square size={15} />}
-                </button>
+                {darfVerwalten && (
+                  <button onClick={alleUmschalten} className="text-gray-400 hover:text-gray-600" title="Alle sichtbaren auswählen/abwählen">
+                    {gefiltert.length > 0 && gefiltert.every(m => ausgewaehlt.has(m.id))
+                      ? <CheckSquare size={15} /> : <Square size={15} />}
+                  </button>
+                )}
               </th>
               <th className="px-4 py-2.5 text-left">Name</th>
               <th className="px-4 py-2.5 text-left">PNR</th>
@@ -509,9 +517,11 @@ export default function MitarbeiterUebersicht() {
             {gefiltert.map(m => (
               <tr key={m.id} className={`hover:bg-gray-50 ${!istAktiv(m) ? "opacity-50" : ""}`}>
                 <td className="px-4 py-2.5">
-                  <button onClick={() => einzelnUmschalten(m.id)} className="text-gray-400 hover:text-gray-600">
-                    {ausgewaehlt.has(m.id) ? <CheckSquare size={15} className="text-[rgb(var(--accent))]" /> : <Square size={15} />}
-                  </button>
+                  {darfVerwalten && (
+                    <button onClick={() => einzelnUmschalten(m.id)} className="text-gray-400 hover:text-gray-600">
+                      {ausgewaehlt.has(m.id) ? <CheckSquare size={15} className="text-[rgb(var(--accent))]" /> : <Square size={15} />}
+                    </button>
+                  )}
                 </td>
                 <td className="px-4 py-2.5 font-medium text-gray-800">
                   {m.nachname}, {m.vorname}
@@ -530,13 +540,15 @@ export default function MitarbeiterUebersicht() {
                 <td className="px-4 py-2.5 text-gray-500">{m.eintritt ? formatDatum(m.eintritt) : "–"}</td>
                 <td className="px-4 py-2.5 text-gray-500">{m.austritt ? formatDatum(m.austritt) : "–"}</td>
                 <td className="px-4 py-2.5">
-                  <button
-                    onClick={() => setBearbeiten(m)}
-                    title="Stammdaten bearbeiten (Name, Abteilung, Standort, Ein-/Austritt)"
-                    className="text-gray-300 hover:text-accent transition-colors"
-                  >
-                    <Pencil size={14} />
-                  </button>
+                  {darfVerwalten && (
+                    <button
+                      onClick={() => setBearbeiten(m)}
+                      title="Stammdaten bearbeiten (Name, Abteilung, Standort, Ein-/Austritt)"
+                      className="text-gray-300 hover:text-accent transition-colors"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
