@@ -79,6 +79,8 @@ const erlaubteOrigins = [
 await app.register(cors, {
   origin: erlaubteOrigins.length > 0 ? erlaubteOrigins : true,
   credentials: true,
+  // @fastify/cors ≥ 10 erlaubt ohne Angabe nur GET/HEAD/POST
+  methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"],
 });
 
 await app.register(jwt, {
