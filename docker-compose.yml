@@ -118,7 +118,7 @@ services:
   #  Abschnitt "HTTPS aktivieren" fuer die Zertifikat-Einrichtung.
   # ----------------------------------------------------------------
   proxy:
-    image: nginx:1.30-alpine
+    image: nginx:1.31-alpine
     container_name: brdms_proxy
     restart: unless-stopped
     networks:
