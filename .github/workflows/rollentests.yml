@@ -17,7 +17,9 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16-alpine
+        # Offizielles Image aus dem AWS-Spiegel statt Docker Hub – Docker Hub
+        # drosselt anonyme Downloads von den geteilten GitHub-Runnern (toomanyrequests)
+        image: public.ecr.aws/docker/library/postgres:16-alpine
         env:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test
