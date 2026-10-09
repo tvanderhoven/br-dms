@@ -11,6 +11,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { SitzungStatus, AuditAktion, Role } from "@prisma/client";
 import { istBetriebsversammlung } from "../lib/sitzungstypen.js";
 import prisma from "../lib/prisma.js";
+import { topZugriffPruefen } from "../lib/vertraulich.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 
@@ -59,6 +60,7 @@ export async function beschlussRouten(app: FastifyInstance): Promise<void> {
         select: { id: true },
       });
       if (!top) return reply.status(404).send({ fehler: "TOP nicht gefunden" });
+      if (!(await topZugriffPruefen(topId, request.benutzer.rolle, reply))) return;
 
       const beschluesse = await prisma.beschluss.findMany({
         where: { topId },

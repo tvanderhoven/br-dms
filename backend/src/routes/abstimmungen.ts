@@ -11,6 +11,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { SitzungStatus, AuditAktion, Role, Stimme } from "@prisma/client";
 import { createHash } from "node:crypto";
 import prisma from "../lib/prisma.js";
+import { topZugriffPruefen } from "../lib/vertraulich.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 
@@ -49,6 +50,7 @@ export async function abstimmungRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { topId } = request.params as { sitzungId: string; topId: string };
+      if (!(await topZugriffPruefen(topId, request.benutzer.rolle, reply))) return;
       const abstimmung = await prisma.abstimmung.findUnique({
         where:  { topId },
         select: ABSTIMMUNG_SELECT,

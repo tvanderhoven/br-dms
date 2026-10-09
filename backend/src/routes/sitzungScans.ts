@@ -14,6 +14,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import prisma from "../lib/prisma.js";
+import { sitzungsdateiZugriffPruefen } from "../lib/vertraulich.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { decryptFile, secureDelete } from "../lib/encryption.js";
@@ -117,6 +118,9 @@ export async function sitzungScanRouten(app: FastifyInstance): Promise<void> {
         return reply.status(400).send({ fehler: "Unbekannter Scan-Typ" });
       }
       const typ = typParam as SitzungScanTyp;
+      // Der unterschriebene Scan kann ein kompletter Protokollausdruck sein
+      if (typ === SitzungScanTyp.PROTOKOLL_UNTERSCHRIFTEN
+          && !(await sitzungsdateiZugriffPruefen(id, request.benutzer.rolle, reply))) return;
 
       const scan = await prisma.sitzungScan.findUnique({
         where: { sitzungId_typ: { sitzungId: id, typ } },

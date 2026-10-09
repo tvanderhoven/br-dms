@@ -65,7 +65,7 @@ export async function aufgabenRouten(app: FastifyInstance): Promise<void> {
   } }>(
     "/",
     {
-      preHandler: [authenticate],
+      preValidation: [authenticate], // vor der Schema-Prüfung: Unangemeldete bekommen 401, nicht 400
       schema: {
         body: {
           type: "object",
@@ -144,7 +144,7 @@ export async function aufgabenRouten(app: FastifyInstance): Promise<void> {
   } }>(
     "/:id",
     {
-      preHandler: [authenticate],
+      preValidation: [authenticate], // vor der Schema-Prüfung: Unangemeldete bekommen 401, nicht 400
       schema: {
         params: { type: "object", properties: { id: { type: "string" } } },
       },

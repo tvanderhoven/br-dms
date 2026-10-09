@@ -11,6 +11,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { SitzungScanTyp, SitzungStatus, AuditAktion } from "@prisma/client";
 import prisma from "../lib/prisma.js";
+import { sitzungsdateiZugriffPruefen } from "../lib/vertraulich.js";
 import { authenticate } from "../middleware/auth.js";
 import { decryptFile } from "../lib/encryption.js";
 import { STORAGE_SITZUNG_SCANS as STORAGE, MASTER_KEY } from "../lib/sitzungScan.js";
@@ -44,6 +45,7 @@ export async function sitzungspaketRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
+      if (!(await sitzungsdateiZugriffPruefen(id, request.benutzer.rolle, reply))) return;
 
       const sitzung = await prisma.sitzung.findUnique({
         where:  { id },

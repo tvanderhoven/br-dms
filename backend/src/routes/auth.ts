@@ -123,7 +123,7 @@ export async function authRouten(app: FastifyInstance): Promise<void> {
   app.patch<{ Body: { aktuellesPasswort: string; neuesPasswort: string } }>(
     "/passwort",
     {
-      preHandler: [authenticate],
+      preValidation: [authenticate], // vor der Schema-Prüfung: Unangemeldete bekommen 401, nicht 400
       schema: {
         body: {
           type: "object",

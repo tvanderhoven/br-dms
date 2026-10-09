@@ -95,7 +95,8 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
       const dokumente = await prisma.dokument.findMany({
         where: {
           status: { notIn: [DokumentStatus.GELOESCHT] },
-          ...dokumentVertraulichFilter(rolle, sub),
+          // als AND, sonst überschreibt das OR der Suchbegriffe das OR des Filters
+          AND: [dokumentVertraulichFilter(rolle, sub)],
           ...(kategorie && Object.values(Kategorie).includes(kategorie as Kategorie)
             ? { kategorie: kategorie as Kategorie }
             : {}),
@@ -426,12 +427,11 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
       if (!dokument || dokument.status === DokumentStatus.GELOESCHT) {
         return reply.status(404).send({ fehler: "Nicht gefunden" });
       }
-      if (dokument.mimeTyp !== "application/pdf") {
-        return reply.status(415).send({ fehler: "Nur PDF-Vorschau unterstützt" });
-      }
-
       if (!darfDokumentSehen(dokument, request.benutzer.rolle, request.benutzer.sub)) {
         return reply.status(403).send({ fehler: "Vertrauliches Dokument" });
+      }
+      if (dokument.mimeTyp !== "application/pdf") {
+        return reply.status(415).send({ fehler: "Nur PDF-Vorschau unterstützt" });
       }
 
       const encPfad = path.join(STORAGE, dokument.speicherpfad, dokument.verschlPfad);
@@ -454,10 +454,10 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
       if (!dokument || dokument.status === DokumentStatus.GELOESCHT) {
         return reply.status(404).send({ fehler: "Nicht gefunden" });
       }
-      if (!istEmailMime(dokument.mimeTyp)) return reply.status(415).send({ fehler: "Keine E-Mail" });
       if (!darfDokumentSehen(dokument, request.benutzer.rolle, request.benutzer.sub)) {
         return reply.status(403).send({ fehler: "Vertrauliches Dokument" });
       }
+      if (!istEmailMime(dokument.mimeTyp)) return reply.status(415).send({ fehler: "Keine E-Mail" });
 
       const mail = await gespeicherteEmail(dokument);
       // Bereits abgelegte Anhänge – nur die, die dieser Benutzer sehen darf

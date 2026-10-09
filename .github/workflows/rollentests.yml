@@ -1,0 +1,43 @@
+# Rollentests: prüft bei jedem Push und Pull Request, welche Rolle welche
+# API-Route aufrufen darf (backend/test/). Läuft gegen eine leere Wegwerf-
+# Datenbank im Actions-Container – echte Daten gibt es hier nicht.
+name: Rollentests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  rollentests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: brdms_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U test -d brdms_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm test
+        env:
+          TEST_DATABASE_URL: postgresql://test:test@localhost:5432/brdms_test

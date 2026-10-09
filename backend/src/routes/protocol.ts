@@ -10,6 +10,7 @@
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import prisma from "../lib/prisma.js";
+import { protokollBlockVertraulichFilter } from "../lib/vertraulich.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { Role } from "@prisma/client";
@@ -38,7 +39,7 @@ export async function protocolRouten(app: FastifyInstance): Promise<void> {
       const { id } = request.params as { id: string };
 
       const blocks = await prisma.protocolBlock.findMany({
-        where: { sitzungId: id },
+        where: { sitzungId: id, ...protokollBlockVertraulichFilter(request.benutzer.rolle) },
         orderBy: { reihenfolge: "asc" },
       });
 

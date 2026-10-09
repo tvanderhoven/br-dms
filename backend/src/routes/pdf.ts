@@ -11,6 +11,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import prisma from "../lib/prisma.js";
+import { sitzungsdateiZugriffPruefen, topZugriffPruefen } from "../lib/vertraulich.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { pdfGenerieren, anwesenheitslistePdfGenerieren, topAuszugPdfGenerieren, unterschriftenseitePdfGenerieren } from "../services/pdf.service.js";
@@ -196,6 +197,7 @@ export async function pdfRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id, versionNummer } = request.params as { id: string; versionNummer: string };
+      if (!(await sitzungsdateiZugriffPruefen(id, request.benutzer.rolle, reply))) return;
 
       const version = await prisma.sitzungVersion.findUnique({
         where: { sitzungId_versionNummer: { sitzungId: id, versionNummer } },
@@ -264,6 +266,7 @@ export async function pdfRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id, topId } = request.params as { id: string; topId: string };
+      if (!(await topZugriffPruefen(topId, request.benutzer.rolle, reply))) return;
 
       const sitzung = await prisma.sitzung.findUnique({
         where: { id },

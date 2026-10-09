@@ -9,7 +9,9 @@
 #  ./deploy_update.sh --bauen    übertragen und direkt neu bauen/starten
 #
 #  Vorher prüft npm audit Backend und Frontend auf bekannte Sicherheitslücken
-#  (überspringen mit OHNE_AUDIT=1). Gebaut wird mit frischen Basis-Images.
+#  (überspringen mit OHNE_AUDIT=1) und die Rollentests prüfen die Rechte je
+#  Rolle (braucht Docker, überspringen mit OHNE_TESTS=1). Gebaut wird mit
+#  frischen Basis-Images.
 # ================================================================
 set -euo pipefail
 
@@ -82,6 +84,22 @@ sicherheitspruefung() {
   fi
 }
 
+# ── Rollentests (backend/test/) ──────────────────────────────────
+rollentests() {
+  [ "${OHNE_TESTS:-}" = "1" ] && return 0
+  if ! command -v docker >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1 || [ ! -d "${DIR}/backend/node_modules" ]; then
+    echo -e "  ${YLW}⚠ Docker, npm oder backend/node_modules fehlen – Rollentests übersprungen${NC}"; echo ""; return 0
+  fi
+  local log; log="$(mktemp)"
+  if bash "${DIR}/backend/scripts/rollentests.sh" >"${log}" 2>&1; then
+    echo -e "  ${GRN}✓ Rollentests bestanden${NC}"; echo ""; rm -f "${log}"; return 0
+  fi
+  echo -e "  ${RED}✗ Rollentests fehlgeschlagen – Ausgabe: ${log}${NC}"
+  echo -e "    Neu starten: ${YLW}bash backend/scripts/rollentests.sh${NC}"
+  echo "  Abgebrochen – ein Stand mit falschen Rechten wird nicht übertragen (bewusst überspringen: OHNE_TESTS=1)."
+  exit 1
+}
+
 # ── Dateiliste lesen ──────────────────────────────────────────────
 QUELLEN=(); ERSETZEN=()
 while read -r pfad markierung; do
@@ -102,6 +120,7 @@ echo -e "${BLD}================================================================$
 echo ""
 
 sicherheitspruefung
+rollentests
 
 cd "${DIR}"
 TAR_OPTS=(--exclude='node_modules' --exclude='dist' --exclude='.env' --exclude='*.env' --exclude='.env.local' --exclude='__pycache__')
