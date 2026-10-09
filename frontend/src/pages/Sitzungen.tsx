@@ -1207,7 +1207,8 @@ function TopZeile({
             ) : (
               <div
                 className="text-xs text-gray-600 mt-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-0.5 [&_p]:my-0.5 [&_strong]:font-semibold [&_em]:italic [&_blockquote]:border-l-2 [&_blockquote]:border-gray-300 [&_blockquote]:pl-2 [&_blockquote]:text-gray-400"
-                dangerouslySetInnerHTML={{ __html: top.inhaltsJson ? tiptapZuHtml(top.inhaltsJson as object) : (top.inhalt ?? "") }}
+                // inhalt ist reiner Text und kommt ungeprüft aus der API – nie als HTML einsetzen
+                dangerouslySetInnerHTML={{ __html: tiptapZuHtml((top.inhaltsJson as object | null) ?? textZuTiptap(top.inhalt)) }}
               />
             )
           )}
