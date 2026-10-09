@@ -7,6 +7,9 @@
 #  ./deploy_update.sh            übertragen
 #  ./deploy_update.sh --trocken  nur anzeigen, was übertragen würde
 #  ./deploy_update.sh --bauen    übertragen und direkt neu bauen/starten
+#
+#  Vorher prüft npm audit Backend und Frontend auf bekannte Sicherheitslücken
+#  (überspringen mit OHNE_AUDIT=1). Gebaut wird mit frischen Basis-Images.
 # ================================================================
 set -euo pipefail
 
@@ -50,6 +53,34 @@ fi
 ZIEL="${NAS_USER}@${NAS_HOST}"
 DC="${DATA_PATH}/docker-compose.yml"
 COMPOSE="sudo ${DOCKER} compose -f ${DC}"
+# Basis-Images (node, nginx, postgres) bei jedem Update frisch holen – sonst bleiben auf
+# dem Host die einmal geladenen Images samt ihren alten Sicherheitslücken liegen
+NEU_BAUEN="${COMPOSE} pull postgres proxy && ${COMPOSE} build --pull && ${COMPOSE} up -d"
+
+# ── Sicherheitsprüfung der Pakete ────────────────────────────────
+sicherheitspruefung() {
+  [ "${OHNE_AUDIT:-}" = "1" ] && return 0
+  if ! command -v npm >/dev/null 2>&1; then
+    echo -e "  ${YLW}⚠ npm nicht gefunden – Sicherheitsprüfung der Pakete übersprungen${NC}"; return 0
+  fi
+  local funde=""
+  for teil in backend frontend; do
+    if ! ( cd "${DIR}/${teil}" && npm audit --omit=dev --audit-level=high >/dev/null 2>&1 ); then
+      funde="${funde} ${teil}"
+    fi
+  done
+  if [ -z "${funde}" ]; then
+    echo -e "  ${GRN}✓ Keine bekannten Sicherheitslücken (hoch/kritisch) in den Paketen${NC}"; echo ""; return 0
+  fi
+  echo -e "  ${RED}⚠ npm audit meldet Lücken (hoch/kritisch) in:${funde}${NC}"
+  echo -e "    Details: ${YLW}cd <ordner> && npm audit --omit=dev${NC}"
+  if [ -t 0 ]; then
+    read -r -p "  Trotzdem übertragen? [j/N] " antwort
+    case "${antwort}" in j|J|ja|Ja) echo "" ;; *) echo "  Abgebrochen."; exit 1 ;; esac
+  else
+    echo -e "  ${YLW}(keine Rückfrage möglich – fahre fort)${NC}"; echo ""
+  fi
+}
 
 # ── Dateiliste lesen ──────────────────────────────────────────────
 QUELLEN=(); ERSETZEN=()
@@ -69,6 +100,8 @@ echo -e "  Pfad   : ${DATA_PATH}"
 echo -e "  docker : ${DOCKER}"
 echo -e "${BLD}================================================================${NC}"
 echo ""
+
+sicherheitspruefung
 
 cd "${DIR}"
 TAR_OPTS=(--exclude='node_modules' --exclude='dist' --exclude='.env' --exclude='*.env' --exclude='.env.local' --exclude='__pycache__')
@@ -100,7 +133,7 @@ echo -e "  ${GRN}✓ Übertragung abgeschlossen${NC}"
 if [ "${MODUS}" = "--bauen" ]; then
   echo ""
   echo -e "  Baue und starte auf dem Host (sudo-Passwort des Hosts) …"
-  ${SSH} -t "${ZIEL}" "${COMPOSE} up -d --build"
+  ${SSH} -t "${ZIEL}" "${NEU_BAUEN}"
   echo -e "  ${GRN}✓ Container neu gebaut und gestartet${NC}"
   echo ""
   echo -e "  Logs: ${YLW}ssh ${ZIEL} \"sudo ${DOCKER} logs brdms_backend --tail 40 -f\"${NC}"
@@ -118,13 +151,13 @@ echo -e "  ${BLD}SSH verbinden:${NC}"
 echo -e "  ${YLW}ssh ${ZIEL}${NC}"
 echo ""
 echo -e "  ${BLD}Option A – Alles neu bauen (Backend + Frontend):${NC}"
-echo -e "  ${YLW}${COMPOSE} up -d --build${NC}"
+echo -e "  ${YLW}${NEU_BAUEN}${NC}"
 echo ""
 echo -e "  ${BLD}Option B – Nur Backend:${NC}"
-echo -e "  ${YLW}${COMPOSE} build backend && ${COMPOSE} up -d${NC}"
+echo -e "  ${YLW}${COMPOSE} build --pull backend && ${COMPOSE} up -d${NC}"
 echo ""
 echo -e "  ${BLD}Option C – Nur Frontend (ohne Cache):${NC}"
-echo -e "  ${YLW}${COMPOSE} build --no-cache frontend && ${COMPOSE} up -d${NC}"
+echo -e "  ${YLW}${COMPOSE} build --pull --no-cache frontend && ${COMPOSE} up -d${NC}"
 echo ""
 echo -e "  ${BLD}Logs prüfen:${NC}"
 echo -e "  ${YLW}sudo ${DOCKER} logs brdms_backend --tail 40 -f${NC}"

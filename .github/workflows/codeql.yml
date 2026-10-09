@@ -1,0 +1,38 @@
+# CodeQL: durchsucht den eigenen Code (Backend und Frontend) nach typischen
+# Sicherheitsfehlern – z. B. ungeprüfte Eingaben in HTML (XSS), Pfadmanipulation,
+# fehlende Prüfungen. Läuft bei jedem Push auf main, bei Pull Requests und einmal
+# pro Woche (neue Prüfregeln). Ergebnisse: GitHub → Security → Code scanning.
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "17 4 * * 1"   # montags 04:17 UTC
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyse:
+    name: Analyse (JavaScript/TypeScript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          # Erweiterte Sicherheitsregeln zusätzlich zu den Standardregeln
+          queries: security-extended
+          # Generierte und fremde Dateien nicht prüfen
+          config: |
+            paths-ignore:
+              - "**/node_modules/**"
+              - "**/dist/**"
+              - tools/**
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"

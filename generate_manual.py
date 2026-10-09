@@ -1502,6 +1502,9 @@ def build():
             ["Sitzung anlegen, fixieren, finalisieren", j, j, n, n, n, n, j],
             ["Beschlüsse erfassen und finalisieren", j, j, n, n, n, n, j],
             ["Eingruppierung bearbeiten", j, j, j, v, n, n, j],
+            ["Mitarbeiter- und Wählerliste einsehen, Mitarbeiter anlegen", j, j, j, v, n, n, j],
+            ["Mitarbeiter-Stammdaten ändern, importieren, löschen", j, j, n, n, n, n, j],
+            ["Kummerkasten lesen und bearbeiten", j, j, j, j, n, n, j],
             ["Betriebsvereinbarungen anlegen", j, j, n, n, n, n, j],
             ["Geschäftsordnung pflegen", j, j, n, n, n, n, j],
             ["Gremien, Mitglieder und Fremdprotokolle verwalten", j, j, n, n, n, n, j],
@@ -1512,7 +1515,8 @@ def build():
         (57, 17, 16, 17, 16, 13, 13, 16),
     )
     pdf.body(
-        "„Vertr.“ = nur solange das Ersatzmitglied aktiv als Vertretung eingetragen ist, sonst lesend. "
+        "„Vertr.“ = nur solange das Ersatzmitglied aktiv als Vertretung eingetragen ist, sonst lesend – "
+        "Mitarbeiter- und Wählerliste mit ihren Personaldaten sieht es ohne aktive Vertretung gar nicht. "
         "Die Rollen JAV und SBV dürfen ausschließlich Sitzungen und Protokolle lesen. Beide nehmen an "
         "Sitzungen beratend teil (§ 67 BetrVG, § 178 Abs. 4 SGB IX), werden automatisch geladen, in "
         "Einladung, Unterschriftenliste und Sitzungspaket als eigene Gruppe geführt und sehen in der "
@@ -1542,7 +1546,7 @@ def build():
         [
             ["proxy", "Nginx 1.25", "TLS-Terminierung, einziger Zugang (Port 8443, 8080 leitet um)"],
             ["frontend", "React 18, Vite, Tailwind CSS (über Nginx)", "Benutzeroberfläche im Browser"],
-            ["backend", "Node.js 20, Fastify, Prisma", "REST-API, Geschäftslogik, PDF-Erzeugung, Hintergrundjobs"],
+            ["backend", "Node.js 24, Fastify 5, Prisma", "REST-API, Geschäftslogik, PDF-Erzeugung, Hintergrundjobs"],
             ["postgres", "PostgreSQL 16", "Datenhaltung, nur im internen Docker-Netz"],
         ],
         (26, 62, 82),
@@ -1994,6 +1998,10 @@ def build():
         "Abbruchsicher – Übertragen wird erst in einen Zwischenordner; bricht die Verbindung ab, bleibt der alte Stand erhalten",
         "Daten bleiben – .env, Datenbank, Dokumente, Zertifikate und Backups auf dem Host werden nie angefasst",
         "Passende Befehle – Das docker-Programm wird am Pfad erkannt (QNAP /share/…, Synology /volume…) oder über DOCKER_BIN festgelegt",
+        "Sicherheitsprüfung – Vor dem Übertragen prüft npm audit Backend und Frontend auf bekannte Lücken (hoch/kritisch) "
+        "und fragt bei Funden nach, ob trotzdem übertragen werden soll",
+        "Frische Basis-Images – Beim Bauen werden node, nginx und postgres neu geladen; sonst blieben auf dem Host die "
+        "einmal geladenen Images mit ihren alten Sicherheitslücken liegen",
     ])
     pdf.code("cp .env.deploy.example .env.deploy   # einmalig: NAS_USER, NAS_HOST, DATA_PATH\n"
              "./deploy_update.sh --trocken         # Probelauf: zeigt nur, was übertragen würde\n"
@@ -2021,16 +2029,20 @@ def build():
     )
     pdf.code("# QNAP\n"
              "cd /share/Container/br-dms\n"
-             "sudo /share/CACHEDEV1_DATA/.qpkg/container-station/bin/docker compose up -d --build\n\n"
+             "sudo /share/CACHEDEV1_DATA/.qpkg/container-station/bin/docker compose pull postgres proxy\n"
+             "sudo /share/CACHEDEV1_DATA/.qpkg/container-station/bin/docker compose build --pull\n"
+             "sudo /share/CACHEDEV1_DATA/.qpkg/container-station/bin/docker compose up -d\n\n"
              "# Synology\n"
              "cd /volume1/docker/br-dms\n"
-             "sudo /usr/local/bin/docker compose up -d --build\n\n"
+             "sudo /usr/local/bin/docker compose pull postgres proxy\n"
+             "sudo /usr/local/bin/docker compose build --pull\n"
+             "sudo /usr/local/bin/docker compose up -d\n\n"
              "# Linux-Server / VM\n"
              "cd <DATA_PATH>\n"
-             "docker compose up -d --build")
+             "docker compose pull postgres proxy && docker compose build --pull && docker compose up -d")
     pdf.bullets([
-        "Nur Backend neu – … compose build backend, danach … compose up -d",
-        "Frontend ohne Cache – … compose build --no-cache frontend, danach … compose up -d (wenn Änderungen nicht ankommen)",
+        "Nur Backend neu – … compose build --pull backend, danach … compose up -d",
+        "Frontend ohne Cache – … compose build --pull --no-cache frontend, danach … compose up -d (wenn Änderungen nicht ankommen)",
         "Log ansehen – sudo <docker-Programm> logs brdms_backend --tail 40 -f",
     ])
     pdf.hinweis(
@@ -2038,6 +2050,30 @@ def build():
         "„ls /share/*/.qpkg/container-station/bin/docker“ per SSH auf der NAS den richtigen Ort. Ältere "
         "Synology-Versionen (Paket „Docker“ statt „Container Manager“) kennen nur docker-compose mit Bindestrich.",
         "info", "Pfad finden")
+
+    pdf.h3("Sicherheitslücken rechtzeitig erkennen")
+    pdf.body(
+        "Neue Lücken werden laufend in Programmbibliotheken, Node.js, nginx und PostgreSQL gefunden. "
+        "Damit sie nicht unbemerkt bleiben, prüfen mehrere Stellen automatisch:"
+    )
+    pdf.tabelle(
+        ["Wer prüft", "Was", "Wie erfahre ich davon?"],
+        [
+            ["Dependabot (GitHub)", "Bekannte Lücken in allen Paketen und Docker-Images; schlägt Updates "
+             "wöchentlich als Pull Request vor, Sicherheitsupdates sofort", "E-Mail von GitHub; Repository → Security"],
+            ["CodeQL (GitHub)", "Eigener Code bei jedem Push: ungeprüfte Eingaben in HTML (XSS), "
+             "Pfadmanipulation u. Ä.", "Repository → Security → Code scanning"],
+            ["Update-Skript", "npm audit vor jeder Übertragung; frische Basis-Images beim Bauen",
+             "Warnung im Terminal, Rückfrage"],
+            ["NAS-Hersteller", "Firmware und Container Station / Container Manager",
+             "Sicherheitsprüfung des NAS (Kapitel 11.3)"],
+        ],
+        (34, 86, 50),
+    )
+    pdf.body(
+        "Laufzeiten im Blick behalten: Node.js 24 wird bis April 2028 gepflegt, PostgreSQL 16 bis November 2028, "
+        "nginx im stabilen Zweig jeweils etwa ein Jahr. Rechtzeitig vorher schlägt Dependabot den Wechsel vor."
+    )
 
     pdf.h2("13.2  Backup und Wiederherstellung")
     pdf.body(

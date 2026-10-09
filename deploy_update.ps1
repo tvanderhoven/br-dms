@@ -8,6 +8,9 @@
 #  .\deploy_update.ps1 -Bauen     uebertragen und direkt neu bauen/starten
 #
 #  Benoetigt OpenSSH und tar (beide in Windows 10/11 eingebaut).
+#
+#  Vorher prueft npm audit Backend und Frontend auf bekannte Sicherheitsluecken
+#  (ueberspringen mit $env:OHNE_AUDIT = "1"). Gebaut wird mit frischen Basis-Images.
 # ================================================================
 param(
     [switch]$Trocken,
@@ -57,6 +60,9 @@ if (-not $DOCKER) {
 $ZIEL    = "${NAS_USER}@${NAS_HOST}"
 $DC      = "$DATA_PATH/docker-compose.yml"
 $COMPOSE = "sudo $DOCKER compose -f $DC"
+# Basis-Images (node, nginx, postgres) bei jedem Update frisch holen - sonst bleiben auf
+# dem Host die einmal geladenen Images samt ihren alten Sicherheitsluecken liegen
+$NEU_BAUEN = "$COMPOSE pull postgres proxy && $COMPOSE build --pull && $COMPOSE up -d"
 
 # Dateiliste lesen
 $quellen  = @()
@@ -98,6 +104,30 @@ if ($Trocken) {
     exit 0
 }
 
+# ── Sicherheitspruefung der Pakete ──
+if ($env:OHNE_AUDIT -ne "1") {
+    if (Get-Command npm -ErrorAction SilentlyContinue) {
+        $funde = @()
+        foreach ($teil in @("backend", "frontend")) {
+            Push-Location (Join-Path $DIR $teil)
+            npm audit --omit=dev --audit-level=high *> $null
+            if ($LASTEXITCODE -ne 0) { $funde += $teil }
+            Pop-Location
+        }
+        if ($funde.Count -eq 0) {
+            Write-Host "  Keine bekannten Sicherheitsluecken (hoch/kritisch) in den Paketen" -ForegroundColor Green
+        } else {
+            Write-Host "  npm audit meldet Luecken (hoch/kritisch) in: $($funde -join ', ')" -ForegroundColor Red
+            Write-Host "    Details: cd <ordner>; npm audit --omit=dev" -ForegroundColor Yellow
+            $antwort = Read-Host "  Trotzdem uebertragen? [j/N]"
+            if ($antwort -notmatch '^(j|ja)$') { Write-Host "  Abgebrochen."; exit 1 }
+        }
+    } else {
+        Write-Host "  npm nicht gefunden - Sicherheitspruefung der Pakete uebersprungen" -ForegroundColor Yellow
+    }
+    Write-Host ""
+}
+
 Write-Host "  Uebertrage Dateien (einmalig Passwort eingeben) ..."
 
 # Auf dem Host erst in einen Zwischenordner entpacken und die markierten Ordner
@@ -120,7 +150,7 @@ Write-Host "  Uebertragung abgeschlossen" -ForegroundColor Green
 if ($Bauen) {
     Write-Host ""
     Write-Host "  Baue und starte auf dem Host (sudo-Passwort des Hosts) ..."
-    ssh -t $ZIEL "$COMPOSE up -d --build"
+    ssh -t $ZIEL "$NEU_BAUEN"
     if ($LASTEXITCODE -ne 0) {
         Write-Host "  Fehler beim Bauen (Exit code: $LASTEXITCODE)" -ForegroundColor Red
         exit 1
@@ -141,13 +171,13 @@ Write-Host "  SSH verbinden:" -ForegroundColor White
 Write-Host "  ssh $ZIEL" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "  Option A - Alles neu bauen (Backend + Frontend):" -ForegroundColor White
-Write-Host "  $COMPOSE up -d --build" -ForegroundColor Yellow
+Write-Host "  $NEU_BAUEN" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "  Option B - Nur Backend:" -ForegroundColor White
-Write-Host "  $COMPOSE build backend && $COMPOSE up -d" -ForegroundColor Yellow
+Write-Host "  $COMPOSE build --pull backend && $COMPOSE up -d" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "  Option C - Nur Frontend (ohne Cache):" -ForegroundColor White
-Write-Host "  $COMPOSE build --no-cache frontend && $COMPOSE up -d" -ForegroundColor Yellow
+Write-Host "  $COMPOSE build --pull --no-cache frontend && $COMPOSE up -d" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "  Logs pruefen:" -ForegroundColor White
 Write-Host "  sudo $DOCKER logs brdms_backend --tail 40 -f" -ForegroundColor Yellow

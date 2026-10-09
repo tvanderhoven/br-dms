@@ -90,10 +90,10 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 
 | Schicht    | Technologie              |
 |------------|--------------------------|
-| Backend    | Fastify + Prisma (TypeScript) |
+| Backend    | Node.js 24, Fastify 5 + Prisma (TypeScript) |
 | Datenbank  | PostgreSQL 16            |
 | Frontend   | React 18 + Vite + Tailwind CSS |
-| Webserver  | Nginx (im Container)     |
+| Webserver  | Nginx 1.30 (im Container), HTTPS-Proxy mit Sicherheits-Headern (CSP, HSTS …) |
 | Deployment | Docker Compose           |
 | Verschlüsselung | Dokumente AES-256-GCM (Node.js crypto), Backups AES-256-CBC + PBKDF2 (OpenSSL) |
 
@@ -329,6 +329,13 @@ cp .env.deploy.example .env.deploy   # einmalig: NAS_USER, NAS_HOST, DATA_PATH
 ```
 Unter Windows entsprechend `.\deploy_update.ps1 -Trocken` bzw. `-Bauen`, mit Python
 `python3 deploy_komplett.py --trocken` bzw. `--bauen`.
+
+Vor dem Übertragen prüft `npm audit` Backend und Frontend auf bekannte Lücken (hoch/kritisch;
+überspringen mit `OHNE_AUDIT=1`). Gebaut wird mit frischen Basis-Images
+(`compose pull postgres proxy && compose build --pull && compose up -d`), damit Sicherheitsupdates
+von node, nginx und postgres auch auf dem Host ankommen. Neue Lücken meldet außerdem Dependabot
+(`.github/dependabot.yml`), den eigenen Code prüft CodeQL (`.github/workflows/codeql.yml`) –
+beides unter GitHub → Security.
 
 ---
 

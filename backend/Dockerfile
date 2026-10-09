@@ -3,7 +3,7 @@
 # ================================================================
 
 # ── Stage 1: Build ───────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /build
 
 COPY package.json package-lock.json* ./
@@ -16,7 +16,7 @@ COPY prisma         ./prisma
 RUN npx prisma generate && npm run build
 
 # ── Stage 2: Production ──────────────────────────────────────────
-FROM node:20-alpine AS production
+FROM node:24-alpine AS production
 WORKDIR /app
 
 RUN apk add --no-cache dumb-init su-exec poppler-utils openssl font-dejavu
