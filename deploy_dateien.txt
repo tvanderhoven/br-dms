@@ -28,4 +28,5 @@ proxy
 docker-compose.yml
 backup.sh
 restore.sh
+demo_modus.sh
 .env.example

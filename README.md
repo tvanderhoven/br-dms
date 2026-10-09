@@ -354,8 +354,24 @@ Gehaltshistorie usw.):
 ```
 
 Anmeldung z.B. mit `s.kroeger` / `Demo2026!` (Vorsitz), `f.albers` (JAV) oder `u.tiedemann` (SBV). Die Demo hat eigene Container, Volumes,
-Schlüssel und Port und läuft neben einer echten Installation. Demodaten lassen sich bewusst nicht in
-eine echte Installation einspielen: Das Skript schreibt nur in eine leere Datenbank und bricht sonst ab.
+Schlüssel und Port und läuft neben einer echten Installation. Demodaten lassen sich nicht über echte
+Daten spielen: Das Skript schreibt nur in eine leere Datenbank und bricht sonst ab.
+
+### Demo auf dem Server (Gremium ausprobieren lassen)
+
+Soll das Gremium die Demo auf dem NAS ausprobieren, schaltet `demo_modus.sh` (im Datenverzeichnis, läuft
+auf QNAP, Synology und Linux) die Installation vorübergehend um – mit Sicherung der echten Daten außerhalb
+der 30-Tage-Rotation, ausgeschaltetem Mailversand und Watch-Folder und eingetippter Bestätigung vor jedem
+Löschen:
+
+```bash
+sudo bash demo_modus.sh status   # was läuft gerade?
+sudo bash demo_modus.sh demo     # echte Daten sichern, Demodaten einspielen
+sudo bash demo_modus.sh neu      # Demo von vorn beginnen
+sudo bash demo_modus.sh echt     # echte Daten samt ursprünglicher .env zurückholen
+```
+
+Dasselbe Befehl für Befehl für QNAP und Synology: Handbuch, Kapitel 13.4.
 
 ---
 
