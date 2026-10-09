@@ -1643,6 +1643,10 @@ def build():
              "Sinnvoll in großen Firmennetzen; sonst kann jeder im Netz den Login ausprobieren"],
             ["Automatische Sperre nach Fehlversuchen einschalten",
              "Bremst das Durchprobieren von Passwörtern"],
+            ["Den Dateien von BR-DMS das Verwaltungskonto als Besitzer geben (PUID) und eine Gruppe nur "
+             "für Admins (PGID), nicht „users“ bzw. „everyone“; die .env nur für den Besitzer lesbar "
+             "(chmod 600). Der Installationsassistent schlägt beides vor",
+             "In „users“ bzw. „everyone“ sind alle Konten des NAS – auch die der Mitglieder"],
             ["Arbeitsfreigabe und Datenordner von BR-DMS strikt trennen; den Datenordner (DATA_PATH) und "
              "die Backups nie als Freigabe anbieten",
              "Was in BR-DMS liegt, schützen Rollen und Verschlüsselung – eine Freigabe würde beides umgehen"],
@@ -1726,7 +1730,9 @@ def build():
             ["Zielsystem", "1 = Linux-Server/VM oder NAS mit SSH-Shell, 2 = Synology, 3 = QNAP (2/3 nutzen die Deploy-Skripte)", "1"],
             ["Erreichbar unter", "IP-Adresse oder Name des Servers", "localhost (NAS: 192.168.1.100)"],
             ["Datenverzeichnis", "Ordner für Datenbank und Dokumente", "./data bzw. NAS-Standardpfad"],
-            ["PUID / PGID", "Wird erkannt (bei NAS per SSH) – nur bestätigen", "erkannter Wert"],
+            ["SSH-Benutzer (nur 2/3)", "Das Verwaltungskonto aus Kapitel 11.3 – nicht „admin“", "Pflicht"],
+            ["PUID / PGID", "Wird erkannt (bei NAS per SSH mit dem Verwaltungskonto) – bestätigen. Beim NAS "
+             "schlägt der Assistent statt der Gruppe aller Konten die Gruppe administrators vor", "erkannter Wert"],
             ["JWT_SECRET, ENCRYPTION_KEY", "Nichts – nur bei einem Umzug den alten Schlüssel eingeben", "neu erzeugt"],
             ["Datenbankpasswort", "Nichts", "neu erzeugt"],
             ["Admin-E-Mail", "Login des ersten Kontos", "admin@br-dms.lokal"],
@@ -1741,7 +1747,8 @@ def build():
     pdf.body(
         "Der Assistent darf jederzeit erneut laufen, etwa um E-Mail nachzutragen. Eine vorhandene .env lädt er "
         "als Vorschlag; bei den Schlüsseln fragt er, ob sie bleiben sollen – hier immer Ja wählen, sonst sind "
-        "bestehende Dokumente und Anmeldungen ungültig. APP_URL setzt er selbst aus Adresse und HTTPS-Port zusammen."
+        "bestehende Dokumente und Anmeldungen ungültig. APP_URL setzt er selbst aus Adresse und HTTPS-Port zusammen. "
+        "Die .env ist danach nur für ihren Besitzer lesbar (chmod 600) – sie enthält die Schlüssel."
     )
 
     pdf.h2("12.4  HTTPS-Zertifikat")
@@ -1792,6 +1799,7 @@ def build():
     pdf.body(
         "Wer den Assistenten nicht nutzt, kopiert .env.example nach .env und ersetzt jedes BITTE_AENDERN. "
         "Die Schlüssel erzeugt openssl rand -hex 32 (je einmal für JWT_SECRET und ENCRYPTION_KEY). "
+        "Danach chmod 600 .env, damit nur der Besitzer die Schlüssel lesen kann. "
         "Die Tabelle zeigt, was passiert, wenn ein Wert leer bleibt:"
     )
     pdf.tabelle(
@@ -1804,7 +1812,7 @@ def build():
             ["ADMIN_EMAIL", "Login des ersten Kontos", "admin@br-dms.lokal"],
             ["ADMIN_PASSWORD", "Passwort des ersten Kontos, mind. 8 Zeichen", "Erste Installation startet nicht"],
             ["APP_URL", "Adresse wie im Browser, z. B. https://br-nas:8443", "Links in E-Mails führen ins Leere"],
-            ["PUID / PGID", "Besitzer der Dateien auf dem Host", "1000 / 100"],
+            ["PUID / PGID", "Besitzer der Dateien auf dem Host (NAS: Verwaltungskonto, Gruppe nur für Admins)", "1000 / 100"],
             ["SMTP_HOST, _PORT, _USER, _PASS, _FROM", "E-Mail-Versand", "keine E-Mails, sonst alles normal"],
             ["WATCH_FOLDER_ENABLED", "Scanner-Ordner importieren", "aus"],
             ["WATCH_INBOX_PATH", "Eigener Eingangsordner", "<DATA_PATH>/watch_inbox"],

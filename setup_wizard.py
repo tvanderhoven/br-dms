@@ -98,7 +98,8 @@ def load_env(path):
     return env
 
 def ssh_query_id(user, host):
-    """Versucht PUID/PGID via SSH auf dem NAS zu ermitteln. Gibt (uid, gid) oder None zurück."""
+    """Versucht PUID/PGID via SSH auf dem NAS zu ermitteln.
+    Gibt (uid, gid, gruppen) zurück – gruppen = {Name: GID} aller Gruppen des Kontos – oder None."""
     try:
         r = subprocess.run(
             ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=6",
@@ -110,7 +111,10 @@ def ssh_query_id(user, host):
             m_uid = re.search(r"uid=(\d+)", r.stdout)
             m_gid = re.search(r"gid=(\d+)", r.stdout)
             if m_uid and m_gid:
-                return m_uid.group(1), m_gid.group(1)
+                m_grp = re.search(r"groups=(\S+)", r.stdout)
+                gruppen = {name: gid for gid, name in
+                           re.findall(r"(\d+)\(([^)]+)\)", m_grp.group(1) if m_grp else "")}
+                return m_uid.group(1), m_gid.group(1), gruppen
     except Exception:
         pass
     return None
@@ -121,6 +125,13 @@ def local_id():
         return str(os.getuid()), str(os.getgid())
     except AttributeError:
         return None  # Windows
+
+def nur_besitzer(path):
+    """Datei nur für den Besitzer lesbar machen (chmod 600) – sie enthält Schlüssel und Passwörter."""
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass  # z. B. Windows/Netzlaufwerk – dann bleibt es bei den Standardrechten
 
 def validate_email(email):
     return re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email) is not None
@@ -223,27 +234,55 @@ def main():
             pgid = ask("PGID (Gruppen-ID, Linux-Host)", default=defaults.get("PGID", "1000"))
     else:
         nas_ip   = ask("IP-Adresse des NAS",   default=defaults.get("NAS_IP", defaults.get("NAS_HOST", "192.168.1.100")))
-        nas_user = ask("SSH-Benutzername",      default=defaults.get("NAS_USER", "admin"))
+        print()
+        note("SSH-Benutzer ist euer Verwaltungskonto mit Admin-Rechten – nicht „admin“ und nicht")
+        note("das Alltagskonto von Vorsitz oder Stellvertretung (Handbuch, Kapitel 11.3).")
+        note("Den Dateien von BR-DMS wird dieses Konto als Besitzer zugeordnet (PUID).")
+        user_def = defaults.get("NAS_USER") or None
+        if user_def == "admin":
+            user_def = None
+        nas_user = ask("SSH-Benutzer (Verwaltungskonto)", default=user_def)
+        if nas_user.lower() == "admin":
+            warn("„admin“ ist das Erste, was Angreifer ausprobieren – besser deaktivieren und ein")
+            warn("Verwaltungskonto mit eigenem Namen anlegen. Weiter mit „admin“.")
         data_path = ask("Datenpfad auf dem NAS", default=data_path_def)
         host_address = nas_ip
         print()
         auto_puid = ask_yn("PUID/PGID automatisch per SSH ermitteln?", default=True)
         puid = pgid = None
+        gruppen = {}
         if auto_puid:
             print()
             note(f"Verbinde mit {nas_user}@{nas_ip} …")
             result = ssh_query_id(nas_user, nas_ip)
             if result:
-                puid, pgid = result
+                puid, pgid, gruppen = result
                 ok(f"PUID={c(puid, BOLD)}   PGID={c(pgid, BOLD)}")
             else:
                 warn("SSH-Abfrage fehlgeschlagen – bitte manuell eingeben.")
-                print("  (Tipp: auf dem NAS per SSH einloggen und 'id' ausführen)")
+                print("  (Tipp: auf dem NAS mit dem Verwaltungskonto per SSH einloggen und 'id' ausführen)")
 
         if not puid:
             print()
-            puid = ask("PUID (User-ID auf dem NAS)", default=puid_def)
-            pgid = ask("PGID (Gruppen-ID)",           default=pgid_def)
+            puid = ask("PUID (User-ID des Verwaltungskontos)", default=puid_def)
+            pgid = ask("PGID (Gruppen-ID)",                    default=pgid_def)
+
+        # Hauptgruppe ist auf dem NAS meist "users" (Synology) bzw. "everyone" (QNAP) –
+        # darin sind alle Konten, also auch die Mitglieder. Besser eine Gruppe nur für Admins.
+        alle_gruppe = pgid == "100" or any(gruppen.get(n) == pgid for n in ("users", "everyone"))
+        if alle_gruppe:
+            print()
+            admin_gid = gruppen.get("administrators")
+            note(f"Gruppe {pgid} enthält alle Konten des NAS, auch die der Mitglieder.")
+            if admin_gid and admin_gid != "0":
+                if ask_yn(f"Stattdessen die Gruppe administrators ({admin_gid}) verwenden?", default=True):
+                    pgid = admin_gid
+            else:
+                # QNAP: administrators ist GID 0 (root) – dafür nicht geeignet
+                note("Besser: auf dem NAS eine eigene Gruppe anlegen, in der nur das Verwaltungskonto ist,")
+                note("und ihre GID hier eintragen (auf dem NAS: id <Verwaltungskonto>). Enter behält den Wert.")
+                pgid = ask("PGID (Gruppen-ID)", default=pgid)
+        ok(f"Dateien gehören: PUID={c(puid, BOLD)}   PGID={c(pgid, BOLD)}")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Schritt 3: Sicherheitsschlüssel
@@ -538,11 +577,13 @@ PROXY_HTTP_PORT={proxy_http_port}
 
     if is_generic:
         LOCAL_ENV.write_text(full_env_content, encoding="utf-8")
-        ok(f".env  geschrieben → {c(str(LOCAL_ENV), BOLD)}")
+        nur_besitzer(LOCAL_ENV)
+        ok(f".env  geschrieben → {c(str(LOCAL_ENV), BOLD)}  (nur für dich lesbar)")
     else:
         # nas.env: vollständige Konfiguration, wird aufs NAS kopiert
         NAS_ENV.write_text(full_env_content, encoding="utf-8")
-        ok(f"nas.env  geschrieben → {c(str(NAS_ENV), BOLD)}")
+        nur_besitzer(NAS_ENV)
+        ok(f"nas.env  geschrieben → {c(str(NAS_ENV), BOLD)}  (nur für dich lesbar)")
 
         # lokale .env: nur die Werte, die die Deploy-Skripte auf diesem Rechner brauchen
         local_env_content = f"""\
@@ -592,6 +633,8 @@ PGID={pgid}
              f'ssh {nas_user}@{nas_ip} "mkdir -p {data_path}/{{storage,postgres,logs,watch_inbox,backups,certs}}"'),
             ("nas.env auf das NAS kopieren",
              f"scp {NAS_ENV} {nas_user}@{nas_ip}:{data_path}/.env"),
+            (".env auf dem NAS nur für das Verwaltungskonto lesbar machen (enthält die Schlüssel)",
+             f'ssh {nas_user}@{nas_ip} "chmod 600 {data_path}/.env"'),
             ("Quelldateien deployen",
              f"python3 {SCRIPT_DIR}/deploy_komplett.py"),
             ("TLS-Zertifikat auf dem NAS erzeugen (muss vor dem ersten Start existieren)",
