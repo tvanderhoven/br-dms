@@ -1,6 +1,6 @@
 import { useEffect, useState, DragEvent, KeyboardEvent } from "react";
 import {
-  ChevronRight, ChevronDown, Folder, FolderOpen, FolderPlus, Pencil, Trash2, Layers, FileText, Check, X,
+  ChevronRight, ChevronDown, Folder, FolderOpen, FolderPlus, Pencil, Trash2, Layers, FileText, Check, X, ChevronsLeft,
 } from "lucide-react";
 import { api, Ordner } from "../lib/api";
 
@@ -46,7 +46,7 @@ function offeneLaden(): Set<string> {
 type Bearbeitung = { modus: "neu"; elternId: string | null } | { modus: "umbenennen"; id: string } | null;
 
 export default function OrdnerBaum({
-  ordner, anzahl, gesamt, auswahl, onAuswahl, onDokumentAblegen, onGeaendert,
+  ordner, anzahl, gesamt, auswahl, onAuswahl, onDokumentAblegen, onGeaendert, onEinklappen,
 }: {
   ordner: Ordner[];
   /** Dokumente direkt im Ordner (Schlüssel: Ordner-ID bzw. "OHNE") */
@@ -56,6 +56,8 @@ export default function OrdnerBaum({
   onAuswahl: (a: OrdnerAuswahl) => void;
   onDokumentAblegen: (dokumentId: string, ordnerId: string | null) => void;
   onGeaendert: () => void;
+  /** Baum zur schmalen Leiste einklappen (mehr Platz für Liste und Vorschau) */
+  onEinklappen?: () => void;
 }) {
   const [offen, setOffen]             = useState<Set<string>>(offeneLaden);
   const [bearbeitung, setBearbeitung] = useState<Bearbeitung>(null);
@@ -239,9 +241,16 @@ export default function OrdnerBaum({
     <nav aria-label="Ordner" className="space-y-0.5">
       <div className="flex items-center justify-between px-1 pb-1">
         <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Ablage</span>
-        <button onClick={() => neuerOrdner(null)} title="Neuen Ordner anlegen" className="p-1 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded">
-          <FolderPlus size={15} />
-        </button>
+        <span className="flex items-center">
+          <button onClick={() => neuerOrdner(null)} title="Neuen Ordner anlegen" className="p-1 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded">
+            <FolderPlus size={15} />
+          </button>
+          {onEinklappen && (
+            <button onClick={onEinklappen} title="Ordner ausblenden (mehr Platz für die Liste)" className="p-1 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded">
+              <ChevronsLeft size={15} />
+            </button>
+          )}
+        </span>
       </div>
 
       <div onClick={() => onAuswahl("ALLE")} className={zeilenKlasse(auswahl === "ALLE", false)} style={{ paddingLeft: 6 }}>
