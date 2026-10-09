@@ -13,7 +13,7 @@ ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
 # ── Stage 2: Nginx ───────────────────────────────────────────────
-FROM nginx:1.30-alpine
+FROM nginx:1.31-alpine
 COPY --from=builder /build/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
