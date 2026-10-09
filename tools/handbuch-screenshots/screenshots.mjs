@@ -72,10 +72,13 @@ const waehle = (nr, optionText) => `
 
 const ersteZeile = `(() => { const tr = document.querySelector("tbody tr"); if (tr) tr.click(); return !!tr; })()`;
 
+// Dokumente: der zuletzt gewählte Ordner wird im Browser gemerkt – immer bei „Alle Dokumente“ beginnen
+const alleDokumente = klickInnen("Alle Dokumente", "nav[aria-label=Ordner] div");
+
 const AUFNAHMEN = [
   { datei: "dashboard",        pfad: "/dashboard" },
   { datei: "eingang",          pfad: "/eingang" },
-  { datei: "dokumente",        pfad: "/dokumente" },
+  { datei: "dokumente",        pfad: "/dokumente", js: alleDokumente },
   { datei: "fristenkalender",  pfad: "/fristen" },
   { datei: "sitzungen",        pfad: "/sitzungen" },
   { datei: "sitzung-protokoll", pfad: "/sitzungen", js: klickZeile("Ordentliche Sitzung", "Protokoll final"), warte: 2500 },
@@ -124,8 +127,10 @@ const AUFNAHMEN = [
   // (Einstellungen → Benutzer → „Nur technische Verwaltung“)
   { datei: "admin-ohne-inhalt", pfad: "/einstellungen", js: klickText("Benutzer", "button"), alsAdmin: true },
   // Ergänzungen: Detailansichten, Einstellungs-Reiter, Sonderfunktionen
-  { datei: "dokument-vorschau",   pfad: "/dokumente", js: ersteZeile, warte: 4000 },
-  { datei: "dokument-bearbeiten", pfad: "/dokumente", js: [ersteZeile, klickText("Bearbeiten", "button"), zeigeText("Kommentare")] },
+  { datei: "dokument-vorschau",   pfad: "/dokumente", js: [alleDokumente, ersteZeile], warte: 4000 },
+  { datei: "dokument-bearbeiten", pfad: "/dokumente", js: [alleDokumente, ersteZeile, klickText("Bearbeiten", "button"), zeigeText("Kommentare")] },
+  // Ordnerbaum: Schriftverkehr öffnen, dann den Unterordner Geschäftsführung aus der Liste
+  { datei: "dokumente-ordner",    pfad: "/dokumente", js: [klickInnen("Schriftverkehr", "nav[aria-label=Ordner] div[draggable]"), klickZeile("Geschäftsführung")] },
   { datei: "eingang-aktionen",    pfad: "/eingang", js: `(() => { const b = document.querySelector(".space-y-2 > div > button"); if (b) b.click(); return !!b; })()`, warte: 5000 },
   { datei: "gremium-detail",      pfad: "/gremien", js: klickInnen("Wirtschaftsausschuss", "div.cursor-pointer") },
   { datei: "sitzung-einladung",   pfad: "/sitzungen", js: [klickText("Tagesordnung fixiert", "tr"), zeigeText("Einladung per E-Mail")], warte: 2500 },

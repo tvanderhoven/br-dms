@@ -30,6 +30,7 @@ export interface PipelineOptionen {
     aktenzeichen?: string;
     vertraulich?: boolean;
     inboxQuelle?: string;
+    ordnerId?: string;
     // Nur relevant bei kategorie=ANHOERUNG_102: legt fest, welche der beiden
     // Fristen erzeugt wird (7 Tage ordentlich vs. 3 Tage außerordentlich).
     // Ohne Angabe werden sicherheitshalber beide angelegt (z.B. Watchfolder).
@@ -111,6 +112,7 @@ export async function verarbeiteDokument(opts: PipelineOptionen) {
       pruefsumme:      checksum,
       aktenzeichen:    metadata.aktenzeichen ?? null,
       vertraulich:     metadata.vertraulich ?? false,
+      ordnerId:        metadata.ordnerId ?? null,
       inboxQuelle:     metadata.inboxQuelle ?? "UPLOAD",
       inboxGelesen:    false,
       textinhalt,

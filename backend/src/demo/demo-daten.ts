@@ -667,7 +667,7 @@ async function main() {
     ],
     erstelltAm: tage(-9), vonId: personal, vertraulich: true, tags: ["Personalakte"],
   });
-  await dokumentAnlegen({
+  const dokLeiharbeit = await dokumentAnlegen({
     titel: "Schreiben an die GF: Auskunftsverlangen Leiharbeit (§ 80 Abs. 2)", kategorie: Kategorie.SCHRIFTVERKEHR,
     dateiname: "Schreiben_GF_Auskunft_Leiharbeit.pdf", kopf: "Betriebsrat · an die Geschäftsführung",
     abschnitte: [
@@ -676,6 +676,44 @@ async function main() {
     ],
     erstelltAm: tage(-20), vonId: vorsitz, tags: ["Leiharbeit"],
   });
+  const dokMusterVertrag = await dokumentAnlegen({
+    titel: "Muster-Arbeitsvertrag gewerbliche Beschäftigte (Stand 2026)", kategorie: Kategorie.SONSTIGES,
+    dateiname: "Muster_Arbeitsvertrag_gewerblich_2026.pdf", kopf: "Personalabteilung · Vertragsmuster",
+    abschnitte: [
+      ["§ 1 Beginn und Tätigkeit", "Das Arbeitsverhältnis beginnt am [Datum]. Der Arbeitnehmer wird als [Tätigkeit] in der Abteilung [Abteilung] beschäftigt."],
+      ["§ 2 Arbeitszeit", "Die regelmäßige wöchentliche Arbeitszeit beträgt 37,5 Stunden. Lage und Verteilung richten sich nach der Betriebsvereinbarung Arbeitszeit."],
+      ["§ 3 Vergütung", "Die Eingruppierung erfolgt nach dem Haustarif. Die Vergütung wird jeweils zum Monatsende gezahlt."],
+    ],
+    erstelltAm: tage(-150), vonId: stv, tags: ["Muster", "Arbeitsvertrag"],
+  });
+  const dokAntwortLeiharbeit = await dokumentAnlegen({
+    titel: "Antwort GF: Aufstellung Leiharbeit (Eingang per E-Mail)", kategorie: Kategorie.SCHRIFTVERKEHR,
+    dateiname: "Antwort_GF_Leiharbeit.pdf", kopf: "Geschäftsführung · an den Betriebsrat",
+    abschnitte: [
+      ["Aufstellung", "Derzeit sind 11 Leiharbeitnehmerinnen und Leiharbeitnehmer eingesetzt: 7 in der Montage, 3 in der Logistik, 1 im Service."],
+      ["Einsatzdauer", "Die Einsätze sind bis längstens 31.03.2027 geplant."],
+    ],
+    erstelltAm: tage(-8), vonId: vorsitz, tags: ["Leiharbeit"],
+  });
+
+  // Ablage im Ordnerbaum – zeigt die Ordner zusätzlich zu den Kategorien
+  const ordnerAnlegen = (name: string, elternId: string | null = null) =>
+    prisma.ordner.create({ data: { name, elternId, erstelltVonId: vorsitz } });
+  const oSchrift = await ordnerAnlegen("Schriftverkehr");
+  const oGF      = await ordnerAnlegen("Geschäftsführung", oSchrift.id);
+  await ordnerAnlegen("Behörden und Berufsgenossenschaft", oSchrift.id);
+  const oMuster  = await ordnerAnlegen("Muster");
+  const oVertrag = await ordnerAnlegen("Arbeitsverträge", oMuster.id);
+  const oVerh    = await ordnerAnlegen("Verhandlungen");
+  const oPraemie = await ordnerAnlegen("Prämienregelung 2027", oVerh.id);
+  const oAS      = await ordnerAnlegen("Arbeitsschutz");
+  const ablage: [string, string][] = [
+    [dokLeiharbeit.id, oGF.id], [dokAntwortLeiharbeit.id, oGF.id],
+    [dokMusterVertrag.id, oVertrag.id], [dokPraemie.id, oPraemie.id], [dokGBU.id, oAS.id],
+  ];
+  for (const [dokumentId, ordnerId] of ablage) {
+    await prisma.dokument.update({ where: { id: dokumentId }, data: { ordnerId } });
+  }
   console.log("[Demo] Demo-Dokumente als verschlüsselte PDFs abgelegt");
 
   // ── Betriebsvereinbarungen (Register) ────────────────────────

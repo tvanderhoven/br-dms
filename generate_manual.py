@@ -600,6 +600,38 @@ def build():
         ],
         (32, 138),
     )
+    pdf.h3("Ordner")
+    pdf.body(
+        "Links neben der Liste steht die Ablage: ein Ordnerbaum wie im Datei-Explorer, z. B. "
+        "„Schriftverkehr › Geschäftsführung“ oder „Muster › Arbeitsverträge“. Ordner ergänzen die Kategorien, "
+        "sie ersetzen sie nicht: Die Kategorie sagt, was ein Dokument ist, und steuert Fristen, "
+        "Aufbewahrung und Abläufe wie die Anhörung. Der Ordner sagt nur, wo es liegt. Jedes Dokument liegt "
+        "in höchstens einem Ordner."
+    )
+    pdf.bild("dokumente-ordner", "Ablage mit Ordnerbaum, Pfad und Unterordnern", hoehe_anteil=0.62)
+    pdf.tabelle(
+        ["Aktion", "So geht es"],
+        [
+            ["Ordner anlegen", "Ordner-Plus neben „Ablage“ (oberste Ebene) oder beim Überfahren eines Ordners "
+                               "(Unterordner); Name eingeben, Enter"],
+            ["Umbenennen, löschen", "Stift bzw. Papierkorb beim Überfahren. Gelöscht werden nur leere Ordner"],
+            ["Dokument einsortieren", "Zeile aus der Liste auf einen Ordner im Baum ziehen – oder im "
+                                      "Bearbeiten-Dialog den Ordner wählen. Beim Hochladen ist der gerade "
+                                      "geöffnete Ordner vorbelegt"],
+            ["Ordner verschieben", "Ordner im Baum auf einen anderen ziehen; auf „Ohne Ordner“ gezogen, "
+                                   "kommt er auf die oberste Ebene"],
+            ["Alle Dokumente", "Zeigt wie bisher alles, unabhängig vom Ordner; unter dem Dateinamen steht, "
+                               "in welchem Ordner ein Dokument liegt"],
+            ["Ohne Ordner", "Alles, was noch nicht einsortiert ist – etwa neue Dokumente aus dem Watch-Folder"],
+        ],
+        (40, 130),
+    )
+    pdf.body(
+        "Die Suche über der Liste sucht im geöffneten Ordner; ein Klick auf „in allen Dokumenten suchen“ "
+        "wechselt zu allen. Ordnernamen sehen alle, vertrauliche Dokumente darin nur, wer sie sehen darf. "
+        "Auf dem Handy ersetzt eine Auswahlliste über der Tabelle den Baum."
+    )
+
     pdf.h3("Vorschau, Bearbeiten und Kommentare")
     pdf.body(
         "Ein Klick auf eine Zeile öffnet rechts die Vorschau mit dem PDF, den Sitzungen, in denen das Dokument "
@@ -608,7 +640,7 @@ def build():
     )
     pdf.bild("dokument-vorschau", "Vorschau mit „Behandelt in“ und PDF-Ansicht", hoehe_anteil=0.6)
     pdf.body(
-        "„Bearbeiten“ ändert Kategorie, Titel, Alias, Aktenzeichen, Beschreibung, Löschdatum und die "
+        "„Bearbeiten“ ändert Kategorie, Ordner, Titel, Alias, Aktenzeichen, Beschreibung, Löschdatum und die "
         "Vertraulichkeit. Unten im selben Fenster steht die Diskussion zum Dokument: Kommentare mit "
         "Formatierung, Links und Dokumentverweisen. Der Knopf „Aufgabe“ an einem Kommentar macht daraus "
         "direkt eine Aufgabe – mit Titel, Zuständigkeit, Priorität und Fälligkeit."

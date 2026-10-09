@@ -223,6 +223,9 @@ enum AuditAktion {
   ANHOERUNG_STATUS_GEAENDERT
   ANHOERUNG_STELLUNGNAHME_GESPEICHERT
   ANHOERUNG_VERSENDET
+  ORDNER_ERSTELLT
+  ORDNER_GEAENDERT
+  ORDNER_GELOESCHT
 }
 
 // ================================================================
@@ -367,6 +370,10 @@ model Dokument {
   beschreibung   String?
   vertraulich    Boolean       @default(false)
 
+  // Ablage im Ordnerbaum (zusätzlich zur Kategorie); null = ohne Ordner
+  ordnerId       String?       @map("ordner_id")
+  ordner         Ordner?       @relation(fields: [ordnerId], references: [id], onDelete: SetNull)
+
   deleteAt        DateTime?     @map("delete_at")
   geloeschtAm     DateTime?     @map("geloescht_am")
   loeschgrund     String?       @map("loeschgrund")
@@ -390,7 +397,26 @@ model Dokument {
 
   @@index([deleteAt, status])
   @@index([kategorie, status])
+  @@index([ordnerId])
   @@map("dokumente")
+}
+
+// Ordnerbaum für die Ablage. Die Kategorie bleibt davon unberührt – sie steuert
+// weiterhin Fristen, Aufbewahrung und Abläufe; der Ordner nur, wo etwas liegt.
+model Ordner {
+  id             String     @id @default(uuid())
+  name           String
+  elternId       String?    @map("eltern_id")
+  eltern         Ordner?    @relation("OrdnerBaum", fields: [elternId], references: [id], onDelete: Restrict)
+  unterordner    Ordner[]   @relation("OrdnerBaum")
+  dokumente      Dokument[]
+
+  erstelltVonId  String?    @map("erstellt_von_id")
+  erstelltAm     DateTime   @default(now()) @map("erstellt_am")
+  aktualisiertAm DateTime   @updatedAt @map("aktualisiert_am")
+
+  @@index([elternId])
+  @@map("ordner")
 }
 
 model DokumentVersion {

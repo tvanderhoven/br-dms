@@ -1,6 +1,6 @@
 # BR-DMS – Roadmap
 
-Stand: 7. Oktober 2026. Hier steht, was als Nächstes kommt und was dabei schon entschieden ist –
+Stand: 9. Oktober 2026. Hier steht, was als Nächstes kommt und was dabei schon entschieden ist –
 damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 
 ## Erledigt
@@ -21,6 +21,7 @@ damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 | Dashboard „Auf einen Blick“ | Vier Karten oben auf dem Dashboard: nächste Sitzung, BVs die in 90 Tagen auslaufen oder gekündigt sind, ablaufende Qualifikationen + nächster Schulungstermin, Geschlechterquote (§ 15 Abs. 2); Module/Rechte blenden Karten einzeln aus | Okt. 2026 |
 | Kopfbalken + Fremdprotokolle öffnen | Suche über die volle Breite, Einstellungen/Abmelden am rechten Rand, Suchfeld abgesetzt; Fremdprotokolle per Doppelklick öffnen; Fristen-Erinnerungsmail pausierbar | Okt. 2026 |
 | Gremien und Fremdprotokolle (Paket 5) | Neue Seite „Gremien“ für Ausschüsse/JAV/SBV/GBR/Wirtschaftsausschuss (nicht den BR selbst); Sitzungen optional einem Gremium zuordnen; Fremdprotokolle (hochgeladenes Protokoll mit Gremium+Datum, ohne TOPs/Anwesenheit, mit vertraulich-Flag); neues togglebares Modul „Gremien“ | Okt. 2026 |
+| Dokumente: Ordnerbaum (Ablage) | Ordner und Unterordner zusätzlich zu den Kategorien (Kategorie = was es ist und welche Fristen/Aufbewahrung gelten, Ordner = wo es liegt); Baum links neben der Liste mit „Alle Dokumente“ und „Ohne Ordner“, Pfadleiste, Unterordner als Zeilen, Dokumente per Drag & Drop einsortieren, Ordner im Baum verschieben, nur leere Ordner löschen; Ordnerwahl beim Hochladen (vorbelegt) und Bearbeiten; auf dem Handy Auswahlliste; Tabelle `ordner`, Routen `backend/src/routes/ordner.ts`; keine Rechte je Ordner (Vertraulichkeit bleibt am Dokument) | Okt. 2026 |
 | Backup-Wochenübersicht | Einstellungen → System zeigt jetzt die letzten 8 Backups einzeln (Zeitpunkt, Größe, Status) statt nur das jüngste; wöchentliche Mail montags 07:00 Uhr nur an Vorsitz mit derselben Liste, warnt wenn das jüngste Backup älter als 2 Tage, unvollständig oder unverschlüsselt ist (`backend/src/lib/backups.ts`, `workers/backup.worker.ts`) | Okt. 2026 |
 
 ## Als Nächstes
@@ -35,6 +36,16 @@ damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 | ✓ | Anhörung als Vorgang (§ 99 / § 102) | L | erledigt 08.10.2026: Status eingegangen → beraten → beschlossen → beantwortet im Dokument unter „Vorgang"; Stellungnahme aus einem finalisierten Beschluss am TOP erzeugen (Zustimmung, Zustimmungsverweigerung mit Gründen nach § 99 Abs. 2, Widerspruch nach § 102 Abs. 3), Brief-PDF mit echtem Briefkopf wird archiviert, Versanddatum als Nachweis, zugehörige Fristen erledigen sich automatisch mit dem Versand. Ersetzt die alte Platzhalter-Briefvorlage |
 | D | Kostenübersicht (§ 40) | M | Jahresübersicht der BR-Kosten: Schulungen (Kosten gibt es schon), Sachverständige, Anwalt, Einigungsstelle; verbindet sich mit „Einigungsstelle“ unter „Später“ |
 | E | Kalender-Abo + mobile Ansicht | S–M | Sitzungen und Fristen als abonnierbarer Kalender (iCal-Link mit persönlichem Token, nur eigene sichtbare Termine) für Outlook/Handy; mobile Ansicht durchgehen |
+
+**Dokumentablage ausbauen (entschieden 09.10.2026), in dieser Reihenfolge:**
+
+| # | Paket | Größe | Inhalt |
+|---|---|---|---|
+| ✓ | Ordnerbaum | M | erledigt 09.10.2026, siehe oben |
+| F | E-Mails als Dokumente | M | `.eml` (Thunderbird, „Speichern unter“) und `.msg` (Outlook) hochladen und im Watch-Folder annehmen; Von/An/Datum/Betreff auslesen und Titel/Datum vorbelegen, Text für die Suche; Vorschau des Mail-Texts; Anhänge wahlweise als eigene, verknüpfte Dokumente |
+| G | Kategorie „Muster/Vorlage“ (optional) | S | nur falls Muster (z. B. Arbeitsverträge) eine eigene Aufbewahrungsregel brauchen, etwa „nie löschen“ |
+
+Bewusst später: E-Mails per IMAP selbst aus einem Postfach abholen – dafür müsste ein weiteres Passwort auf dem NAS liegen.
 
 Bewusst nicht: Fachkommentare/Fachzeitschriften (Lizenzthema der Verlage – Gesetzestexte + Wissensarchiv
 reichen) und Beschlüsse im Umlaufverfahren (BR-Beschlüsse brauchen eine Sitzung, auch per Video nach § 30 Abs. 2).
