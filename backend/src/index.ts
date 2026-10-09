@@ -64,8 +64,19 @@ process.on("unhandledRejection", (reason) => {
   console.error("[process] unhandledRejection – Backend bleibt am Laufen:", reason);
 });
 
+// Anfragen kommen über zwei eigene Stationen: HTTPS-Proxy → Frontend-nginx → Backend.
+// Beide hängen die Absenderadresse an X-Forwarded-For an; genau diesen zwei Stationen
+// vertrauen, damit request.ip (Audit-Log, Login-Limit) der Arbeitsplatz ist und nicht
+// der Container davor. Was der Browser selbst in den Header schreibt, steht weiter
+// links und wird nicht ausgewertet. Steht noch ein Reverse-Proxy davor (z. B. der des
+// NAS), PROXY_STATIONEN in der .env um 1 erhöhen.
+const proxyStationenWert = Number(process.env.PROXY_STATIONEN ?? 2);
+const proxyStationen = Number.isInteger(proxyStationenWert) && proxyStationenWert >= 0 ? proxyStationenWert : 2;
+
 const app = Fastify({
   logger: { level: process.env.NODE_ENV === "production" ? "info" : "debug" },
+  // station 0 = direkter Absender der Verbindung, 1 = Eintrag davor in X-Forwarded-For …
+  trustProxy: (_adresse: string, station: number) => station < proxyStationen,
 });
 
 // Nur die echte Frontend-Origin zulassen statt jede beliebige Seite (origin: true) -
