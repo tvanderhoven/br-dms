@@ -24,6 +24,7 @@ import {
 import { DokumentReferenzExtension, DokumentReferenzAttrs } from "../lib/DokumentReferenzExtension";
 import { TOPMention } from "../lib/TOPMentionExtension";
 import { api, Dokument, KATEGORIE_LABEL, TOP } from "../lib/api";
+import { dokumentInNeuemTabOeffnen } from "../lib/dokumentOeffnen";
 
 interface Props {
   content:    object | null;
@@ -100,34 +101,8 @@ export default function SitzungsEditor({
       e.preventDefault();
       e.stopPropagation();
 
-      // Fenster synchron öffnen (noch im User-Gesture-Kontext) – sonst Popup-Blocker
-      const tab = window.open("", "_blank");
-
-      const token = localStorage.getItem("brdms_token");
-      const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-
-      fetch(api.dokumente.vorschauUrl(dokumentId), { headers: authHeader })
-        .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.blob(); })
-        .then(blob => {
-          const url = URL.createObjectURL(blob);
-          if (tab) tab.location.href = url; else window.location.href = url;
-          setTimeout(() => URL.revokeObjectURL(url), 60_000);
-        })
-        .catch(() => {
-          // Vorschau nicht möglich (z.B. kein PDF) – Download stattdessen authentifiziert laden.
-          // Wichtig: auch hier den Auth-Header mitschicken, sonst 401 statt Datei.
-          fetch(api.dokumente.downloadUrl(dokumentId), { headers: authHeader })
-            .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.blob(); })
-            .then(blob => {
-              const url = URL.createObjectURL(blob);
-              if (tab) tab.location.href = url; else window.location.href = url;
-              setTimeout(() => URL.revokeObjectURL(url), 60_000);
-            })
-            .catch(() => {
-              if (tab) tab.close();
-              alert("Dokument konnte nicht geöffnet werden");
-            });
-        });
+      // E-Mails in der Mail-Ansicht, PDFs im Browser, sonst Download (lib/dokumentOeffnen.ts)
+      dokumentInNeuemTabOeffnen(dokumentId);
     }
 
     dom.addEventListener("click", handleClick, { capture: true });
