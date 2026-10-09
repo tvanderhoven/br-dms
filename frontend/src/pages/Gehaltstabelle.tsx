@@ -42,6 +42,11 @@ export default function Gehaltstabelle() {
   const [bearbeitet, setBearbeitet] = useState<GehaltsstufenEintrag | null>(null);
   const [neuerEintragFuerId, setNeuerEintragFuerId] = useState<string | undefined>(undefined);
   const [bearbeiteterMitarbeiter, setBearbeiteterMitarbeiter] = useState<Mitarbeiter | null>(null);
+  // Stammdaten der Mitarbeiter ändern nur Vorsitz/Stellvertretung (Backend prüft ebenso)
+  const [darfStammdaten, setDarfStammdaten] = useState(false);
+  useEffect(() => {
+    api.auth.me().then(b => setDarfStammdaten(["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(b.rolle))).catch(() => {});
+  }, []);
   const [mitarbeiterIdsMitEintrag, setMitarbeiterIdsMitEintrag] = useState<Set<string>>(new Set());
   const [alleEintraege, setAlleEintraege] = useState<GehaltsstufenEintrag[]>([]);
   const [tab, setTab] = useState<"liste" | "zeitmodell" | "ueberstunden" | "statistik">("ueberstunden");
@@ -429,13 +434,15 @@ export default function Gehaltstabelle() {
                             {BESCHAEFTIGUNGSART_KUERZEL[e.mitarbeiter.beschaeftigungsart]}
                           </span>
                         )}
-                        <button
-                          onClick={() => setBearbeiteterMitarbeiter(mitarbeiterListe.find(m => m.id === e.mitarbeiterId) ?? null)}
-                          className="text-gray-300 hover:text-[rgb(var(--accent))] transition-colors"
-                          title="Stammdaten bearbeiten (Name, Ein-/Austritt, Abteilung)"
-                        >
-                          <UserCog size={13} />
-                        </button>
+                        {darfStammdaten && (
+                          <button
+                            onClick={() => setBearbeiteterMitarbeiter(mitarbeiterListe.find(m => m.id === e.mitarbeiterId) ?? null)}
+                            className="text-gray-300 hover:text-[rgb(var(--accent))] transition-colors"
+                            title="Stammdaten bearbeiten (Name, Ein-/Austritt, Abteilung)"
+                          >
+                            <UserCog size={13} />
+                          </button>
+                        )}
                         <SitzungLink sitzung={e.sitzung} />
                       </span>
                     </td>

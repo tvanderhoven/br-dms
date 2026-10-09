@@ -171,6 +171,10 @@ export async function authRouten(app: FastifyInstance): Promise<void> {
   app.post<{ Body: { email: string } }>(
     "/passwort-vergessen",
     {
+      // verhindert, dass jemand anderen Benutzern massenhaft Reset-Mails schickt
+      config: {
+        rateLimit: { max: 5, timeWindow: "15 minutes" },
+      },
       schema: {
         body: {
           type: "object",
@@ -213,6 +217,10 @@ export async function authRouten(app: FastifyInstance): Promise<void> {
   app.post<{ Body: { token: string; neuesPasswort: string } }>(
     "/passwort-reset",
     {
+      // Token sind 64 Hex-Zeichen und nicht zu erraten – das Limit bremst nur Durchprobieren
+      config: {
+        rateLimit: { max: 10, timeWindow: "15 minutes" },
+      },
       schema: {
         body: {
           type: "object",

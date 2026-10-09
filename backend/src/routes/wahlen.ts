@@ -153,14 +153,14 @@ export async function wahlRouten(app: FastifyInstance): Promise<void> {
     });
 
   // ── Wählerliste ────────────────────────────────────────────────
-  app.get<{ Params: { id: string } }>("/:id/waehlerliste", { preHandler: [authenticate] },
+  app.get<{ Params: { id: string } }>("/:id/waehlerliste", { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request, reply) => {
       const wahl = await prisma.wahl.findUnique({ where: { id: request.params.id } });
       if (!wahl) return reply.status(404).send({ fehler: "Wahl nicht gefunden" });
       return reply.send(await waehlerlisteBerechnen(wahl));
     });
 
-  app.get<{ Params: { id: string } }>("/:id/waehlerliste.pdf", { preHandler: [authenticate] },
+  app.get<{ Params: { id: string } }>("/:id/waehlerliste.pdf", { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request, reply) => {
       const wahl = await prisma.wahl.findUnique({ where: { id: request.params.id } });
       if (!wahl) return reply.status(404).send({ fehler: "Wahl nicht gefunden" });
@@ -172,7 +172,7 @@ export async function wahlRouten(app: FastifyInstance): Promise<void> {
         .send(buffer);
     });
 
-  app.get<{ Params: { id: string } }>("/:id/waehlerliste.csv", { preHandler: [authenticate] },
+  app.get<{ Params: { id: string } }>("/:id/waehlerliste.csv", { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request, reply) => {
       const wahl = await prisma.wahl.findUnique({ where: { id: request.params.id } });
       if (!wahl) return reply.status(404).send({ fehler: "Wahl nicht gefunden" });
