@@ -24,7 +24,7 @@ import fs from "node:fs/promises";
 import { decryptFile, encryptFile } from "../lib/encryption.js";
 import path from "node:path";
 import prisma from "../lib/prisma.js";
-import { dokumentVertraulichFilter, darfDokumentSehen } from "../lib/vertraulich.js";
+import { dokumentVertraulichFilter, darfDokumentSehen, dokumentZugriffPruefen } from "../lib/vertraulich.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { verarbeiteDokument, anhangAblegen, UngueltigeEmailError } from "../services/dokument-pipeline.service.js";
@@ -318,6 +318,9 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
       if (!dokument || dokument.status === DokumentStatus.GELOESCHT) {
         return reply.status(404).send({ fehler: "Nicht gefunden" });
       }
+      if (!darfDokumentSehen(dokument, request.benutzer.rolle, request.benutzer.sub)) {
+        return reply.status(403).send({ fehler: "Vertrauliches Dokument" });
+      }
 
       const body = request.body;
       const erlaubteFelder = ["alias", "tags", "kategorie", "aktenzeichen", "beschreibung", "vertraulich"] as const;
@@ -389,6 +392,9 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
       const dokument = await prisma.dokument.findUnique({ where: { id: request.params.id } });
       if (!dokument || dokument.status === DokumentStatus.GELOESCHT) {
         return reply.status(404).send({ fehler: "Nicht gefunden" });
+      }
+      if (!darfDokumentSehen(dokument, request.benutzer.rolle, request.benutzer.sub)) {
+        return reply.status(403).send({ fehler: "Vertrauliches Dokument" });
       }
 
       await prisma.dokument.update({
@@ -549,6 +555,7 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate] },
     async (request, reply) => {
       const { id } = request.params;
+      if (!(await dokumentZugriffPruefen(id, request.benutzer, reply))) return reply;
 
       const [tops, aufgaben] = await Promise.all([
         prisma.topDokument.findMany({
@@ -771,6 +778,9 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
       if (!dokument || dokument.status === DokumentStatus.GELOESCHT) {
         return reply.status(404).send({ fehler: "Nicht gefunden" });
       }
+      if (!darfDokumentSehen(dokument, request.benutzer.rolle, request.benutzer.sub)) {
+        return reply.status(403).send({ fehler: "Vertrauliches Dokument" });
+      }
 
       const versionen = await prisma.dokumentVersion.findMany({
         where: { dokumentId: request.params.id },
@@ -805,6 +815,9 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
       const dokument = await prisma.dokument.findUnique({ where: { id: request.params.id } });
       if (!dokument || dokument.status === DokumentStatus.GELOESCHT) {
         return reply.status(404).send({ fehler: "Nicht gefunden" });
+      }
+      if (!darfDokumentSehen(dokument, request.benutzer.rolle, request.benutzer.sub)) {
+        return reply.status(403).send({ fehler: "Vertrauliches Dokument" });
       }
 
       const data = await request.file();
