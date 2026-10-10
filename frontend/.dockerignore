@@ -1,0 +1,7 @@
+# Das Dockerfile installiert die Pakete selbst (npm install) und kopiert danach mit
+# "COPY . ." den Ordner – ein node_modules auf dem Host würde die frischen Pakete
+# sonst überschreiben (Okt. 2026: altes Tiptap 2 auf dem NAS brach den Build).
+node_modules
+dist
+.env
+*.env

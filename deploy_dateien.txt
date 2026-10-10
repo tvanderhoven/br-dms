@@ -15,6 +15,7 @@ backend/tsconfig.json
 
 frontend/src *
 frontend/Dockerfile
+frontend/.dockerignore
 frontend/index.html
 frontend/nginx.conf
 frontend/package.json
