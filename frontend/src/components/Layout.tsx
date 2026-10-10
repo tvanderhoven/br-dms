@@ -408,7 +408,9 @@ export default function Layout() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  function abmelden() {
+  // Erst serverseitig abmelden (Token wird ungültig), dann lokal – auch wenn der Server nicht antwortet
+  async function abmelden() {
+    await api.auth.logout().catch(() => {});
     localStorage.removeItem("brdms_token");
     navigate("/login");
   }
@@ -426,8 +428,11 @@ export default function Layout() {
     const grenzeMs = inaktivitaetMinuten * 60 * 1000;
     const pruefung = setInterval(() => {
       if (Date.now() - letzteAktivitaet.current >= grenzeMs) {
-        localStorage.removeItem("brdms_token");
-        window.location.href = "/login";
+        clearInterval(pruefung);
+        api.auth.logout().catch(() => {}).finally(() => {
+          localStorage.removeItem("brdms_token");
+          window.location.href = "/login";
+        });
       }
     }, 10000);
 

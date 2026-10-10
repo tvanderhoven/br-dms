@@ -65,11 +65,17 @@ export const api = {
         body: JSON.stringify({ email, passwort, eingeloggtBleiben }),
       }),
     me: () => request<Benutzer>("/api/auth/me"),
-    passwortAendern: (aktuellesPasswort: string, neuesPasswort: string) =>
-      request<{ nachricht: string }>("/api/auth/passwort", {
+    /** Macht serverseitig alle Tokens dieses Benutzers ungültig (auch auf anderen Rechnern) */
+    logout: () => request<{ nachricht: string }>("/api/auth/logout", { method: "POST" }),
+    /** Der alte Token ist danach ungültig – der neue aus der Antwort wird gleich gespeichert */
+    passwortAendern: async (aktuellesPasswort: string, neuesPasswort: string) => {
+      const res = await request<{ nachricht: string; token: string }>("/api/auth/passwort", {
         method: "PATCH",
         body: JSON.stringify({ aktuellesPasswort, neuesPasswort }),
-      }),
+      });
+      localStorage.setItem("brdms_token", res.token);
+      return res;
+    },
   },
 
   dokumente: {

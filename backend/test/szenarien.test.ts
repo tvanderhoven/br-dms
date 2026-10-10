@@ -6,7 +6,8 @@
 
 import { after, before, describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { Kategorie } from "@prisma/client";
+import { Kategorie, Role } from "@prisma/client";
+import { hashPassword } from "../src/lib/password.js";
 import { anfrage, type Konto, pfadFuellen, prisma, starteTestumgebung, type TestUmgebung } from "./hilfe.js";
 
 let env: TestUmgebung;
@@ -257,5 +258,72 @@ describe("JAV und SBV: vertrauliche TOPs", () => {
     const beschluesse = await anfrage(env, "MITGLIED", "GET", `/api/sitzungen/${sitzungId}/tops/${geheimTop}/beschluesse`);
     assert.match(beschluesse.body, /GEHEIM-BESCHLUSS/);
     assert.equal(await status("MITGLIED", "GET", `/api/sitzungen/${sitzungId}/tops/${geheimTop}/auszug`), 200);
+  });
+});
+
+describe("Token-Widerruf", () => {
+  // Eigene Konten, damit die hochgezählte Token-Version die gemeinsamen Testkonten nicht trifft
+  let zaehler = 0;
+  async function eigenesKonto(rolle: Role = Role.MITGLIED) {
+    const b = await prisma.benutzer.create({
+      data: { email: `widerruf${++zaehler}@test.lokal`, name: "Widerruf", passwortHash: hashPassword("Altes-Passwort-1"), rolle },
+    });
+    return { id: b.id, token: env.app.jwt.sign({ sub: b.id, email: b.email, rolle }) };
+  }
+  const mitToken = (token: string, method: string, url: string, payload?: object) =>
+    env.app.inject({ method: method as "GET", url, headers: { authorization: `Bearer ${token}` }, ...(payload ? { payload } : {}) });
+
+  test("Abmelden macht den Token ungültig und landet im Audit-Log", async () => {
+    const { id, token } = await eigenesKonto();
+    assert.equal((await mitToken(token, "GET", "/api/auth/me")).statusCode, 200);
+    assert.equal((await mitToken(token, "POST", "/api/auth/logout")).statusCode, 200);
+    assert.equal((await mitToken(token, "GET", "/api/auth/me")).statusCode, 401);
+    assert.equal(await prisma.auditLog.count({ where: { aktion: "LOGOUT", benutzerId: id } }), 1);
+  });
+
+  test("JAV darf sich abmelden", async () => {
+    const { token } = await eigenesKonto(Role.JAV);
+    assert.equal((await mitToken(token, "POST", "/api/auth/logout")).statusCode, 200);
+    assert.equal((await mitToken(token, "GET", "/api/auth/me")).statusCode, 401);
+  });
+
+  test("nach dem Abmelden liefert der Login wieder einen gültigen Token", async () => {
+    const { token } = await eigenesKonto();
+    await mitToken(token, "POST", "/api/auth/logout");
+    const login = await env.app.inject({
+      method: "POST", url: "/api/auth/login",
+      payload: { email: `widerruf${zaehler}@test.lokal`, passwort: "Altes-Passwort-1" },
+    });
+    assert.equal(login.statusCode, 200, login.body);
+    assert.equal((await mitToken(login.json().token, "GET", "/api/auth/me")).statusCode, 200);
+  });
+
+  test("eigenes Passwort ändern: alter Token ungültig, neuer aus der Antwort gilt", async () => {
+    const { token } = await eigenesKonto();
+    const falsch = await mitToken(token, "PATCH", "/api/auth/passwort", { aktuellesPasswort: "falsch", neuesPasswort: "Neues-Passwort-1" });
+    assert.equal(falsch.statusCode, 400, "falsches Passwort darf nicht als 401 (= abgemeldet) ankommen");
+
+    const res = await mitToken(token, "PATCH", "/api/auth/passwort", { aktuellesPasswort: "Altes-Passwort-1", neuesPasswort: "Neues-Passwort-1" });
+    assert.equal(res.statusCode, 200, res.body);
+    assert.equal((await mitToken(token, "GET", "/api/auth/me")).statusCode, 401);
+    assert.equal((await mitToken(res.json().token, "GET", "/api/auth/me")).statusCode, 200);
+  });
+
+  test("Passwort-Reset durch den Vorsitz beendet die Sitzungen des Betroffenen", async () => {
+    const { id, token } = await eigenesKonto();
+    const res = await anfrage(env, "VORSITZ", "POST", `/api/benutzer/${id}/passwort-reset`, { neuesPasswort: "Vom-Vorsitz-1" });
+    assert.equal(res.statusCode, 200, res.body);
+    assert.equal((await mitToken(token, "GET", "/api/auth/me")).statusCode, 401);
+  });
+
+  test("Passwort-Reset per Link beendet die bestehenden Sitzungen", async () => {
+    const { id, token } = await eigenesKonto();
+    await prisma.passwortReset.create({ data: { benutzerId: id, token: `reset-${id}`, gueltigBis: new Date(Date.now() + 60_000) } });
+    const res = await env.app.inject({
+      method: "POST", url: "/api/auth/passwort-reset",
+      payload: { token: `reset-${id}`, neuesPasswort: "Per-Link-1234" },
+    });
+    assert.equal(res.statusCode, 200, res.body);
+    assert.equal((await mitToken(token, "GET", "/api/auth/me")).statusCode, 401);
   });
 });

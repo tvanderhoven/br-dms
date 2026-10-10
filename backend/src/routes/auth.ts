@@ -1,6 +1,7 @@
 /**
  * Auth-Routen
  * POST /api/auth/login
+ * POST /api/auth/logout
  * GET  /api/auth/me
  */
 
@@ -51,7 +52,7 @@ export async function authRouten(app: FastifyInstance): Promise<void> {
 
       const benutzer = await prisma.benutzer.findFirst({
         where:  istEmail ? { email: eingabe } : { email: { startsWith: `${eingabe}@` } },
-        select: { id: true, name: true, email: true, rolle: true, aktiv: true, passwortHash: true },
+        select: { id: true, name: true, email: true, rolle: true, aktiv: true, passwortHash: true, tokenVersion: true },
       });
 
       // Timing-sicherer Vergleich (kein User-Enumeration)
@@ -72,7 +73,7 @@ export async function authRouten(app: FastifyInstance): Promise<void> {
       }
 
       const token = await reply.jwtSign(
-        { sub: benutzer.id, email: benutzer.email, rolle: benutzer.rolle },
+        { sub: benutzer.id, email: benutzer.email, rolle: benutzer.rolle, tv: benutzer.tokenVersion },
         { expiresIn: eingeloggtBleiben === false ? "1h" : (process.env.JWT_EXPIRES_IN ?? "24h") }
       );
 
@@ -101,6 +102,31 @@ export async function authRouten(app: FastifyInstance): Promise<void> {
           rolle: benutzer.rolle,
         },
       });
+    }
+  );
+
+  // ── POST /logout ───────────────────────────────────────────────
+  // Zählt die Token-Version hoch: alle bisher ausgestellten Tokens dieses Benutzers
+  // werden ungültig – auch auf anderen Rechnern, auf denen er noch angemeldet ist.
+  app.post(
+    "/logout",
+    { preHandler: [authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      await prisma.benutzer.update({
+        where: { id: request.benutzer.sub },
+        data:  { tokenVersion: { increment: 1 } },
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          benutzerId: request.benutzer.sub,
+          aktion:     AuditAktion.LOGOUT,
+          ip:         request.ip,
+          userAgent:  request.headers["user-agent"] ?? null,
+        },
+      });
+
+      return reply.send({ nachricht: "Abgemeldet" });
     }
   );
 
@@ -144,14 +170,23 @@ export async function authRouten(app: FastifyInstance): Promise<void> {
       });
       if (!benutzer) return reply.status(404).send({ fehler: "Benutzer nicht gefunden" });
 
+      // 400 statt 401 – das Frontend wertet 401 als „Sitzung abgelaufen“ und meldet ab
       if (!verifyPassword(aktuellesPasswort, benutzer.passwortHash)) {
-        return reply.status(401).send({ fehler: "Aktuelles Passwort ist falsch" });
+        return reply.status(400).send({ fehler: "Aktuelles Passwort ist falsch" });
       }
 
-      await prisma.benutzer.update({
-        where: { id: benutzer.id },
-        data:  { passwortHash: hashPassword(neuesPasswort) },
+      // Alle anderen Sitzungen enden; diese hier bekommt einen neuen Token mit derselben Restlaufzeit
+      const aktualisiert = await prisma.benutzer.update({
+        where:  { id: benutzer.id },
+        data:   { passwortHash: hashPassword(neuesPasswort), tokenVersion: { increment: 1 } },
+        select: { id: true, email: true, rolle: true, tokenVersion: true },
       });
+      const { exp } = await request.jwtVerify<{ exp: number }>();
+      const restSekunden = Math.max(60, exp - Math.floor(Date.now() / 1000));
+      const token = await reply.jwtSign(
+        { sub: aktualisiert.id, email: aktualisiert.email, rolle: aktualisiert.rolle, tv: aktualisiert.tokenVersion },
+        { expiresIn: `${restSekunden}s` }
+      );
 
       await prisma.auditLog.create({
         data: {
@@ -163,7 +198,7 @@ export async function authRouten(app: FastifyInstance): Promise<void> {
         },
       });
 
-      return reply.send({ nachricht: "Passwort erfolgreich geändert" });
+      return reply.send({ nachricht: "Passwort erfolgreich geändert", token });
     }
   );
 
@@ -249,7 +284,7 @@ export async function authRouten(app: FastifyInstance): Promise<void> {
       await prisma.$transaction([
         prisma.benutzer.update({
           where: { id: reset.benutzerId },
-          data:  { passwortHash: neuerHash },
+          data:  { passwortHash: neuerHash, tokenVersion: { increment: 1 } }, // wer das alte Passwort kannte, fliegt raus
         }),
         prisma.passwortReset.update({
           where: { id: reset.id },

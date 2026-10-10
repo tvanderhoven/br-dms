@@ -1599,6 +1599,8 @@ def build():
             ["Anmeldeversuche", "Höchstens 10 Versuche in 10 Minuten, danach gesperrt"],
             ["Sitzungsdauer", "Token 24 Stunden („eingeloggt bleiben“) bzw. 1 Stunde; automatisches Abmelden "
              "nach Inaktivität einstellbar (Kapitel 9.7)"],
+            ["Abmelden", "Abmelden und jeder Passwortwechsel (selbst, per Link oder durch den Vorsitz) machen "
+             "alle ausgestellten Tokens sofort ungültig – auch auf anderen Rechnern"],
             ["Herkunft", "Die Schnittstelle nimmt Anfragen nur von der eigenen Adresse (APP_URL) an"],
             ["Rollen", "Jede Schnittstelle prüft die Rolle auf dem Server, nicht nur die Oberfläche (Kapitel 10)"],
             ["Vertrauliches", "Eine zentrale Regel: Vorsitz, Stellvertretung und Admin sehen alles Vertrauliche, "
@@ -1669,10 +1671,9 @@ def build():
         "Updates – Neue Stände zuerst in der Demo prüfen, dann einspielen (Kapitel 13.1)",
     ])
     pdf.hinweis(
-        "In Prüfung: Anmeldung mit zweitem Faktor (Einmalcode per Authenticator-App) – BR-DMS läuft nur im "
-        "Intranet, ob er dort nötig ist, ist noch offen. Geplant: Abmelden und Passwortwechsel machen bereits "
-        "ausgestellte Anmelde-Tokens sofort ungültig (bisher gelten sie bis zum Ablauf, höchstens 24 Stunden).",
-        "info", "Geplant")
+        "Anmeldung mit zweitem Faktor (Einmalcode per Authenticator-App) – BR-DMS läuft nur im "
+        "Intranet, ob er dort nötig ist, ist noch offen.",
+        "info", "In Prüfung")
 
     pdf.h2("11.3  Den Server (NAS) absichern")
     pdf.body(

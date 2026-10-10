@@ -40,7 +40,7 @@ const OEFFENTLICH = new Set([
 // Spiegel der Positivlisten aus middleware/auth.ts – absichtlich hier noch einmal
 // ausgeschrieben, damit eine Änderung dort auch hier bewusst nachgezogen werden muss.
 function javSbvErlaubt(r: Route): boolean {
-  return r.pfad === "/api/auth/me" || (r.methode === "GET" && /^\/api\/sitzungen(\/|$)/.test(r.pfad));
+  return r.pfad === "/api/auth/me" || r.pfad === "/api/auth/logout" || (r.methode === "GET" && /^\/api\/sitzungen(\/|$)/.test(r.pfad));
 }
 function technikAdminErlaubt(r: Route): boolean {
   if (r.methode === "DELETE" && /^\/api\/gehaltstabelle\/(eintraege|alle)$/.test(r.pfad)) return true;
