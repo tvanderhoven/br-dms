@@ -10,6 +10,7 @@ import multipart from "@fastify/multipart";
 import jwt from "@fastify/jwt";
 import rateLimit from "@fastify/rate-limit";
 import { authRouten } from "./routes/auth.js";
+import { kontoRouten } from "./routes/konto.js";
 import { dokumentRouten } from "./routes/dokumente.js";
 import { benutzerRouten } from "./routes/benutzer.js";
 import { sitzungRouten } from "./routes/sitzungen.js";
@@ -109,6 +110,7 @@ export async function baueApp(optionen: AppOptionen = {}): Promise<FastifyInstan
   // ── Routen ────────────────────────────────────────────────────────
   app.get("/health", async () => ({ status: "ok", zeit: new Date().toISOString() }));
   await app.register(authRouten,       { prefix: "/api/auth" });
+  await app.register(kontoRouten,      { prefix: "/api/konto" });
   await app.register(dokumentRouten,   { prefix: "/api/dokumente" });
   await app.register(ordnerRouten,     { prefix: "/api/ordner" });
   await app.register(scanEingangRouten,{ prefix: "/api/scan-eingang" });

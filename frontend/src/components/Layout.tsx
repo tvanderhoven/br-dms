@@ -8,7 +8,6 @@ import {
 import { api, SuchErgebnis, KATEGORIE_LABEL, SITZUNG_STATUS_LABEL, RESSOURCE_KATEGORIE_LABEL, formatDatum, Rolle, ModuleKey, GesetzParagraph } from "../lib/api";
 import GesetzModal from "./GesetzModal";
 import BrandLogo from "./BrandLogo";
-import PasswortAendernModal from "./PasswortAendernModal";
 import UeberModal from "./UeberModal";
 
 // Ordnet Routen-Präfixe den abschaltbaren Modulen zu (siehe Einstellungen → Module).
@@ -310,7 +309,6 @@ export default function Layout() {
   const [ohneInhalt, setOhneInhalt]               = useState(false);
   const [module, setModule]                       = useState<Record<ModuleKey, boolean> | null>(null);
   const [toast, setToast]                         = useState<string | null>(null);
-  const [pwModalOffen, setPwModalOffen]           = useState(false);
   const [ueberOffen, setUeberOffen]               = useState(false);
   const [inaktivitaetMinuten, setInaktivitaetMinuten] = useState(0);
   const prevCounts = useRef({ inbox: 0, nachrichten: 0, aufgaben: 0 });
@@ -451,13 +449,13 @@ export default function Layout() {
 
   // Admin ohne Inhaltszugriff: nur Verwaltung und eigene Nachrichten
   // (Backend sperrt den Rest zusätzlich, siehe middleware/auth.ts)
-  if (ohneInhalt && !["/einstellungen", "/benutzer", "/posteingang"].some(p => location.pathname.startsWith(p))) {
+  if (ohneInhalt && !["/einstellungen", "/benutzer", "/posteingang", "/konto"].some(p => location.pathname.startsWith(p))) {
     return <Navigate to="/einstellungen" replace />;
   }
 
-  // JAV und SBV: stark eingeschränkte Rollen, dürfen im Frontend nur /sitzungen sehen
+  // JAV und SBV: stark eingeschränkte Rollen, dürfen im Frontend nur /sitzungen (und das eigene Konto) sehen
   // (Backend erzwingt das ohnehin zusätzlich auf API-Ebene, siehe middleware/auth.ts)
-  if ((meineRolle === "JAV" || meineRolle === "SBV") && !location.pathname.startsWith("/sitzungen")) {
+  if ((meineRolle === "JAV" || meineRolle === "SBV") && !location.pathname.startsWith("/sitzungen") && !location.pathname.startsWith("/konto")) {
     return <Navigate to="/sitzungen" replace />;
   }
 
@@ -517,8 +515,8 @@ export default function Layout() {
             Navigation nicht bis ganz unten scrollen muss, um dranzukommen */}
         {meinName && (
           <button
-            onClick={() => setPwModalOffen(true)}
-            title="Passwort ändern"
+            onClick={() => { navigate("/konto"); setMobileOffen(false); }}
+            title="Mein Konto – Profil, Passwort, Anmeldungen"
             className="px-4 py-2 flex items-center gap-2 border-b hover:brightness-125 transition-[filter] text-left shrink-0"
             style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.18)" }}
           >
@@ -741,9 +739,6 @@ export default function Layout() {
         </button>
       </aside>
 
-      {pwModalOffen && (
-        <PasswortAendernModal onSchliessen={() => setPwModalOffen(false)} />
-      )}
       {ueberOffen && <UeberModal onSchliessen={() => setUeberOffen(false)} />}
 
       {/* Mobile Overlay */}

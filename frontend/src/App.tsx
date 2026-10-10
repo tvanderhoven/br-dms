@@ -12,6 +12,7 @@ import Posteingang from "./pages/Posteingang";
 import Eingang from "./pages/Eingang";
 import Vorlagen from "./pages/Vorlagen";
 import Einstellungen from "./pages/Einstellungen";
+import MeinKonto from "./pages/MeinKonto";
 import Wissensarchiv from "./pages/Wissensarchiv";
 import Ressourcen from "./pages/Ressourcen";
 import Auditlog from "./pages/Auditlog";
@@ -95,6 +96,7 @@ export default function App() {
         <Route path="/schulungen"     element={geschuetzt(<Schulungen />)} />
         <Route path="/audit"          element={geschuetzt(<Auditlog />)} />
         <Route path="/einstellungen" element={geschuetzt(<Einstellungen />)} />
+        <Route path="/konto"         element={geschuetzt(<MeinKonto />)} />
       </Route>
       <Route path="*" element={<Navigate to={tokenGueltig() ? "/dashboard" : "/"} replace />} />
     </Routes>

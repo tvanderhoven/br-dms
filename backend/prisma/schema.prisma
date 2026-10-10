@@ -183,6 +183,10 @@ enum AuditAktion {
   BENUTZER_DEAKTIVIERT
   BENUTZER_GELOESCHT
   PASSWORT_GEAENDERT
+  EMAIL_GEAENDERT
+  ZWEI_FAKTOR_EINGERICHTET
+  ZWEI_FAKTOR_DEAKTIVIERT
+  ZWEI_FAKTOR_ZURUECKGESETZT
   ZUGRIFF_VERWEIGERT
   SITZUNG_ERSTELLT
   SITZUNG_AKTUALISIERT
@@ -244,6 +248,13 @@ model Benutzer {
   // Steckt als "tv" in jedem Token; erhöhen macht alle bisher ausgestellten Tokens
   // ungültig (Abmelden, Passwortwechsel) – siehe middleware/auth.ts
   tokenVersion    Int       @default(0) @map("token_version")
+
+  // Zwei-Faktor-Anmeldung (TOTP, siehe lib/zweiFaktor.ts). Das Geheimnis liegt
+  // verschlüsselt vor; ohne zweiFaktorAktiv ist es nur eine angefangene Einrichtung.
+  zweiFaktorGeheimnis   String?  @map("zwei_faktor_geheimnis")
+  zweiFaktorAktiv       Boolean  @default(false) @map("zwei_faktor_aktiv")
+  zweiFaktorLetzterSchritt Int?  @map("zwei_faktor_letzter_schritt") // gegen Wiederverwendung eines Codes
+  zweiFaktorWiederherstellung String[] @default([]) @map("zwei_faktor_wiederherstellung") // SHA-256 je Code
 
   istVertretungFuer String?                      @map("ist_vertretung_fuer")
   vertretungErhalten Anwesenheit[]              @relation("VertretungErhalten")

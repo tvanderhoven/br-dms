@@ -1,5 +1,5 @@
 import { useEffect, useState, FormEvent } from "react";
-import { UserPlus, KeyRound, Power, Trash2, Loader2, X, Shield, Users, Info } from "lucide-react";
+import { UserPlus, KeyRound, Power, Trash2, Loader2, X, Shield, Users, Info, ShieldCheck, ShieldOff } from "lucide-react";
 import { api, Benutzer, Rolle, Geschlecht } from "../lib/api";
 
 const GESCHLECHT_LABEL: Record<Geschlecht, string> = {
@@ -56,6 +56,17 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
     setFehler("");
     try {
       await apiFetch(`/api/benutzer/${b.id}`, "PATCH", { aktiv: !b.aktiv });
+      laden_();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler");
+    }
+  }
+
+  async function zweiFaktorZuruecksetzen(b: Benutzer) {
+    if (!confirm(`Zwei-Faktor-Anmeldung von ${b.name} entfernen?\n\nDie Person wird abgemeldet und meldet sich danach nur mit Passwort an. Ist sie für ihre Rolle Pflicht, wird sie beim nächsten Login neu eingerichtet.`)) return;
+    setFehler("");
+    try {
+      await apiFetch(`/api/benutzer/${b.id}/zwei-faktor-zuruecksetzen`, "POST", {}); // leerer Body: Fastify lehnt JSON-Content-Type ohne Body ab
       laden_();
     } catch (err) {
       setFehler(err instanceof Error ? err.message : "Fehler");
@@ -218,6 +229,11 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${b.aktiv ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                       {b.aktiv ? "Aktiv" : "Deaktiviert"}
                     </span>
+                    {b.zweiFaktorAktiv && (
+                      <span title="Zwei-Faktor-Anmeldung eingerichtet" className="ml-1 inline-flex items-center text-green-700 align-middle">
+                        <ShieldCheck size={14} />
+                      </span>
+                    )}
                   </td>
 
                   <td className="px-4 py-3 text-xs text-gray-500">
@@ -236,6 +252,17 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
                         <KeyRound size={13} />
                         PW reset
                       </button>}
+
+                      {!ohneInhalt && b.zweiFaktorAktiv && b.id !== meinId && (
+                        <button
+                          onClick={() => zweiFaktorZuruecksetzen(b)}
+                          title="Zwei-Faktor-Anmeldung entfernen (z. B. Handy verloren) – die Person meldet sich danach nur mit Passwort an"
+                          className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        >
+                          <ShieldOff size={13} />
+                          2FA reset
+                        </button>
+                      )}
 
                       {b.id !== meinId && (
                         <button

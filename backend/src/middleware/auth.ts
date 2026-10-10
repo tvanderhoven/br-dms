@@ -12,6 +12,7 @@ export interface JwtPayload {
   email: string;
   rolle: Role;
   tv?:   number;  // Token-Version, muss zu benutzer.tokenVersion passen (fehlt bei Tokens von vor dem Widerruf = 0)
+  zweck?: string; // nur bei Zwischen-Tokens der Zwei-Faktor-Anmeldung (lib/anmeldeToken.ts) – hier nie gültig
 }
 
 declare module "fastify" {
@@ -29,6 +30,7 @@ function eingeschraenkteRolleDarfZugreifen(request: FastifyRequest): boolean {
   const pfad = request.url.split("?")[0];
   if (pfad === "/api/auth/me") return true; // Rolle/Name fürs eigene Profil laden
   if (pfad === "/api/auth/logout") return true;
+  if (/^\/api\/konto(\/|$)/.test(pfad)) return true; // eigenes Konto (Passwort, E-Mail, 2FA)
   return request.method === "GET" && EINGESCHRAENKT_ERLAUBTE_GET_PFADE.some(r => r.test(pfad));
 }
 
@@ -37,6 +39,7 @@ function eingeschraenkteRolleDarfZugreifen(request: FastifyRequest): boolean {
 // Positivliste, damit neue Inhaltsrouten automatisch gesperrt sind.
 const TECHNIK_ADMIN_PFADE = [
   /^\/api\/auth\//,
+  /^\/api\/konto(\/|$)/,
   /^\/api\/benutzer(\/|$)/,
   /^\/api\/einstellungen\//,
   /^\/api\/gesetze\//,
@@ -58,6 +61,11 @@ export async function authenticate(
 ): Promise<void> {
   try {
     const payload = await request.jwtVerify<JwtPayload>();
+
+    // Zwischen-Token (Passwort richtig, zweiter Faktor fehlt noch) öffnet keine API
+    if (payload.zweck) {
+      return reply.status(401).send({ fehler: "Anmeldung nicht abgeschlossen" });
+    }
 
     // Benutzer noch aktiv?
     const benutzer = await prisma.benutzer.findUnique({

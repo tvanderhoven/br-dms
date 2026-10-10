@@ -21,6 +21,7 @@ import { adminHatInhaltszugriff, ADMIN_INHALTSZUGRIFF } from "../lib/adminZugrif
 import { ALLE_KATEGORIEN, STANDARD_AUFBEWAHRUNG_TAGE } from "../lib/kategorien.js";
 import { MAIL_ABSENDER_NAME, MAIL_ABSENDER_ADRESSE, MAIL_SIGNATUR } from "../lib/mailer.js";
 import { ermittleBackupSaetze } from "../lib/backups.js";
+import { zweiFaktorRichtlinie, ZWEI_FAKTOR_MODUS, ZWEI_FAKTOR_PFLICHT } from "../lib/zweiFaktor.js";
 import { BackupWorker } from "../workers/backup.worker.js";
 
 const STORAGE = process.env.STORAGE_PATH ?? "/data/storage";
@@ -326,6 +327,40 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
       });
 
       return reply.send({ ok: true, inaktivitaetMinuten });
+    }
+  );
+
+  // ── Zwei-Faktor-Anmeldung (siehe lib/zweiFaktor.ts) ────────────────
+  // Lesen alle (Login-Hinweise, „Mein Konto“), ändern nur ADMIN – wie das Inaktivitäts-Timeout.
+  app.get(
+    "/zwei-faktor",
+    { preHandler: [authenticate] },
+    async (_request, reply) => reply.send(await zweiFaktorRichtlinie())
+  );
+
+  app.put<{ Body: { modus: string; pflichtRollen: string[] } }>(
+    "/zwei-faktor",
+    {
+      preValidation: [authenticate, erfordert(Role.ADMIN)],
+      schema: {
+        body: {
+          type: "object", required: ["modus", "pflichtRollen"],
+          properties: {
+            modus:         { type: "string", enum: ["aus", "freiwillig"] },
+            pflichtRollen: { type: "array", items: { type: "string", enum: Object.values(Role) }, uniqueItems: true },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { modus, pflichtRollen } = request.body;
+      for (const [schluessel, wert] of [[ZWEI_FAKTOR_MODUS, modus], [ZWEI_FAKTOR_PFLICHT, JSON.stringify(pflichtRollen)]]) {
+        await prisma.systemEinstellung.upsert({ where: { schluessel }, update: { wert }, create: { schluessel, wert } });
+      }
+      await prisma.auditLog.create({
+        data: { benutzerId: request.benutzer.sub, aktion: AuditAktion.EINSTELLUNG_GEAENDERT, ip: request.ip, details: { zweiFaktor: { modus, pflichtRollen } } },
+      });
+      return reply.send(await zweiFaktorRichtlinie());
     }
   );
 

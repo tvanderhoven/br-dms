@@ -143,7 +143,10 @@ const AUFNAHMEN = [
       if (b) b.click();
       return !!b;
     })()` },
-  { datei: "passwort-aendern",    pfad: "/dashboard", js: `(() => { const b = document.querySelector('[title="Passwort ändern"]'); if (b) b.click(); return !!b; })()` },
+  { datei: "mein-konto",          pfad: "/konto", warte: 2500 },
+  { datei: "einstellungen-zwei-faktor", pfad: "/einstellungen", js: [klickText("System", "button"), zeigeText("Zwei-Faktor-Anmeldung"),
+    // Pflicht-Haken nur für das Bild setzen (nicht gespeichert) – Demo-Logins brauchen sonst einen Code
+    ...["Vorsitz", "Stellv. Vorsitz", "Admin"].map(r => klickText(r, "label"))], alsAdmin: true },
   { datei: "ueberstunden",        pfad: "/gehaltstabelle" },
   { datei: "sichtschutz",         pfad: "/gehaltstabelle", js: [klickText("Liste", "button"), waehle(0, "IT"), `(() => { window.dispatchEvent(new Event("blur")); return true; })()`] },
   { datei: "mitarbeiter-auswahl", pfad: "/mitarbeiter", js: `(() => { const b = [...document.querySelectorAll("tbody tr td:first-child button")].slice(0, 3); b.forEach(x => x.click()); return b.length > 0; })()` },

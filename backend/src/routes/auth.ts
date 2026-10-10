@@ -1,18 +1,23 @@
 /**
  * Auth-Routen
  * POST /api/auth/login
+ * POST /api/auth/login/zweiter-faktor        – Code aus der Authenticator-App
+ * POST /api/auth/login/einrichten/start      – 2FA-Pflicht: QR-Code holen
+ * POST /api/auth/login/einrichten/bestaetigen
  * POST /api/auth/logout
  * GET  /api/auth/me
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { AuditAktion } from "@prisma/client";
+import { AuditAktion, Prisma, Role } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 import prisma from "../lib/prisma.js";
 import { istTechnikAdmin } from "../lib/adminZugriff.js";
 import { verifyPassword, hashPassword } from "../lib/password.js";
 import { authenticate } from "../middleware/auth.js";
 import { sendePasswortReset } from "../lib/mailer.js";
+import { anmeldeToken, anmeldeTokenErneuern, STANDARD_LAUFZEIT, zwischenToken, type Zweck } from "../lib/anmeldeToken.js";
+import { anmeldeCodePruefen, einrichtungAbschliessen, einrichtungStarten, istPflicht, zweiFaktorRichtlinie } from "../lib/zweiFaktor.js";
 
 interface LoginBody {
   email:    string; // vollständige E-Mail ODER Teil vor dem "@" (Benutzername)
@@ -52,7 +57,7 @@ export async function authRouten(app: FastifyInstance): Promise<void> {
 
       const benutzer = await prisma.benutzer.findFirst({
         where:  istEmail ? { email: eingabe } : { email: { startsWith: `${eingabe}@` } },
-        select: { id: true, name: true, email: true, rolle: true, aktiv: true, passwortHash: true, tokenVersion: true },
+        select: { id: true, name: true, email: true, rolle: true, aktiv: true, passwortHash: true, tokenVersion: true, zweiFaktorAktiv: true },
       });
 
       // Timing-sicherer Vergleich (kein User-Enumeration)
@@ -72,38 +77,135 @@ export async function authRouten(app: FastifyInstance): Promise<void> {
         return reply.status(401).send({ fehler: "E-Mail oder Passwort falsch" });
       }
 
-      const token = await reply.jwtSign(
-        { sub: benutzer.id, email: benutzer.email, rolle: benutzer.rolle, tv: benutzer.tokenVersion },
-        { expiresIn: eingeloggtBleiben === false ? "1h" : (process.env.JWT_EXPIRES_IN ?? "24h") }
-      );
+      // Zweiter Faktor: eingerichtet → Code abfragen; Pflicht, aber nicht eingerichtet → erst einrichten.
+      // Steht die 2FA in den Einstellungen auf "aus", wird nie gefragt.
+      const bleiben = eingeloggtBleiben !== false;
+      if ((await zweiFaktorRichtlinie()).modus !== "aus") {
+        if (benutzer.zweiFaktorAktiv) {
+          return reply.send({ zweiterFaktor: true, zwischenToken: await zwischenToken(reply, benutzer, "zweiter-faktor", bleiben) });
+        }
+        if (await istPflicht(benutzer.rolle)) {
+          return reply.send({ einrichtungNoetig: true, zwischenToken: await zwischenToken(reply, benutzer, "einrichten", bleiben) });
+        }
+      }
 
-      // Letzten Login aktualisieren
-      await prisma.benutzer.update({
-        where: { id: benutzer.id },
-        data:  { letzterLogin: new Date() },
-      });
+      return reply.send(await anmeldungAbschliessen(request, reply, benutzer, bleiben));
+    }
+  );
 
-      await prisma.auditLog.create({
-        data: {
-          benutzerId: benutzer.id,
-          aktion:     AuditAktion.LOGIN,
-          ip:         request.ip,
-          userAgent:  request.headers["user-agent"] ?? null,
-          details:    { erfolg: true },
-        },
-      });
+  /** Zwischen-Token prüfen: richtiger Zweck, Konto aktiv, Token-Version aktuell */
+  async function zwischenTokenPruefen(token: string, zweck: Zweck) {
+    let p: { sub: string; tv?: number; zweck?: string; bleiben?: boolean };
+    try { p = app.jwt.verify(token); } catch { return null; }
+    if (p.zweck !== zweck) return null;
+    const b = await prisma.benutzer.findUnique({
+      where:  { id: p.sub },
+      select: { id: true, name: true, email: true, rolle: true, aktiv: true, tokenVersion: true },
+    });
+    if (!b?.aktiv || (p.tv ?? 0) !== b.tokenVersion) return null;
+    return { benutzer: b, bleiben: p.bleiben !== false };
+  }
+
+  const ZWISCHEN_SCHEMA = (mitCode: boolean) => ({
+    body: {
+      type: "object",
+      required: mitCode ? ["zwischenToken", "code"] : ["zwischenToken"],
+      properties: {
+        zwischenToken: { type: "string", minLength: 1 },
+        ...(mitCode ? { code: { type: "string", minLength: 1, maxLength: 20 } } : {}),
+      },
+    },
+  });
+
+  // ── POST /login/zweiter-faktor ─────────────────────────────────
+  app.post<{ Body: { zwischenToken: string; code: string } }>(
+    "/login/zweiter-faktor",
+    { config: { rateLimit: { max: 10, timeWindow: "10 minutes" } }, schema: ZWISCHEN_SCHEMA(true) },
+    async (request, reply) => {
+      const z = await zwischenTokenPruefen(request.body.zwischenToken, "zweiter-faktor");
+      if (!z) return reply.status(401).send({ fehler: "Anmeldung abgelaufen – bitte noch einmal mit Passwort anmelden" });
+
+      const ergebnis = await anmeldeCodePruefen(z.benutzer.id, request.body.code);
+      if (!ergebnis.ok) {
+        await prisma.auditLog.create({
+          data: {
+            benutzerId: z.benutzer.id, aktion: AuditAktion.LOGIN, ip: request.ip,
+            userAgent: request.headers["user-agent"] ?? null,
+            details: { erfolg: false, grund: "Code falsch" },
+          },
+        });
+        // 400 statt 401: das Frontend soll im Code-Schritt bleiben
+        return reply.status(400).send({ fehler: "Code falsch oder schon verwendet" });
+      }
 
       return reply.send({
-        token,
-        benutzer: {
-          id:    benutzer.id,
-          name:  benutzer.name,
-          email: benutzer.email,
-          rolle: benutzer.rolle,
-        },
+        ...(await anmeldungAbschliessen(request, reply, z.benutzer, z.bleiben, ergebnis.wiederherstellung ? { wiederherstellungscode: true } : {})),
+        ...(ergebnis.wiederherstellung ? { restCodes: ergebnis.restCodes } : {}),
       });
     }
   );
+
+  // ── POST /login/einrichten/start – Pflicht-Einrichtung beim Login ─
+  app.post<{ Body: { zwischenToken: string } }>(
+    "/login/einrichten/start",
+    { config: { rateLimit: { max: 10, timeWindow: "10 minutes" } }, schema: ZWISCHEN_SCHEMA(false) },
+    async (request, reply) => {
+      const z = await zwischenTokenPruefen(request.body.zwischenToken, "einrichten");
+      if (!z) return reply.status(401).send({ fehler: "Anmeldung abgelaufen – bitte noch einmal mit Passwort anmelden" });
+      return reply.send(await einrichtungStarten(z.benutzer.id, z.benutzer.email));
+    }
+  );
+
+  app.post<{ Body: { zwischenToken: string; code: string } }>(
+    "/login/einrichten/bestaetigen",
+    { config: { rateLimit: { max: 10, timeWindow: "10 minutes" } }, schema: ZWISCHEN_SCHEMA(true) },
+    async (request, reply) => {
+      const z = await zwischenTokenPruefen(request.body.zwischenToken, "einrichten");
+      if (!z) return reply.status(401).send({ fehler: "Anmeldung abgelaufen – bitte noch einmal mit Passwort anmelden" });
+
+      const fertig = await einrichtungAbschliessen(z.benutzer.id, request.body.code);
+      if (!fertig) return reply.status(400).send({ fehler: "Code falsch – bitte den aktuellen Code aus der App eingeben" });
+
+      await prisma.auditLog.create({
+        data: { benutzerId: z.benutzer.id, aktion: AuditAktion.ZWEI_FAKTOR_EINGERICHTET, ip: request.ip, details: { beimLogin: true } },
+      });
+      return reply.send({
+        ...(await anmeldungAbschliessen(request, reply, { ...z.benutzer, tokenVersion: fertig.benutzer.tokenVersion }, z.bleiben)),
+        wiederherstellungscodes: fertig.wiederherstellungscodes,
+      });
+    }
+  );
+
+  /** Letzter Schritt jeder Anmeldung: Token, letzter Login, Audit-Eintrag */
+  async function anmeldungAbschliessen(
+    request: FastifyRequest,
+    reply: FastifyReply,
+    benutzer: { id: string; name: string; email: string; rolle: Role; tokenVersion: number },
+    bleiben: boolean,
+    auditDetails: Record<string, unknown> = {},
+  ) {
+    const token = await anmeldeToken(reply, benutzer, bleiben ? STANDARD_LAUFZEIT() : "1h");
+
+    await prisma.benutzer.update({
+      where: { id: benutzer.id },
+      data:  { letzterLogin: new Date() },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        benutzerId: benutzer.id,
+        aktion:     AuditAktion.LOGIN,
+        ip:         request.ip,
+        userAgent:  request.headers["user-agent"] ?? null,
+        details:    { erfolg: true, ...auditDetails } as Prisma.InputJsonObject,
+      },
+    });
+
+    return {
+      token,
+      benutzer: { id: benutzer.id, name: benutzer.name, email: benutzer.email, rolle: benutzer.rolle },
+    };
+  }
 
   // ── POST /logout ───────────────────────────────────────────────
   // Zählt die Token-Version hoch: alle bisher ausgestellten Tokens dieses Benutzers
@@ -181,12 +283,7 @@ export async function authRouten(app: FastifyInstance): Promise<void> {
         data:   { passwortHash: hashPassword(neuesPasswort), tokenVersion: { increment: 1 } },
         select: { id: true, email: true, rolle: true, tokenVersion: true },
       });
-      const { exp } = await request.jwtVerify<{ exp: number }>();
-      const restSekunden = Math.max(60, exp - Math.floor(Date.now() / 1000));
-      const token = await reply.jwtSign(
-        { sub: aktualisiert.id, email: aktualisiert.email, rolle: aktualisiert.rolle, tv: aktualisiert.tokenVersion },
-        { expiresIn: `${restSekunden}s` }
-      );
+      const token = await anmeldeTokenErneuern(request, reply, aktualisiert);
 
       await prisma.auditLog.create({
         data: {

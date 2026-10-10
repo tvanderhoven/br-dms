@@ -37,6 +37,16 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return data as T;
 }
 
+/** Login-Zwischenschritte: ohne Bearer-Token, Fehler (auch 401) als Meldung statt Abmelden */
+async function anmeldeSchritt<T>(path: string, body: object): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.fehler ?? `HTTP ${res.status}`);
+  return data as T;
+}
+
 // ── Auth ──────────────────────────────────────────────────────────
 export const api = {
   get: <T>(path: string) => request<T>(path),
@@ -60,10 +70,18 @@ export const api = {
 
   auth: {
     login: (email: string, passwort: string, eingeloggtBleiben = true) =>
-      request<{ token: string; benutzer: Benutzer }>("/api/auth/login", {
+      request<LoginAntwort>("/api/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, passwort, eingeloggtBleiben }),
       }),
+    // Zweiter Schritt mit dem Zwischen-Token aus login(). 401 heißt hier „abgelaufen“,
+    // nicht „abgemeldet“ – darum anmeldeSchritt() statt request() (kein Sprung zur Login-Seite)
+    zweiterFaktor: (zwischenToken: string, code: string) =>
+      anmeldeSchritt<{ token: string; restCodes?: number }>("/api/auth/login/zweiter-faktor", { zwischenToken, code }),
+    einrichtenStart: (zwischenToken: string) =>
+      anmeldeSchritt<ZweiFaktorEinrichtung>("/api/auth/login/einrichten/start", { zwischenToken }),
+    einrichtenBestaetigen: (zwischenToken: string, code: string) =>
+      anmeldeSchritt<{ token: string; wiederherstellungscodes: string[] }>("/api/auth/login/einrichten/bestaetigen", { zwischenToken, code }),
     me: () => request<Benutzer>("/api/auth/me"),
     /** Macht serverseitig alle Tokens dieses Benutzers ungültig (auch auf anderen Rechnern) */
     logout: () => request<{ nachricht: string }>("/api/auth/logout", { method: "POST" }),
@@ -76,6 +94,31 @@ export const api = {
       localStorage.setItem("brdms_token", res.token);
       return res;
     },
+  },
+
+  konto: {
+    laden: () => request<MeinKonto>("/api/konto"),
+    einladungEmail: (einladungEmail: string | null) =>
+      request<{ einladungEmail: string | null }>("/api/konto/einladung-email", { method: "PATCH", body: JSON.stringify({ einladungEmail }) }),
+    email: (email: string, passwort: string) =>
+      request<{ email: string }>("/api/konto/email", { method: "PATCH", body: JSON.stringify({ email, passwort }) }),
+    anmeldungen: () => request<Anmeldung[]>("/api/konto/anmeldungen"),
+    /** Beendet alle anderen Sitzungen; diese bekommt einen neuen Token */
+    abmeldenUeberall: async () => {
+      const res = await request<{ token: string }>("/api/konto/abmelden-ueberall", { method: "POST" });
+      localStorage.setItem("brdms_token", res.token);
+    },
+    zweiFaktorStart: (passwort: string) =>
+      request<ZweiFaktorEinrichtung>("/api/konto/zwei-faktor/start", { method: "POST", body: JSON.stringify({ passwort }) }),
+    zweiFaktorBestaetigen: async (code: string) => {
+      const res = await request<{ token: string; wiederherstellungscodes: string[] }>("/api/konto/zwei-faktor/bestaetigen", { method: "POST", body: JSON.stringify({ code }) });
+      localStorage.setItem("brdms_token", res.token);
+      return res.wiederherstellungscodes;
+    },
+    neueCodes: (code: string) =>
+      request<{ wiederherstellungscodes: string[] }>("/api/konto/zwei-faktor/neue-codes", { method: "POST", body: JSON.stringify({ code }) }),
+    zweiFaktorAbschalten: (passwort: string) =>
+      request<{ ok: boolean }>("/api/konto/zwei-faktor", { method: "DELETE", body: JSON.stringify({ passwort }) }),
   },
 
   dokumente: {
@@ -455,6 +498,9 @@ export const api = {
     moduleSpeichern: (data: Partial<Record<ModuleKey, boolean>>) =>
       request<{ ok: boolean }>("/api/einstellungen/module", { method: "PUT", body: JSON.stringify(data) }),
     sicherheit: () => request<{ inaktivitaetMinuten: number }>("/api/einstellungen/sicherheit"),
+    zweiFaktor: () => request<ZweiFaktorRichtlinie>("/api/einstellungen/zwei-faktor"),
+    zweiFaktorSpeichern: (r: ZweiFaktorRichtlinie) =>
+      request<ZweiFaktorRichtlinie>("/api/einstellungen/zwei-faktor", { method: "PUT", body: JSON.stringify(r) }),
     sicherheitSpeichern: (inaktivitaetMinuten: number) =>
       request<{ ok: boolean; inaktivitaetMinuten: number }>("/api/einstellungen/sicherheit", { method: "PUT", body: JSON.stringify({ inaktivitaetMinuten }) }),
     backups: () => request<{
@@ -639,8 +685,30 @@ export interface AufgabeErstellen {
 
 export type Geschlecht = "MAENNLICH" | "WEIBLICH";
 
+export const ROLLE_LABEL: Record<Rolle, string> = {
+  VORSITZ: "Vorsitz", STELLVERTRETER: "Stellv. Vorsitz", MITGLIED: "Mitglied",
+  ERSATZMITGLIED: "Ersatzmitglied", ADMIN: "Admin", JAV: "JAV", SBV: "SBV",
+};
+
+export type LoginAntwort =
+  | { token: string; benutzer: Benutzer; zweiterFaktor?: undefined; einrichtungNoetig?: undefined }
+  | { zweiterFaktor: true; zwischenToken: string; token?: undefined }
+  | { einrichtungNoetig: true; zwischenToken: string; token?: undefined; zweiterFaktor?: undefined };
+
+export interface ZweiFaktorEinrichtung { geheimnis: string; qrCode: string }
+export interface ZweiFaktorRichtlinie { modus: "aus" | "freiwillig"; pflichtRollen: Rolle[] }
+
+export interface MeinKonto {
+  id: string; name: string; email: string; einladungEmail: string | null; rolle: Rolle;
+  letzterLogin: string | null; erstelltAm: string;
+  zweiFaktor: { modus: "aus" | "freiwillig"; aktiv: boolean; pflicht: boolean; restCodes: number };
+}
+
+export interface Anmeldung { zeitpunkt: string; ip: string | null; userAgent: string | null; erfolg: boolean }
+
 export interface Benutzer {
   id: string; name: string; email: string; rolle: Rolle;
+  zweiFaktorAktiv?: boolean;      // nur für Vorsitz/Stellvertretung/Admin geliefert
   aktiv: boolean; letzterLogin?: string; istVertretungFuer?: string;
   geschlecht?: Geschlecht | null; wahlReihenfolge?: number | null;
   ohneInhaltszugriff?: boolean;   // nur aus /api/auth/me: Admin ohne Zugriff auf Inhalte

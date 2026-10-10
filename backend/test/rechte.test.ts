@@ -30,6 +30,9 @@ const UEBERSICHT = new URL("./rechte-uebersicht.json", import.meta.url);
 const OEFFENTLICH = new Set([
   "GET /health",
   "POST /api/auth/login",
+  "POST /api/auth/login/zweiter-faktor",        // mit Zwischen-Token nach richtigem Passwort
+  "POST /api/auth/login/einrichten/start",
+  "POST /api/auth/login/einrichten/bestaetigen",
   "POST /api/auth/passwort-vergessen",
   "POST /api/auth/passwort-reset",
   "POST /api/kummerkasten",                 // anonymer Kummerkasten, rate-limited
@@ -40,11 +43,11 @@ const OEFFENTLICH = new Set([
 // Spiegel der Positivlisten aus middleware/auth.ts – absichtlich hier noch einmal
 // ausgeschrieben, damit eine Änderung dort auch hier bewusst nachgezogen werden muss.
 function javSbvErlaubt(r: Route): boolean {
-  return r.pfad === "/api/auth/me" || r.pfad === "/api/auth/logout" || (r.methode === "GET" && /^\/api\/sitzungen(\/|$)/.test(r.pfad));
+  return r.pfad === "/api/auth/me" || r.pfad === "/api/auth/logout" || /^\/api\/konto(\/|$)/.test(r.pfad) || (r.methode === "GET" && /^\/api\/sitzungen(\/|$)/.test(r.pfad));
 }
 function technikAdminErlaubt(r: Route): boolean {
   if (r.methode === "DELETE" && /^\/api\/gehaltstabelle\/(eintraege|alle)$/.test(r.pfad)) return true;
-  return [/^\/api\/auth\//, /^\/api\/benutzer(\/|$)/, /^\/api\/einstellungen\//, /^\/api\/gesetze\//, /^\/api\/nachrichten(\/|$)/]
+  return [/^\/api\/auth\//, /^\/api\/konto(\/|$)/, /^\/api\/benutzer(\/|$)/, /^\/api\/einstellungen\//, /^\/api\/gesetze\//, /^\/api\/nachrichten(\/|$)/]
     .some(re => re.test(r.pfad));
 }
 
