@@ -1,6 +1,6 @@
 # BR-DMS – Roadmap
 
-Stand: 9. Oktober 2026. Hier steht, was als Nächstes kommt und was dabei schon entschieden ist –
+Stand: 10. Oktober 2026. Hier steht, was als Nächstes kommt und was dabei schon entschieden ist –
 damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 
 ## Erledigt
@@ -26,6 +26,7 @@ damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 | Sicherheit: Rechte, Laufzeit, Header, Überwachung | Vertraulichkeit an allen Dokument-Routen geprüft; gespeichertes XSS über TOP-Text behoben; Mitarbeiterdaten lesen/anlegen nur Mitglieder + aktiv vertretende Ersatzmitglieder, ändern/Import/Standort/löschen nur Vorsitz/Stellvertretung (Gehaltstabellen-Schalter ausgenommen), Wählerliste nur Mitglieder; echte Client-IP im Audit-Log und beim Login-Limit (`PROXY_STATIONEN`); Rate-Limit für Passwort vergessen/zurücksetzen; Node 24, nginx 1.30, Fastify 5 u. a. (`npm audit` Backend 0); Proxy mit CSP, X-Frame-Options, nosniff, HSTS, Referrer-/Permissions-Policy; Update-Skripte mit `npm audit` und frischen Basis-Images; Dependabot und CodeQL auf GitHub | Okt. 2026 |
 | Demo auf dem Server | `demo_modus.sh` (status/demo/neu/echt): echte Daten samt .env nach `sicherung_vor_demo/` sichern (außerhalb der 30-Tage-Rotation), Mailversand und Watch-Folder aus, Demodaten einspielen, später alles zurück; Bestätigung per eingetipptem Wort. `restore.sh` auch ohne Rückfragen (`<datei> --mit-storage --ja`) und transaktional (Fehler → Datenbank unverändert). Handbuch 13.4 mit Anleitung Befehl für Befehl (QNAP/Synology). Kompletter Durchlauf auf einer NAS-gleichen Test-Installation geprüft | Okt. 2026 |
 | Backup-Wochenübersicht | Einstellungen → System zeigt jetzt die letzten 8 Backups einzeln (Zeitpunkt, Größe, Status) statt nur das jüngste; wöchentliche Mail montags 07:00 Uhr nur an Vorsitz mit derselben Liste, warnt wenn das jüngste Backup älter als 2 Tage, unvollständig oder unverschlüsselt ist (`backend/src/lib/backups.ts`, `workers/backup.worker.ts`) | Okt. 2026 |
+| Termin in der Einladungsmail | Jede Einladung per E-Mail bringt die Sitzung als `Termin.ics` mit (Outlook/Thunderbird: ein Klick → Kalender), Beginn wie eingegeben in Europe/Berlin, 2 Stunden, Erinnerung 15 Min. vorher; feste UID je Sitzung, erneute Einladung nach neuer Fixierung aktualisiert den Termin; JAV/SBV ohne vertrauliche TOPs in der Beschreibung (`backend/src/lib/kalender.ts`). Ersatz für das gestrichene Kalender-Abo | Okt. 2026 |
 
 ## Als Nächstes
 
@@ -178,7 +179,7 @@ Personalabteilung aktuelle Listen; der Import gleicht über die PNR ab und korri
 
 - **Kalender-Abo und mobile Ansicht (früher Paket E, gestrichen 10.10.2026):** BR-DMS läuft im Intranet,
   private Geräte (BYOD) sind nicht zugelassen – ein Abo-Link wäre von Handy/Cloud-Outlook aus nicht erreichbar,
-  und für eine eigene Handy-Ansicht gibt es keine Geräte.
+  und für eine eigene Handy-Ansicht gibt es keine Geräte. Stattdessen: Termin als `.ics` in der Einladungsmail (erledigt).
 - **Arbeitsschutzausschuss als eigener Bereich:** wird vom Arbeitgeber/HR geleitet; die Infos kommen
   über das ASA-Mitglied als Bericht in die BR-Sitzung. Abbildung über einen Standard-TOP
   „Bericht aus dem Arbeitsschutzausschuss“ in der Sitzungsvorlage (in der Demo-Vorlage „Ordentliche

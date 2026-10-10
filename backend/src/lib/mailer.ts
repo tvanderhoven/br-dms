@@ -264,6 +264,7 @@ export interface EinladungMail {
   ersatzFuer:      string | null;     // Name des verhinderten Mitglieds
   sitzungUrl:      string;
   anhang:          { dateiname: string; pfad: string } | null;
+  kalender:        { dateiname: string; inhalt: string } | null;   // .ics, siehe lib/kalender.ts
   unterschrift:    string;            // z. B. "Sabine Kröger, Vorsitzende"
   zusatz:          string | null;     // freier Text dieses Versands (z. B. Meeting-Link)
   signatur:        string | null;     // feste Signatur aus den Einstellungen
@@ -300,6 +301,7 @@ export async function sendeEinladung(m: EinladungMail): Promise<void> {
     ...m.tops.map(t => `  ${t.nummer}. ${t.titel}`),
     "",
     ...(m.anhang ? ["Die Tagesordnung liegt als PDF bei."] : []),
+    ...(m.kalender ? [`Mit der Datei „${m.kalender.dateiname}“ übernimmst du den Termin in deinen Kalender.`] : []),
     `In BR-DMS: ${m.sitzungUrl}`,
     "",
     "Solltest du verhindert sein, gib bitte unverzüglich Bescheid, damit ein Ersatzmitglied geladen werden kann.",
@@ -329,11 +331,14 @@ export async function sendeEinladung(m: EinladungMail): Promise<void> {
       ${m.zusatz ? `<p style="background:#f3f4f6;border-radius:6px;padding:8px 12px">${textAlsHtml(m.zusatz)}</p>` : ""}
       <p style="margin-bottom:4px"><strong>Tagesordnung</strong></p>
       <table style="border-collapse:collapse">${topsHtml}</table>
-      <p>${m.anhang ? "Die Tagesordnung liegt als PDF bei. " : ""}<a href="${html(m.sitzungUrl)}">Sitzung in BR-DMS öffnen</a></p>
+      <p>${m.anhang ? "Die Tagesordnung liegt als PDF bei. " : ""}${m.kalender ? `Mit der Datei „${html(m.kalender.dateiname)}“ übernimmst du den Termin in deinen Kalender. ` : ""}<a href="${html(m.sitzungUrl)}">Sitzung in BR-DMS öffnen</a></p>
       <p style="color:#6b7280;font-size:13px">Solltest du verhindert sein, gib bitte unverzüglich Bescheid, damit ein Ersatzmitglied geladen werden kann.</p>
       <p>Viele Grüße<br>${html(m.unterschrift)}</p>
       ${m.signatur ? `<p style="color:#6b7280;font-size:13px;border-top:1px solid #e5e7eb;padding-top:8px">${textAlsHtml(m.signatur)}</p>` : ""}
     </div>`,
-    attachments: m.anhang ? [{ filename: m.anhang.dateiname, path: m.anhang.pfad }] : [],
+    attachments: [
+      ...(m.anhang ? [{ filename: m.anhang.dateiname, path: m.anhang.pfad }] : []),
+      ...(m.kalender ? [{ filename: m.kalender.dateiname, content: m.kalender.inhalt, contentType: "text/calendar; charset=utf-8; method=PUBLISH" }] : []),
+    ],
   });
 }
