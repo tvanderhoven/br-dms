@@ -184,6 +184,9 @@ enum AuditAktion {
   BENUTZER_GELOESCHT
   PASSWORT_GEAENDERT
   EMAIL_GEAENDERT
+  KOSTEN_ERSTELLT
+  KOSTEN_GEAENDERT
+  KOSTEN_GELOESCHT
   ZWEI_FAKTOR_EINGERICHTET
   ZWEI_FAKTOR_DEAKTIVIERT
   ZWEI_FAKTOR_ZURUECKGESETZT
@@ -414,6 +417,7 @@ model Dokument {
   aufgaben          Aufgabe[]
   betriebsvereinbarungen Betriebsvereinbarung[]
   geschaeftsordnungen    Geschaeftsordnung[]
+  kostenposten           Kostenposten[]
   anhoerungsVorgang      AnhoerungsVorgang?
 
   @@index([deleteAt, status])
@@ -890,6 +894,7 @@ model Beschluss {
 
   stimmen         BeschlussStimme[]
   anhoerungsVorgang AnhoerungsVorgang?
+  kostenposten    Kostenposten[]
 
   @@index([topId, reihenfolge])
   @@map("beschluesse")
@@ -1430,6 +1435,8 @@ model Qualifikation {
   name                    String   @unique
   beschreibung            String?
   gueltigkeitsdauerMonate Int?     @map("gueltigkeitsdauer_monate") // z.B. Ersthelfer alle 24 Monate; leer = unbegrenzt gültig
+  // BR-Schulung nach § 37 Abs. 6/7 BetrVG: Termine mit Kosten erscheinen in der Kostenübersicht (§ 40)
+  brSchulung              Boolean  @default(false) @map("br_schulung")
 
   erstelltAm              DateTime @default(now()) @map("erstellt_am")
   aktualisiertAm          DateTime @updatedAt @map("aktualisiert_am")
@@ -1453,6 +1460,7 @@ model Schulungstermin {
   bemerkung       String?
 
   teilnehmer      SchulungsTeilnahme[]
+  kostenposten    Kostenposten?
 
   erstelltVonId   String          @map("erstellt_von_id")
   erstelltVon     Benutzer        @relation("SchulungErstellt", fields: [erstelltVonId], references: [id])
@@ -1529,4 +1537,52 @@ model KummerkastenEintrag {
   erstelltAm      DateTime           @default(now()) @map("erstellt_am")
 
   @@map("kummerkasten_eintraege")
+}
+
+// ================================================================
+//  KOSTEN DES BETRIEBSRATS (§ 40 BetrVG)
+// ================================================================
+
+enum KostenArt {
+  SCHULUNG           // § 37 Abs. 6/7 – aus den Schulungsterminen übernommen
+  SACHVERSTAENDIGER  // § 80 Abs. 3
+  RECHTSANWALT
+  EINIGUNGSSTELLE    // § 76a
+  SACHMITTEL         // § 40 Abs. 2 (Literatur, Büro, Technik)
+  REISEKOSTEN
+  SONSTIGES
+}
+
+enum KostenStatus {
+  BEANTRAGT   // beim Arbeitgeber angemeldet / angefordert
+  ZUGESAGT    // Kostenübernahme zugesagt
+  BEZAHLT
+  ABGELEHNT   // Arbeitgeber verweigert – ggf. Beschlussverfahren
+}
+
+model Kostenposten {
+  id            String       @id @default(uuid())
+  datum         DateTime
+  art           KostenArt
+  bezeichnung   String
+  empfaenger    String?      // Anbieter, Kanzlei, Sachverständige/r
+  betragCent    Int          @map("betrag_cent")
+  status        KostenStatus @default(BEANTRAGT)
+  bemerkung     String?
+
+  beschlussId   String?      @map("beschluss_id")
+  beschluss     Beschluss?   @relation(fields: [beschlussId], references: [id], onDelete: SetNull)
+  dokumentId    String?      @map("dokument_id")   // Rechnung, Kostenzusage …
+  dokument      Dokument?    @relation(fields: [dokumentId], references: [id], onDelete: SetNull)
+
+  // Automatisch aus einem BR-Schulungstermin: Datum, Bezeichnung und Betrag kommen von dort
+  schulungsterminId String?  @unique @map("schulungstermin_id")
+  schulungstermin   Schulungstermin? @relation(fields: [schulungsterminId], references: [id], onDelete: Cascade)
+
+  erstelltVonId String?      @map("erstellt_von_id")
+  erstelltAm    DateTime     @default(now()) @map("erstellt_am")
+  aktualisiertAm DateTime    @updatedAt @map("aktualisiert_am")
+
+  @@index([datum])
+  @@map("kostenposten")
 }

@@ -23,7 +23,7 @@ import {
   Prisma, Role, Geschlecht, Kategorie, FristTyp, SitzungStatus, TopStatus,
   AnwesenheitsStatus, Beschaeftigungsart, Zeitmodell, BVStatus, SchulungsStatus,
   KummerkastenStatus, AufgabenStatus, KanbanStatus, Prioritaet, AufgabeTyp, AuditAktion,
-  WahlArt, WahlVerfahren,
+  WahlArt, WahlVerfahren, KostenArt, KostenStatus,
 } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { STANDARD_AUFBEWAHRUNG_TAGE } from "../lib/kategorien.js";
@@ -36,6 +36,7 @@ import { pdfAutomatischGenerieren } from "../routes/pdf.js";
 import { betriebsversammlungFristAbgleichen } from "../lib/betriebsversammlungFrist.js";
 import { wahlFristenAbgleichen } from "../lib/wahlFristen.js";
 import { sitzungAnlegen } from "../lib/sitzungAnlegen.js";
+import { schulungskostenAbgleichen } from "../lib/kosten.js";
 import { alleGesetzeAktualisieren } from "../services/gesetze.service.js";
 
 const STORAGE     = process.env.STORAGE_PATH ?? "/data/storage";
@@ -1127,7 +1128,9 @@ async function main() {
     ["Sicherheitsbeauftragte/r", null, "Grundausbildung bei der BG Holz und Metall"],
     ["BR-Grundlagen Teil 1", null, "Betriebsverfassungsrecht für neue BR-Mitglieder (§ 37 Abs. 6 BetrVG)"],
   ] as const) {
-    quali[name] = (await prisma.qualifikation.create({ data: { name, gueltigkeitsdauerMonate: monate, beschreibung } })).id;
+    quali[name] = (await prisma.qualifikation.create({
+      data: { name, gueltigkeitsdauerMonate: monate, beschreibung, brSchulung: name.startsWith("BR-") },
+    })).id;
   }
   const aktive = alleMA.filter(m => m.art !== Beschaeftigungsart.STUDENT);
   const termine: [string, Date, SchulungsStatus, number, string, number][] = [
@@ -1152,6 +1155,24 @@ async function main() {
     }
     await prisma.schulungsTeilnahme.createMany({ data: [...teilnehmer].map(id => ({ schulungsterminId: termin.id, mitarbeiterId: id })) });
   }
+
+  // ── Kosten (§ 40): die BR-Schulung kommt aus den Schulungen, der Rest von Hand ──
+  await schulungskostenAbgleichen();
+  const entsendung = await prisma.beschluss.findFirst({ where: { antragstext: { contains: "BR-Grundlagen" }, finalisiert: true } });
+  await prisma.kostenposten.updateMany({
+    where: { art: KostenArt.SCHULUNG },
+    data:  { status: KostenStatus.ZUGESAGT, beschlussId: entsendung?.id ?? null },
+  });
+  await prisma.kostenposten.createMany({
+    data: [
+      { datum: tage(-200), art: KostenArt.SACHMITTEL, bezeichnung: "Fitting, BetrVG-Kommentar (33. Auflage)", empfaenger: "Fachbuchhandlung am Markt", betragCent: 11900, status: KostenStatus.BEZAHLT, erstelltVonId: vorsitz },
+      { datum: tage(-150), art: KostenArt.SACHMITTEL, bezeichnung: "Däubler/Klebe, BetrVG-Kommentar (Zweitwerk)", empfaenger: "Fachbuchhandlung am Markt", betragCent: 16900, status: KostenStatus.ABGELEHNT, bemerkung: "AG: ein Kommentar reicht – wird in der nächsten Sitzung besprochen", erstelltVonId: vorsitz },
+      { datum: tage(-120), art: KostenArt.SACHMITTEL, bezeichnung: "Notebook für die BR-Arbeit", empfaenger: "IT-Abteilung", betragCent: 89900, status: KostenStatus.BEZAHLT, erstelltVonId: vorsitz },
+      { datum: tage(-60), art: KostenArt.RECHTSANWALT, bezeichnung: "Beratung Betriebsänderung Werk 2", empfaenger: "Kanzlei Berger & Partner", betragCent: 142800, status: KostenStatus.ZUGESAGT, erstelltVonId: vorsitz },
+      { datum: tage(-30), art: KostenArt.SACHVERSTAENDIGER, bezeichnung: "Gutachten Schichtplanmodell", empfaenger: "Dr. Weiß Arbeitszeitberatung", betragCent: 480000, status: KostenStatus.BEANTRAGT, bemerkung: "Erforderlichkeit nach § 80 Abs. 3 schriftlich begründet, AG prüft noch", erstelltVonId: vorsitz },
+      { datum: tage(-12), art: KostenArt.REISEKOSTEN, bezeichnung: "Fahrt zur GBR-Sitzung Hamburg", empfaenger: "Thomas Brandt", betragCent: 18640, status: KostenStatus.BEANTRAGT, erstelltVonId: vorsitz },
+    ],
+  });
 
   // ── Wissensarchiv, Ressourcen, Vorlagen ──────────────────────
   const wissen: [string, string, string[], string][] = [

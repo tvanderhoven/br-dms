@@ -571,6 +571,7 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
     ressourcen:             "true",
     themensammlung:         "true",
     gremien:                "true",
+    kosten:                 "true",
   } as const;
 
   type ModuleKey = keyof typeof MODULE_DEFAULTS;

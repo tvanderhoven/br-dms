@@ -1097,6 +1097,38 @@ def build():
     pdf.bild("wahlen-ergebnis-uebernehmen", "Ergebnis übernehmen – Rangfolge, Stimmen und Geschlecht", hoehe_anteil=0.6)
     pdf.body("Das übernommene Ergebnis bleibt an der Wahl stehen – so sind frühere Wahlen jederzeit nachschlagbar.")
 
+    pdf.h2("5.6  Kosten des Betriebsrats (§ 40)")
+    pdf.body(
+        "Der Arbeitgeber trägt die erforderlichen Kosten der Betriebsratsarbeit. Unter „Kosten (§ 40)“ "
+        "(Seitenleiste, Planung) steht dafür eine Jahresübersicht: oben die Summe des Jahres, was noch offen, "
+        "bezahlt oder abgelehnt ist, darunter die Aufteilung nach Art und alle Posten. Ein Klick auf eine Art "
+        "zeigt nur deren Posten."
+    )
+    pdf.bild("kosten", "Kostenübersicht mit Summen, Arten und Posten", hoehe_anteil=0.6)
+    pdf.bullets([
+        "Arten – Schulung (§ 37 Abs. 6/7), Sachverständige (§ 80 Abs. 3), Rechtsanwalt, Einigungsstelle (§ 76a), "
+        "Sachmittel (§ 40 Abs. 2), Reisekosten, Sonstiges",
+        "Status – Beantragt, Zugesagt, Bezahlt oder Abgelehnt. Abgelehnte Posten zählen nicht zur Summe, "
+        "bleiben aber sichtbar – etwa als Grundlage für ein Beschlussverfahren",
+        "Beschluss – Sachverständige, Anwalt und Schulungen brauchen einen BR-Beschluss; der Posten zeigt auf "
+        "den Beschluss aus dem Register",
+        "Rechnung oder Kostenzusage – als Dokument aus der Ablage verknüpft. Fremde vertrauliche Dokumente "
+        "erscheinen für Mitglieder nur als „Vertrauliches Dokument“",
+        "Export – „PDF“ für die Jahresübersicht zum Ausdrucken, „CSV“ zum Öffnen in Excel",
+    ])
+    pdf.bild("kosten-posten", "Posten bearbeiten mit Status, Beschluss und Rechnung", hoehe_anteil=0.6)
+    pdf.h3("BR-Schulungen kommen von selbst")
+    pdf.body(
+        "Schulungstermine werden unter „Schulungen“ gepflegt (Kapitel 7.6). Welche Qualifikationen "
+        "BR-Schulungen sind, legt der Vorsitz einmal über „BR-Schulungen“ fest – Arbeitsschutz-Schulungen der "
+        "Belegschaft wie Ersthelfer gehören nicht dazu. Termine dieser Qualifikationen mit Kosten erscheinen "
+        "dann automatisch. Datum und Betrag kommen aus der Schulung und werden dort geändert; Status, "
+        "Beschluss und Rechnung pflegt man in der Kostenübersicht. Abgesagte Termine fallen heraus."
+    )
+    pdf.hinweis(
+        "Sehen dürfen die Übersicht Mitglieder und aktiv vertretende Ersatzmitglieder; eintragen, ändern und "
+        "löschen Vorsitz und Stellvertretung. Jede Änderung steht im Audit-Log.", "info", "Rechte")
+
     # 6 ─────────────────────────────────────────────────────────────
     pdf.h1("6  Wissen & Recherche")
     pdf.h2("6.1  Wissensarchiv")
@@ -1259,7 +1291,8 @@ def build():
     pdf.body(
         "Schulungstermine werden mit Datum, Ort, Anbieter, Kosten, Status und Teilnehmenden erfasst. "
         "Daraus berechnet BR-DMS laufend die Qualifikationsmatrix – wer welche Qualifikation hat und wann "
-        "sie abläuft (z. B. Ersthelfer alle 24 Monate)."
+        "sie abläuft (z. B. Ersthelfer alle 24 Monate). Kosten von BR-Schulungen erscheinen zusätzlich in der "
+        "Kostenübersicht (Kapitel 5.6)."
     )
     pdf.bild("schulungen", "Schulungstermine mit Status und Kosten", hoehe_anteil=0.5)
 
@@ -1397,6 +1430,7 @@ def build():
             ["Wissensarchiv", "Wissenseinträge"],
             ["Ressourcen", "Linksammlung"],
             ["Themensammlung", "Export öffentlicher TOPs"],
+            ["Kosten (§ 40)", "Jahresübersicht der BR-Kosten mit Export"],
         ],
         (50, 120),
     )
@@ -1546,6 +1580,8 @@ def build():
             ["Kummerkasten lesen und bearbeiten", j, j, j, j, n, n, j],
             ["Betriebsvereinbarungen anlegen", j, j, n, n, n, n, j],
             ["Geschäftsordnung pflegen", j, j, n, n, n, n, j],
+            ["Kostenübersicht (§ 40) einsehen", j, j, j, v, n, n, j],
+            ["Kosten eintragen und ändern", j, j, n, n, n, n, j],
             ["Gremien, Mitglieder und Fremdprotokolle verwalten", j, j, n, n, n, n, j],
             ["Benutzer verwalten, Design ändern", j, j, n, n, n, n, j],
             ["Audit-Log einsehen", j, j, n, n, n, n, j],

@@ -11,6 +11,7 @@ import jwt from "@fastify/jwt";
 import rateLimit from "@fastify/rate-limit";
 import { authRouten } from "./routes/auth.js";
 import { kontoRouten } from "./routes/konto.js";
+import { kostenRouten } from "./routes/kosten.js";
 import { dokumentRouten } from "./routes/dokumente.js";
 import { benutzerRouten } from "./routes/benutzer.js";
 import { sitzungRouten } from "./routes/sitzungen.js";
@@ -153,6 +154,7 @@ export async function baueApp(optionen: AppOptionen = {}): Promise<FastifyInstan
   await app.register(gremienRouten,            { prefix: "/api/gremien" });
   await app.register(fremdprotokolleRouten,    { prefix: "/api/fremdprotokolle" });
   await app.register(geschaeftsordnungRouten,  { prefix: "/api/geschaeftsordnung" });
+  await app.register(kostenRouten,             { prefix: "/api/kosten" });
   await app.register(anhoerungRouten,          { prefix: "/api/dokumente" });
 
   return app;
