@@ -13,6 +13,7 @@ import { randomBytes } from "node:crypto";
 import prisma from "../lib/prisma.js";
 import { istEmailAdresse } from "../lib/emailAdresse.js";
 import { hashPassword } from "../lib/password.js";
+import { ZWEI_FAKTOR_LEEREN } from "../lib/zweiFaktor.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { istTechnikAdmin } from "../lib/adminZugriff.js";
@@ -55,7 +56,10 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
   app.get(
     "/",
     { preHandler: [authenticate] },
-    async (_request: FastifyRequest, reply: FastifyReply) => {
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      // Wer die 2FA eingerichtet hat, sieht nur die Leitung – für alle anderen wäre es
+      // eine Liste der leichter angreifbaren Konten
+      const leitung = ([Role.VORSITZ, Role.STELLVERTRETER, Role.ADMIN] as Role[]).includes(request.benutzer.rolle);
       const benutzer = await prisma.benutzer.findMany({
         select: {
           id:               true,
@@ -69,6 +73,7 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
           istVertretungFuer: true,
           geschlecht:       true,
           wahlReihenfolge:  true,
+          zweiFaktorAktiv:  leitung,
         },
         orderBy: [{ rolle: "asc" }, { name: "asc" }],
       });
@@ -288,6 +293,36 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
       });
 
       return reply.send({ nachricht: "Passwort erfolgreich zurückgesetzt" });
+    }
+  );
+
+  // ── POST /:id/zwei-faktor-zuruecksetzen ────────────────────────
+  // Handy verloren und keine Wiederherstellungscodes mehr: Vorsitz entfernt die 2FA,
+  // die Person meldet sich mit Passwort an (und richtet sie bei Pflicht neu ein).
+  app.post<{ Params: { id: string } }>(
+    "/:id/zwei-faktor-zuruecksetzen",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (request, reply) => {
+      // Wie beim Passwort: ein Admin ohne Inhaltszugriff soll sich so keinen Zugang verschaffen
+      if (await istTechnikAdmin(request.benutzer.rolle)) {
+        return reply.status(403).send({ fehler: "Die Zwei-Faktor-Anmeldung setzt in dieser Installation der Vorsitz zurück" });
+      }
+      const benutzer = await prisma.benutzer.findUnique({ where: { id: request.params.id }, select: { id: true, email: true } });
+      if (!benutzer) return reply.status(404).send({ fehler: "Benutzer nicht gefunden" });
+
+      await prisma.benutzer.update({
+        where: { id: benutzer.id },
+        data:  { ...ZWEI_FAKTOR_LEEREN, tokenVersion: { increment: 1 } }, // bestehende Sitzungen enden
+      });
+      await prisma.auditLog.create({
+        data: {
+          benutzerId: request.benutzer.sub,
+          aktion:     AuditAktion.ZWEI_FAKTOR_ZURUECKGESETZT,
+          ip:         request.ip,
+          details:    { betroffener: benutzer.email },
+        },
+      });
+      return reply.send({ ok: true });
     }
   );
 }

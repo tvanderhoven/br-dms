@@ -8,6 +8,7 @@ import { after, before, describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { Kategorie, Role } from "@prisma/client";
 import { hashPassword } from "../src/lib/password.js";
+import { aktuellerSchritt, codeFuer } from "../src/lib/zweiFaktor.js";
 import { anfrage, type Konto, pfadFuellen, prisma, starteTestumgebung, type TestUmgebung } from "./hilfe.js";
 
 let env: TestUmgebung;
@@ -325,5 +326,172 @@ describe("Token-Widerruf", () => {
     });
     assert.equal(res.statusCode, 200, res.body);
     assert.equal((await mitToken(token, "GET", "/api/auth/me")).statusCode, 401);
+  });
+});
+
+describe("Zwei-Faktor-Anmeldung und Mein Konto", () => {
+  // Eigene Konten wie beim Token-Widerruf; jede Anmeldung von einer eigenen IP,
+  // damit das Login-Limit (10 je 10 Minuten) die Tests nicht ausbremst
+  let nr = 0;
+  const PW = "Testpasswort-2FA";
+  async function konto(rolle: Role = Role.MITGLIED) {
+    const email = `zwei${++nr}@test.lokal`;
+    const b = await prisma.benutzer.create({ data: { email, name: `Zwei ${nr}`, passwortHash: hashPassword(PW), rolle } });
+    return { id: b.id, email, token: env.app.jwt.sign({ sub: b.id, email, rolle }) };
+  }
+  const mit = (token: string | null, method: string, url: string, payload?: object) =>
+    env.app.inject({
+      method: method as "GET", url, remoteAddress: `10.9.${Math.floor(nr / 250)}.${(nr * 7 + url.length) % 250}`,
+      headers: token ? { authorization: `Bearer ${token}` } : {}, ...(payload ? { payload } : {}),
+    });
+  const login = (email: string) => mit(null, "POST", "/api/auth/login", { email, passwort: PW });
+  const richtlinie = (modus: "aus" | "freiwillig", pflichtRollen: Role[] = []) =>
+    anfrage(env, "ADMIN", "PUT", "/api/einstellungen/zwei-faktor", { modus, pflichtRollen });
+  const geheimnisAus = (res: { json(): { geheimnis: string } }) => res.json().geheimnis.replace(/\s/g, "");
+
+  /** Richtet die 2FA über „Mein Konto“ ein und gibt Geheimnis, Codes und neuen Token zurück */
+  async function einrichten(token: string) {
+    const start = await mit(token, "POST", "/api/konto/zwei-faktor/start", { passwort: PW });
+    assert.equal(start.statusCode, 200, start.body);
+    assert.match(start.json().qrCode, /^data:image\/png;base64,/);
+    const geheimnis = geheimnisAus(start);
+    const fertig = await mit(token, "POST", "/api/konto/zwei-faktor/bestaetigen", { code: codeFuer(geheimnis) });
+    assert.equal(fertig.statusCode, 200, fertig.body);
+    return { geheimnis, codes: fertig.json().wiederherstellungscodes as string[], token: fertig.json().token as string };
+  }
+
+  after(() => richtlinie("aus"));
+
+  test("Standard ist aus: Einrichten wird abgelehnt", async () => {
+    const k = await konto();
+    assert.equal((await anfrage(env, "MITGLIED", "GET", "/api/einstellungen/zwei-faktor")).json().modus, "aus");
+    assert.equal((await mit(k.token, "POST", "/api/konto/zwei-faktor/start", { passwort: PW })).statusCode, 403);
+  });
+
+  test("nur der Admin stellt die Richtlinie ein", async () => {
+    for (const k of ["VORSITZ", "MITGLIED"] as const) {
+      assert.equal((await anfrage(env, k, "PUT", "/api/einstellungen/zwei-faktor", { modus: "freiwillig", pflichtRollen: [] })).statusCode, 403, k);
+    }
+    assert.equal((await richtlinie("freiwillig")).statusCode, 200);
+  });
+
+  test("Einrichten, dann Anmeldung nur mit Code; Zwischen-Token öffnet keine API", async () => {
+    await richtlinie("freiwillig");
+    const k = await konto();
+    const { geheimnis, codes, token } = await einrichten(k.token);
+    assert.equal(codes.length, 10);
+    assert.equal((await mit(k.token, "GET", "/api/auth/me")).statusCode, 401, "alte Sitzung endet beim Einrichten");
+    assert.equal((await mit(token, "GET", "/api/auth/me")).statusCode, 200);
+
+    const schritt1 = await login(k.email);
+    assert.equal(schritt1.statusCode, 200, schritt1.body);
+    assert.equal(schritt1.json().token, undefined, "ohne Code kein Token");
+    const zwischen = schritt1.json().zwischenToken as string;
+    assert.equal((await mit(zwischen, "GET", "/api/auth/me")).statusCode, 401);
+    assert.equal((await mit(zwischen, "GET", "/api/konto")).statusCode, 401);
+
+    assert.equal((await mit(null, "POST", "/api/auth/login/zweiter-faktor", { zwischenToken: zwischen, code: "000000" })).statusCode, 400);
+    // Beim Einrichten wurde der aktuelle Schritt verbraucht – die App zeigt 30 s später den nächsten
+    const code = codeFuer(geheimnis, aktuellerSchritt() + 1);
+    const ok = await mit(null, "POST", "/api/auth/login/zweiter-faktor", { zwischenToken: zwischen, code });
+    assert.equal(ok.statusCode, 200, ok.body);
+    assert.equal((await mit(ok.json().token, "GET", "/api/auth/me")).statusCode, 200);
+
+    const nochmal = await mit(null, "POST", "/api/auth/login/zweiter-faktor", { zwischenToken: zwischen, code });
+    assert.equal(nochmal.statusCode, 400, "derselbe Code geht nur einmal");
+  });
+
+  test("Wiederherstellungscode geht genau einmal", async () => {
+    await richtlinie("freiwillig");
+    const k = await konto();
+    const { codes } = await einrichten(k.token);
+    const z1 = (await login(k.email)).json().zwischenToken;
+    const ok = await mit(null, "POST", "/api/auth/login/zweiter-faktor", { zwischenToken: z1, code: codes[0].toUpperCase() });
+    assert.equal(ok.statusCode, 200, ok.body);
+    assert.equal(ok.json().restCodes, 9);
+    const z2 = (await login(k.email)).json().zwischenToken;
+    assert.equal((await mit(null, "POST", "/api/auth/login/zweiter-faktor", { zwischenToken: z2, code: codes[0] })).statusCode, 400);
+  });
+
+  test("ausgeschaltet: wer sie eingerichtet hat, meldet sich wieder nur mit Passwort an", async () => {
+    await richtlinie("freiwillig");
+    const k = await konto();
+    await einrichten(k.token);
+    await richtlinie("aus");
+    const res = await login(k.email);
+    assert.equal(res.statusCode, 200);
+    assert.ok(res.json().token, res.body);
+  });
+
+  test("Pflicht für die Rolle: Einrichten beim Login, Abschalten gesperrt", async () => {
+    await richtlinie("freiwillig", [Role.STELLVERTRETER]);
+    const k = await konto(Role.STELLVERTRETER);
+    const schritt1 = await login(k.email);
+    assert.equal(schritt1.json().einrichtungNoetig, true, schritt1.body);
+    const zwischen = schritt1.json().zwischenToken as string;
+
+    // Der Einrichtungs-Token taugt nicht für den Code-Schritt
+    assert.equal((await mit(null, "POST", "/api/auth/login/zweiter-faktor", { zwischenToken: zwischen, code: "123456" })).statusCode, 401);
+
+    const start = await mit(null, "POST", "/api/auth/login/einrichten/start", { zwischenToken: zwischen });
+    assert.equal(start.statusCode, 200, start.body);
+    const fertig = await mit(null, "POST", "/api/auth/login/einrichten/bestaetigen", { zwischenToken: zwischen, code: codeFuer(geheimnisAus(start)) });
+    assert.equal(fertig.statusCode, 200, fertig.body);
+    assert.equal(fertig.json().wiederherstellungscodes.length, 10);
+    const token = fertig.json().token as string;
+    assert.equal((await mit(token, "GET", "/api/auth/me")).statusCode, 200);
+    assert.equal((await mit(token, "DELETE", "/api/konto/zwei-faktor", { passwort: PW })).statusCode, 403);
+    // Einrichtungs-Token ist danach verbraucht (Token-Version hochgezählt)
+    assert.equal((await mit(null, "POST", "/api/auth/login/einrichten/start", { zwischenToken: zwischen })).statusCode, 401);
+  });
+
+  test("freiwillig: Abschalten nur mit Passwort", async () => {
+    await richtlinie("freiwillig");
+    const k = await konto();
+    const { token } = await einrichten(k.token);
+    assert.equal((await mit(token, "DELETE", "/api/konto/zwei-faktor", { passwort: "falsch" })).statusCode, 400);
+    assert.equal((await mit(token, "DELETE", "/api/konto/zwei-faktor", { passwort: PW })).statusCode, 200);
+    assert.ok((await login(k.email)).json().token);
+  });
+
+  test("Vorsitz setzt die 2FA zurück und beendet die Sitzungen; Mitglieder sehen den Status nicht", async () => {
+    await richtlinie("freiwillig");
+    const k = await konto();
+    const { token } = await einrichten(k.token);
+
+    const liste = await anfrage(env, "MITGLIED", "GET", "/api/benutzer");
+    assert.equal(liste.json().find((b: { id: string }) => b.id === k.id).zweiFaktorAktiv, undefined);
+    const leitung = await anfrage(env, "VORSITZ", "GET", "/api/benutzer");
+    assert.equal(leitung.json().find((b: { id: string }) => b.id === k.id).zweiFaktorAktiv, true);
+
+    assert.equal((await anfrage(env, "VORSITZ", "POST", `/api/benutzer/${k.id}/zwei-faktor-zuruecksetzen`)).statusCode, 200);
+    assert.equal((await mit(token, "GET", "/api/auth/me")).statusCode, 401);
+    assert.ok((await login(k.email)).json().token, "danach wieder nur mit Passwort");
+  });
+
+  test("Anmelde-E-Mail ändern nur mit Passwort und nur, wenn der Name vor dem @ frei ist", async () => {
+    const k = await konto();
+    assert.equal((await mit(k.token, "PATCH", "/api/konto/email", { email: "neu-zwei@test.lokal", passwort: "falsch" })).statusCode, 400);
+    assert.equal((await mit(k.token, "PATCH", "/api/konto/email", { email: "mitglied@anders.lokal", passwort: PW })).statusCode, 409);
+    const ok = await mit(k.token, "PATCH", "/api/konto/email", { email: "Neu-Zwei@Test.lokal", passwort: PW });
+    assert.equal(ok.statusCode, 200, ok.body);
+    assert.equal((await prisma.benutzer.findUnique({ where: { id: k.id } }))!.email, "neu-zwei@test.lokal");
+    assert.equal(await prisma.auditLog.count({ where: { aktion: "EMAIL_GEAENDERT", benutzerId: k.id } }), 1);
+  });
+
+  test("JAV sieht und ändert das eigene Konto", async () => {
+    const k = await konto(Role.JAV);
+    const res = await mit(k.token, "GET", "/api/konto");
+    assert.equal(res.statusCode, 200, res.body);
+    assert.equal(res.json().email, k.email);
+    assert.equal((await mit(k.token, "PATCH", "/api/konto/einladung-email", { einladungEmail: "jav-zwei@test.lokal" })).statusCode, 200);
+  });
+
+  test("Überall abmelden: alter Token ungültig, neuer gilt", async () => {
+    const k = await konto();
+    const res = await mit(k.token, "POST", "/api/konto/abmelden-ueberall");
+    assert.equal(res.statusCode, 200);
+    assert.equal((await mit(k.token, "GET", "/api/auth/me")).statusCode, 401);
+    assert.equal((await mit(res.json().token, "GET", "/api/auth/me")).statusCode, 200);
   });
 });

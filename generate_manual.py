@@ -486,10 +486,30 @@ def build():
     pdf.bild("login", "Anmeldeseite", ausschnitt="mitte", vertikal=(0.27, 0.68))
     pdf.hinweis(
         "Wer sein Passwort vergessen hat, kann über „Passwort vergessen?“ einen Link per E-Mail "
-        "anfordern. Alternativ setzen Vorsitz oder Admin das Passwort in der Benutzerverwaltung zurück. "
-        "Das eigene Passwort ändern Sie jederzeit per Klick auf Ihren Namen oben in der Seitenleiste.",
+        "anfordern. Alternativ setzen Vorsitz oder Admin das Passwort in der Benutzerverwaltung zurück.",
         "tipp", "Passwort vergessen?")
-    pdf.bild("passwort-aendern", "Eigenes Passwort ändern (Klick auf den Namen)", ausschnitt="mitte", vertikal=(0.28, 0.72), waagerecht=(0.35, 0.65))
+    pdf.body(
+        "Ist die Zwei-Faktor-Anmeldung eingeschaltet (Kapitel 9.7) und für Ihr Konto eingerichtet, fragt "
+        "BR-DMS nach dem Passwort zusätzlich nach dem 6-stelligen Code aus Ihrer Authenticator-App. Ohne "
+        "Handy hilft einer der Wiederherstellungscodes („Handy nicht zur Hand?“). Ist sie für Ihre Rolle "
+        "Pflicht und noch nicht eingerichtet, führt die Anmeldung einmalig durch die Einrichtung."
+    )
+
+    pdf.h3("Mein Konto")
+    pdf.body(
+        "Ein Klick auf Ihren Namen oben in der Seitenleiste öffnet „Mein Konto“ – alles zum eigenen Zugang "
+        "an einer Stelle, für jede Rolle:"
+    )
+    pdf.bullets([
+        "Profil – Name, Rolle, Anmelde-E-Mail und die Adresse für Einladungen. Die Einladungsadresse ändern "
+        "Sie direkt; die Anmelde-E-Mail nur mit Ihrem Passwort, und die alte Adresse bekommt einen Hinweis",
+        "Passwort ändern – alle anderen Sitzungen enden dabei",
+        "Überall sonst abmelden – etwa wenn Sie an einem fremden Rechner angemeldet geblieben sind",
+        "Zwei-Faktor-Anmeldung – einrichten, neue Wiederherstellungscodes erzeugen oder abschalten "
+        "(nicht, wenn sie für Ihre Rolle Pflicht ist)",
+        "Letzte Anmeldungen – Zeitpunkt, Browser und IP-Adresse; eine fremde Anmeldung fällt so auf",
+    ])
+    pdf.bild("mein-konto", "Mein Konto (Klick auf den eigenen Namen)", hoehe_anteil=0.6)
 
     pdf.h2("1.3  Die Oberfläche")
     pdf.body(
@@ -1323,7 +1343,8 @@ def build():
         "Anlegen – Name, E-Mail, Rolle; das Passwort wird beim ersten Login geändert",
         "Deaktivieren – Zugang sperren, ohne Historie zu verlieren",
         "Passwort zurücksetzen – Durch Vorsitz oder Admin, alternativ per E-Mail-Link durch die Person selbst",
-        "Adresse für Einladungen – Zweitadresse unter der E-Mail (z. B. br-name@…); leer = Hauptadresse. Angemeldet wird immer mit der Hauptadresse",
+        "Adresse für Einladungen – Zweitadresse unter der E-Mail (z. B. br-name@…); leer = Hauptadresse. Angemeldet wird immer mit der Hauptadresse. Beide Adressen kann jede Person auch selbst unter „Mein Konto“ ändern",
+        "Zwei-Faktor-Anmeldung – Ein Schild neben „Aktiv“ zeigt, wer sie eingerichtet hat (nur für Vorsitz, Stellvertretung und Admin sichtbar). „2FA reset“ entfernt sie, z. B. bei verlorenem Handy; die Person wird abgemeldet und meldet sich danach mit dem Passwort an",
     ])
 
     pdf.h2("9.2  Zugriff des Admins auf Inhalte")
@@ -1438,7 +1459,16 @@ def build():
         "Watch-Folder – Ob die Ordnerüberwachung läuft, der Basispfad, welcher Unterordner zu welcher Kategorie gehört (Kapitel 12.6) und die letzten Importe mit Fehlermeldung",
         "Backup & Restore – Anzahl, Alter, Größe und Vollständigkeit der Backups; dazu die Hinweise zum Schlüssel und zur Wiederherstellung (Kapitel 13.2)",
         "Sicherheit – Automatisches Abmelden nach 0 bis 480 Minuten Inaktivität (0 = aus)",
+        "Zwei-Faktor-Anmeldung (nur Admin) – „Aus“ (Standard) oder „An“; bei „An“ zusätzlich die Rollen, für die sie Pflicht ist",
     ])
+    pdf.bild("einstellungen-zwei-faktor", "Zwei-Faktor-Anmeldung: aus, an und Pflicht je Rolle", hoehe_anteil=0.5)
+    pdf.body(
+        "„Aus“ heißt wirklich aus: Niemand wird nach einem Code gefragt, auch wer ihn schon eingerichtet hat – "
+        "eine Installation ohne Diensthandys merkt von der Funktion nichts. Bei „An“ kann jede Person sie "
+        "unter „Mein Konto“ einrichten; für die angehakten Rollen ist sie Pflicht und wird bei der nächsten "
+        "Anmeldung verlangt. Unterstützt wird jede Authenticator-App nach dem TOTP-Standard (z. B. Microsoft "
+        "oder Google Authenticator, FreeOTP); BR-DMS braucht dafür keine Verbindung ins Internet."
+    )
     pdf.h3("Gefahrenzone – Eingruppierung")
     pdf.body(
         "Nur für den Admin. „Nur Gehaltsstufen-Einträge löschen“ entfernt alle Gehaltsstufen, Mitarbeiter und "
@@ -1601,6 +1631,9 @@ def build():
              "nach Inaktivität einstellbar (Kapitel 9.7)"],
             ["Abmelden", "Abmelden und jeder Passwortwechsel (selbst, per Link oder durch den Vorsitz) machen "
              "alle ausgestellten Tokens sofort ungültig – auch auf anderen Rechnern"],
+            ["Zwei-Faktor", "Optional Einmalcode per Authenticator-App (TOTP), Pflicht je Rolle einstellbar "
+             "(Kapitel 9.7); Schlüssel verschlüsselt gespeichert, jeder Code gilt nur einmal, 10 "
+             "Wiederherstellungscodes nur als Hash"],
             ["Herkunft", "Die Schnittstelle nimmt Anfragen nur von der eigenen Adresse (APP_URL) an"],
             ["Rollen", "Jede Schnittstelle prüft die Rolle auf dem Server, nicht nur die Oberfläche (Kapitel 10)"],
             ["Vertrauliches", "Eine zentrale Regel: Vorsitz, Stellvertretung und Admin sehen alles Vertrauliche, "
@@ -1671,9 +1704,9 @@ def build():
         "Updates – Neue Stände zuerst in der Demo prüfen, dann einspielen (Kapitel 13.1)",
     ])
     pdf.hinweis(
-        "Anmeldung mit zweitem Faktor (Einmalcode per Authenticator-App) – BR-DMS läuft nur im "
-        "Intranet, ob er dort nötig ist, ist noch offen.",
-        "info", "In Prüfung")
+        "Zwei-Faktor-Anmeldung mindestens für Vorsitz, Stellvertretung und Admin – diese Konten sehen alles "
+        "Vertrauliche. Voraussetzung ist ein Diensthandy mit Authenticator-App (Kapitel 9.7).",
+        "tipp", "Empfehlung")
 
     pdf.h2("11.3  Den Server (NAS) absichern")
     pdf.body(

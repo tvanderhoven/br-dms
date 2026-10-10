@@ -68,6 +68,16 @@ export async function sendePasswortReset(email: string, name: string, token: str
   });
 }
 
+/** Hinweis an die ALTE Adresse, wenn jemand die Anmelde-E-Mail ändert */
+export async function sendeEmailGeaendertHinweis(alteEmail: string, name: string, neueEmail: string): Promise<void> {
+  await transporter.sendMail({
+    from:    await absender(),
+    to:      alteEmail,
+    subject: "BR-DMS – Anmelde-E-Mail geändert",
+    text: `Hallo ${name},\n\ndie Anmelde-E-Mail deines BR-DMS-Kontos wurde gerade auf ${neueEmail} geändert.\n\nWarst du das nicht, melde dich bitte sofort beim Vorsitz – jemand könnte dein Passwort kennen.\n\nDein BR-DMS`,
+  });
+}
+
 export interface AblaufEintrag {
   typ:             "ZEITMODELL" | "UEBERSTUNDEN";
   mitarbeiterName: string;

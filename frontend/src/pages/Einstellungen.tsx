@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Settings, Save, Loader2, RotateCcw, Users, Clock, FileText, Upload, Trash2, Palette, Download, FolderOpen, CheckCircle2, XCircle, Puzzle, Scale, RefreshCw, AlertTriangle } from "lucide-react";
-import { api, WatchfolderLogEintrag, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen, Rolle, ModuleKey, MODULE_KEYS, MODULE_LABEL, GesetzStatus, Geschlecht } from "../lib/api";
+import { api, ROLLE_LABEL, ZweiFaktorRichtlinie, WatchfolderLogEintrag, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen, Rolle, ModuleKey, MODULE_KEYS, MODULE_LABEL, GesetzStatus, Geschlecht } from "../lib/api";
 import BenutzerVerwaltung from "./Benutzer";
 
 type Tab = "fristen" | "benutzer" | "protokoll" | "design" | "system" | "module" | "gesetze" | "amtsuebergabe";
@@ -791,6 +791,95 @@ function SicherheitEinstellung() {
   );
 }
 
+// ── Zwei-Faktor-Anmeldung (nur Admin) ──
+// Standard "aus": dann fragt BR-DMS nie nach einem Code, auch nicht bei Konten, die sie eingerichtet haben.
+const ROLLEN_2FA: Rolle[] = ["VORSITZ", "STELLVERTRETER", "ADMIN", "MITGLIED", "ERSATZMITGLIED", "JAV", "SBV"];
+
+function ZweiFaktorEinstellung() {
+  const [r, setR]             = useState<ZweiFaktorRichtlinie | null>(null);
+  const [speichern, setSpeichern] = useState(false);
+  const [gespeichert, setGespeichert] = useState(false);
+  const [fehler, setFehler]   = useState("");
+
+  useEffect(() => { api.einstellungen.zweiFaktor().then(setR).catch(e => setFehler(e.message)); }, []);
+
+  async function speichernKlick() {
+    if (!r) return;
+    setFehler("");
+    setSpeichern(true);
+    try {
+      setR(await api.einstellungen.zweiFaktorSpeichern(r));
+      setGespeichert(true);
+      setTimeout(() => setGespeichert(false), 3000);
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Speichern fehlgeschlagen");
+    } finally {
+      setSpeichern(false);
+    }
+  }
+
+  function rolleUmschalten(rolle: Rolle) {
+    if (!r) return;
+    setR({ ...r, pflichtRollen: r.pflichtRollen.includes(rolle) ? r.pflichtRollen.filter(x => x !== rolle) : [...r.pflichtRollen, rolle] });
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+      <h2 className="font-semibold text-gray-800 mb-1">Zwei-Faktor-Anmeldung</h2>
+      <p className="text-sm text-gray-500 mb-4">
+        Zusätzlich zum Passwort ein 6-stelliger Code aus einer Authenticator-App. Eingerichtet wird sie
+        von jeder Person selbst unter „Mein Konto“ (Klick auf den eigenen Namen).
+      </p>
+      {!r ? (
+        fehler ? <p className="text-red-700 text-sm">{fehler}</p> : <div className="flex items-center text-gray-400 text-sm"><Loader2 size={16} className="animate-spin mr-2" /> Laden…</div>
+      ) : (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            {([
+              ["aus", "Aus", "Niemand wird nach einem Code gefragt – auch wer ihn schon eingerichtet hat."],
+              ["freiwillig", "An", "Jede Person kann sie einrichten; für die unten gewählten Rollen ist sie Pflicht."],
+            ] as const).map(([wert, titel, text]) => (
+              <label key={wert} className="flex items-start gap-2 cursor-pointer">
+                <input type="radio" name="zf-modus" checked={r.modus === wert} onChange={() => setR({ ...r, modus: wert })} className="mt-1" />
+                <span className="text-sm"><span className="font-medium text-gray-800">{titel}</span> – <span className="text-gray-600">{text}</span></span>
+              </label>
+            ))}
+          </div>
+          {r.modus === "freiwillig" && (
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">Pflicht für</p>
+              <div className="flex flex-wrap gap-x-5 gap-y-2">
+                {ROLLEN_2FA.map(rolle => (
+                  <label key={rolle} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input type="checkbox" checked={r.pflichtRollen.includes(rolle)} onChange={() => rolleUmschalten(rolle)} className="rounded border-gray-300" />
+                    {ROLLE_LABEL[rolle]}
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Wer betroffen ist und sie noch nicht eingerichtet hat, wird bei der nächsten Anmeldung durch die Einrichtung geführt.
+                Ein Diensthandy mit Authenticator-App muss dann vorhanden sein.
+              </p>
+            </div>
+          )}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={speichernKlick}
+              disabled={speichern}
+              className="flex items-center gap-1.5 bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+            >
+              {speichern && <Loader2 size={14} className="animate-spin" />}
+              Speichern
+            </button>
+            {gespeichert && <span className="text-green-700 text-sm">Gespeichert.</span>}
+          </div>
+          {fehler && <p className="text-red-700 text-sm">{fehler}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Wahlquote: Minderheitengeschlecht + Mindestsitze (§15 Abs. 2 BetrVG) ──
 // Basis für den automatischen Ersatzmitglieder-Nachrück-Vorschlag in Sitzungen.
 // ── Inhaltszugriff des Admins (nur Vorsitz/Stellvertretung ändern) ──
@@ -1260,6 +1349,7 @@ function SystemTab() {
       {meineRolle === "VORSITZ" && <BackupStatusTestBox />}
 
       {meineRolle === "ADMIN" && <SicherheitEinstellung />}
+      {meineRolle === "ADMIN" && <ZweiFaktorEinstellung />}
       {meineRolle === "ADMIN" && <GehaltstabelleGefahrenzone />}
     </div>
   );
