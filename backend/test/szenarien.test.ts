@@ -495,3 +495,89 @@ describe("Zwei-Faktor-Anmeldung und Mein Konto", () => {
     assert.equal((await mit(res.json().token, "GET", "/api/auth/me")).statusCode, 200);
   });
 });
+
+describe("Kostenübersicht (§ 40)", () => {
+  const JAHR = 2026;
+  const posten = async (konto: Konto = "VORSITZ") => (await anfrage(env, konto, "GET", `/api/kosten?jahr=${JAHR}`)).json();
+
+  test("lesen Mitglieder und aktive Vertretung, schreiben nur Vorsitz/Stellvertretung", async () => {
+    for (const k of ["MITGLIED", "ERSATZ_VERTRETUNG", "VORSITZ", "STELLVERTRETER"] as const) {
+      assert.equal(await status(k, "GET", `/api/kosten?jahr=${JAHR}`), 200, k);
+    }
+    assert.equal(await status("ERSATZMITGLIED", "GET", "/api/kosten"), 403);
+    const neu = { datum: `${JAHR}-03-01`, art: "SACHMITTEL", bezeichnung: "Kommentar BetrVG", betragCent: 12900 };
+    assert.equal(await status("MITGLIED", "POST", "/api/kosten", neu), 403);
+    assert.equal(await status("STELLVERTRETER", "POST", "/api/kosten", neu), 201);
+  });
+
+  test("abgelehnte Posten zählen nicht zur Summe", async () => {
+    const vorher = (await posten()).summen.gesamt as number;
+    const res = await anfrage(env, "VORSITZ", "POST", "/api/kosten",
+      { datum: `${JAHR}-05-02`, art: "SACHVERSTAENDIGER", bezeichnung: "Gutachten Schichtplan", betragCent: 250000, status: "ABGELEHNT" });
+    assert.equal(res.statusCode, 201, res.body);
+    const nachher = await posten();
+    assert.equal(nachher.summen.gesamt, vorher);
+    assert.equal(nachher.summen.nachStatus.ABGELEHNT >= 250000, true);
+  });
+
+  test("BR-Schulung erscheint automatisch; Betrag gehört der Schulung, Status der Kostenübersicht", async () => {
+    const q = await prisma.qualifikation.create({ data: { name: "BR-Grundlagen Test", brSchulung: false } });
+    const t = await prisma.schulungstermin.create({
+      data: { qualifikationId: q.id, datum: new Date(Date.UTC(JAHR, 8, 15)), kosten: 450.5, anbieter: "ver.di b+b", erstelltVonId: env.ids.VORSITZ },
+    });
+    const nichtDrin = (await posten()).posten.find((p: { schulungsterminId: string }) => p.schulungsterminId === t.id);
+    assert.equal(nichtDrin, undefined, "ohne BR-Haken nicht in der Übersicht");
+
+    assert.equal(await status("MITGLIED", "PATCH", "/api/kosten/br-schulungen", { qualifikationIds: [q.id] }), 403);
+    assert.equal(await status("VORSITZ", "PATCH", "/api/kosten/br-schulungen", { qualifikationIds: [q.id] }), 200);
+    const p = (await posten()).posten.find((x: { schulungsterminId: string }) => x.schulungsterminId === t.id);
+    assert.ok(p, "BR-Schulung fehlt");
+    assert.equal(p.betragCent, 45050);
+    assert.equal(p.art, "SCHULUNG");
+    assert.equal(p.ausSchulung, true);
+
+    assert.equal(await status("VORSITZ", "PUT", `/api/kosten/${p.id}`, { betragCent: 1 }), 400);
+    assert.equal(await status("VORSITZ", "DELETE", `/api/kosten/${p.id}`), 400);
+    assert.equal(await status("VORSITZ", "PUT", `/api/kosten/${p.id}`, { status: "ZUGESAGT" }), 200);
+
+    // Kosten in der Schulung geändert: Betrag zieht nach, Status bleibt
+    await prisma.schulungstermin.update({ where: { id: t.id }, data: { kosten: 500 } });
+    const p2 = (await posten()).posten.find((x: { id: string }) => x.id === p.id);
+    assert.equal(p2.betragCent, 50000);
+    assert.equal(p2.status, "ZUGESAGT");
+
+    // Abgesagt: fällt heraus
+    await prisma.schulungstermin.update({ where: { id: t.id }, data: { status: "ABGESAGT" } });
+    assert.equal((await posten()).posten.find((x: { id: string }) => x.id === p.id), undefined);
+  });
+
+  test("Rechnung: fremdes vertrauliches Dokument nur ohne Titel; Beschluss muss finalisiert sein", async () => {
+    const dok = await dokumentAnlegen("GEHEIME-RECHNUNG", "VORSITZ", true);
+    const res = await anfrage(env, "VORSITZ", "POST", "/api/kosten",
+      { datum: `${JAHR}-06-01`, art: "RECHTSANWALT", bezeichnung: "Beratung", betragCent: 80000, dokumentId: dok.id });
+    assert.equal(res.statusCode, 201, res.body);
+    const mitglied = await anfrage(env, "MITGLIED", "GET", `/api/kosten?jahr=${JAHR}`);
+    assert.doesNotMatch(mitglied.body, /GEHEIME-RECHNUNG/);
+    assert.match((await anfrage(env, "VORSITZ", "GET", `/api/kosten?jahr=${JAHR}`)).body, /GEHEIME-RECHNUNG/);
+
+    const sitzung = await prisma.sitzung.create({ data: { titel: "Kosten-Sitzung", sitzungsdatum: new Date(), erstelltVonId: env.ids.VORSITZ } });
+    const top = await prisma.tOP.create({ data: { sitzungId: sitzung.id, nummer: 1, titel: "Anwalt beauftragen" } });
+    const offen = await prisma.beschluss.create({ data: { topId: top.id, antragstext: "Anwalt beauftragen", erstelltVonId: env.ids.VORSITZ } });
+    assert.equal(await status("VORSITZ", "PUT", `/api/kosten/${res.json().id}`, { beschlussId: offen.id }), 400);
+    await prisma.beschluss.update({ where: { id: offen.id }, data: { finalisiert: true, finalisiertAm: new Date() } });
+    assert.equal(await status("VORSITZ", "PUT", `/api/kosten/${res.json().id}`, { beschlussId: offen.id }), 200);
+  });
+
+  test("Export: CSV für Excel (BOM, Semikolon, keine Formeln), PDF", async () => {
+    await anfrage(env, "VORSITZ", "POST", "/api/kosten",
+      { datum: `${JAHR}-07-01`, art: "SONSTIGES", bezeichnung: "=HYPERLINK(\"x\")", betragCent: 1050 });
+    const csv = await anfrage(env, "MITGLIED", "GET", `/api/kosten/export.csv?jahr=${JAHR}`);
+    assert.equal(csv.statusCode, 200);
+    assert.ok(csv.body.startsWith("﻿Datum;Art;"), csv.body.slice(0, 40));
+    assert.match(csv.body, /;10,50;/);
+    assert.doesNotMatch(csv.body, /;=HYPERLINK/);
+    const pdf = await anfrage(env, "MITGLIED", "GET", `/api/kosten/export.pdf?jahr=${JAHR}`);
+    assert.equal(pdf.statusCode, 200);
+    assert.equal(pdf.headers["content-type"], "application/pdf");
+  });
+});

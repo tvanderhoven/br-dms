@@ -1544,3 +1544,96 @@ export async function waehlerlistePdfGenerieren(
     doc.end();
   });
 }
+
+// ── Kostenübersicht (§ 40 BetrVG) ───────────────────────────────────
+
+export interface KostenPdfZeile {
+  datum: Date; art: string; bezeichnung: string; empfaenger: string | null;
+  betrag: string; status: string; abgelehnt: boolean; beschluss: string | null;
+}
+
+const kurzDatum = (d: Date) => d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+export async function kostenuebersichtPdfGenerieren(
+  jahr: number,
+  zeilen: KostenPdfZeile[],
+  summen: { gesamt: string; nachArt: [string, string][]; offen: string; bezahlt: string; abgelehnt: string },
+): Promise<Buffer> {
+  const layout     = await layoutLaden();
+  const logoBuffer = layout.logo_pfad ? await fs.readFile(layout.logo_pfad).catch(() => null) : null;
+
+  return new Promise((resolve, reject) => {
+    const doc = neuesPdf({ size: "A4", margin: 60, bufferPages: true });
+    const chunks: Buffer[] = [];
+    doc.on("data",  c => chunks.push(c));
+    doc.on("error", reject);
+    doc.on("end",   () => resolve(Buffer.concat(chunks)));
+
+    const y0 = doc.y;
+    const textBreite = logoBuffer ? 350 : BREITE;
+    doc.fontSize(14).font("Helvetica-Bold").fillColor("#111827")
+       .text(`Kosten des Betriebsrats ${jahr}`, RAND_LINKS, y0, { width: textBreite });
+    doc.fontSize(9).font("Helvetica").fillColor(FARBE_GRAU)
+       .text(`§ 40 BetrVG  ·  Stand ${kurzDatum(new Date())}`, RAND_LINKS, y0 + 18, { width: textBreite });
+    if (logoBuffer) doc.image(logoBuffer, 463, y0, { height: 38, fit: [72, 38] });
+    doc.y = y0 + 44;
+    doc.moveTo(RAND_LINKS, doc.y).lineTo(RAND_RECHTS, doc.y).strokeColor(layout.farbe).lineWidth(1.5).stroke();
+    doc.moveDown(0.8);
+
+    // Summen
+    abschnittUeberschrift(doc, "Übersicht", layout);
+    const summenZeile = (label: string, wert: string, fett = false) => {
+      const y = doc.y;
+      doc.fontSize(9.5).font(fett ? "Helvetica-Bold" : "Helvetica").fillColor("#111827")
+         .text(pdfText(label), RAND_LINKS, y, { width: 300 });
+      doc.text(wert, RAND_LINKS + 300, y, { width: 120, align: "right" });
+      doc.y = y + 15;
+    };
+    for (const [art, betrag] of summen.nachArt) summenZeile(art, betrag);
+    summenZeile("Summe (ohne abgelehnte Posten)", summen.gesamt, true);
+    doc.moveDown(0.4);
+    summenZeile("davon offen (beantragt/zugesagt)", summen.offen);
+    summenZeile("davon bezahlt", summen.bezahlt);
+    summenZeile("abgelehnt (nicht in der Summe)", summen.abgelehnt);
+    doc.moveDown(0.8);
+
+    // Einzelposten
+    abschnittUeberschrift(doc, `Posten (${zeilen.length})`, layout);
+    const C_DATUM = RAND_LINKS, C_TEXT = RAND_LINKS + 58, C_STATUS = RAND_LINKS + 330, C_BETRAG = RAND_LINKS + 395;
+    const kopf = () => {
+      const y = doc.y;
+      doc.fontSize(8).font("Helvetica-Bold").fillColor(FARBE_GRAU);
+      doc.text("Datum", C_DATUM, y); doc.text("Bezeichnung / Art", C_TEXT, y);
+      doc.text("Status", C_STATUS, y); doc.text("Betrag", C_BETRAG, y, { width: RAND_RECHTS - C_BETRAG, align: "right" });
+      doc.y = y + 13;
+    };
+    kopf();
+    if (zeilen.length === 0) {
+      doc.fontSize(9).font("Helvetica").fillColor(FARBE_GRAU).text("Keine Posten in diesem Jahr.", RAND_LINKS, doc.y);
+    }
+    for (const z of zeilen) {
+      if (doc.y > 720) { doc.addPage(); kopf(); }
+      const y = doc.y;
+      const farbe = z.abgelehnt ? FARBE_GRAU : "#111827";
+      doc.fontSize(9).font("Helvetica").fillColor(farbe).text(kurzDatum(z.datum), C_DATUM, y, { width: 55 });
+      doc.font("Helvetica-Bold").text(pdfText(z.bezeichnung), C_TEXT, y, { width: C_STATUS - C_TEXT - 8 });
+      const unter = [z.art, z.empfaenger, z.beschluss ? `Beschluss: ${z.beschluss}` : null].filter(Boolean).join("  ·  ");
+      doc.fontSize(7.5).font("Helvetica").fillColor(FARBE_GRAU).text(pdfText(unter), C_TEXT, doc.y, { width: C_STATUS - C_TEXT - 8 });
+      const unten = doc.y;
+      doc.fontSize(9).fillColor(farbe).text(z.status, C_STATUS, y, { width: 60 });
+      doc.text(z.betrag, C_BETRAG, y, { width: RAND_RECHTS - C_BETRAG, align: "right" });
+      doc.y = Math.max(unten, y + 13) + 4;
+      doc.moveTo(RAND_LINKS, doc.y - 2).lineTo(RAND_RECHTS, doc.y - 2).strokeColor("#f3f4f6").lineWidth(0.5).stroke();
+    }
+
+    const seiten = (doc as any).bufferedPageRange().count;
+    for (let i = 0; i < seiten; i++) {
+      doc.switchToPage(i);
+      const y = 760;
+      doc.moveTo(RAND_LINKS, y).lineTo(RAND_RECHTS, y).strokeColor("#e5e7eb").lineWidth(0.5).stroke();
+      doc.fontSize(7.5).font("Helvetica").fillColor(FARBE_GRAU)
+         .text(`Kosten des Betriebsrats ${jahr}  ·  Seite ${i + 1} von ${seiten}`, RAND_LINKS, y + 5, { width: BREITE, lineBreak: false });
+    }
+    doc.end();
+  });
+}

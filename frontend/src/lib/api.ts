@@ -418,6 +418,18 @@ export const api = {
     downloadUrl:   (id: string) => `${BASE}/api/fremdprotokolle/${id}/download`,
   },
 
+  kosten: {
+    jahr: (jahr: number) => request<KostenJahr>(`/api/kosten?jahr=${jahr}`),
+    anlegen: (p: KostenEingabe) => request<KostenPosten>("/api/kosten", { method: "POST", body: JSON.stringify(p) }),
+    aendern: (id: string, p: Partial<KostenEingabe>) =>
+      request<KostenPosten>(`/api/kosten/${id}`, { method: "PUT", body: JSON.stringify(p) }),
+    loeschen: (id: string) => request<{ ok: boolean }>(`/api/kosten/${id}`, { method: "DELETE" }),
+    brSchulungen: (qualifikationIds: string[]) =>
+      request<{ ok: boolean }>("/api/kosten/br-schulungen", { method: "PATCH", body: JSON.stringify({ qualifikationIds }) }),
+    csvUrl: (jahr: number) => `${BASE}/api/kosten/export.csv?jahr=${jahr}`,
+    pdfUrl: (jahr: number) => `${BASE}/api/kosten/export.pdf?jahr=${jahr}`,
+  },
+
   qualifikationen: {
     liste: () => request<Qualifikation[]>("/api/qualifikationen"),
     erstellen: (data: { name: string; beschreibung?: string; gueltigkeitsdauerMonate?: number | null }) =>
@@ -1772,10 +1784,10 @@ export interface WissensEintragErstellen {
 }
 
 // ── Module (Admin-Ein/Ausschalter) ──────────────────────────────────
-export type ModuleKey = "personalverwaltung" | "betriebsvereinbarungen" | "wissensarchiv" | "ressourcen" | "themensammlung" | "gremien";
+export type ModuleKey = "personalverwaltung" | "betriebsvereinbarungen" | "wissensarchiv" | "ressourcen" | "themensammlung" | "gremien" | "kosten";
 
 export const MODULE_KEYS: ModuleKey[] = [
-  "personalverwaltung", "betriebsvereinbarungen", "wissensarchiv", "ressourcen", "themensammlung", "gremien",
+  "personalverwaltung", "betriebsvereinbarungen", "wissensarchiv", "ressourcen", "themensammlung", "gremien", "kosten",
 ];
 
 export const MODULE_LABEL: Record<ModuleKey, { name: string; beschreibung: string }> = {
@@ -1785,7 +1797,52 @@ export const MODULE_LABEL: Record<ModuleKey, { name: string; beschreibung: strin
   ressourcen:             { name: "Ressourcen",              beschreibung: "Externe Links zu Gesetzen, KI-Werkzeugen, Behörden, Vorlagen" },
   themensammlung:         { name: "Themensammlung",          beschreibung: "Auszug aus Protokollen für Öffentlichkeitsarbeit/Mitgliederinfo" },
   gremien:                { name: "Gremien",                 beschreibung: "Andere Gremien (Ausschüsse, JAV, SBV, ...) mit Fremdprotokollen und optional eigenen Sitzungen" },
+  kosten:                 { name: "Kosten (§ 40)",           beschreibung: "Jahresübersicht der BR-Kosten: Schulungen, Sachverständige, Anwalt, Einigungsstelle – mit Status und Export" },
 };
+
+// ── Kosten des Betriebsrats (§ 40 BetrVG) ─────────────────────────
+export type KostenArt = "SCHULUNG" | "SACHVERSTAENDIGER" | "RECHTSANWALT" | "EINIGUNGSSTELLE" | "SACHMITTEL" | "REISEKOSTEN" | "SONSTIGES";
+export type KostenStatus = "BEANTRAGT" | "ZUGESAGT" | "BEZAHLT" | "ABGELEHNT";
+
+export const KOSTEN_ART_LABEL: Record<KostenArt, string> = {
+  SCHULUNG:          "Schulung (§ 37 Abs. 6/7)",
+  SACHVERSTAENDIGER: "Sachverständige (§ 80 Abs. 3)",
+  RECHTSANWALT:      "Rechtsanwalt",
+  EINIGUNGSSTELLE:   "Einigungsstelle (§ 76a)",
+  SACHMITTEL:        "Sachmittel (§ 40 Abs. 2)",
+  REISEKOSTEN:       "Reisekosten",
+  SONSTIGES:         "Sonstiges",
+};
+
+export const KOSTEN_STATUS_LABEL: Record<KostenStatus, string> = {
+  BEANTRAGT: "Beantragt", ZUGESAGT: "Zugesagt", BEZAHLT: "Bezahlt", ABGELEHNT: "Abgelehnt",
+};
+
+export interface KostenPosten {
+  id: string; datum: string; art: KostenArt; bezeichnung: string; empfaenger: string | null;
+  betragCent: number; status: KostenStatus; bemerkung: string | null;
+  ausSchulung: boolean; schulungsterminId: string | null;
+  beschluss: { id: string; antragstext: string; topNummer: number; sitzungTitel: string; sitzungsdatum: string } | null;
+  dokument: { id: string; titel: string; sichtbar: boolean } | null;
+}
+
+export interface KostenEingabe {
+  datum: string; art: Exclude<KostenArt, "SCHULUNG">; bezeichnung: string; empfaenger: string | null;
+  betragCent: number; status: KostenStatus; bemerkung: string | null;
+  beschlussId: string | null; dokumentId: string | null;
+}
+
+export interface KostenJahr {
+  jahr: number;
+  jahre: number[];
+  posten: KostenPosten[];
+  summen: { gesamt: number; nachArt: Record<KostenArt, number>; nachStatus: Record<KostenStatus, number> };
+  brSchulungen: { id: string; name: string; brSchulung: boolean }[];
+}
+
+export function formatEuro(cent: number): string {
+  return (cent / 100).toLocaleString("de-DE", { style: "currency", currency: "EUR" });
+}
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────
 // Reihenfolge = Anzeigereihenfolge (gleich wie backend/src/lib/kategorien.ts)

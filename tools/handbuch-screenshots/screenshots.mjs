@@ -144,6 +144,8 @@ const AUFNAHMEN = [
       return !!b;
     })()` },
   { datei: "mein-konto",          pfad: "/konto", warte: 2500 },
+  { datei: "kosten",              pfad: "/kosten", warte: 2500 },
+  { datei: "kosten-posten",       pfad: "/kosten", js: `(() => { const b = document.querySelector('[title="Bearbeiten"]'); if (b) b.click(); return !!b; })()`, warte: 2000 },
   { datei: "einstellungen-zwei-faktor", pfad: "/einstellungen", js: [klickText("System", "button"), zeigeText("Zwei-Faktor-Anmeldung"),
     // Pflicht-Haken nur für das Bild setzen (nicht gespeichert) – Demo-Logins brauchen sonst einen Code
     ...["Vorsitz", "Stellv. Vorsitz", "Admin"].map(r => klickText(r, "label"))], alsAdmin: true },

@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   FileText, LayoutDashboard, CalendarDays,
   Mail, CheckSquare, Inbox, Search, X, LayoutTemplate, Settings, UserCircle, BookOpen, Menu, Newspaper, Globe, ClipboardList,
-  Gavel, CalendarRange, Wallet, Scale, GraduationCap, Users, Kanban, ChevronDown, MailPlus, Vote, Landmark,
+  Gavel, CalendarRange, Wallet, Scale, GraduationCap, Users, Kanban, ChevronDown, MailPlus, Vote, Landmark, Euro,
 } from "lucide-react";
 import { api, SuchErgebnis, KATEGORIE_LABEL, SITZUNG_STATUS_LABEL, RESSOURCE_KATEGORIE_LABEL, formatDatum, Rolle, ModuleKey, GesetzParagraph } from "../lib/api";
 import GesetzModal from "./GesetzModal";
@@ -21,6 +21,7 @@ const MODUL_PFADE: Record<string, ModuleKey> = {
   "/wissen":                 "wissensarchiv",
   "/ressourcen":             "ressourcen",
   "/themen":                 "themensammlung",
+  "/kosten":                 "kosten",
 };
 
 function GlobaleSuche() {
@@ -307,6 +308,7 @@ export default function Layout() {
   const [meinName, setMeinName]                   = useState("");
   // Admin ohne Inhaltszugriff (Einstellungen → Benutzer, festgelegt von Vorsitz/Stellv.)
   const [ohneInhalt, setOhneInhalt]               = useState(false);
+  const [vertretungAktiv, setVertretungAktiv]     = useState(false); // Ersatzmitglied mit Mitgliederrechten
   const [module, setModule]                       = useState<Record<ModuleKey, boolean> | null>(null);
   const [toast, setToast]                         = useState<string | null>(null);
   const [ueberOffen, setUeberOffen]               = useState(false);
@@ -392,6 +394,7 @@ export default function Layout() {
       setMeineRolle(b.rolle);
       setMeinName(b.name);
       setOhneInhalt(!!b.ohneInhaltszugriff);
+      setVertretungAktiv(!!b.istVertretungFuer);
       meinKonto.current = { rolle: b.rolle, ohneInhalt: !!b.ohneInhaltszugriff };
     }).catch(() => {}).finally(pollCounts);
     api.einstellungen.module().then(setModule).catch(() => {});
@@ -678,6 +681,13 @@ export default function Layout() {
               <Vote size={16} />
               Wahlen
             </NavLink>
+            {/* Lesen dürfen Mitglieder und aktiv vertretende Ersatzmitglieder (Backend: erfordert MITGLIED) */}
+            {modulAktiv("kosten") && (meineRolle !== "ERSATZMITGLIED" || vertretungAktiv) && (
+              <NavLink to="/kosten" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+                <Euro size={16} />
+                Kosten (§ 40)
+              </NavLink>
+            )}
           </NavGruppe>
 
           <NavGruppe
