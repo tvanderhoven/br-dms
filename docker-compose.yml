@@ -108,6 +108,9 @@ services:
     restart: unless-stopped
     networks:
       - brdms_net
+    # Nur auf dem Host selbst erreichbar (127.0.0.1) – dorthin reicht der Proxy durch
+    ports:
+      - "127.0.0.1:${FRONTEND_INTERN_PORT:-18080}:80"
     depends_on:
       backend:
         condition: service_healthy
@@ -117,17 +120,21 @@ services:
   #  unter einer gemeinsamen HTTPS-Adresse zusammen. Siehe README,
   #  Abschnitt "HTTPS aktivieren" fuer die Zertifikat-Einrichtung.
   # ----------------------------------------------------------------
+  #
+  #  Läuft im Netz des Hosts statt im Docker-Netz: Docker leitet freigegebene
+  #  Ports (vor allem über IPv6, z. B. beim Aufruf über den NAS-Namen) so weiter,
+  #  dass als Absender nur das Docker-Gateway (172.x.0.1) ankommt – im Audit-Log
+  #  und beim Login-Limit stünden dann alle Arbeitsplätze unter einer Adresse.
+  #  Im Host-Netz sieht nginx die echte Adresse und lauscht direkt auf den Ports.
   proxy:
     image: nginx:1.30-alpine
     container_name: brdms_proxy
     restart: unless-stopped
-    networks:
-      - brdms_net
+    network_mode: host
     environment:
       PROXY_HTTPS_PORT: ${PROXY_HTTPS_PORT:-8443}
-    ports:
-      - "${PROXY_HTTPS_PORT:-8443}:443"
-      - "${PROXY_HTTP_PORT:-8080}:80"
+      PROXY_HTTP_PORT: ${PROXY_HTTP_PORT:-8080}
+      FRONTEND_INTERN_PORT: ${FRONTEND_INTERN_PORT:-18080}
     volumes:
       - ./proxy/nginx.conf:/etc/nginx/templates/default.conf.template:ro
       - ${DATA_PATH}/certs:/etc/nginx/certs:ro

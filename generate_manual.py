@@ -1585,8 +1585,10 @@ def build():
     pdf.tabelle(
         ["Container", "Technologie", "Aufgabe"],
         [
-            ["proxy", "Nginx 1.30", "TLS-Terminierung, einziger Zugang (Port 8443, 8080 leitet um)"],
-            ["frontend", "React 18, Vite, Tailwind CSS (über Nginx)", "Benutzeroberfläche im Browser"],
+            ["proxy", "Nginx 1.30", "TLS-Terminierung, einziger Zugang (Port 8443, 8080 leitet um); läuft im "
+             "Netz des Hosts, damit das Audit-Log die echte Adresse des Arbeitsplatzes sieht"],
+            ["frontend", "React 18, Vite, Tailwind CSS (über Nginx)", "Benutzeroberfläche im Browser; nur "
+             "lokal auf dem Host erreichbar (127.0.0.1:18080)"],
             ["backend", "Node.js 24, Fastify 5, Prisma", "REST-API, Geschäftslogik, PDF-Erzeugung, Hintergrundjobs"],
             ["postgres", "PostgreSQL 16", "Datenhaltung, nur im internen Docker-Netz"],
         ],
