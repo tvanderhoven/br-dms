@@ -152,6 +152,7 @@
   "POST /api/abteilungen": "MITGLIED",
   "POST /api/aufgaben": "ANGEMELDET",
   "POST /api/auth/login": "ÖFFENTLICH",
+  "POST /api/auth/logout": "ANGEMELDET",
   "POST /api/auth/passwort-reset": "ÖFFENTLICH",
   "POST /api/auth/passwort-vergessen": "ÖFFENTLICH",
   "POST /api/benutzer": "VORSITZ",

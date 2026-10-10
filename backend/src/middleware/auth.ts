@@ -11,6 +11,7 @@ export interface JwtPayload {
   sub:   string;  // Benutzer-ID
   email: string;
   rolle: Role;
+  tv?:   number;  // Token-Version, muss zu benutzer.tokenVersion passen (fehlt bei Tokens von vor dem Widerruf = 0)
 }
 
 declare module "fastify" {
@@ -27,6 +28,7 @@ const EINGESCHRAENKT_ERLAUBTE_GET_PFADE = [/^\/api\/sitzungen(\/|$)/];
 function eingeschraenkteRolleDarfZugreifen(request: FastifyRequest): boolean {
   const pfad = request.url.split("?")[0];
   if (pfad === "/api/auth/me") return true; // Rolle/Name fürs eigene Profil laden
+  if (pfad === "/api/auth/logout") return true;
   return request.method === "GET" && EINGESCHRAENKT_ERLAUBTE_GET_PFADE.some(r => r.test(pfad));
 }
 
@@ -60,11 +62,16 @@ export async function authenticate(
     // Benutzer noch aktiv?
     const benutzer = await prisma.benutzer.findUnique({
       where: { id: payload.sub },
-      select: { id: true, aktiv: true, rolle: true, email: true },
+      select: { id: true, aktiv: true, rolle: true, email: true, tokenVersion: true },
     });
 
     if (!benutzer?.aktiv) {
       return reply.status(401).send({ fehler: "Konto deaktiviert" });
+    }
+
+    // Nach Abmelden oder Passwortwechsel ist die Version hochgezählt – ältere Tokens gelten nicht mehr
+    if ((payload.tv ?? 0) !== benutzer.tokenVersion) {
+      return reply.status(401).send({ fehler: "Sitzung beendet – bitte neu anmelden" });
     }
 
     request.benutzer = { sub: benutzer.id, email: benutzer.email, rolle: benutzer.rolle };

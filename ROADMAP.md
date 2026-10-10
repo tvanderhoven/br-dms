@@ -50,7 +50,7 @@ damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 
 Offen aus dem Sicherheits-Update vom 09.10.2026 (Backend: `npm audit` 0 Lücken nach Fastify 5, @fastify/jwt 10, nodemailer 10, adm-zip 0.6, node-cron 4):
 Frontend braucht noch zwei größere Sprünge – React Router 7 (Open-Redirect über `<Link>`/`navigate`, mittel) und Tiptap 3 (`mergeAttributes`, mittel).
-Außerdem Token-Widerruf (Abmelden/Passwortwechsel macht bisher ausgestellte Tokens nicht ungültig).
+Token-Widerruf erledigt 10.10.2026: `token_version` am Benutzer steckt als `tv` im Token; Abmelden (`POST /api/auth/logout`, auch beim automatischen Abmelden) und jeder Passwortwechsel zählen sie hoch, ältere Tokens bekommen 401. Eigener Passwortwechsel liefert einen neuen Token, die aktuelle Sitzung bleibt. Falsches aktuelles Passwort jetzt 400 statt 401 (meldete vorher ab). Deaktivieren und Rollenwechsel griffen schon vorher sofort (Rolle/aktiv kommen bei jeder Anfrage aus der Datenbank).
 
 Bewusst später: E-Mails per IMAP selbst aus einem Postfach abholen – dafür müsste ein weiteres Passwort auf dem NAS liegen.
 

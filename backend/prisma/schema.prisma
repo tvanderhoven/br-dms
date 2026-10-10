@@ -241,6 +241,9 @@ model Benutzer {
   passwortHash    String    @map("passwort_hash")
   rolle           Role
   aktiv           Boolean   @default(true)
+  // Steckt als "tv" in jedem Token; erhöhen macht alle bisher ausgestellten Tokens
+  // ungültig (Abmelden, Passwortwechsel) – siehe middleware/auth.ts
+  tokenVersion    Int       @default(0) @map("token_version")
 
   istVertretungFuer String?                      @map("ist_vertretung_fuer")
   vertretungErhalten Anwesenheit[]              @relation("VertretungErhalten")

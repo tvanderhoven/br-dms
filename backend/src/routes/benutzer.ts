@@ -276,7 +276,7 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
 
       await prisma.benutzer.update({
         where: { id },
-        data:  { passwortHash: hashPassword(neuesPasswort) },
+        data:  { passwortHash: hashPassword(neuesPasswort), tokenVersion: { increment: 1 } }, // bestehende Sitzungen enden
       });
 
       await prisma.auditLog.create({
