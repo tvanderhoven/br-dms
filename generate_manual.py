@@ -761,7 +761,10 @@ def build():
                 "nachgeladen wird, bekommt sie mit „An Neue senden“. Jeder Versand wird mit Zeitpunkt, Adresse und "
                 "Ergebnis protokolliert – das ist der Nachweis der Ladung. JAV und SBV erhalten keine vertraulichen TOPs. "
                 "Vor dem Senden öffnet sich ein Fenster für einen zusätzlichen Text, etwa den Link zu einem "
-                "Online-Meeting; er wird beim nächsten Versand für dieselbe Sitzung vorgeschlagen.")
+                "Online-Meeting; er wird beim nächsten Versand für dieselbe Sitzung vorgeschlagen. Jede Einladung "
+                "bringt den Termin als Datei „Termin.ics“ mit: ein Klick darauf in Outlook oder Thunderbird trägt die "
+                "Sitzung in den eigenen Kalender ein (zwei Stunden, Erinnerung 15 Minuten vorher). Wird die Einladung "
+                "nach einer Änderung erneut verschickt, aktualisiert die neue Datei den vorhandenen Termin.")
     pdf.bild("sitzung-einladung", "Karte „Einladung per E-Mail“ mit Versandstatus je Geladenem", hoehe_anteil=0.6)
     pdf.body(
         "Ohne eingerichteten Mailserver weist die Karte darauf hin und der Versand bleibt gesperrt "

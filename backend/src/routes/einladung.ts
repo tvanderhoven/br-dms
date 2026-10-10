@@ -8,6 +8,7 @@
  * Geladen ist, wer in der Anwesenheit "Kommt" (ANWESEND) oder "Als Ersatz geladen"
  * (ERSATZ_FUER) steht. Mails gehen an die Zweitadresse, sonst an die Hauptadresse.
  * JAV und SBV bekommen keine vertraulichen TOPs und kein PDF (das enthält alle TOPs).
+ * Jede Einladung trägt den Termin als .ics-Datei (lib/kalender.ts).
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
@@ -18,6 +19,7 @@ import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { sendeEinladung, MAIL_SIGNATUR } from "../lib/mailer.js";
 import { istBetriebsversammlung } from "../lib/sitzungstypen.js";
+import { kalenderDatei } from "../lib/kalender.js";
 
 const ROLLE_LABEL: Record<string, string> = {
   VORSITZ: "Vorsitz", STELLVERTRETER: "Stellv. Vorsitz", MITGLIED: "Mitglied",
@@ -127,12 +129,27 @@ export async function einladungRouten(app: FastifyInstance): Promise<void> {
       const unterschrift = ich ? `${ich.name}, ${ROLLE_LABEL[ich.rolle] ?? ich.rolle}` : "Der Betriebsrat";
       const sitzungUrl = `${process.env.APP_URL ?? "http://localhost:3000"}/sitzungen?id=${id}`;
       const zusatz   = request.body?.zusatz?.trim().slice(0, 4000) || null;
+      // Neue Fixierung (z. B. verschobener Termin) → höhere SEQUENCE, Kalender aktualisiert den Termin
+      const sequenz  = await prisma.sitzungVersion.count({ where: { sitzungId: id, typ: "TAGESORDNUNG_FIXIERT" } });
       const signatur = (await prisma.systemEinstellung.findUnique({ where: { schluessel: MAIL_SIGNATUR } }))?.wert.trim() || null;
 
       const ergebnisse: { benutzerId: string; name: string; adresse: string; erfolgreich: boolean; fehler: string | null }[] = [];
       for (const e of empfaenger) {
         const istEingeschraenkt = e.rolle === Role.JAV || e.rolle === Role.SBV;
         const anhang = pdfDa && !istEingeschraenkt ? { dateiname: `Tagesordnung – ${sitzung.titel}.pdf`, pfad: version!.pdfPfad! } : null;
+        const tops   = sitzung.tops.filter(t => !istEingeschraenkt || !t.vertraulich);
+        const kalender = {
+          dateiname: "Termin.ics",
+          inhalt: kalenderDatei({
+            uid:          `sitzung-${id}@br-dms`,
+            sequenz,
+            titel:        sitzung.titel,
+            beginn:       sitzung.sitzungsdatum,
+            ort:          sitzung.ort,
+            beschreibung: ["Tagesordnung:", ...tops.map(t => `${t.nummer}. ${t.titel}`), "", `In BR-DMS: ${sitzungUrl}`].join("\n"),
+            url:          sitzungUrl,
+          }),
+        };
         let fehler: string | null = null;
         try {
           await sendeEinladung({
@@ -141,10 +158,11 @@ export async function einladungRouten(app: FastifyInstance): Promise<void> {
             sitzungTitel:  sitzung.titel,
             sitzungsdatum: sitzung.sitzungsdatum,
             ort:           sitzung.ort,
-            tops:          sitzung.tops.filter(t => !istEingeschraenkt || !t.vertraulich),
+            tops,
             ersatzFuer:    e.ersatzFuer,
             sitzungUrl,
             anhang,
+            kalender,
             unterschrift,
             zusatz,
             signatur,
