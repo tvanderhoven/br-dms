@@ -38,7 +38,6 @@ damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 | B | Zwei-Faktor-Anmeldung (2FA) | M | Einmalcode per Authenticator-App (TOTP), einrichten mit QR-Code, Wiederherstellungscodes; Pflicht je Rolle einstellbar (mindestens für Vorsitz/Stellvertretung/Admin); Zurücksetzen durch Vorsitz/Admin mit Audit-Eintrag. Voraussetzung für die Sicherheits-Präsentation bei der IT |
 | ✓ | Anhörung als Vorgang (§ 99 / § 102) | L | erledigt 08.10.2026: Status eingegangen → beraten → beschlossen → beantwortet im Dokument unter „Vorgang"; Stellungnahme aus einem finalisierten Beschluss am TOP erzeugen (Zustimmung, Zustimmungsverweigerung mit Gründen nach § 99 Abs. 2, Widerspruch nach § 102 Abs. 3), Brief-PDF mit echtem Briefkopf wird archiviert, Versanddatum als Nachweis, zugehörige Fristen erledigen sich automatisch mit dem Versand. Ersetzt die alte Platzhalter-Briefvorlage |
 | D | Kostenübersicht (§ 40) | M | Jahresübersicht der BR-Kosten: Schulungen (Kosten gibt es schon), Sachverständige, Anwalt, Einigungsstelle; verbindet sich mit „Einigungsstelle“ unter „Später“ |
-| E | Kalender-Abo + mobile Ansicht | S–M | Sitzungen und Fristen als abonnierbarer Kalender (iCal-Link mit persönlichem Token, nur eigene sichtbare Termine) für Outlook/Handy; mobile Ansicht durchgehen |
 
 **Dokumentablage ausbauen (entschieden 09.10.2026), in dieser Reihenfolge:**
 
@@ -177,6 +176,9 @@ Personalabteilung aktuelle Listen; der Import gleicht über die PNR ab und korri
 
 ## Bewusst nicht geplant
 
+- **Kalender-Abo und mobile Ansicht (früher Paket E, gestrichen 10.10.2026):** BR-DMS läuft im Intranet,
+  private Geräte (BYOD) sind nicht zugelassen – ein Abo-Link wäre von Handy/Cloud-Outlook aus nicht erreichbar,
+  und für eine eigene Handy-Ansicht gibt es keine Geräte.
 - **Arbeitsschutzausschuss als eigener Bereich:** wird vom Arbeitgeber/HR geleitet; die Infos kommen
   über das ASA-Mitglied als Bericht in die BR-Sitzung. Abbildung über einen Standard-TOP
   „Bericht aus dem Arbeitsschutzausschuss“ in der Sitzungsvorlage (in der Demo-Vorlage „Ordentliche
