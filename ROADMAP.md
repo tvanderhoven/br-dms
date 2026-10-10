@@ -46,7 +46,7 @@ damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 |---|---|---|---|
 | ✓ | Ordnerbaum | M | erledigt 09.10.2026, siehe oben |
 | ✓ | E-Mails als Dokumente | M | erledigt 09.10.2026, siehe oben. Offen: mit einer echten Outlook-`.msg` testen (es lag keine Beispieldatei vor) |
-| G | Kategorie „Muster/Vorlage“ (optional) | S | nur falls Muster (z. B. Arbeitsverträge) eine eigene Aufbewahrungsregel brauchen, etwa „nie löschen“ |
+| – | Kategorie „Muster/Vorlage“ (optional) | S | nur falls Muster (z. B. Arbeitsverträge) eine eigene Aufbewahrungsregel brauchen, etwa „nie löschen“ – zurückgestellt 11.10.2026, erst wieder bei Bedarf |
 
 Offen aus dem Sicherheits-Update vom 09.10.2026 (Backend: `npm audit` 0 Lücken nach Fastify 5, @fastify/jwt 10, nodemailer 10, adm-zip 0.6, node-cron 4):
 Frontend erledigt 10.10.2026: React Router 7.18 (Open-Redirect über `<Link>`/`navigate`) und Tiptap 3.31 (`mergeAttributes`) – `npm audit` Frontend 0. Tiptap-Pakete exakt gepinnt (gegenseitige Peer-Abhängigkeiten); im Editor Underline/Link aus dem StarterKit abgeschaltet und `shouldRerenderOnTransaction` gesetzt, damit die Werkzeugleiste mitzieht. Dabei behoben: Mehr-Menü (⋯) am TOP wurde bei wenigen TOPs von der Kachel abgeschnitten, liegt jetzt als Overlay darüber.
