@@ -49,7 +49,7 @@ damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 | G | Kategorie „Muster/Vorlage“ (optional) | S | nur falls Muster (z. B. Arbeitsverträge) eine eigene Aufbewahrungsregel brauchen, etwa „nie löschen“ |
 
 Offen aus dem Sicherheits-Update vom 09.10.2026 (Backend: `npm audit` 0 Lücken nach Fastify 5, @fastify/jwt 10, nodemailer 10, adm-zip 0.6, node-cron 4):
-Frontend braucht noch zwei größere Sprünge – React Router 7 (Open-Redirect über `<Link>`/`navigate`, mittel) und Tiptap 3 (`mergeAttributes`, mittel).
+Frontend erledigt 10.10.2026: React Router 7.18 (Open-Redirect über `<Link>`/`navigate`) und Tiptap 3.31 (`mergeAttributes`) – `npm audit` Frontend 0. Tiptap-Pakete exakt gepinnt (gegenseitige Peer-Abhängigkeiten); im Editor Underline/Link aus dem StarterKit abgeschaltet und `shouldRerenderOnTransaction` gesetzt, damit die Werkzeugleiste mitzieht. Dabei behoben: Mehr-Menü (⋯) am TOP wurde bei wenigen TOPs von der Kachel abgeschnitten, liegt jetzt als Overlay darüber.
 Token-Widerruf erledigt 10.10.2026: `token_version` am Benutzer steckt als `tv` im Token; Abmelden (`POST /api/auth/logout`, auch beim automatischen Abmelden) und jeder Passwortwechsel zählen sie hoch, ältere Tokens bekommen 401. Eigener Passwortwechsel liefert einen neuen Token, die aktuelle Sitzung bleibt. Falsches aktuelles Passwort jetzt 400 statt 401 (meldete vorher ab). Deaktivieren und Rollenwechsel griffen schon vorher sofort (Rolle/aktiv kommen bei jeder Anfrage aus der Datenbank).
 
 Bewusst später: E-Mails per IMAP selbst aus einem Postfach abholen – dafür müsste ein weiteres Passwort auf dem NAS liegen.

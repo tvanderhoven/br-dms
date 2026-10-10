@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, FormEvent, DragEvent, RefObject } from "react";
+import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
 import { SitzungsVorlage, Gremium, istEmailDatei } from "../lib/api";
 import {
@@ -1100,18 +1101,41 @@ function TopZeile({
   const [gehaltModal, setGehaltModal]           = useState(false);
   const [antragModal, setAntragModal]           = useState(false);
   const [mehrOffen, setMehrOffen]               = useState(false);
-  const mehrRef = useRef<HTMLDivElement>(null);
+  const mehrRef     = useRef<HTMLDivElement>(null);
+  const mehrMenuRef = useRef<HTMLDivElement>(null);
+  // Das Menü liegt per Portal über der Seite (position: fixed) – die TOP-Kachel hat
+  // overflow-hidden und schnitt es bei wenigen TOPs sonst ab
+  const [mehrPos, setMehrPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
 
-  // Mehr-Menü bei Klick außerhalb schließen
+  function mehrUmschalten() {
+    if (mehrOffen) { setMehrOffen(false); return; }
+    const r = mehrRef.current!.getBoundingClientRect();
+    const rechts = window.innerWidth - r.right;
+    // Unten zu wenig Platz → nach oben aufklappen
+    setMehrPos(window.innerHeight - r.bottom < 320
+      ? { bottom: window.innerHeight - r.top + 4, right: rechts }
+      : { top: r.bottom + 4, right: rechts });
+    setMehrOffen(true);
+  }
+
+  // Mehr-Menü bei Klick außerhalb, Scrollen oder Größenänderung schließen
   useEffect(() => {
     if (!mehrOffen) return;
     function handleClick(e: MouseEvent) {
-      if (mehrRef.current && !mehrRef.current.contains(e.target as Node)) {
+      const ziel = e.target as Node;
+      if (!mehrRef.current?.contains(ziel) && !mehrMenuRef.current?.contains(ziel)) {
         setMehrOffen(false);
       }
     }
+    const schliessen = () => setMehrOffen(false);
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    window.addEventListener("scroll", schliessen, true);
+    window.addEventListener("resize", schliessen);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      window.removeEventListener("scroll", schliessen, true);
+      window.removeEventListener("resize", schliessen);
+    };
   }, [mehrOffen]);
 
   async function ergebnisSpeichern() {
@@ -1402,14 +1426,18 @@ function TopZeile({
           {/* Seltener genutzte Aktionen: hinter Mehr-Menü */}
           <div className="relative" ref={mehrRef}>
             <button
-              onClick={() => setMehrOffen(o => !o)}
+              onClick={mehrUmschalten}
               title="Weitere Aktionen"
               className={`p-1.5 rounded transition-colors ${mehrOffen ? "text-gray-700 bg-gray-100" : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"}`}
             >
               <MoreHorizontal size={15} />
             </button>
-            {mehrOffen && (
-              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 min-w-[200px]">
+            {mehrOffen && mehrPos && createPortal(
+              <div
+                ref={mehrMenuRef}
+                style={mehrPos}
+                className="fixed bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 min-w-[200px]"
+              >
                 {!istBV && (!readonly || kannRetroaktivUebertragen) && (
                   <button
                     onClick={() => { setGehaltModal(true); setMehrOffen(false); }}
@@ -1470,7 +1498,8 @@ function TopZeile({
                     </button>
                   </>
                 )}
-              </div>
+              </div>,
+              document.body,
             )}
           </div>
         </div>

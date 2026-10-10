@@ -47,6 +47,9 @@ export default function SitzungsEditor({
         heading:    { levels: [2, 3] },
         codeBlock:  false,
         code:       false,
+        // Seit Tiptap 3 im StarterKit enthalten – hier abgeschaltet, unten einzeln konfiguriert
+        underline:  false,
+        link:       false,
       }),
       Underline,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
@@ -67,6 +70,8 @@ export default function SitzungsEditor({
     ],
     content:  content ?? "",
     editable: !readonly,
+    // Tiptap 3 rendert sonst nicht bei jeder Änderung neu – die Werkzeugleiste (isActive) bliebe stehen
+    shouldRerenderOnTransaction: true,
     onUpdate: ({ editor }) => {
       onChange?.(editor.getJSON());
     },
@@ -78,7 +83,7 @@ export default function SitzungsEditor({
     const aktuell = JSON.stringify(editor.getJSON());
     const neu     = JSON.stringify(content ?? "");
     if (aktuell !== neu) {
-      editor.commands.setContent(content ?? "", false);
+      editor.commands.setContent(content ?? "", { emitUpdate: false });
     }
   }, [content]);
 
