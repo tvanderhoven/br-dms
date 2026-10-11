@@ -268,15 +268,19 @@ def build():
         ],
         (34, 70, 66),
     )
+    pdf.body(
+        "Dazu kommen die Notfallzugänge: Verwaltungskonto des NAS und Admin von BR-DMS samt 2FA-Notfallcodes – "
+        "sonst ist das Gremium ausgesperrt, wenn beide Admins ausfallen. Die übrigen Geheimnisse der .env "
+        "erzeugt der Installationsassistent bei einer Wiederherstellung neu."
+    )
     pdf.bullets([
-        "Aufbewahrung – Beide Schlüssel ausdrucken (Vordruck in Teil IV), in einen Umschlag, versiegeln, "
-        "in den Tresor bzw. einen verschlossenen Schrank des Betriebsrats",
+        "Aufbewahrung – Beide Schlüssel und die Notfallzugänge ausdrucken (Vordruck in Teil IV), in einen "
+        "Umschlag, versiegeln, in den Tresor bzw. einen verschlossenen Schrank des Betriebsrats",
         "Nicht dort – Nicht auf dem NAS (dort liegen sie schon), nicht bei der IT, nicht als Foto auf dem Handy, "
         "nicht per E-Mail",
         "Zugang – Vorsitz und Stellvertretung wissen, wo der Umschlag liegt; eine Zweitschrift an einem "
         "zweiten Ort (z. B. beim Rechtsanwalt des Betriebsrats) ist sinnvoll",
-        "Wechsel – Die Schlüssel ändern sich im Betrieb nicht. Neue Schlüssel gibt es nur bei einer "
-        "Neuinstallation – dann den Ausdruck ersetzen",
+        "Wechsel – Bei jedem Passwort- oder Amtswechsel die Notfallzugänge neu eintragen",
     ])
 
     pdf.h1("3  Regeln für den Betrieb")
@@ -331,7 +335,8 @@ def build():
     pdf.schritt(1, "Anzeigen", "Mit dem letzten Befehl aus 4.1 beide Schlüssel anzeigen lassen.")
     pdf.schritt(2, "Übertragen", "In den Vordruck „Schlüsselblatt“ (Teil IV) eintragen oder die beiden Zeilen "
                 "direkt ausdrucken. Jeder Schlüssel hat genau 64 Zeichen aus 0–9 und a–f.")
-    pdf.schritt(3, "Gegenlesen", "Eine zweite Person liest die Abschrift Zeichen für Zeichen gegen die Anzeige.")
+    pdf.schritt(3, "Gegenlesen", "Eine zweite Person liest die Abschrift Zeichen für Zeichen gegen die Anzeige. "
+                "Dann die Notfallzugänge eintragen (Kapitel 2.1).")
     pdf.schritt(4, "Verschließen", "Umschlag versiegeln, mit Datum und Unterschrift versehen, wegschließen.")
 
     pdf.h2("4.3  Nächtliche Sicherung planen")
@@ -477,6 +482,15 @@ def build():
     pdf.ln(3)
     pdf.schluesselzeile("ENCRYPTION_KEY – entschlüsselt die Dokumente")
     pdf.schluesselzeile("BACKUP_KEY – entschlüsselt die Sicherungen")
+    pdf.h3("Notfallzugänge – falls beide Admins ausfallen")
+    pdf.feld("NAS-Verwaltungskonto")
+    pdf.feld("Passphrase")
+    pdf.feld("2FA-Notfallcodes (NAS)")
+    pdf.feld("BR-DMS-Admin (E-Mail)")
+    pdf.feld("Passwort")
+    pdf.feld("Wiederherstellungscodes")
+    pdf.feld("")
+    pdf.ln(2)
     pdf.feld("Erstellt am / von")
     pdf.feld("Gegengelesen von")
     pdf.feld("Aufbewahrungsort")
