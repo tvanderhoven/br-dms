@@ -510,6 +510,10 @@ export const api = {
     moduleSpeichern: (data: Partial<Record<ModuleKey, boolean>>) =>
       request<{ ok: boolean }>("/api/einstellungen/module", { method: "PUT", body: JSON.stringify(data) }),
     sicherheit: () => request<{ inaktivitaetMinuten: number }>("/api/einstellungen/sicherheit"),
+    update: () => request<{
+      installiert: string | null;
+      hinweis: { version: string; name: string | null; url: string; veroeffentlichtAm: string | null } | null;
+    }>("/api/einstellungen/update"),
     zweiFaktor: () => request<ZweiFaktorRichtlinie>("/api/einstellungen/zwei-faktor"),
     zweiFaktorSpeichern: (r: ZweiFaktorRichtlinie) =>
       request<ZweiFaktorRichtlinie>("/api/einstellungen/zwei-faktor", { method: "PUT", body: JSON.stringify(r) }),

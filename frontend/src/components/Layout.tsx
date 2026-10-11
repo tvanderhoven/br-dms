@@ -9,6 +9,7 @@ import { api, SuchErgebnis, KATEGORIE_LABEL, SITZUNG_STATUS_LABEL, RESSOURCE_KAT
 import GesetzModal from "./GesetzModal";
 import BrandLogo from "./BrandLogo";
 import UeberModal from "./UeberModal";
+import UpdateBanner from "./UpdateBanner";
 
 // Ordnet Routen-Präfixe den abschaltbaren Modulen zu (siehe Einstellungen → Module).
 // Bei einem deaktivierten Modul: Sidebar-Eintrag ausgeblendet + Direktaufruf der URL wird auf "/" umgeleitet.
@@ -808,6 +809,8 @@ export default function Layout() {
             </button>
           </div>
         </div>
+        {/* Hinweis auf neue BR-DMS-Version – nur für Vorsitz, Stellvertretung und Admin (Backend prüft zusätzlich) */}
+        {meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && <UpdateBanner />}
         <Outlet />
       </main>
     </div>

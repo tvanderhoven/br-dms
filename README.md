@@ -211,6 +211,7 @@ Start gelesen. Nach Änderungen an der `.env`: `docker compose up -d`.
 | Variable | Beschreibung | Standard |
 |---|---|---|
 | `WATCH_FOLDER_ENABLED` | Watch-Folder aktivieren | `false` |
+| `UPDATE_CHECK_ENABLED` | Täglicher Hinweis auf neue Major-/Minor-Releases (GitHub) für Vorsitz, Stellvertretung, Admin | `true` |
 | `SYSTEM_USER_ID` | Konto, dem Importe zugeordnet werden (ID per Klick in der Benutzerverwaltung kopieren) | erstes Admin-Konto |
 | `WATCH_INBOX_PATH` | Pfad des Eingangsordners auf dem Host (unabhängig vom Docker-Verzeichnis) | `DATA_PATH/watch_inbox` |
 

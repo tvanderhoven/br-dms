@@ -7,6 +7,7 @@
  * GET  /api/einstellungen/backups       – Übersicht der backup.sh-Sicherungen (Anzahl, Alter, Größe)
  * GET  /api/einstellungen/admin-zugriff – darf der Admin Inhalte sehen?
  * PUT  /api/einstellungen/admin-zugriff – festlegen (nur VORSITZ/STELLVERTRETER)
+ * GET  /api/einstellungen/update        – Hinweis auf ein neues Major/Minor-Release (VORSITZ, STELLVERTRETER, ADMIN)
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
@@ -23,6 +24,7 @@ import { MAIL_ABSENDER_NAME, MAIL_ABSENDER_ADRESSE, MAIL_SIGNATUR } from "../lib
 import { ermittleBackupSaetze } from "../lib/backups.js";
 import { zweiFaktorRichtlinie, ZWEI_FAKTOR_MODUS, ZWEI_FAKTOR_PFLICHT } from "../lib/zweiFaktor.js";
 import { BackupWorker } from "../workers/backup.worker.js";
+import { updateHinweis, installierteVersion } from "../lib/updateCheck.js";
 
 const STORAGE = process.env.STORAGE_PATH ?? "/data/storage";
 const LOGO_VERZ = path.join(STORAGE, "logo");
@@ -46,6 +48,17 @@ const PROTOKOLL_KEYS = Object.keys(PROTOKOLL_DEFAULTS) as ProtokollKey[];
 
 
 export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
+
+  // ── GET /update ───────────────────────────────────────────────────
+  // Liest nur den Cache des täglichen Update-Checks – keine Anfrage nach außen pro Seitenaufruf
+  app.get(
+    "/update",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      const hinweis = await updateHinweis().catch(() => null);
+      return reply.send({ installiert: installierteVersion(), hinweis });
+    }
+  );
 
   // ── GET /aufbewahrung ─────────────────────────────────────────────
   app.get(

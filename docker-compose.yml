@@ -73,6 +73,8 @@ services:
       WATCH_FOLDER_ENABLED: ${WATCH_FOLDER_ENABLED:-false}
       WATCH_INBOX_PATH:     ${WATCH_INBOX_PATH:-}
       SYSTEM_USER_ID:       ${SYSTEM_USER_ID:-}
+      # Täglicher Hinweis auf neue BR-DMS-Versionen (GitHub-Releases); false = aus
+      UPDATE_CHECK_ENABLED: ${UPDATE_CHECK_ENABLED:-true}
       # Erster Admin-Account – wird beim ersten Start angelegt, solange es noch keinen Benutzer gibt
       ADMIN_EMAIL:          ${ADMIN_EMAIL:-admin@br-dms.lokal}
       ADMIN_PASSWORD:       ${ADMIN_PASSWORD:-}

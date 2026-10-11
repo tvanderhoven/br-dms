@@ -70,6 +70,7 @@
   "GET /api/einstellungen/protokoll/logo": "ÖFFENTLICH",
   "GET /api/einstellungen/sicherheit": "ANGEMELDET",
   "GET /api/einstellungen/system": "VORSITZ",
+  "GET /api/einstellungen/update": "VORSITZ",
   "GET /api/einstellungen/wahlquote": "MITGLIED",
   "GET /api/einstellungen/zwei-faktor": "ANGEMELDET",
   "GET /api/export/amtsuebergabe": "VORSITZ",
