@@ -1,0 +1,47 @@
+# Bauen: prüft bei jedem Push und Pull Request, ob Backend und Frontend
+# fehlerfrei kompilieren – genau wie die Dockerfiles auf dem Host. Ohne diesen
+# Schritt wäre ein Dependabot-Update, das den Build bricht, trotzdem grün und
+# fiele erst beim Bauen auf dem NAS auf.
+name: Bauen
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run build
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      # tsc && vite build – wie im Dockerfile
+      - run: npm run build
