@@ -11,7 +11,7 @@ Aufruf:
   python3 deploy_komplett.py --bauen            uebertragen und direkt neu bauen/starten
   python3 deploy_komplett.py 192.168.1.100      Host ueberschreiben (kombinierbar)
 """
-import base64, os, subprocess, sys, textwrap
+import base64, json, os, subprocess, sys, textwrap
 
 from _deploy_config import NAS_USER, NAS_HOST as _NAS_HOST, DATA_PATH, DOCKER_BIN, lies_dateiliste
 
@@ -47,6 +47,23 @@ def sammle_dateien(eintraege):
         else:
             sys.exit(f"FEHLER: {rel} fehlt lokal (siehe deploy_dateien.txt)")
     return dateien
+
+
+def schreibe_buildinfo():
+    """Commit-Stempel fuer die Versionsanzeige: auf dem Host gibt es kein git – der Stand
+    wird hier festgehalten und landet mit frontend/src im Image ("+" = nicht committete Aenderungen)."""
+    def git(*args):
+        try:
+            return subprocess.run(["git", "-C", ROOT, *args], capture_output=True, text=True).stdout.strip()
+        except OSError:
+            return ""
+    commit = git("rev-parse", "--short", "HEAD")
+    if commit and git("status", "--porcelain"):
+        commit += "+"
+    with open(os.path.join(ROOT, "frontend", "src", "buildinfo.json"), "w", encoding="utf-8") as f:
+        json.dump({"commit": commit}, f)
+    if commit:
+        print(f"  Stand  : {commit}\n")
 
 
 # ── Python-Payload fuer den Host bauen ───────────────────────────────────────
@@ -125,6 +142,7 @@ def main():
     print("=" * 62)
     print()
 
+    schreibe_buildinfo()
     eintraege, ersetzen = lies_dateiliste()
     dateien = sammle_dateien(eintraege)
 

@@ -523,7 +523,7 @@ def build():
     pdf.bullets([
         "Schnellsuche – Ab zwei Zeichen erscheinen Treffer aus allen Bereichen; Enter öffnet die ausführliche Suche",
         "Benachrichtigungen – Neue Dokumente, Nachrichten und Aufgaben werden als Hinweis eingeblendet",
-        "Über BR-DMS – Ganz unten in der Seitenleiste: Version, Lizenz und Support-Kontakt",
+        "Über BR-DMS – Ganz unten in der Seitenleiste: Version, Lizenz, Support-Kontakt und „Fehler melden“",
     ])
 
     pdf.h2("1.4  Rollen auf einen Blick")
@@ -2375,6 +2375,28 @@ def build():
     pdf.body(
         f"Fragen, Fehlermeldungen und Wünsche bitte per E-Mail an {SUPPORT}. Hilfreich sind die "
         "Versionsnummer (in der App unter „Über BR-DMS“) und eine kurze Beschreibung, was passiert ist."
+    )
+    pdf.body(
+        "Hinter der Versionsnummer steht der genaue Programmstand, z. B. „1.2.1 · a1b2c3d“. Die Zeichen "
+        "nach dem Punkt bezeichnen den Stand im Quellcode; ein „+“ am Ende heißt, dass bei der Installation "
+        "noch nicht festgeschriebene Änderungen dabei waren."
+    )
+    pdf.h3("Fehler direkt aus BR-DMS melden")
+    pdf.body(
+        "Im Fenster „Über BR-DMS“ gibt es unter der Version das Formular „Fehler melden“: kurzen Titel und "
+        "Beschreibung eintragen, dann eine der beiden Schaltflächen wählen. Version, aufgerufene Seite und "
+        "Browser hängt BR-DMS automatisch an – so ist klar, auf welchen Programmstand sich die Meldung bezieht."
+    )
+    pdf.bullets([
+        "Auf GitHub melden – Öffnet eine vorausgefüllte Fehlermeldung (Issue) im öffentlichen Projekt auf GitHub. "
+        "Dort lässt sich der Text noch prüfen; nach dem Absenden sehen Sie die Meldung und alle Antworten darauf. "
+        "Dafür ist ein kostenloses GitHub-Konto nötig",
+        f"Per E-Mail – Öffnet Ihr E-Mail-Programm mit demselben Text an {SUPPORT}",
+    ])
+    pdf.hinweis(
+        "GitHub-Meldungen sind öffentlich einsehbar. Bitte keine Namen, Personaldaten oder Inhalte aus "
+        "Dokumenten und Sitzungen eintragen – im Zweifel per E-Mail melden.",
+        art="achtung",
     )
     pdf.h3("Lizenz")
     pdf.body(

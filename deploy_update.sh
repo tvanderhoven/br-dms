@@ -122,6 +122,14 @@ echo ""
 sicherheitspruefung
 rollentests
 
+# ── Commit-Stempel für die Versionsanzeige ───────────────────────
+# Auf dem Host gibt es kein git – der Stand wird hier festgehalten und landet mit
+# frontend/src im Image. "+" = Übertragung enthält nicht committete Änderungen.
+COMMIT="$(git -C "${DIR}" rev-parse --short HEAD 2>/dev/null || true)"
+[ -n "${COMMIT}" ] && [ -n "$(git -C "${DIR}" status --porcelain 2>/dev/null)" ] && COMMIT="${COMMIT}+"
+printf '{ "commit": "%s" }\n' "${COMMIT}" > "${DIR}/frontend/src/buildinfo.json"
+[ -n "${COMMIT}" ] && echo -e "  Stand  : ${COMMIT}" && echo ""
+
 cd "${DIR}"
 TAR_OPTS=(--exclude='node_modules' --exclude='dist' --exclude='.env' --exclude='*.env' --exclude='.env.local' --exclude='__pycache__')
 

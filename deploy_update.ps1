@@ -91,6 +91,14 @@ Write-Host ""
 
 Set-Location $DIR
 
+# Commit-Stempel fuer die Versionsanzeige: auf dem Host gibt es kein git - der Stand
+# wird hier festgehalten und landet mit frontend/src im Image ("+" = nicht committete Aenderungen)
+$commit = ""
+try { $commit = (git rev-parse --short HEAD 2>$null) } catch {}
+if ($commit -and (git status --porcelain 2>$null)) { $commit = "$commit+" }
+Set-Content -Path (Join-Path $DIR "frontend\src\buildinfo.json") -Value "{ `"commit`": `"$commit`" }" -Encoding ASCII
+if ($commit) { Write-Host "  Stand  : $commit"; Write-Host "" }
+
 # Binaerdaten zwischen tar und ssh laufen ueber cmd.exe - die PowerShell-Pipeline
 # wuerde den Datenstrom beschaedigen. Keine einfachen Anfuehrungszeichen um die
 # Muster: cmd.exe entfernt sie nicht.
