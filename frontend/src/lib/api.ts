@@ -170,6 +170,7 @@ export const api = {
     }>) => request<AnhoerungsVorgang>(`/api/dokumente/${id}/vorgang`, { method: "PATCH", body: JSON.stringify(data) }),
     vorgangAusBeschluss: (id: string, beschlussId: string) =>
       request<AnhoerungsVorgang>(`/api/dokumente/${id}/vorgang/aus-beschluss`, { method: "POST", body: JSON.stringify({ beschlussId }) }),
+    vorgangEntwurfUrl: (id: string) => `${BASE}/api/dokumente/${id}/vorgang/entwurf`,
     vorgangVersenden: (id: string, versandDatum?: string) =>
       request<{ vorgang: AnhoerungsVorgang; versandDokumentId: string; fristenErledigt: number }>(
         `/api/dokumente/${id}/vorgang/versenden`, { method: "POST", body: JSON.stringify({ versandDatum }) },

@@ -5,6 +5,7 @@
  * GET  /api/dokumente/:dokumentId/vorgang               – Vorgang + Fristen + verfügbare Beschlüsse
  * PATCH /api/dokumente/:dokumentId/vorgang              – Status/Stellungnahme manuell bearbeiten
  * POST /api/dokumente/:dokumentId/vorgang/aus-beschluss – Stellungnahme aus einem finalisierten Beschluss vorbefüllen
+ * GET  /api/dokumente/:dokumentId/vorgang/entwurf       – Brief-PDF zum Gegenlesen (mit Wasserzeichen, wird nicht archiviert)
  * POST /api/dokumente/:dokumentId/vorgang/versenden     – als versendet markieren, Brief-PDF archivieren, Fristen erledigen
  */
 
@@ -209,6 +210,37 @@ export async function anhoerungRouten(app: FastifyInstance): Promise<void> {
   );
 
   // ── POST /:dokumentId/vorgang/versenden ───────────────────────────
+  // ── GET /:dokumentId/vorgang/entwurf – Brief zum Gegenlesen ─────
+  // Gleicher Brief wie beim Versand, aber mit Wasserzeichen „ENTWURF“; ändert nichts am Vorgang
+  app.get<{ Params: { dokumentId: string } }>(
+    "/:dokumentId/vorgang/entwurf",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (request, reply) => {
+      const { dokumentId } = request.params;
+      const dokument = await prisma.dokument.findUnique({ where: { id: dokumentId } });
+      if (!dokument) return reply.status(404).send({ fehler: "Dokument nicht gefunden" });
+      if (!darfDokumentSehen(dokument, request.benutzer.rolle, request.benutzer.sub)) {
+        return reply.status(403).send({ fehler: "Vertrauliches Dokument" });
+      }
+      if (dokument.kategorie !== Kategorie.ANHOERUNG_99 && dokument.kategorie !== Kategorie.ANHOERUNG_102) {
+        return reply.status(400).send({ fehler: "Kein Anhörungs-Dokument" });
+      }
+
+      const vorgang = await vorgangSicherstellen(dokumentId);
+      const pdf = await stellungnahmePdfGenerieren(dokument, {
+        stellungnahmeArt:     vorgang.stellungnahmeArt,
+        stellungnahmeGruende: vorgang.stellungnahmeGruende,
+        stellungnahmeText:    vorgang.stellungnahmeText,
+      }, { entwurf: true });
+
+      return reply
+        .header("Content-Type", "application/pdf")
+        .header("Content-Disposition", 'inline; filename="Stellungnahme_Entwurf.pdf"')
+        .header("Cache-Control", "no-store")
+        .send(pdf);
+    }
+  );
+
   app.post<{ Params: { dokumentId: string }; Body: { versandDatum?: string } }>(
     "/:dokumentId/vorgang/versenden",
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },

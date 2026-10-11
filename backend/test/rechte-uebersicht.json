@@ -49,6 +49,7 @@
   "GET /api/dokumente": "ANGEMELDET",
   "GET /api/dokumente/:dokumentId/kommentare": "ANGEMELDET",
   "GET /api/dokumente/:dokumentId/vorgang": "ANGEMELDET",
+  "GET /api/dokumente/:dokumentId/vorgang/entwurf": "VORSITZ",
   "GET /api/dokumente/:id": "ANGEMELDET",
   "GET /api/dokumente/:id/download": "ANGEMELDET",
   "GET /api/dokumente/:id/email": "ANGEMELDET",

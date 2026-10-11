@@ -15,7 +15,7 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 - **Vollverschlüsselte Dokumentenablage** – AES-256, Dokumente nur on-demand entschlüsselt, Prüfsumme, Volltextsuche im PDF-Inhalt
 - **Kategorien, Vertraulich-Kennzeichnung, Alias, Tags, Aktenzeichen** – inkl. Inline-PDF-Vorschau und Filter
 - **Dokumentenversionen** – Beliebig viele Versionen mit Änderungsnotiz
-- **Eingang (Inbox)** – Triage neu eingegangener Dokumente: mit TOP verknüpfen (neu oder bestehend, inkl. automatischer Frist), ins Wissensarchiv übernehmen, Aufgabe erstellen, als neue Dokumentversion speichern, Wiedervorlage-Datum setzen, vorausgefülltes Widerspruchs-/Ablehnungsschreiben für §99/§102 generieren
+- **Eingang (Inbox)** – Triage neu eingegangener Dokumente: mit TOP verknüpfen (neu oder bestehend, inkl. automatischer Frist), ins Wissensarchiv übernehmen, Aufgabe erstellen, als neue Dokumentversion speichern, Wiedervorlage-Datum setzen
 - **Watch Folder** – Automatischer Import aus freigegebenem Netzwerkordner (Pfad unabhängig vom Docker-Verzeichnis konfigurierbar)
 - **Konfigurierbare Aufbewahrungsfristen** – Je Kategorie, mit automatischer Löschvormerkung (DSGVO)
 
@@ -72,7 +72,7 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 
 ### Export
 - **Amtsübergabe-PDF** – Ein Dokument mit aktiver Mitgliederliste, allen aktiven Dokumenten (nach Kategorie gruppiert, mit offenen Fristen) und dem vollständigen Beschlussregister
-- **Widerspruchs-/Ablehnungsschreiben** – Automatisch vorausgefüllte PDF-Vorlagen für §99- bzw. §102-Fälle direkt aus dem Eingang
+- **Anhörung als Vorgang (§99/§102)** – Status von Eingang bis Antwort, Stellungnahme (Zustimmung, Zustimmungsverweigerung, Widerspruch) mit Gründe-Katalog, aus dem Beschluss vorbefüllbar; Brief als Entwurf mit Wasserzeichen gegenlesen, beim Versand verschlüsselt archivieren, Fristen erledigen sich
 
 ### Editor & Verknüpfungen
 - **Einheitlicher Rich-Text-Editor** (Sitzungen, Aufgaben, Themen-Backlog, Wissensarchiv) – Formatierung (Fett/Kursiv/Unterstrichen, Überschriften, Listen, Markieren), Lesemodus für finalisierte Versionen

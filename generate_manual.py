@@ -584,7 +584,7 @@ def build():
         "Ins Wissensarchiv – Inhalt als Wissenseintrag übernehmen",
         "Neue Version – Als neue Fassung eines vorhandenen Dokuments speichern",
         "Wiedervorlage – Datum setzen, an dem das Dokument erneut im Eingang auftaucht",
-        "Widerspruch/Ablehnung – Vorausgefülltes Schreiben für § 99 bzw. § 102 als PDF erzeugen",
+        "Anhörungen – Stellungnahme, Widerspruch oder Zustimmungsverweigerung entstehen im Vorgang am Dokument (Kapitel 3.4)",
         "Download – Die Originaldatei herunterladen",
         "Erledigt – Das Dokument verlässt den Eingang und liegt nur noch im Dokumentenarchiv",
     ])
@@ -732,6 +732,37 @@ def build():
         ],
         (92, 28, 50),
     )
+
+    pdf.h2("3.4  Anhörung als Vorgang (§ 99 / § 102)")
+    pdf.body(
+        "Jedes Dokument der Kategorie „Anhörung § 99“ oder „Anhörung § 102“ ist zugleich ein Vorgang: vom "
+        "Eingang über Beratung und Beschluss bis zur Antwort an den Arbeitgeber. In der Vorschau des Dokuments "
+        "(Kapitel 3.2) steht dafür der Bereich „Vorgang“. Bearbeiten und versenden können Vorsitz, "
+        "Stellvertretung und Admin."
+    )
+    pdf.bild("anhoerung-vorgang", "Vorgang einer Anhörung § 102 mit Widerspruch, Gründen und Entwurf",
+             ausschnitt="mitte", vertikal=(0.0, 0.6), waagerecht=(0.73, 1.0))
+    pdf.schritt(1, "Status", "Eingegangen, Beraten, Beschlossen oder Beantwortet – zeigt allen, wo die Anhörung steht. "
+                "„Beantwortet“ setzt BR-DMS beim Versand selbst.")
+    pdf.schritt(2, "Art wählen", "Zustimmung, Zustimmungsverweigerung (§ 99 Abs. 2) oder Widerspruch (§ 102 Abs. 3).")
+    pdf.schritt(3, "Gründe ankreuzen", "Bei Verweigerung und Widerspruch die gesetzlichen Gründe (§ 99 Abs. 2 bzw. "
+                "§ 102 Abs. 3 Nr. 1–5) ankreuzen und darunter konkret begründen. Mit „Speichern“ sichern.")
+    pdf.schritt(4, "Entwurf als PDF", "Zeigt den fertigen Brief mit dem Wasserzeichen „ENTWURF“ zum Gegenlesen. "
+                "Der Knopf speichert vorher die Eingaben; am Vorgang ändert sich sonst nichts.")
+    pdf.schritt(5, "Als versendet markieren", "Mit dem Versanddatum: Der Brief entsteht ohne Wasserzeichen, wird "
+                "verschlüsselt als „Schriftverkehr“ archiviert, die Fristen des Dokuments gelten als erledigt. "
+                "Danach ausdrucken, unterschreiben und dem Arbeitgeber übergeben.")
+    pdf.body(
+        "Schneller geht es aus der Sitzung: Ist das Anhörungsdokument mit einem TOP verknüpft und dort ein "
+        "Beschluss gefasst, füllt „Stellungnahme erzeugen“ im Mehr-Menü des TOPs (Kapitel 4.3) Art und Text "
+        "aus dem Beschluss vor. Der Brief nutzt den Briefkopf aus dem Protokoll-Layout (Kapitel 9.6)."
+    )
+    pdf.hinweis(
+        "Die Widerspruchsfrist ist kurz: eine Woche bei ordentlicher Kündigung, drei Tage bei außerordentlicher "
+        "(§ 102 Abs. 2 BetrVG). Ein Widerspruch wirkt nur, wenn er fristgerecht, schriftlich und mit Gründen beim "
+        "Arbeitgeber eingeht. Die Gründe-Kataloge sind nach bestem Wissen aus BetrVG und KSchG zusammengestellt, "
+        "aber nicht juristisch geprüft – im Zweifel vor dem Versand rechtlich beraten lassen.",
+        "achtung", "Frist und Form")
 
     # 4 ─────────────────────────────────────────────────────────────
     pdf.h1("4  Sitzungen")
@@ -1314,7 +1345,7 @@ def build():
                 "In der Sitzung werden Anwesenheit, Beratungsergebnis und Beschluss mit Abstimmung erfasst.")
     pdf.schritt(6, "Abschließen",
                 "Frist erledigen, Ein- oder Umgruppierung in die Eingruppierung übernehmen, Protokoll "
-                "finalisieren. Bei Bedarf Widerspruchsschreiben aus dem Eingang erzeugen.")
+                "finalisieren. Die Stellungnahme im Vorgang am Dokument vorbereiten, als Entwurf gegenlesen und versenden (Kapitel 3.4).")
     pdf.schritt(7, "Aufbewahren und löschen",
                 "Das Dokument bleibt für die Dauer der Aufbewahrungsfrist erhalten und wird danach "
                 "automatisch zur Löschung vorgemerkt und sicher gelöscht.")
