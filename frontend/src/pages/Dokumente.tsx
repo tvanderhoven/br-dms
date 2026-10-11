@@ -298,6 +298,31 @@ export default function Dokumente() {
     finally { setVorgangSpeichern(false); }
   }
 
+  // Speichert die Eingaben und zeigt den Brief mit Wasserzeichen „ENTWURF“ – zum Gegenlesen vor dem Versand.
+  // Tab sofort öffnen (sonst blockiert der Browser das Pop-up nach dem await), PDF dann hineinladen.
+  async function stellungnahmeEntwurfAnzeigen() {
+    if (!vorgang) return;
+    const dokumentId = vorgang.vorgang.dokumentId;
+    const tab = window.open("", "_blank");
+    setVorgangSpeichern(true);
+    try {
+      const aktualisiert = await api.dokumente.vorgangAktualisieren(dokumentId, {
+        stellungnahmeArt: stnArt || null,
+        stellungnahmeGruende: stnGruende,
+        stellungnahmeText: stnText || null,
+      });
+      setVorgang(v => v ? { ...v, vorgang: aktualisiert } : v);
+      const token = localStorage.getItem("brdms_token");
+      const r = await fetch(api.dokumente.vorgangEntwurfUrl(dokumentId), { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      if (!r.ok) throw new Error(`Entwurf konnte nicht erzeugt werden (HTTP ${r.status})`);
+      const objectUrl = URL.createObjectURL(await r.blob());
+      if (tab) tab.location.href = objectUrl; else window.location.href = objectUrl;
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    } catch (err) {
+      tab?.close();
+      alert(err instanceof Error ? err.message : "Fehler beim Erzeugen des Entwurfs");
+    } finally { setVorgangSpeichern(false); }
+  }
   async function vorgangFristErledigen(fristId: string, erledigt: boolean) {
     if (!vorschau) return;
     try {
@@ -870,6 +895,14 @@ export default function Dokumente() {
                           className="text-xs text-gray-600 hover:text-[rgb(var(--accent))] px-2 py-1 rounded hover:bg-accent/5 disabled:opacity-50"
                         >
                           {vorgangSpeichern ? "Speichert…" : "Speichern"}
+                        </button>
+                        <button
+                          onClick={stellungnahmeEntwurfAnzeigen}
+                          disabled={vorgangSpeichern}
+                          title="Speichert und zeigt den Brief mit Wasserzeichen – zum Gegenlesen vor dem Versand"
+                          className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-[rgb(var(--accent))] px-2 py-1 rounded hover:bg-accent/5 disabled:opacity-50"
+                        >
+                          <FileText size={12} /> Entwurf als PDF
                         </button>
                       </div>
 

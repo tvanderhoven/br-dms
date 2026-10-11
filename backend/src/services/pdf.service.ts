@@ -1366,6 +1366,7 @@ export async function stellungnahmePdfGenerieren(
     stellungnahmeGruende:  string[];
     stellungnahmeText?:    string | null;
   },
+  optionen: { entwurf?: boolean } = {},
 ): Promise<Buffer> {
   const layout     = await layoutLaden();
   const logoBuffer = layout.logo_pfad ? await fs.readFile(layout.logo_pfad).catch(() => null) : null;
@@ -1393,7 +1394,8 @@ export async function stellungnahmePdfGenerieren(
     briefkopf(
       doc,
       {
-        titel: ueberschrift, sitzungsdatum: new Date(), ort: null, notizen: null,
+        // Kurzer Titel im Kopf – die volle Überschrift steht im Brief; lang würde sie umbrechen und die Datumszeile überdecken
+        titel: "Stellungnahme des Betriebsrats", sitzungsdatum: new Date(), ort: null, notizen: null,
         erstelltVon: { name: "" }, anwesenheiten: [], tops: [], sitzungstyp: "SITZUNG",
       } as unknown as PdfSitzung,
       { versionNummer: "Stellungnahme", typ: "STELLUNGNAHME", erstelltAm: new Date(), finalisiertAm: null },
@@ -1468,6 +1470,14 @@ export async function stellungnahmePdfGenerieren(
     for (let i = 0; i < seiten; i++) {
       doc.switchToPage(i);
       fusszeile(doc, i + 1, seiten, "Stellungnahme", layout);
+      // Entwurf zum Gegenlesen: diagonal über die Seite, damit er nicht versehentlich verschickt wird
+      if (optionen.entwurf) {
+        doc.save();
+        doc.rotate(-35, { origin: [doc.page.width / 2, doc.page.height / 2] });
+        doc.font("Helvetica-Bold").fontSize(96).fillColor("#dc2626").fillOpacity(0.12)
+           .text("ENTWURF", 0, doc.page.height / 2 - 48, { width: doc.page.width, align: "center", lineBreak: false });
+        doc.restore();
+      }
     }
 
     doc.end();
