@@ -1774,6 +1774,49 @@ def build():
         "lesen. Zugriff auf Docker bzw. die Container Station ist deshalb gleichbedeutend mit Admin-Rechten "
         "und gehört nur in die Hände der Admins.", "achtung", "Docker = Admin")
 
+    pdf.h3("Wo liegen die Schlüssel?")
+    pdf.body(
+        "Eine häufige Frage: Muss die .env mit den Schlüsseln die ganze Zeit auf dem NAS liegen? Ja – und "
+        "die Schlüssel lägen auch ohne sie dort. BR-DMS entschlüsselt Dokumente beim Öffnen selbst und braucht "
+        "den ENCRYPTION_KEY deshalb im laufenden Betrieb. In der Datenbank stehen die Schlüssel nicht; dort "
+        "liegt nur, was mit ihnen verschlüsselt ist (Dokumentdaten, Geheimnisse der Zwei-Faktor-Anmeldung)."
+    )
+    pdf.tabelle(
+        ["Ort", "Wozu"],
+        [
+            [".env im Datenordner", "Docker liest sie bei jeder Installation, jedem Update und Neubau; backup.sh "
+             "liest jede Nacht den BACKUP_KEY daraus – ohne ihn würde unverschlüsselt gesichert"],
+            ["Konfiguration der Container", "Docker übernimmt die Werte beim Anlegen. Deshalb startet BR-DMS nach "
+             "einem Neustart des NAS auch ohne .env – ein Admin kann sie dort aber ebenso auslesen"],
+            ["Arbeitsspeicher des Backends", "Solange BR-DMS läuft"],
+        ],
+        (50, 120),
+    )
+    pdf.body(
+        "Die .env nach dem Start zu löschen, bringt daher keine Sicherheit, legt aber Backups und Updates "
+        "lahm. Entscheidend ist, wer die Schlüssel lesen kann:"
+    )
+    pdf.tabelle(
+        ["Wer", "Kommt an die Schlüssel?"],
+        [
+            ["Mitglieder mit Konto für die Arbeitsfreigabe", "Nein – solange der Datenordner keine Freigabe ist und "
+             "die .env nur für ihren Besitzer lesbar ist (chmod 600)"],
+            ["Admins des NAS", "Ja, immer. Dagegen hilft nur das Kontenkonzept oben"],
+            ["Wer eine Platte ausbaut oder das NAS mitnimmt", "Ja, wenn das Volume des NAS nicht verschlüsselt ist – "
+             "die .env liegt auf derselben Platte wie die verschlüsselten Dokumente"],
+        ],
+        (60, 110),
+    )
+    pdf.body(
+        "Die Verschlüsselung der Dokumente schützt also vor allem Kopien, die das NAS verlassen. Gegen den "
+        "Diebstahl von Platten oder Gerät hilft nur die Volume-Verschlüsselung des NAS. Mit automatischem "
+        "Entsperren liegt deren Schlüssel wieder auf dem NAS – das schützt einzelne ausgebaute Platten, nicht "
+        "das ganze Gerät. Mit Entsperren von Hand muss ein Admin das Volume nach jedem Neustart per Passwort "
+        "öffnen, bevor BR-DMS startet: der stärkste Schutz, aber mit Aufwand bei jedem Neustart."
+    )
+    pdf.code("# Rechte der .env prüfen (Pfad = DATA_PATH), erwartet: -rw-------\n"
+             "ls -l /share/Container/br-dms/.env")
+
     pdf.h3("Checkliste")
     pdf.tabelle(
         ["Maßnahme", "Warum"],
@@ -1806,6 +1849,8 @@ def build():
              "SMB 1 ist veraltet und war Einfallstor für Trojaner wie WannaCry"],
             ["SSH nur bei Bedarf einschalten, am besten nur mit Schlüssel",
              "Weniger Angriffsfläche im Alltag"],
+            ["Volume-Verschlüsselung des NAS erwägen (Entsperren von Hand = stärkster Schutz)",
+             "Nur sie schützt Datenbank und .env, wenn Platten oder das ganze NAS abhandenkommen"],
             ["Snapshots einrichten",
              "Schreibgeschützte Stände helfen gegen Löschen und Verschlüsselungstrojaner (Kapitel 13.2)"],
             ["Sicherheitsprüfung des NAS regelmäßig laufen lassen (QNAP: Security Counselor, "
@@ -1969,6 +2014,7 @@ def build():
             ["WATCH_FOLDER_ENABLED", "Scanner-Ordner importieren", "aus"],
             ["WATCH_INBOX_PATH", "Eigener Eingangsordner", "<DATA_PATH>/watch_inbox"],
             ["SYSTEM_USER_ID", "Konto für Importe", "erstes Admin-Konto"],
+            ["UPDATE_CHECK_ENABLED", "Täglich nach neuen Versionen auf GitHub fragen (false = aus)", "an"],
             ["PROXY_HTTPS_PORT / _HTTP_PORT", "Ports des Proxys", "8443 / 8080"],
         ],
         (50, 70, 50),
@@ -2071,6 +2117,12 @@ def build():
         "Benutzer und Pfad stehen in .env.deploy (Vorlage: .env.deploy.example). Alle drei Skripte "
         "übertragen dieselben Dateien aus deploy_dateien.txt und verhalten sich gleich – sie "
         "unterscheiden sich nur darin, auf welchem Rechner sie laufen."
+    )
+    pdf.body(
+        "Erscheint eine neue Haupt- oder Funktionsversion (z. B. 1.3.0), zeigt BR-DMS Vorsitz, Stellvertretung "
+        "und Admin oben einen Hinweis mit Link zu den Neuerungen. Dafür fragt das Backend einmal täglich die "
+        "Releases auf GitHub ab; reine Fehlerkorrekturen (1.2.x) lösen keinen Hinweis aus. Wer keine Anfrage "
+        "nach außen möchte, setzt UPDATE_CHECK_ENABLED=false in der .env."
     )
     pdf.tabelle(
         ["Skript", "Läuft auf", "Übertragung"],
