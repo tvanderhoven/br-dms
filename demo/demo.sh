@@ -82,6 +82,10 @@ case "${1:-start}" in
   start)
     env_anlegen
     zertifikat_anlegen
+    # Commit-Stand für "Über BR-DMS" – im Docker-Build gibt es kein git (siehe frontend/vite.config.ts)
+    COMMIT="$(git -C "$REPO_DIR" rev-parse --short HEAD 2>/dev/null || true)"
+    [ -n "$COMMIT" ] && [ -n "$(git -C "$REPO_DIR" status --porcelain 2>/dev/null)" ] && COMMIT="$COMMIT+"
+    printf '{ "commit": "%s" }\n' "$COMMIT" > "$REPO_DIR/frontend/src/buildinfo.json"
     compose up -d --build
     warte_auf_backend
     demodaten_einspielen
