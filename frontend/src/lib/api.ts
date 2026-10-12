@@ -829,27 +829,74 @@ export interface AnhoerungVorgangAntwort {
   }[];
 }
 
-// Gründe-Kataloge (Spiegel von backend/src/lib/anhoerungGruende.ts) für die Checkboxen
-// im Stellungnahme-Editor. Nicht juristisch geprüft – vor Versand gegenlesen lassen.
-export interface AnhoerungGrund { code: string; text: string; }
+// Gründe-Kataloge (Spiegel von backend/src/lib/anhoerungGruende.ts – gleiche Codes und Texte) für die
+// Checkboxen im Stellungnahme-Editor. Wortlaut nach § 99 Abs. 2 / § 102 Abs. 3 BetrVG, gekürzt.
+// Nicht juristisch geprüft – vor Versand gegenlesen lassen.
+export interface AnhoerungGrund { code: string; text: string; hinweis: string; }
 
 export const ZUSTIMMUNGSVERWEIGERUNG_GRUENDE: AnhoerungGrund[] = [
   {
-    code: "99-1",
-    text:
-      "Nr. 1 – Verstoß gegen ein Gesetz, eine Verordnung, eine Unfallverhütungsvorschrift " +
-      "oder eine Bestimmung des anzuwendenden Tarifvertrages oder einer Betriebsvereinbarung",
+    code: "99-nr1",
+    text: "Nr. 1 – Verstoß gegen ein Gesetz, eine Verordnung, eine Unfallverhütungsvorschrift, einen Tarifvertrag, " +
+          "eine Betriebsvereinbarung, eine gerichtliche Entscheidung oder eine behördliche Anordnung",
+    hinweis: "Die Vorschrift genau benennen (mit Paragraph bzw. Ziffer) und sagen, wodurch die Maßnahme dagegen verstößt.",
   },
-  { code: "99-2", text: "Nr. 2 – Benachteiligung eines Bewerbers oder Arbeitnehmers ohne sachlichen Grund" },
-  { code: "99-3", text: "Nr. 3 – Sonstige Gründe (siehe Begründungstext)" },
+  {
+    code: "99-nr2",
+    text: "Nr. 2 – Verstoß gegen eine Auswahlrichtlinie nach § 95 BetrVG",
+    hinweis: "Die Richtlinie und die Regel darin benennen, gegen die die Maßnahme verstößt.",
+  },
+  {
+    code: "99-nr3",
+    text: "Nr. 3 – Begründete Besorgnis, dass andere Beschäftigte gekündigt werden oder sonstige Nachteile erleiden",
+    hinweis: "Wer betroffen wäre und welcher Nachteil konkret droht, z. B. ein gleich geeigneter befristet " +
+             "Beschäftigter, der bei einer unbefristeten Einstellung übergangen wird.",
+  },
+  {
+    code: "99-nr4",
+    text: "Nr. 4 – Benachteiligung des betroffenen Arbeitnehmers ohne betrieblichen oder persönlichen Grund",
+    hinweis: "Worin der Nachteil für die betroffene Person liegt, z. B. schlechtere Arbeitsbedingungen nach einer Versetzung.",
+  },
+  {
+    code: "99-nr5",
+    text: "Nr. 5 – Die nach § 93 BetrVG verlangte innerbetriebliche Ausschreibung ist unterblieben",
+    hinweis: "Wann der Betriebsrat die Ausschreibung verlangt hat und dass die Stelle nicht intern ausgeschrieben wurde.",
+  },
+  {
+    code: "99-nr6",
+    text: "Nr. 6 – Begründete Besorgnis, dass der Bewerber den Betriebsfrieden stören wird",
+    hinweis: "Konkrete Tatsachen nennen (gesetzwidriges Verhalten oder grobe Verletzung von § 75 Abs. 1), keine Vermutungen.",
+  },
 ];
 
 export const WIDERSPRUCH_GRUENDE: AnhoerungGrund[] = [
-  { code: "102-1", text: "Nr. 1 – Sozialwidrigkeit i. S. d. § 1 Abs. 2 und 3 KSchG" },
-  { code: "102-2", text: "Nr. 2 – Weiterbeschäftigung auf einem anderen Arbeitsplatz möglich" },
-  { code: "102-3", text: "Nr. 3 – Weiterbeschäftigung nach Umschulung oder Fortbildung möglich" },
-  { code: "102-4", text: "Nr. 4 – Weiterbeschäftigung zu geänderten Vertragsbedingungen möglich" },
-  { code: "102-5", text: "Nr. 5 – Fehlerhafter Interessenausgleich (§ 1 Abs. 5 KSchG)" },
+  {
+    code: "102-nr1",
+    text: "Nr. 1 – Soziale Gesichtspunkte bei der Auswahl nicht oder nicht ausreichend berücksichtigt",
+    hinweis: "Vergleichbare Beschäftigte benennen, die sozial weniger schutzwürdig sind, oder sagen, welches Kriterium " +
+             "falsch gewichtet wurde (Betriebszugehörigkeit, Alter, Unterhaltspflichten, Schwerbehinderung).",
+  },
+  {
+    code: "102-nr2",
+    text: "Nr. 2 – Die Kündigung verstößt gegen eine Auswahlrichtlinie nach § 95 BetrVG",
+    hinweis: "Die Richtlinie und die Regel darin benennen, gegen die die Kündigung verstößt.",
+  },
+  {
+    code: "102-nr3",
+    text: "Nr. 3 – Weiterbeschäftigung an einem anderen Arbeitsplatz im Betrieb oder Unternehmen möglich",
+    hinweis: "Den freien Arbeitsplatz konkret benennen: Abteilung, Stelle, ab wann frei – z. B. „die ab 01.11. freie " +
+             "Stelle Lagerlogistik, Werk 2“. Ein allgemeines „Weiterbeschäftigung ist möglich“ reicht nicht.",
+  },
+  {
+    code: "102-nr4",
+    text: "Nr. 4 – Weiterbeschäftigung nach zumutbaren Umschulungs- oder Fortbildungsmaßnahmen möglich",
+    hinweis: "Welche Maßnahme, wie lange, und welcher Arbeitsplatz danach frei ist.",
+  },
+  {
+    code: "102-nr5",
+    text: "Nr. 5 – Weiterbeschäftigung unter geänderten Vertragsbedingungen möglich, der Arbeitnehmer ist einverstanden",
+    hinweis: "Welche Änderung (z. B. Teilzeit, andere Schicht) auf welchem Arbeitsplatz – und dass das Einverständnis vorliegt.",
+  },
 ];
 
 export function gruendeFuerArt(art: AnhoerungArt | "" | null | undefined): AnhoerungGrund[] {
@@ -857,6 +904,9 @@ export function gruendeFuerArt(art: AnhoerungArt | "" | null | undefined): Anhoe
   if (art === "WIDERSPRUCH") return WIDERSPRUCH_GRUENDE;
   return [];
 }
+
+/** Unter dieser Länge gilt eine Begründung als zu knapp – dann fragt der Versand nach */
+export const BEGRUENDUNG_MINDESTLAENGE = 80;
 
 // ── Wahlen (Backend: routes/wahlen.ts, Fristen: lib/wahlFristen.ts) ──
 export type WahlArt = "BR" | "JAV";

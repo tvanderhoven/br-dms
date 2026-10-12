@@ -8,7 +8,7 @@ import {
   api, Dokument, DokumentVersion, Kategorie, KATEGORIE_LABEL, KATEGORIE_KURZ, Aufbewahrungsregel, Gremium, Ordner,
   istEmail, istEmailDatei,
   formatDatum, formatDateigroesse, fristFarbe,
-  AnhoerungVorgangAntwort, AnhoerungStatus, AnhoerungArt, ANHOERUNG_STATUS_LABEL, ANHOERUNG_ART_LABEL, gruendeFuerArt,
+  AnhoerungVorgangAntwort, AnhoerungStatus, AnhoerungArt, ANHOERUNG_STATUS_LABEL, ANHOERUNG_ART_LABEL, gruendeFuerArt, BEGRUENDUNG_MINDESTLAENGE,
 } from "../lib/api";
 
 // Sitzungen/TOPs, in denen ein Dokument behandelt wurde – jüngste Sitzung zuerst
@@ -333,9 +333,24 @@ export default function Dokumente() {
 
   async function vorgangAlsVersendetMarkieren() {
     if (!vorgang || !vorschau) return;
+    // Typischer Fehler: Grund angekreuzt, aber nicht konkret begründet – dann ist der Widerspruch unbeachtlich
+    const mitGruenden = stnArt === "WIDERSPRUCH" || stnArt === "ZUSTIMMUNGSVERWEIGERUNG";
+    const warnungen: string[] = [];
+    if (mitGruenden && stnGruende.length === 0) warnungen.push("Es ist kein Grund angekreuzt.");
+    if (mitGruenden && stnText.trim().length < BEGRUENDUNG_MINDESTLAENGE) {
+      warnungen.push("Die Begründung ist sehr knapp. Sie muss konkret auf den Fall eingehen – ein bloßes Wiederholen des Gesetzestextes reicht nicht, sonst ist "
+        + (stnArt === "WIDERSPRUCH" ? "der Widerspruch" : "die Verweigerung") + " unwirksam.");
+    }
+    if (warnungen.length > 0 && !confirm(`Bitte prüfen:\n\n• ${warnungen.join("\n• ")}\n\nTrotzdem versenden?`)) return;
     if (!confirm("Stellungnahme als versendet markieren? Dabei wird ein Brief-PDF erzeugt, archiviert und alle offenen Fristen dieses Dokuments werden als erledigt markiert.")) return;
     setVersandLaufend(true);
     try {
+      // Versendet wird, was im Formular steht – auch ohne vorheriges „Speichern“
+      await api.dokumente.vorgangAktualisieren(vorgang.vorgang.dokumentId, {
+        stellungnahmeArt: stnArt || null,
+        stellungnahmeGruende: stnGruende,
+        stellungnahmeText: stnText || null,
+      });
       await api.dokumente.vorgangVersenden(vorgang.vorgang.dokumentId, versandDatum);
       await ladeVorgang(vorschau);
     } catch (err) { alert(err instanceof Error ? err.message : "Fehler beim Versenden"); }
@@ -874,7 +889,12 @@ export default function Dokumente() {
                                   e.target.checked ? [...prev, g.code] : prev.filter(c => c !== g.code))}
                                 className="mt-0.5"
                               />
-                              <span>{g.text}</span>
+                              <span>
+                                {g.text}
+                                {stnGruende.includes(g.code) && (
+                                  <span className="block mt-0.5 text-[10.5px] text-amber-700">→ {g.hinweis}</span>
+                                )}
+                              </span>
                             </label>
                           ))}
                         </div>
@@ -883,7 +903,9 @@ export default function Dokumente() {
                       <textarea
                         value={stnText}
                         onChange={e => setStnText(e.target.value)}
-                        placeholder="Begründung / weitere Ausführungen…"
+                        placeholder={stnArt === "WIDERSPRUCH" || stnArt === "ZUSTIMMUNGSVERWEIGERUNG"
+                          ? "Begründung – konkret zum Fall: Namen, Stellen, Daten (siehe Hinweise oben)"
+                          : "Begründung / weitere Ausführungen…"}
                         rows={3}
                         className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 resize-none"
                       />

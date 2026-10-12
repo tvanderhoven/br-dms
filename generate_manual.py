@@ -741,17 +741,24 @@ def build():
         "Stellvertretung und Admin."
     )
     pdf.bild("anhoerung-vorgang", "Vorgang einer Anhörung § 102 mit Widerspruch, Gründen und Entwurf",
-             ausschnitt="mitte", vertikal=(0.0, 0.6), waagerecht=(0.73, 1.0))
+             ausschnitt="mitte", vertikal=(0.0, 0.75), waagerecht=(0.73, 1.0))
     pdf.schritt(1, "Status", "Eingegangen, Beraten, Beschlossen oder Beantwortet – zeigt allen, wo die Anhörung steht. "
                 "„Beantwortet“ setzt BR-DMS beim Versand selbst.")
     pdf.schritt(2, "Art wählen", "Zustimmung, Zustimmungsverweigerung (§ 99 Abs. 2) oder Widerspruch (§ 102 Abs. 3).")
-    pdf.schritt(3, "Gründe ankreuzen", "Bei Verweigerung und Widerspruch die gesetzlichen Gründe (§ 99 Abs. 2 bzw. "
-                "§ 102 Abs. 3 Nr. 1–5) ankreuzen und darunter konkret begründen. Mit „Speichern“ sichern.")
+    pdf.schritt(3, "Gründe ankreuzen", "Bei Verweigerung und Widerspruch die gesetzlichen Gründe (§ 99 Abs. 2 Nr. 1–6 "
+                "bzw. § 102 Abs. 3 Nr. 1–5) ankreuzen. Unter jedem angekreuzten Grund steht, was die Begründung "
+                "konkret enthalten muss – darunter den Fall begründen. Mit „Speichern“ sichern.")
     pdf.schritt(4, "Entwurf als PDF", "Zeigt den fertigen Brief mit dem Wasserzeichen „ENTWURF“ zum Gegenlesen. "
                 "Der Knopf speichert vorher die Eingaben; am Vorgang ändert sich sonst nichts.")
-    pdf.schritt(5, "Als versendet markieren", "Mit dem Versanddatum: Der Brief entsteht ohne Wasserzeichen, wird "
-                "verschlüsselt als „Schriftverkehr“ archiviert, die Fristen des Dokuments gelten als erledigt. "
-                "Danach ausdrucken, unterschreiben und dem Arbeitgeber übergeben.")
+    pdf.schritt(5, "Als versendet markieren", "Mit dem Versanddatum: Versendet wird, was im Formular steht. Der Brief "
+                "entsteht ohne Wasserzeichen, wird verschlüsselt als „Schriftverkehr“ archiviert, die Fristen des "
+                "Dokuments gelten als erledigt. Fehlt ein Grund oder ist die Begründung sehr knapp, fragt BR-DMS "
+                "vorher nach. Danach ausdrucken, unterschreiben und dem Arbeitgeber übergeben.")
+    pdf.hinweis(
+        "Ein Widerspruch, der nur den Gesetzestext wiederholt („eine Weiterbeschäftigung ist möglich“), ist "
+        "unbeachtlich: Der Arbeitnehmer kann sich dann nicht auf den Weiterbeschäftigungsanspruch nach § 102 Abs. 5 "
+        "BetrVG stützen. Deshalb immer konkret werden – bei Nr. 3 etwa die freie Stelle mit Abteilung und Datum.",
+        "wichtig", "Konkret begründen")
     pdf.body(
         "Schneller geht es aus der Sitzung: Ist das Anhörungsdokument mit einem TOP verknüpft und dort ein "
         "Beschluss gefasst, füllt „Stellungnahme erzeugen“ im Mehr-Menü des TOPs (Kapitel 4.3) Art und Text "
@@ -760,8 +767,8 @@ def build():
     pdf.hinweis(
         "Die Widerspruchsfrist ist kurz: eine Woche bei ordentlicher Kündigung, drei Tage bei außerordentlicher "
         "(§ 102 Abs. 2 BetrVG). Ein Widerspruch wirkt nur, wenn er fristgerecht, schriftlich und mit Gründen beim "
-        "Arbeitgeber eingeht. Die Gründe-Kataloge sind nach bestem Wissen aus BetrVG und KSchG zusammengestellt, "
-        "aber nicht juristisch geprüft – im Zweifel vor dem Versand rechtlich beraten lassen.",
+        "Arbeitgeber eingeht. Die Gründe folgen dem Wortlaut von § 99 Abs. 2 und § 102 Abs. 3 BetrVG, sind aber "
+        "nicht juristisch geprüft – im Zweifel vor dem Versand rechtlich beraten lassen.",
         "achtung", "Frist und Form")
 
     # 4 ─────────────────────────────────────────────────────────────

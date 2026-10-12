@@ -12,7 +12,7 @@ import fs from "node:fs/promises";
 import fsSync from "node:fs";
 import { istBetriebsversammlung } from "../lib/sitzungstypen.js";
 import { KATEGORIE_LABEL } from "../lib/kategorien.js";
-import { gruendeFuerArt } from "../lib/anhoerungGruende.js";
+import { gruendeFuerArt, gruendeNormalisieren } from "../lib/anhoerungGruende.js";
 import prisma from "../lib/prisma.js";
 
 // ── Typen (Subset aus Prisma) ─────────────────────────────────────
@@ -1439,8 +1439,9 @@ export async function stellungnahmePdfGenerieren(
     doc.moveDown(1);
 
     const gruende = gruendeFuerArt(vorgang.stellungnahmeArt);
+    const gewaehlt = gruendeNormalisieren(vorgang.stellungnahmeGruende);
     for (const g of gruende) {
-      const angekreuzt = vorgang.stellungnahmeGruende.includes(g.code);
+      const angekreuzt = gewaehlt.includes(g.code);
       doc.fontSize(10).text(`${angekreuzt ? "☑" : "☐"}  ${pdfText(g.text)}`, RAND_LINKS + 10, doc.y, { width: BREITE - 10 });
       doc.moveDown(0.3);
     }
@@ -1453,8 +1454,9 @@ export async function stellungnahmePdfGenerieren(
     if (vorgang.stellungnahmeArt === "WIDERSPRUCH") {
       doc.moveDown(1.5);
       doc.fontSize(9).fillColor(FARBE_GRAU).text(
-        "Gemäß § 102 Abs. 5 BetrVG ist der Arbeitnehmer nach Ablauf der Kündigungsfrist bis zur " +
-        "rechtskräftigen Entscheidung eines Gerichts weiterzubeschäftigen, sofern er dies verlangt.",
+        "Erhebt der Arbeitnehmer Kündigungsschutzklage, ist er nach § 102 Abs. 5 BetrVG auf sein Verlangen " +
+        "nach Ablauf der Kündigungsfrist bis zum rechtskräftigen Abschluss des Rechtsstreits bei unveränderten " +
+        "Arbeitsbedingungen weiterzubeschäftigen.",
         RAND_LINKS, doc.y, { width: BREITE },
       );
       doc.fillColor("black");
