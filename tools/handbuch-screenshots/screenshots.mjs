@@ -149,7 +149,9 @@ const AUFNAHMEN = [
   { datei: "kosten",              pfad: "/kosten", warte: 2500 },
   { datei: "kosten-posten",       pfad: "/kosten", js: `(() => { const b = document.querySelector('[title="Bearbeiten"]'); if (b) b.click(); return !!b; })()`, warte: 2000 },
   { datei: "einstellungen-zwei-faktor", pfad: "/einstellungen", js: [klickText("System", "button"), zeigeText("Zwei-Faktor-Anmeldung"),
-    // Pflicht-Haken nur für das Bild setzen (nicht gespeichert) – Demo-Logins brauchen sonst einen Code
+    // „An“ und Pflicht-Haken nur für das Bild setzen (nicht gespeichert) – Demo-Logins brauchen sonst einen Code.
+    // Die Rollen-Haken erscheinen erst, wenn „An“ gewählt ist.
+    klickText("An – Jede Person", "label"),
     ...["Vorsitz", "Stellv. Vorsitz", "Admin"].map(r => klickText(r, "label"))], alsAdmin: true },
   { datei: "ueberstunden",        pfad: "/gehaltstabelle" },
   { datei: "sichtschutz",         pfad: "/gehaltstabelle", js: [klickText("Liste", "button"), waehle(0, "IT"), `(() => { window.dispatchEvent(new Event("blur")); return true; })()`] },
