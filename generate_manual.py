@@ -2259,7 +2259,8 @@ def build():
         "älter als 30 Tage werden entfernt. restore.sh führt interaktiv durch die Wiederherstellung und "
         "verlangt vor dem Überschreiben eine ausdrückliche Bestätigung."
     )
-    pdf.code("sudo bash <DATA_PATH>/backup.sh     # db_<Zeit>.sql.gz.enc, storage_<Zeit>.tar.gz.enc, info_<Zeit>.txt\n"
+    pdf.code("sudo bash <DATA_PATH>/backup.sh\n"
+             "# -> db_<Zeit>.sql.gz.enc, storage_<Zeit>.tar.gz.enc, info_<Zeit>.txt\n"
              "sudo bash <DATA_PATH>/restore.sh    # interaktiv\n\n"
              "# ohne Rückfragen, z. B. mit einer Datei außerhalb von backups/:\n"
              "sudo bash <DATA_PATH>/restore.sh /pfad/db_<Zeit>.sql.gz.enc --mit-storage --ja")
@@ -2473,7 +2474,7 @@ def build():
         "Versionsnummer (in der App unter „Über BR-DMS“) und eine kurze Beschreibung, was passiert ist."
     )
     pdf.body(
-        "Hinter der Versionsnummer steht der genaue Programmstand, z. B. „1.3.0 · a1b2c3d“. Die Zeichen "
+        "Hinter der Versionsnummer steht der genaue Programmstand, z. B. „1.3.1 · a1b2c3d“. Die Zeichen "
         "nach dem Punkt bezeichnen den Stand im Quellcode; ein „+“ am Ende heißt, dass bei der Installation "
         "noch nicht festgeschriebene Änderungen dabei waren."
     )
