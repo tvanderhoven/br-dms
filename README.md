@@ -462,7 +462,7 @@ Aufbau: Teil I beschreibt alle Funktionen, Teil II die Administration, Teil III 
 **BR-DMS** – entwickelt von **Tim van der Hoven** · Programmierung mit Unterstützung von
 Claude (Anthropic)
 
-Kontakt: [support@vanderhoven.eu](mailto:support@vanderhoven.eu)
+Kontakt: [support@br-dms.de](mailto:support@br-dms.de)
 
 Copyright © 2026 Tim van der Hoven. Veröffentlicht unter der
 [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0): Nutzung, Änderung und

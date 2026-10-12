@@ -34,6 +34,7 @@ const db: Record<string, Eintrag[]> = {
   beschluesse: klon(F.DEMO_BESCHLUESSE),
   themen: klon(F.DEMO_THEMEN),
   nachrichten: klon(F.DEMO_NACHRICHTEN),
+  nachrichtenGesendet: [],
   kummerkasten: [],
   gremien: [],
   qualifikationen: klon(P.DEMO_QUALIFIKATIONEN),
@@ -499,6 +500,28 @@ export function handleDemoRequest(method: string, pathname: string, searchParams
   if (resource === "tops" && sub === "kommentare") {
     if (method === "POST") return json({ id: zufallsId("demo-k"), inhalt: body.inhalt ?? "", inhaltJson: body.inhaltJson, erstelltAm: jetzt(), aktualisiertAm: jetzt(), autor: { id: F.DEMO_ME.id, name: F.DEMO_ME.name, email: F.DEMO_ME.email } });
     return json([]);
+  }
+
+  // ── Nachrichten: „gesendet“ ist keine ID, „gelesen“ muss wirklich gespeichert werden ──
+  if (resource === "nachrichten") {
+    if (method === "GET" && id === "gesendet") return json(db.nachrichtenGesendet);
+    if (method === "PATCH" && id && sub === "gelesen") {
+      const n = db.nachrichten.find(e => e.id === id);
+      if (n) { n.gelesen = true; n.gelesenAm = jetzt(); }
+      return json(n ?? { ok: true });
+    }
+    if (method === "POST" && !id) {
+      const absender = { id: F.DEMO_ME.id, name: F.DEMO_ME.name, email: F.DEMO_ME.email };
+      const empfaenger = body.alle
+        ? db.benutzer.filter(u => u.aktiv && u.id !== F.DEMO_ME.id)
+        : db.benutzer.filter(u => u.id === body.empfaengerId);
+      const neu = empfaenger.map(u => ({
+        id: zufallsId("demo-n"), betreff: body.betreff ?? "", inhalt: body.inhalt ?? "", typ: "NORMAL",
+        absender, empfaenger: { id: u.id, name: u.name, email: u.email }, gelesen: false, erstelltAm: jetzt(),
+      }));
+      db.nachrichtenGesendet.unshift(...neu);
+      return json(neu[0] ?? { ok: true });
+    }
   }
 
   // ── Vorlagen: TOPs als Unterliste ────────────────────────────────────

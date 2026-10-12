@@ -373,7 +373,7 @@ export const DEMO_THEMEN = [
 export const DEMO_NACHRICHTEN = [
   {
     id: "demo-n1", betreff: "Tagesordnung November steht", inhalt: "Die Tagesordnung für die Novembersitzung ist fertig, bitte bis Freitag durchsehen.",
-    typ: "TAGESORDNUNG", absender: { id: "demo-u1", name: "Anna Beispiel", email: "anna.beispiel@demo.invalid" },
+    typ: "TAGESORDNUNG", absender: { id: "demo-u2", name: "Jonas Mustermann", email: "jonas.mustermann@demo.invalid" },
     gelesen: false, erstelltAm: tag(-1),
   },
   {

@@ -54,7 +54,7 @@ with open(os.path.join(BASIS, "frontend", "package.json"), encoding="utf-8") as 
     VERSION = json.load(f)["version"]
 
 AUTOR   = "Tim van der Hoven"
-SUPPORT = "support@vanderhoven.eu"
+SUPPORT = "support@br-dms.de"
 
 # Farben – "Board"-Design der App
 C_INK      = (34, 35, 39)
