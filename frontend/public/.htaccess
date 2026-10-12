@@ -1,0 +1,10 @@
+# Für die Online-Demo auf einem Apache-Webhosting (z. B. IONOS Webhosting Pro):
+# BR-DMS ist eine Single-Page-App (React Router). Ohne diese Regel liefert der
+# Server bei einem Direktaufruf einer Unterseite (z. B. /dashboard) oder einem
+# Reload dort einen 404 statt der App. Alles, was keine echte Datei ist, geht
+# daher auf index.html, der Router im Browser übernimmt dann die Anzeige.
+RewriteEngine On
+RewriteBase /
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.html [L]

@@ -26,9 +26,11 @@ type Schritt =
   | { art: "einrichten"; zwischenToken: string; daten: ZweiFaktorEinrichtung | null }
   | { art: "codes"; token: string; codes: string[] };
 
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
+
 export default function Login() {
-  const [email, setEmail]       = useState("");
-  const [passwort, setPasswort] = useState("");
+  const [email, setEmail]       = useState(DEMO_MODE ? "demo@beispiel.de" : "");
+  const [passwort, setPasswort] = useState(DEMO_MODE ? "demo" : "");
   const [eingeloggtBleiben, setEingeloggtBleiben] = useState(true);
   const [fehler, setFehler]     = useState("");
   const [laden, setLaden]       = useState(false);
@@ -156,6 +158,12 @@ export default function Login() {
           </div>
           <p className="text-gray-500 text-sm">Dokumentenmanagement für Betriebsräte</p>
         </div>
+
+        {DEMO_MODE && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-2 rounded-lg mb-4">
+            Online-Demo mit Beispieldaten – einfach auf „Anmelden“ klicken, es wird nichts dauerhaft gespeichert.
+          </div>
+        )}
 
         <form onSubmit={anmelden} className="space-y-4">
           <div>

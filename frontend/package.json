@@ -8,7 +8,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dev:demo": "vite --mode demo",
+    "build:demo": "tsc && vite build --mode demo --outDir dist-demo"
   },
   "dependencies": {
     "@tiptap/core": "3.31.3",
