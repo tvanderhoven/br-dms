@@ -18,7 +18,7 @@ const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
 // Seiten, die in der Online-Demo bewusst nicht nachgebaut sind (zu stark auf ein echtes
 // Backend angewiesen: Datei-Upload, PDF-Versand, 2FA, Personal-/Gehaltsdaten, …) –
 // siehe frontend/README-DEMO.md. Direktaufruf der URL landet auf dem Dashboard.
-const DEMO_GESPERRTE_PFADE = ["/eingang", "/dokumente", "/sitzungen", "/benutzer", "/wahlen", "/audit", "/einstellungen", "/konto", "/suche"];
+const DEMO_GESPERRTE_PFADE = ["/eingang", "/dokumente", "/benutzer", "/wahlen", "/audit", "/einstellungen", "/konto", "/suche"];
 
 const MODUL_PFADE: Record<string, ModuleKey> = {
   "/gehaltstabelle":         "personalverwaltung",
@@ -617,12 +617,10 @@ export default function Layout() {
           </NavGruppe>
 
           <NavGruppe titel="Sitzungen" gruppenKey="sitzungen" zu={!!navGruppenZu.sitzungen} onToggle={navGruppeUmschalten}>
-            {!DEMO_MODE && (
-              <NavLink to="/sitzungen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
-                <CalendarDays size={16} />
-                Sitzungen
-              </NavLink>
-            )}
+            <NavLink to="/sitzungen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+              <CalendarDays size={16} />
+              Sitzungen
+            </NavLink>
             {(meineRolle === "ADMIN" || meineRolle === "VORSITZ" || meineRolle === "STELLVERTRETER") && (
               <NavLink to="/vorlagen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
                 <LayoutTemplate size={16} />

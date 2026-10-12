@@ -4,6 +4,7 @@
 nas.env
 node_modules/
 dist/
+dist-demo/
 __pycache__/
 *.pyc
 *.enc

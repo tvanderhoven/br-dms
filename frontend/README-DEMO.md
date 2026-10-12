@@ -8,14 +8,16 @@ Webhosting-Paket (z. B. IONOS Webhosting Pro) ohne Node/Docker/Postgres.
 
 **Enthalten** (mit Beispieldaten aus `src/demo/fixtures.ts`, Änderungen bleiben
 nur bis zum nächsten Seiten-Reload erhalten):
-Dashboard, Aufgaben, Themen-Backlog, Fristenkalender, Beschlussregister,
+Dashboard, Sitzungen (drei Beispielsitzungen: Entwurf, fixierte Tagesordnung,
+finales Protokoll mit Anwesenheit und Beschlüssen; PDFs und Einladungsversand
+zeigen nur einen Hinweis), Aufgaben, Themen-Backlog, Fristenkalender, Beschlussregister,
 Wissensarchiv, Ressourcen, Vorlagen, Betriebsvereinbarungen, Geschäftsordnung,
 Themensammlung, Nachrichten (Postfach), Schnellsuche im Kopfbalken, der
 öffentliche Kummerkasten.
 
 **Absichtlich deaktiviert** (Seite nicht aufrufbar, Link/Navigation ausgeblendet,
 Direktaufruf der URL landet auf dem Dashboard – siehe `DEMO_GESPERRTE_PFADE` in
-`src/components/Layout.tsx`): Eingang, Dokumente, Sitzungen, Benutzerverwaltung,
+`src/components/Layout.tsx`): Eingang, Dokumente, Benutzerverwaltung,
 Mitarbeiter/Eingruppierung/Schulungen (ganzes Modul "Personalverwaltung" aus),
 Kosten, Wahlen, Audit-Log, Einstellungen, Mein Konto, die große Suchseite.
 Das sind die Seiten mit echtem Datei-Upload, PDF-Erzeugung, E-Mail-Versand,

@@ -58,10 +58,24 @@ export const DEMO_DOKUMENTE = [
 
 // ── Sitzungen (nur zur Anzeige im Dashboard/Themen-Backlog – die
 //    Sitzungsverwaltung selbst ist in der Demo deaktiviert) ───────────
+// Versionen wie im echten Ablauf: 1.0 Entwurf → 1.1 fixiert → 2.0 Protokoll → 2.1 final
+function version(nr: string, typ: string, tageZurueck: number, extra: Record<string, unknown> = {}) {
+  return { id: `demo-v-${nr}-${typ}`, versionNummer: nr, typ, readonly: typ !== "PROTOKOLL_ENTWURF" && typ !== "TAGESORDNUNG_ENTWURF", erstelltAm: tag(tageZurueck), ...extra };
+}
+function top(sitzungId: string, nummer: number, titel: string, felder: Record<string, unknown> = {}) {
+  return {
+    id: `${sitzungId}-top${nummer}`, sitzungId, nummer, titel, inhalt: "", ergebnis: "",
+    status: "OFFEN", spontan: false, vertraulich: false, dokumente: [], _count: { kommentare: 0 },
+    erstelltAm: tag(-20), aktualisiertAm: tag(-3), ...felder,
+  };
+}
+const dokVerweis = (id: string, titel: string, kategorie: string, dateiname: string, aktenzeichen?: string) =>
+  ({ id: `tv-${id}`, dokument: { id, titel, kategorie, dateiname, aktenzeichen } });
+
 export const DEMO_SITZUNGEN = [
   {
     id: "demo-s1",
-    titel: "Sitzung Betriebsrat – November",
+    titel: "Betriebsratssitzung – Personelles und Befragung",
     sitzungsdatum: tag(6),
     ort: "Besprechungsraum 2",
     sitzungstyp: "ORDENTLICH",
@@ -70,19 +84,103 @@ export const DEMO_SITZUNGEN = [
     teilnehmerzahl: null,
     gremium: null,
     erstelltVon: { id: "demo-u1", name: "Anna Beispiel" },
-    versionen: [],
+    versionen: [version("1.0", "TAGESORDNUNG_ENTWURF", -14), version("1.1", "TAGESORDNUNG_FIXIERT", -3, { einladungVersendetAm: tag(-3) })],
     scans: [],
     dokumentAnzahl: 1,
-    _count: { tops: 3 },
     tops: [
-      { id: "demo-top1", sitzungId: "demo-s1", nummer: 1, titel: "Begrüßung & Tagesordnung", status: "OFFEN", spontan: false, vertraulich: false, dokumente: [], erstelltAm: tag(-3), aktualisiertAm: tag(-3) },
-      { id: "demo-top2", sitzungId: "demo-s1", nummer: 2, titel: "Neueinstellung Lager (§ 99)", status: "OFFEN", spontan: false, vertraulich: true, dokumente: [], erstelltAm: tag(-3), aktualisiertAm: tag(-3) },
-      { id: "demo-top3", sitzungId: "demo-s1", nummer: 3, titel: "Verschiedenes", status: "OFFEN", spontan: false, vertraulich: false, dokumente: [], erstelltAm: tag(-3), aktualisiertAm: tag(-3) },
+      top("demo-s1", 1, "Begrüßung, Beschlussfähigkeit, Tagesordnung", { inhalt: "Feststellung der ordnungsgemäßen Ladung und der Beschlussfähigkeit." }),
+      top("demo-s1", 2, "Genehmigung des Protokolls der letzten Sitzung", { inhalt: "Das Protokoll wurde mit der Einladung versandt." }),
+      top("demo-s1", 3, "Neueinstellung Lager (§ 99 BetrVG)", {
+        vertraulich: true, inhalt: "Anhörung zur Einstellung einer Fachkraft für Lagerlogistik, befristet auf zwölf Monate.",
+        dokumente: [dokVerweis("demo-d2", "Anhörung Neueinstellung Lager", "ANHOERUNG_99", "anhoerung-lager.pdf")],
+      }),
+      top("demo-s1", 4, "Mitarbeiterbefragung – Fragebogen", { inhalt: "Abstimmung des Fragebogens mit der Personalabteilung." }),
+      top("demo-s1", 5, "Verschiedenes"),
     ],
     erstelltAm: tag(-14),
     aktualisiertAm: tag(-3),
   },
+  {
+    id: "demo-s2",
+    titel: "Betriebsratssitzung – Gleitzeit und Mehrarbeit",
+    sitzungsdatum: tag(-21),
+    ort: "Besprechungsraum 2",
+    sitzungstyp: "ORDENTLICH",
+    status: "PROTOKOLL_FINAL",
+    notizen: "",
+    teilnehmerzahl: null,
+    gremium: null,
+    erstelltVon: { id: "demo-u1", name: "Anna Beispiel" },
+    versionen: [
+      version("1.0", "TAGESORDNUNG_ENTWURF", -35), version("1.1", "TAGESORDNUNG_FIXIERT", -28, { einladungVersendetAm: tag(-28) }),
+      version("2.0", "PROTOKOLL_ENTWURF", -21), version("2.1", "PROTOKOLL_FINAL", -14, { finalisiertAm: tag(-14) }),
+    ],
+    scans: [],
+    dokumentAnzahl: 2,
+    tops: [
+      top("demo-s2", 1, "Begrüßung, Beschlussfähigkeit, Tagesordnung", {
+        status: "ZUR_KENNTNIS", ergebnis: "Die Sitzung wurde ordnungsgemäß geladen. Vier von vier ordentlichen Mitgliedern anwesend, der Betriebsrat ist beschlussfähig.",
+      }),
+      top("demo-s2", 2, "Betriebsvereinbarung Gleitzeit 2025 – Kündigung durch den Arbeitgeber", {
+        status: "BESCHLOSSEN",
+        inhalt: "Der Arbeitgeber hat die BV Gleitzeit zum 31.12. gekündigt. Bis zu einer Neuregelung gilt sie nach.",
+        ergebnis: "Der Betriebsrat nimmt Verhandlungen über eine neue Gleitzeitregelung auf. Verhandlungskommission: Anna Beispiel, Jonas Mustermann.",
+        dokumente: [dokVerweis("demo-d1", "BV Gleitzeit 2025", "BETRIEBSVEREINBARUNG", "bv-gleitzeit-2025.pdf")],
+      }),
+      top("demo-s2", 3, "Mehrarbeit Lager KW 44–46 (§ 87 Abs. 1 Nr. 3 BetrVG)", {
+        status: "BESCHLOSSEN",
+        inhalt: "Antrag des Arbeitgebers auf Mehrarbeit von bis zu sechs Stunden je Woche für das Lagerteam.",
+        ergebnis: "Zustimmung unter der Bedingung, dass die Mehrarbeit freiwillig ist und in Freizeit ausgeglichen werden kann.",
+      }),
+      top("demo-s2", 4, "Verschiedenes", { status: "ZUR_KENNTNIS", ergebnis: "Hinweis aus dem Kummerkasten zur Beleuchtung im Lager an die Haustechnik weitergegeben." }),
+    ],
+    erstelltAm: tag(-35),
+    aktualisiertAm: tag(-14),
+  },
+  {
+    id: "demo-s3",
+    titel: "Betriebsratssitzung – Jahresplanung",
+    sitzungsdatum: tag(34),
+    ort: "Besprechungsraum 2",
+    sitzungstyp: "ORDENTLICH",
+    status: "ENTWURF",
+    notizen: "Jahresplanung 2027 vorbereiten.",
+    teilnehmerzahl: null,
+    gremium: null,
+    erstelltVon: { id: "demo-u1", name: "Anna Beispiel" },
+    versionen: [version("1.0", "TAGESORDNUNG_ENTWURF", -2)],
+    scans: [],
+    dokumentAnzahl: 0,
+    tops: [
+      top("demo-s3", 1, "Begrüßung, Beschlussfähigkeit, Tagesordnung"),
+      top("demo-s3", 2, "Seminarplanung 2027 (§ 37 Abs. 6 BetrVG)"),
+      top("demo-s3", 3, "Verschiedenes"),
+    ],
+    erstelltAm: tag(-2),
+    aktualisiertAm: tag(-2),
+  },
 ];
+
+// Beschlüsse je TOP (Sitzung Oktober) – Grundlage der Ansicht „Beschlüsse“ am TOP
+export const DEMO_TOP_BESCHLUESSE: Record<string, Record<string, unknown>[]> = {
+  "demo-s2-top2": [{
+    id: "demo-tb1", topId: "demo-s2-top2", reihenfolge: 0,
+    antragstext: "Der Betriebsrat nimmt Verhandlungen über eine neue Gleitzeitregelung auf und benennt Anna Beispiel und Jonas Mustermann als Verhandlungskommission.",
+    rechtsgrundlage: "§ 87 BetrVG – Mitbestimmung", jaStimmen: 4, neinStimmen: 0, enthaltungen: 0, nichtTeilgenommen: 0, anwesend: 4,
+    ergebnis: "ANGENOMMEN", finalisiert: true, finalisiertAm: tag(-14), erstelltAm: tag(-21), stimmen: [],
+  }],
+  "demo-s2-top3": [{
+    id: "demo-tb2", topId: "demo-s2-top3", reihenfolge: 0,
+    antragstext: "Der Betriebsrat stimmt der Mehrarbeit im Lager in den KW 44–46 zu, sofern sie freiwillig ist und in Freizeit ausgeglichen werden kann.",
+    rechtsgrundlage: "§ 87 BetrVG – Mitbestimmung", jaStimmen: 3, neinStimmen: 0, enthaltungen: 1, nichtTeilgenommen: 0, anwesend: 4,
+    ergebnis: "ANGENOMMEN", finalisiert: true, finalisiertAm: tag(-14), erstelltAm: tag(-21), stimmen: [],
+  }],
+};
+
+// Anwesenheit (Sitzung Oktober): Status je Benutzer-ID, alle anderen ohne Eintrag
+export const DEMO_ANWESENHEIT: Record<string, Record<string, string>> = {
+  "demo-s2": { "demo-u1": "ANWESEND", "demo-u2": "ANWESEND", "demo-u3": "ANWESEND", "demo-u4": "ANWESEND", "demo-u5": "ABWESEND_ENTSCHULDIGT" },
+};
 
 // ── Aufgaben (inkl. Themen-Backlog-Einträge über kanbanStatus) ──────
 export const DEMO_AUFGABEN = [
