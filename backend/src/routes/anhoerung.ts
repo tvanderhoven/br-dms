@@ -20,6 +20,7 @@ import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { encryptFile } from "../lib/encryption.js";
 import { stellungnahmePdfGenerieren } from "../services/pdf.service.js";
+import { gruendeNormalisieren } from "../lib/anhoerungGruende.js";
 
 const STORAGE    = process.env.STORAGE_PATH ?? "/data/storage";
 const MASTER_KEY = process.env.ENCRYPTION_KEY!;
@@ -45,6 +46,11 @@ async function audit(request: FastifyRequest, aktion: AuditAktion, dokumentId: s
       details:    JSON.parse(JSON.stringify(details)),
     },
   }).catch(() => {});
+}
+
+/** Gespeicherte Gründe-Codes der ersten Katalog-Fassung auf die heutigen abbilden (siehe lib/anhoerungGruende.ts) */
+function mitAktuellenGruenden<T extends { stellungnahmeGruende: string[] } | null>(v: T): T {
+  return v ? { ...v, stellungnahmeGruende: gruendeNormalisieren(v.stellungnahmeGruende) } : v;
 }
 
 /** Holt oder legt (für ältere Dokumente ohne Vorgang) den Vorgang zu einem Dokument an. */
@@ -107,7 +113,7 @@ export async function anhoerungRouten(app: FastifyInstance): Promise<void> {
         }))
       );
 
-      return reply.send({ vorgang: vorgangMitRelationen, fristen, verfuegbareBeschluesse });
+      return reply.send({ vorgang: mitAktuellenGruenden(vorgangMitRelationen), fristen, verfuegbareBeschluesse });
     }
   );
 
@@ -140,7 +146,7 @@ export async function anhoerungRouten(app: FastifyInstance): Promise<void> {
         data: {
           ...(status !== undefined && { status }),
           ...(stellungnahmeArt !== undefined && { stellungnahmeArt }),
-          ...(stellungnahmeGruende !== undefined && { stellungnahmeGruende }),
+          ...(stellungnahmeGruende !== undefined && { stellungnahmeGruende: gruendeNormalisieren(stellungnahmeGruende) }),
           ...(stellungnahmeText !== undefined && { stellungnahmeText: stellungnahmeText?.trim() || null }),
         },
         include: VORGANG_INCLUDE,
@@ -153,7 +159,7 @@ export async function anhoerungRouten(app: FastifyInstance): Promise<void> {
         await audit(request, AuditAktion.ANHOERUNG_STELLUNGNAHME_GESPEICHERT, dokumentId, { stellungnahmeArt });
       }
 
-      return reply.send(aktualisiert);
+      return reply.send(mitAktuellenGruenden(aktualisiert));
     }
   );
 
@@ -205,7 +211,7 @@ export async function anhoerungRouten(app: FastifyInstance): Promise<void> {
       });
 
       await audit(request, AuditAktion.ANHOERUNG_STELLUNGNAHME_GESPEICHERT, dokumentId, { beschlussId, art });
-      return reply.send(aktualisiert);
+      return reply.send(mitAktuellenGruenden(aktualisiert));
     }
   );
 
@@ -317,7 +323,7 @@ export async function anhoerungRouten(app: FastifyInstance): Promise<void> {
         versandDatum, versandDokumentId: versandDokument.id, fristenErledigt: erledigt.count,
       });
 
-      return reply.send({ vorgang: aktualisiert, versandDokumentId: versandDokument.id, fristenErledigt: erledigt.count });
+      return reply.send({ vorgang: mitAktuellenGruenden(aktualisiert), versandDokumentId: versandDokument.id, fristenErledigt: erledigt.count });
     }
   );
 }
