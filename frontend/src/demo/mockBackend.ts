@@ -6,6 +6,7 @@
  * echten Login, jeder Request wird einfach beantwortet.
  */
 import * as F from "./fixtures";
+import * as P from "./personal";
 
 type Eintrag = Record<string, any>;
 
@@ -35,11 +36,13 @@ const db: Record<string, Eintrag[]> = {
   nachrichten: klon(F.DEMO_NACHRICHTEN),
   kummerkasten: [],
   gremien: [],
-  qualifikationen: [],
-  schulungen: [],
-  mitarbeiter: [],
-  abteilungen: [],
-  gehaltstabelle: [],
+  qualifikationen: klon(P.DEMO_QUALIFIKATIONEN),
+  schulungen: klon(P.DEMO_SCHULUNGEN),
+  mitarbeiter: klon(P.DEMO_MITARBEITER),
+  abteilungen: klon(P.DEMO_ABTEILUNGEN),
+  gehaltstabelle: klon(P.DEMO_GEHALT),
+  zeitmodell: klon(P.DEMO_ZEITMODELL),
+  ueberstunden: klon(P.DEMO_UEBERSTUNDEN),
   wahlen: [],
   fremdprotokolle: [],
   ordner: [],
@@ -308,6 +311,139 @@ function sitzungAnfrage(method: string, id: string | undefined, sub: string | un
   return null;
 }
 
+// ── Personal: Eingruppierung, Zeitmodelle, Überstunden, Schulungen ───────
+const PERSONAL_HINWEIS = "In der Online-Demo nicht verfügbar – im echten BR-DMS werden hier Dateien importiert.";
+
+function mitarbeiterKurz(id: string): Eintrag | null {
+  const m = db.mitarbeiter.find(x => x.id === id);
+  if (!m) return null;
+  const { id: mid, vorname, nachname, pnr, eintritt, austritt, standort, abteilung, beschaeftigungsart } = m;
+  return { id: mid, vorname, nachname, pnr, eintritt, austritt, standort, abteilung, beschaeftigungsart };
+}
+
+/** Zeiträume/Einträge je Mitarbeiter: Filter wie im Backend (mitarbeiterId, abteilungId, von, bis) */
+function gefiltert(liste: Eintrag[], q: URLSearchParams, datumsfeld: string): Eintrag[] {
+  const mid = q.get("mitarbeiterId"), abt = q.get("abteilungId"), von = q.get("von"), bis = q.get("bis");
+  return liste.filter(e =>
+    (!mid || e.mitarbeiterId === mid) &&
+    (!abt || e.mitarbeiter?.abteilung?.id === abt) &&
+    (!von || e[datumsfeld] >= von) &&
+    (!bis || e[datumsfeld] <= bis));
+}
+
+/** Zeitmodell/Überstunden: neuer Zeitraum schließt einen offenen Vorgänger (wie im Backend) */
+function zeitraumAnfrage(liste: Eintrag[], method: string, id: string | undefined, q: URLSearchParams, body: Eintrag, prefix: string): Response {
+  if (id === "laufen-bald-ab") {
+    const grenze = new Date(Date.now() + Number(q.get("tage") ?? 30) * 86400000).toISOString();
+    return json(liste.filter(e => e.gueltigBis && e.gueltigBis >= jetzt() && e.gueltigBis <= grenze));
+  }
+  if (!id && method === "GET") return json(gefiltert(liste, q, "gueltigVon"));
+  if (!id && method === "POST") {
+    const vorgaenger = liste.find(e => e.mitarbeiterId === body.mitarbeiterId && !e.gueltigBis);
+    if (vorgaenger && body.gueltigVon) vorgaenger.gueltigBis = new Date(new Date(body.gueltigVon).getTime() - 86400000).toISOString();
+    const neu = { id: zufallsId(prefix), gueltigBis: null, bemerkung: null, sitzungId: null, sitzung: null, ...body,
+      mitarbeiter: mitarbeiterKurz(body.mitarbeiterId), erstelltAm: jetzt(), aktualisiertAm: jetzt() };
+    liste.push(neu);
+    return json(neu);
+  }
+  return genericCrud(liste, method, id, body, prefix);
+}
+
+function qualifikationsMatrix(): Eintrag {
+  const neueste = new Map<string, string>();
+  for (const t of db.schulungen.filter(s => s.status === "ABSOLVIERT")) {
+    for (const tn of t.teilnehmer.filter((x: Eintrag) => x.teilgenommen)) {
+      const key = `${tn.mitarbeiterId}|${t.qualifikationId}`;
+      if (!neueste.has(key) || t.datum > neueste.get(key)!) neueste.set(key, t.datum);
+    }
+  }
+  const sortiert = [...db.mitarbeiter].sort((a, b) => a.nachname.localeCompare(b.nachname) || a.vorname.localeCompare(b.vorname));
+  return {
+    qualifikationen: db.qualifikationen,
+    zeilen: sortiert.map(m => ({
+      mitarbeiter: { id: m.id, vorname: m.vorname, nachname: m.nachname },
+      zellen: db.qualifikationen.map(q => {
+        const absolviertAm = neueste.get(`${m.id}|${q.id}`) ?? null;
+        let gueltigBis: string | null = null;
+        let status = "NIE";
+        if (absolviertAm) {
+          if (q.gueltigkeitsdauerMonate) {
+            const d = new Date(absolviertAm); d.setMonth(d.getMonth() + q.gueltigkeitsdauerMonate);
+            gueltigBis = d.toISOString();
+            status = d.getTime() >= Date.now() ? "GUELTIG" : "ABGELAUFEN";
+          } else status = "GUELTIG";
+        }
+        return { qualifikationId: q.id, absolviertAm, gueltigBis, status };
+      }),
+    })),
+  };
+}
+
+function personalAnfrage(method: string, resource: string, id: string | undefined, sub: string | undefined, subId: string | undefined,
+                         q: URLSearchParams, body: Eintrag): Response | null {
+  if (resource === "mitarbeiter") {
+    if (id === "import") return json({ fehler: PERSONAL_HINWEIS }, 400);
+    if (id === "standort-batch") {
+      const ids: string[] = body.ids ?? [];
+      db.mitarbeiter.filter(m => ids.includes(m.id)).forEach(m => { m.standort = body.standort ?? null; });
+      return json({ aktualisiert: ids.length });
+    }
+    if (!id && method === "POST" || id && method === "PATCH") {
+      const abt = db.abteilungen.find(a => a.id === body.abteilungId);
+      if (abt) body.abteilung = { id: abt.id, name: abt.name };
+    }
+    return null; // Rest generisch
+  }
+  if (resource === "gehaltstabelle") {
+    if (id === "vorlage") return text("personalnummer;nachname;vorname;gruppe;stufe;gehalt_at;gueltig_ab;bemerkung\n");
+    if (id === "import") return json({ fehler: PERSONAL_HINWEIS }, 400);
+    if (!id && method === "GET") return json(gefiltert(db.gehaltstabelle, q, "gueltigAb"));
+    if (!id && method === "POST") {
+      const neu = { id: zufallsId("demo-g"), gruppe: null, stufe: null, gehaltAt: null, bemerkung: null, sitzungId: null, sitzung: null, ...body,
+        ...(body.gehaltAt != null ? { gehaltAt: Number(body.gehaltAt).toFixed(2) } : {}),
+        mitarbeiter: mitarbeiterKurz(body.mitarbeiterId), erstelltAm: jetzt(), aktualisiertAm: jetzt() };
+      db.gehaltstabelle.push(neu);
+      return json(neu);
+    }
+    if (id === "alle" || id === "eintraege") return json({ fehler: "In der Online-Demo nicht verfügbar." }, 400);
+    return genericCrud(db.gehaltstabelle, method, id, body, "demo-g");
+  }
+  if (resource === "zeitmodell") return zeitraumAnfrage(db.zeitmodell, method, id, q, body, "demo-z");
+  if (resource === "ueberstunden") return zeitraumAnfrage(db.ueberstunden, method, id, q, body, "demo-ue");
+  if (resource === "schulungen") {
+    if (id === "matrix") return json(qualifikationsMatrix());
+    if (!id && method === "GET") {
+      const qid = q.get("qualifikationId"), status = q.get("status"), von = q.get("von"), bis = q.get("bis");
+      return json(db.schulungen.filter(s => (!qid || s.qualifikationId === qid) && (!status || s.status === status)
+        && (!von || s.datum >= von) && (!bis || s.datum <= bis)).sort((a, b) => a.datum.localeCompare(b.datum)));
+    }
+    const qualifikation = (qid: string) => db.qualifikationen.find(x => x.id === qid);
+    if (!id && method === "POST") {
+      const neu: Eintrag = { id: zufallsId("demo-st"), titel: null, ort: null, anbieter: null, kosten: null, status: "GEPLANT", bemerkung: null,
+        ...body, qualifikation: qualifikation(body.qualifikationId), erstelltAm: jetzt(), aktualisiertAm: jetzt() };
+      neu.teilnehmer = (body.teilnehmerIds ?? []).map((mid: string) => ({ id: zufallsId("tn"), mitarbeiterId: mid, teilgenommen: false,
+        mitarbeiter: db.mitarbeiter.find(m => m.id === mid) }));
+      delete neu.teilnehmerIds;
+      db.schulungen.push(neu);
+      return json(neu);
+    }
+    const t = id ? db.schulungen.find(x => x.id === id) : undefined;
+    if (t && sub === "teilnehmer") {
+      if (method === "POST") t.teilnehmer.push({ id: zufallsId("tn"), mitarbeiterId: body.mitarbeiterId, teilgenommen: !!body.teilgenommen,
+        mitarbeiter: db.mitarbeiter.find(m => m.id === body.mitarbeiterId) });
+      if (method === "PATCH") t.teilnehmer.filter((x: Eintrag) => x.mitarbeiterId === subId).forEach((x: Eintrag) => { x.teilgenommen = !!body.teilgenommen; });
+      if (method === "DELETE") t.teilnehmer = t.teilnehmer.filter((x: Eintrag) => x.mitarbeiterId !== subId);
+      return json(t);
+    }
+    if (t && (method === "PUT" || method === "PATCH")) {
+      Object.assign(t, body, body.qualifikationId ? { qualifikation: qualifikation(body.qualifikationId) } : {}, { aktualisiertAm: jetzt() });
+      return json(t);
+    }
+    return null;
+  }
+  return null;
+}
+
 function parseBody(bodyText: string | undefined): Eintrag {
   if (!bodyText) return {};
   try { return JSON.parse(bodyText); } catch { return {}; }
@@ -326,7 +462,7 @@ export function handleDemoRequest(method: string, pathname: string, searchParams
   // ── Einstellungen: feste Konfiguration für die Demo ─────────────────
   if (pathname === "/api/einstellungen/module") {
     return json({
-      personalverwaltung: false, betriebsvereinbarungen: true, wissensarchiv: true,
+      personalverwaltung: true, betriebsvereinbarungen: true, wissensarchiv: true,
       ressourcen: true, themensammlung: true, gremien: false, kosten: false,
     });
   }
@@ -346,6 +482,12 @@ export function handleDemoRequest(method: string, pathname: string, searchParams
   }
   if (resource === "dokumente" && (sub === "download" || sub === "vorschau")) {
     return text("Demo-Modus: Dies ist keine echte Datei, sondern nur ein Platzhalter.");
+  }
+
+  // ── Personal ───────────────────────────────────────────────────────────
+  if (["mitarbeiter", "gehaltstabelle", "zeitmodell", "ueberstunden", "schulungen"].includes(resource ?? "")) {
+    const antwort = personalAnfrage(method, resource, id, sub, subId, searchParams, body);
+    if (antwort) return antwort;
   }
 
   // ── Sitzungen samt TOPs, Beschlüssen, Anwesenheit und Einladung ───────
