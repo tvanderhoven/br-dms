@@ -10,7 +10,9 @@ Webhosting-Paket (z. B. IONOS Webhosting Pro) ohne Node/Docker/Postgres.
 nur bis zum nächsten Seiten-Reload erhalten):
 Dashboard, Sitzungen (drei Beispielsitzungen: Entwurf, fixierte Tagesordnung,
 finales Protokoll mit Anwesenheit und Beschlüssen; PDFs und Einladungsversand
-zeigen nur einen Hinweis), Aufgaben, Themen-Backlog, Fristenkalender, Beschlussregister,
+zeigen nur einen Hinweis), Personal (36 erfundene Beschäftigte in `src/demo/personal.ts`:
+Eingruppierung mit Historie, AT-Gehälter, Zeitmodelle, Überstunden, Schulungen und
+Qualifikationsmatrix; Import aus Dateien zeigt nur einen Hinweis), Aufgaben, Themen-Backlog, Fristenkalender, Beschlussregister,
 Wissensarchiv, Ressourcen, Vorlagen, Betriebsvereinbarungen, Geschäftsordnung,
 Themensammlung, Nachrichten (Postfach), Schnellsuche im Kopfbalken, der
 öffentliche Kummerkasten.
@@ -18,10 +20,9 @@ Themensammlung, Nachrichten (Postfach), Schnellsuche im Kopfbalken, der
 **Absichtlich deaktiviert** (Seite nicht aufrufbar, Link/Navigation ausgeblendet,
 Direktaufruf der URL landet auf dem Dashboard – siehe `DEMO_GESPERRTE_PFADE` in
 `src/components/Layout.tsx`): Eingang, Dokumente, Benutzerverwaltung,
-Mitarbeiter/Eingruppierung/Schulungen (ganzes Modul "Personalverwaltung" aus),
 Kosten, Wahlen, Audit-Log, Einstellungen, Mein Konto, die große Suchseite.
-Das sind die Seiten mit echtem Datei-Upload, PDF-Erzeugung, E-Mail-Versand,
-2FA oder echten Personal-/Gehaltsdaten – zu riskant, um sie ohne echten Server
+Das sind die Seiten mit echtem Datei-Upload, PDF-Erzeugung, E-Mail-Versand
+oder 2FA – zu riskant, um sie ohne echten Server
 überzeugend nachzubauen. Kandidat für Phase 2.
 
 Login akzeptiert in der Demo jede Eingabe (siehe `DEMO_MODE`-Hinweis auf der
