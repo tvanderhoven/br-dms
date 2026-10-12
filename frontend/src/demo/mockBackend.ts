@@ -144,6 +144,170 @@ function nestedCrud(liste: Eintrag[], method: string, subId: string | undefined,
   return json({ ok: true });
 }
 
+// ── Sitzungen ──────────────────────────────────────────────────────────
+// Beschlüsse je TOP und Anwesenheit je Sitzung, wie sie die Sitzungsseite einzeln abruft
+const topBeschluesse: Record<string, Eintrag[]> = klon(F.DEMO_TOP_BESCHLUESSE);
+const anwesenheit: Record<string, Record<string, string>> = klon(F.DEMO_ANWESENHEIT);
+
+const DEMO_HINWEIS = "In der Online-Demo nicht verfügbar – im echten BR-DMS entsteht hier ein PDF bzw. geht eine E-Mail raus.";
+
+function sitzungListItem(s: Eintrag): Eintrag {
+  return {
+    id: s.id, titel: s.titel, sitzungsdatum: s.sitzungsdatum, ort: s.ort, sitzungstyp: s.sitzungstyp, status: s.status,
+    erstelltAm: s.erstelltAm, gremium: s.gremium, erstelltVon: s.erstelltVon, _count: { tops: s.tops.length },
+    dokumentAnzahl: new Set(s.tops.flatMap((t: Eintrag) => t.dokumente.map((d: Eintrag) => d.dokument.id))).size,
+    versionen: s.versionen.map((v: Eintrag) => ({ versionNummer: v.versionNummer, typ: v.typ })),
+  };
+}
+
+/** Statuswechsel wie im echten Ablauf, jeweils mit neuer Version */
+const UEBERGAENGE: Record<string, { von: string; nach: string; version: string; typ: string }> = {
+  fixieren:     { von: "ENTWURF",              nach: "TAGESORDNUNG_FIXIERT", version: "1.1", typ: "TAGESORDNUNG_FIXIERT" },
+  protokoll:    { von: "TAGESORDNUNG_FIXIERT", nach: "PROTOKOLL_ENTWURF",    version: "2.0", typ: "PROTOKOLL_ENTWURF" },
+  finalisieren: { von: "PROTOKOLL_ENTWURF",    nach: "PROTOKOLL_FINAL",      version: "2.1", typ: "PROTOKOLL_FINAL" },
+  abschliessen: { von: "PROTOKOLL_FINAL",      nach: "ABGESCHLOSSEN",        version: "",    typ: "" },
+};
+
+function sitzungAnfrage(method: string, id: string | undefined, sub: string | undefined, subId: string | undefined,
+                        rest: string[], body: Eintrag): Response | null {
+  if (!id) {
+    if (method === "GET") return json(db.sitzungen.map(sitzungListItem));
+    if (method === "POST") {
+      const neu: Eintrag = {
+        id: zufallsId("demo-s"), titel: body.titel ?? "Neue Sitzung", sitzungsdatum: body.sitzungsdatum ?? jetzt(),
+        ort: body.ort ?? "", sitzungstyp: body.sitzungstyp ?? "ORDENTLICH", status: "ENTWURF", notizen: body.notizen ?? "",
+        teilnehmerzahl: null, gremium: null, erstelltVon: { id: F.DEMO_ME.id, name: F.DEMO_ME.name },
+        versionen: [{ id: zufallsId("demo-v"), versionNummer: "1.0", typ: "TAGESORDNUNG_ENTWURF", readonly: false, erstelltAm: jetzt() }],
+        scans: [], tops: [], erstelltAm: jetzt(), aktualisiertAm: jetzt(),
+      };
+      db.sitzungen.push(neu);
+      return json(neu);
+    }
+    return null;
+  }
+  const s = db.sitzungen.find(x => x.id === id);
+  if (!s) return json({ fehler: "Sitzung nicht gefunden" }, 404);
+
+  if (!sub) {
+    if (method === "GET") return json(s);
+    if (method === "PATCH") { Object.assign(s, body, { aktualisiertAm: jetzt() }); return json(s); }
+    if (method === "DELETE") { s.status = "ABGESAGT"; return json({ nachricht: "Sitzung abgesagt (Demo)" }); }
+  }
+
+  const uebergang = sub ? UEBERGAENGE[sub] : undefined;
+  if (uebergang && method === "POST") {
+    if (s.status !== uebergang.von) return json({ fehler: "Dieser Schritt passt nicht zum aktuellen Stand der Sitzung." }, 400);
+    s.status = uebergang.nach;
+    if (uebergang.version) {
+      s.versionen.push({ id: zufallsId("demo-v"), versionNummer: uebergang.version, typ: uebergang.typ, readonly: uebergang.typ !== "PROTOKOLL_ENTWURF",
+        erstelltAm: jetzt(), ...(uebergang.typ === "PROTOKOLL_FINAL" ? { finalisiertAm: jetzt() } : {}) });
+    }
+    return json(s);
+  }
+
+  // TOPs: anlegen, ändern, löschen, sortieren; darunter Beschlüsse und verknüpfte Dokumente
+  if (sub === "tops" || sub === "spontan-top") {
+    if (subId === "reihenfolge" && method === "PUT") {
+      const ids: string[] = body.topIds ?? [];
+      s.tops.sort((a: Eintrag, b: Eintrag) => ids.indexOf(a.id) - ids.indexOf(b.id));
+      s.tops.forEach((t: Eintrag, i: number) => { t.nummer = i + 1; });
+      return json({ ok: true });
+    }
+    if (subId && rest[0] === "beschluesse") {
+      const liste = (topBeschluesse[subId] ??= []);
+      if (method === "POST") {
+        const ja = Number(body.jaStimmen ?? 0), nein = Number(body.neinStimmen ?? 0);
+        const neu = { id: zufallsId("demo-tb"), topId: subId, reihenfolge: liste.length, enthaltungen: 0, nichtTeilgenommen: 0,
+          anwesend: 0, finalisiert: false, erstelltAm: jetzt(), stimmen: [], ...body,
+          ergebnis: ja > nein ? "ANGENOMMEN" : nein > ja ? "ABGELEHNT" : "UNENTSCHIEDEN" };
+        liste.push(neu);
+        return json(neu);
+      }
+      return nestedCrud(liste, method, rest[1], body, "demo-tb");
+    }
+    if (subId && rest[0] === "dokumente") {
+      const t = s.tops.find((x: Eintrag) => x.id === subId);
+      if (t && method === "DELETE") t.dokumente = t.dokumente.filter((d: Eintrag) => d.dokument.id !== rest[1]);
+      if (t && method === "POST") {
+        const d = db.dokumente.find(x => x.id === body.dokumentId);
+        if (d) t.dokumente.push({ id: zufallsId("tv"), hinweis: body.hinweis, dokument: { id: d.id, titel: d.titel, alias: d.alias, kategorie: d.kategorie, dateiname: d.dateiname } });
+      }
+      return json({ ok: true, nachricht: "OK (Demo)" });
+    }
+    if (subId && rest[0] === "auszug") return text(DEMO_HINWEIS);
+    if (method === "POST" && !subId) {
+      const neu = { id: zufallsId(`${s.id}-top`), sitzungId: s.id, nummer: s.tops.length + 1, titel: body.titel ?? "Neuer TOP",
+        inhalt: body.inhalt ?? "", inhaltsJson: body.inhaltsJson, ergebnis: "", status: "OFFEN", spontan: sub === "spontan-top",
+        vertraulich: !!body.vertraulich, dokumente: [], _count: { kommentare: 0 }, erstelltAm: jetzt(), aktualisiertAm: jetzt() };
+      s.tops.push(neu);
+      return json(neu);
+    }
+    if (subId && method === "PATCH") {
+      const t = s.tops.find((x: Eintrag) => x.id === subId);
+      if (t) Object.assign(t, body, body.topStatus ? { status: body.topStatus } : {}, { aktualisiertAm: jetzt() });
+      return json(t ?? { ok: true });
+    }
+    if (subId && method === "DELETE") {
+      s.tops = s.tops.filter((x: Eintrag) => x.id !== subId);
+      s.tops.forEach((t: Eintrag, i: number) => { t.nummer = i + 1; });
+      return json({ nachricht: "TOP gelöscht (Demo)" });
+    }
+  }
+
+  // Anwesenheit: Liste aller Benutzer mit ihrem Eintrag für diese Sitzung
+  if (sub === "anwesenheit") {
+    const stand = (anwesenheit[s.id] ??= {});
+    if (method !== "GET") {
+      const benutzerId = body.benutzerId ?? subId;
+      if (benutzerId && method === "DELETE") delete stand[benutzerId];
+      else if (benutzerId && body.status) stand[benutzerId] = body.status;
+    }
+    return json(db.benutzer.filter(b => b.aktiv).map(b => ({
+      benutzer: b,
+      anwesenheit: stand[b.id] ? { id: `${s.id}-${b.id}`, status: stand[b.id], vertretungFuer: null, benutzer: { id: b.id, name: b.name, rolle: b.rolle } } : null,
+    })));
+  }
+  if (sub === "ersatz-vorschlag") return json({ vorschlag: null, warnung: null, alternative: null });
+
+  // Einladung: Versand wird nur nachgestellt – es geht keine echte E-Mail raus
+  if (sub === "einladung") {
+    const geladene = db.benutzer.filter(b => b.aktiv);
+    const versand = (s.einladungVersand ??= {} as Record<string, string>);
+    const fixiert = s.versionen.find((v: Eintrag) => v.typ === "TAGESORDNUNG_FIXIERT");
+    if (fixiert?.einladungVersendetAm && Object.keys(versand).length === 0) {
+      geladene.forEach(b => { versand[b.id] = fixiert.einladungVersendetAm; });
+    }
+    if (method === "POST") {
+      const ids: string[] = body.benutzerIds ?? geladene.map(b => b.id);
+      ids.forEach(bid => { versand[bid] = jetzt(); });
+      if (fixiert && !fixiert.einladungVersendetAm) fixiert.einladungVersendetAm = jetzt();
+      return json({ gesendet: ids.length, fehlgeschlagen: 0 });
+    }
+    return json({
+      empfaenger: geladene.map(b => ({
+        benutzerId: b.id, name: b.name, rolle: b.rolle, adresse: b.email, ersatzFuer: null,
+        letzterVersand: versand[b.id] ? { versendetAm: versand[b.id], erfolgreich: true, fehler: null, adresse: b.email } : null,
+      })),
+      protokoll: Object.entries(versand).map(([bid, am]) => {
+        const b = geladene.find(x => x.id === bid);
+        return { id: `${s.id}-ev-${bid}`, name: b?.name ?? "", adresse: b?.email ?? "", rolle: b?.rolle ?? "", vertretungFuer: null,
+          mitAnhang: true, erfolgreich: true, fehler: null, versendetAm: am, versendetVon: F.DEMO_ME.name, zusatz: null };
+      }),
+      letzterZusatz: "", smtpAktiv: true, kannVersenden: s.status === "TAGESORDNUNG_FIXIERT",
+    });
+  }
+
+  // PDFs, Sitzungspaket, Anwesenheitsliste, Scans: nur Platzhalter
+  if (["pdf", "sitzungspaket", "anwesenheitsliste", "unterschriftenseite", "scans"].includes(sub ?? "")) {
+    if (method === "GET") return text(DEMO_HINWEIS);
+    return json({ ok: true, nachricht: DEMO_HINWEIS });
+  }
+  // Alles Weitere unterhalb einer Sitzung (z. B. Abstimmungen): leer statt der Sitzung selbst,
+  // sonst landet ein Objekt dort, wo die Seite eine Liste erwartet
+  if (sub) return method === "GET" ? json([]) : json({ ok: true, nachricht: DEMO_HINWEIS });
+  return null;
+}
+
 function parseBody(bodyText: string | undefined): Eintrag {
   if (!bodyText) return {};
   try { return JSON.parse(bodyText); } catch { return {}; }
@@ -152,7 +316,7 @@ function parseBody(bodyText: string | undefined): Eintrag {
 export function handleDemoRequest(method: string, pathname: string, searchParams: URLSearchParams, bodyText?: string): Response {
   const body = parseBody(bodyText);
   const segs = pathname.replace(/^\/api\//, "").split("/").filter(Boolean);
-  const [resource, id, sub, subId] = segs;
+  const [resource, id, sub, subId, ...rest] = segs;
 
   // ── Auth ──────────────────────────────────────────────────────────
   if (method === "POST" && pathname === "/api/auth/login") return json({ token: fakeJwt() });
@@ -182,6 +346,17 @@ export function handleDemoRequest(method: string, pathname: string, searchParams
   }
   if (resource === "dokumente" && (sub === "download" || sub === "vorschau")) {
     return text("Demo-Modus: Dies ist keine echte Datei, sondern nur ein Platzhalter.");
+  }
+
+  // ── Sitzungen samt TOPs, Beschlüssen, Anwesenheit und Einladung ───────
+  if (resource === "sitzungen") {
+    const antwort = sitzungAnfrage(method, id, sub, subId, rest, body);
+    if (antwort) return antwort;
+  }
+  // Kommentare an TOPs: in der Demo leer, Neues wird nur angezeigt, nicht gespeichert
+  if (resource === "tops" && sub === "kommentare") {
+    if (method === "POST") return json({ id: zufallsId("demo-k"), inhalt: body.inhalt ?? "", inhaltJson: body.inhaltJson, erstelltAm: jetzt(), aktualisiertAm: jetzt(), autor: { id: F.DEMO_ME.id, name: F.DEMO_ME.name, email: F.DEMO_ME.email } });
+    return json([]);
   }
 
   // ── Vorlagen: TOPs als Unterliste ────────────────────────────────────
