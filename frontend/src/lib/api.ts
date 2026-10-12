@@ -523,7 +523,7 @@ export const api = {
     backups: () => request<{
       pfadLesbar: boolean;
       anzahl: number;
-      saetze: { zeitpunkt: string; groesseBytes: number; vollstaendig: boolean; verschluesselt: boolean }[];
+      saetze: { zeitpunkt: string; groesseBytes: number; vollstaendig: boolean; verschluesselt: boolean; version: string | null; commit: string | null }[];
     }>("/api/einstellungen/backups"),
     backupStatusTesten: () => request<{
       anzahl: number;

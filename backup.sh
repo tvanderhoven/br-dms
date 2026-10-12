@@ -6,6 +6,7 @@
 # Mit BACKUP_KEY in der .env werden beide Dateien verschlüsselt (AES-256, Schlüssel per PBKDF2):
 # db_<Zeit>.sql.gz.enc und storage_<Zeit>.tar.gz.enc – ohne Klartext-Zwischendatei. So kann eine
 # Kopie bei Dritten (z. B. der IT) liegen, ohne dass diese die Inhalte lesen können.
+# Daneben info_<Zeit>.txt mit Version und Commit des Systems – restore.sh prüft damit, ob das Backup passt.
 # BACKUP_KEY erzeugen: openssl rand -hex 32  → in die .env eintragen UND ausgedruckt wegschließen.
 # Von Hand entschlüsseln (Notfall):
 #   openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -pass pass:<BACKUP_KEY> -in db_<Zeit>.sql.gz.enc | gunzip > db.sql
@@ -34,6 +35,19 @@ DATA_PATH="${DATA_PATH:?DATA_PATH fehlt oder ist leer in $ENV_FILE}"
 # Optional – "|| true", sonst bricht set -o pipefail ab, wenn der Eintrag fehlt
 BACKUP_KEY="$({ grep -E '^BACKUP_KEY=' "$ENV_FILE" || true; } | tail -1 | cut -d'=' -f2- | tr -d '\r' | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'\$//")"
 export BACKUP_KEY
+
+# Version, Commit und Schema-Prüfsumme des laufenden Systems – bevorzugt aus dem Backend-Container
+# (der bestimmt die Datenbankstruktur), sonst aus den übertragenen Dateien in DATA_PATH.
+# Gleicher Block in restore.sh.
+stand_ermitteln() {
+  # docker exec schreibt eigene Fehler auf stdout – deshalb Ausgabe nur bei Erfolg übernehmen
+  STAND_VERSION="$(docker exec brdms_backend node -p "require('/app/package.json').version" 2>/dev/null)" || STAND_VERSION=""
+  [ -n "$STAND_VERSION" ] || STAND_VERSION="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$DATA_PATH/backend/package.json" 2>/dev/null | head -1 || true)"
+  STAND_SCHEMA="$(docker exec brdms_backend sha256sum /app/prisma/schema.prisma 2>/dev/null)" \
+    || STAND_SCHEMA="$(sha256sum "$DATA_PATH/backend/prisma/schema.prisma" 2>/dev/null)" || STAND_SCHEMA=""
+  STAND_SCHEMA="${STAND_SCHEMA:0:12}"
+  STAND_COMMIT="$(sed -n 's/.*"commit": *"\([^"]*\)".*/\1/p' "$DATA_PATH/frontend/src/buildinfo.json" 2>/dev/null || true)"
+}
 
 BACKUP_DIR="$DATA_PATH/backups"
 CONTAINER="brdms_postgres"
@@ -83,10 +97,19 @@ tar -czf - -C "$DATA_PATH" storage/ \
 
 echo "     ✓ $BACKUP_DIR/storage_${TIMESTAMP}.tar.gz${ENDUNG}"
 
-# --- 3. Rollierendes System: nur die letzten $KEEP Backups behalten ---
+# --- 3. Stand des Systems festhalten (unverschlüsselt – nur Version, Commit, Schema-Prüfsumme) ---
+# restore.sh vergleicht das mit dem System, in das zurückgespielt wird, und warnt bzw. bricht ab,
+# wenn das Backup von einem neueren Stand stammt.
+stand_ermitteln
+printf 'version=%s\ncommit=%s\nschema=%s\nerstellt=%s\n' "$STAND_VERSION" "$STAND_COMMIT" "$STAND_SCHEMA" "$(date '+%d.%m.%Y %H:%M')" \
+  > "$BACKUP_DIR/info_${TIMESTAMP}.txt"
+echo "  → Stand: ${STAND_VERSION:-unbekannt}${STAND_COMMIT:+ · $STAND_COMMIT}"
+
+# --- 4. Rollierendes System: nur die letzten $KEEP Backups behalten ---
 echo "  → Backups älter als ${KEEP_DAYS} Tage löschen..."
 find "$BACKUP_DIR" \( -name "db_*.sql.gz" -o -name "db_*.sql.gz.enc" \) -mtime +$KEEP_DAYS -delete
 find "$BACKUP_DIR" \( -name "storage_*.tar.gz" -o -name "storage_*.tar.gz.enc" \) -mtime +$KEEP_DAYS -delete
+find "$BACKUP_DIR" -name "info_*.txt" -mtime +$KEEP_DAYS -delete
 
 echo "[$(date)] Backup abgeschlossen."
 echo ""

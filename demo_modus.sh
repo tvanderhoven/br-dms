@@ -182,6 +182,8 @@ if [ "$MODUS" = "demo" ]; then
   schritt "Sicherung nach $ZIEL kopieren"
   mkdir -p "$ZIEL"; chmod 700 "$SICHERUNGEN" "$ZIEL"
   cp -a "$DB_DATEI" "$STORAGE_DATEI" "$ZIEL/"
+  # Versionsangabe für restore.sh mitnehmen (fehlt bei Backups von vor 1.3.1)
+  cp -a "$DATA_PATH/backups/info_$STEMPEL.txt" "$ZIEL/" 2>/dev/null || true
   cp -a "$ENV_FILE" "$ZIEL/env.echt"; chmod 600 "$ZIEL"/*
   [ -s "$ZIEL/$(basename "$DB_DATEI")" ] && [ -s "$ZIEL/$(basename "$STORAGE_DATEI")" ] && [ -s "$ZIEL/env.echt" ] \
     || fehler "Die Kopie in $ZIEL ist unvollständig – nichts geändert."

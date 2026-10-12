@@ -1124,7 +1124,7 @@ function SystemTab() {
   const [info, setInfo]         = useState<{ watchFolderPfad: string; watchFolderAktiv: boolean } | null>(null);
   const [laden, setLaden]       = useState(true);
   const [meineRolle, setMeineRolle] = useState<Rolle | null>(null);
-  const [backups, setBackups]   = useState<{ pfadLesbar: boolean; anzahl: number; saetze: { zeitpunkt: string; groesseBytes: number; vollstaendig: boolean; verschluesselt: boolean }[] } | null>(null);
+  const [backups, setBackups]   = useState<{ pfadLesbar: boolean; anzahl: number; saetze: { zeitpunkt: string; groesseBytes: number; vollstaendig: boolean; verschluesselt: boolean; version: string | null; commit: string | null }[] } | null>(null);
   const [watchLog, setWatchLog] = useState<WatchfolderLogEintrag[]>([]);
 
   useEffect(() => {
@@ -1251,6 +1251,7 @@ function SystemTab() {
               <li>Sichert die komplette Datenbank (alle Sitzungen, Dokument-Metadaten, Beschlüsse, Aufgaben, Eingruppierung, Benutzer, Audit-Log, …)</li>
               <li>Sichert zusätzlich den <code className="font-mono">storage/</code>-Ordner mit den eigentlichen (verschlüsselten) Dokument-Dateien</li>
               <li>Mit <code className="font-mono">BACKUP_KEY</code> in der <code className="font-mono">.env</code> werden beide Dateien zusätzlich komplett verschlüsselt – so kann eine Kopie auch bei Dritten (z. B. der IT) liegen</li>
+              <li>Merkt sich die Version des Systems – <code className="font-mono">restore.sh</code> spielt kein Backup einer neueren Version in ein älteres System ein</li>
               <li>Behält automatisch nur die letzten 30 Tage, ältere Backups werden gelöscht</li>
             </ul>
 
@@ -1283,6 +1284,7 @@ function SystemTab() {
                         <tr className="bg-gray-50 text-left text-gray-500">
                           <th className="px-3 py-1.5 font-medium">Zeitpunkt</th>
                           <th className="px-3 py-1.5 font-medium">Größe</th>
+                          <th className="px-3 py-1.5 font-medium">Version</th>
                           <th className="px-3 py-1.5 font-medium">Status</th>
                         </tr>
                       </thead>
@@ -1291,6 +1293,9 @@ function SystemTab() {
                           <tr key={s.zeitpunkt}>
                             <td className="px-3 py-1.5 text-gray-700 whitespace-nowrap">{new Date(s.zeitpunkt).toLocaleString("de-DE")}</td>
                             <td className="px-3 py-1.5 text-gray-500 whitespace-nowrap">{formatGroesse(s.groesseBytes)}</td>
+                            <td className="px-3 py-1.5 text-gray-500 whitespace-nowrap" title={s.commit ? `Commit ${s.commit}` : undefined}>
+                              {s.version ?? <span className="text-gray-400">–</span>}
+                            </td>
                             <td className="px-3 py-1.5 whitespace-nowrap">
                               {!s.vollstaendig && <span className="text-amber-600">unvollständig</span>}
                               {s.vollstaendig && !s.verschluesselt && <span className="text-amber-600">unverschlüsselt</span>}

@@ -2259,7 +2259,7 @@ def build():
         "älter als 30 Tage werden entfernt. restore.sh führt interaktiv durch die Wiederherstellung und "
         "verlangt vor dem Überschreiben eine ausdrückliche Bestätigung."
     )
-    pdf.code("sudo bash <DATA_PATH>/backup.sh     # db_<Zeit>.sql.gz.enc, storage_<Zeit>.tar.gz.enc\n"
+    pdf.code("sudo bash <DATA_PATH>/backup.sh     # db_<Zeit>.sql.gz.enc, storage_<Zeit>.tar.gz.enc, info_<Zeit>.txt\n"
              "sudo bash <DATA_PATH>/restore.sh    # interaktiv\n\n"
              "# ohne Rückfragen, z. B. mit einer Datei außerhalb von backups/:\n"
              "sudo bash <DATA_PATH>/restore.sh /pfad/db_<Zeit>.sql.gz.enc --mit-storage --ja")
@@ -2267,6 +2267,12 @@ def build():
         "restore.sh spielt die Datenbank in einem einzigen Schritt ein: Tritt ein Fehler auf, bricht es ab und "
         "die Datenbank bleibt auf dem Stand vor dem Restore – es bleibt nie etwas halb eingespielt zurück. "
         "Das Skript muss nicht aus dem Datenverzeichnis gestartet werden; es findet die .env neben sich selbst."
+    )
+    pdf.body(
+        "Vorher vergleicht restore.sh die Version aus info_<Zeit>.txt mit dem laufenden System. Ein Backup einer "
+        "neueren Version spielt es nicht ein – erst das System aktualisieren (erzwingen: --trotzdem). Ältere "
+        "Backups werden eingespielt; das Backend ergänzt beim Start die seither neuen Tabellen und Felder, und "
+        "restore.sh wartet, bis das gelungen ist. Einstellungen → System zeigt die Version jeder Sicherung."
     )
     pdf.body(
         "Für tägliche Sicherungen den Aufgabenplaner der NAS (z. B. 02:00 Uhr, Benutzer root) bzw. cron "

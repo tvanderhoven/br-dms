@@ -352,11 +352,12 @@ def build():
     pdf.code("bash /volume1/docker/br-dms/backup.sh")
     pdf.h3("Erste Sicherung von Hand")
     pdf.code("sudo bash <DATA_PATH>/backup.sh\n"
-             "ls -lh <DATA_PATH>/backups/      # db_<Zeit>.sql.gz.enc, storage_<Zeit>.tar.gz.enc")
+             "ls -lh <DATA_PATH>/backups/      # db_<Zeit>.sql.gz.enc, storage_<Zeit>.tar.gz.enc, info_<Zeit>.txt")
     pdf.body(
         "Enden die beiden neuen Dateien auf .enc, ist die Sicherung verschlüsselt. Meldet das Skript "
         "„Kein BACKUP_KEY in der .env“, fehlt Schritt 4.1. In BR-DMS zeigt Einstellungen → System das "
-        "letzte Backup mit dem Zusatz „verschlüsselt“ – sonst erscheint dort eine Warnung."
+        "letzte Backup mit dem Zusatz „verschlüsselt“ – sonst erscheint dort eine Warnung. Die kleine "
+        "Datei info_<Zeit>.txt hält fest, mit welcher BR-DMS-Version die Sicherung entstand (siehe Kapitel 6)."
     )
 
     pdf.h2("4.4  Snapshots einschalten (QNAP)")
@@ -420,6 +421,12 @@ def build():
     pdf.schritt(4, "Bestätigen", "Mit „ja“ bestätigen. Das Skript prüft zuerst den BACKUP_KEY – passt er nicht, "
                 "bricht es ab, bevor etwas überschrieben wird.")
     pdf.schritt(5, "Warten", "Das Skript hält BR-DMS an, spielt Datenbank und Dokumente ein und startet neu.")
+    pdf.hinweis(
+        "restore.sh zeigt vor dem Einspielen die Version der Sicherung und die des Systems. Stammt die "
+        "Sicherung von einer neueren Version, bricht es ab: zuerst BR-DMS auf diese Version aktualisieren, "
+        "dann erneut starten. Ältere Sicherungen werden eingespielt; BR-DMS ergänzt beim Start, was seither "
+        "neu hinzugekommen ist. Sicherungen von vor Version 1.3.1 haben keine Versionsangabe – dann "
+        "meldet das Skript „nicht vergleichbar“ und versucht es trotzdem.", "info", "Passt die Version?")
     pdf.schritt(6, "Prüfen", "Wie in Kapitel 8 beschrieben.")
 
     pdf.h1("7  Auf einem neuen Gerät wiederherstellen")
@@ -432,8 +439,9 @@ def build():
                 "bei ENCRYPTION_KEY und BACKUP_KEY jeweils „Eigenen … eingeben“ wählen und die Schlüssel vom "
                 "Ausdruck eintragen – nicht neu erzeugen lassen.")
     pdf.schritt(2, "Starten", "BR-DMS einmal starten, damit Datenbank und Ordner angelegt werden.")
-    pdf.schritt(3, "Sicherung ablegen", "Die beiden .enc-Dateien einer Nacht (gleiche Zeit im Namen) von der IT "
-                "nach <DATA_PATH>/backups kopieren.")
+    pdf.schritt(3, "Sicherung ablegen", "Die beiden .enc-Dateien einer Nacht (gleiche Zeit im Namen) und die "
+                "zugehörige info_<Zeit>.txt von der IT nach <DATA_PATH>/backups kopieren. Die neue Installation "
+                "muss mindestens die Version der Sicherung haben (steht in der info-Datei).")
     pdf.schritt(4, "Einspielen", "restore.sh wie in Kapitel 6 ausführen.")
     pdf.schritt(5, "Anmelden", "Es gelten wieder die Benutzer und Passwörter des alten Systems – nicht das "
                 "Admin-Konto aus dem Installationsassistenten.")
