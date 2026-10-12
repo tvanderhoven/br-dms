@@ -2467,7 +2467,7 @@ def build():
         "Versionsnummer (in der App unter „Über BR-DMS“) und eine kurze Beschreibung, was passiert ist."
     )
     pdf.body(
-        "Hinter der Versionsnummer steht der genaue Programmstand, z. B. „1.2.1 · a1b2c3d“. Die Zeichen "
+        "Hinter der Versionsnummer steht der genaue Programmstand, z. B. „1.3.0 · a1b2c3d“. Die Zeichen "
         "nach dem Punkt bezeichnen den Stand im Quellcode; ein „+“ am Ende heißt, dass bei der Installation "
         "noch nicht festgeschriebene Änderungen dabei waren."
     )
