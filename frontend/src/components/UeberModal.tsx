@@ -2,7 +2,7 @@ import { useState } from "react";
 import { X, Info, Mail, Scale, Bug, ExternalLink } from "lucide-react";
 import pkg from "../../package.json";
 
-export const SUPPORT_EMAIL = "support@vanderhoven.eu";
+export const SUPPORT_EMAIL = "support@br-dms.de";
 const ISSUE_URL = "https://github.com/tvanderhoven/br-dms/issues/new";
 
 /** "1.2.0 · be127dc" – der Commit zeigt, auf welchen Stand sich eine Meldung bezieht */
