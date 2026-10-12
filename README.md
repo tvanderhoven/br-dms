@@ -396,6 +396,12 @@ sudo bash restore.sh
 
 Backups landen in `<DATA_PATH>/backups/` und werden nach 30 Tagen automatisch gelöscht.
 
+**Versionsprüfung:** Neben jedes Backup legt `backup.sh` eine `info_<Zeit>.txt` mit Version, Commit und
+Prüfsumme des Datenbankschemas. `restore.sh` vergleicht das mit dem laufenden System: Ein Backup einer
+**neueren** Version wird nicht eingespielt (erst das System aktualisieren, erzwingen mit `--trotzdem`).
+Ein **älteres** Backup wird eingespielt – das Schema wird dafür vorher komplett geleert, das Backend
+ergänzt beim Start die seither neuen Tabellen und Felder, und `restore.sh` wartet, bis das geklappt hat.
+
 **Verschlüsselte Backups:** Steht ein `BACKUP_KEY` in der `.env` (`openssl rand -hex 32`, der
 Einrichtungsassistent erzeugt ihn), verschlüsselt `backup.sh` beide Dateien komplett
 (`db_<Zeit>.sql.gz.enc`, `storage_<Zeit>.tar.gz.enc`, ohne Klartext-Zwischendatei). Verfahren:

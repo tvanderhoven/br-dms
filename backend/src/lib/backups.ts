@@ -11,12 +11,16 @@ import path from "node:path";
 
 const BACKUP_PATH = process.env.BACKUP_PATH ?? "/data/backups";
 const BACKUP_DATEI_REGEX = /^(db|storage)_(\d{8}_\d{6})\.(?:sql\.gz|tar\.gz)(\.enc)?$/;
+/** info_<ts>.txt: Version und Commit des Systems beim Backup (seit 1.3.1, siehe backup.sh) */
+const INFO_DATEI_REGEX = /^info_(\d{8}_\d{6})\.txt$/;
 
 export interface BackupSatz {
   zeitpunkt: Date;
   groesseBytes: number;
   vollstaendig: boolean;
   verschluesselt: boolean;
+  version: string | null;
+  commit: string | null;
 }
 
 export interface BackupUebersicht {
@@ -28,8 +32,16 @@ export async function ermittleBackupSaetze(): Promise<BackupUebersicht> {
   try {
     const dateinamen = await fs.readdir(BACKUP_PATH);
     const saetze = new Map<string, { zeitpunkt: Date; groesseBytes: number; hatDb: boolean; hatStorage: boolean; unverschluesselt: boolean }>();
+    const infos = new Map<string, { version: string | null; commit: string | null }>();
 
     for (const name of dateinamen) {
+      const info = name.match(INFO_DATEI_REGEX);
+      if (info) {
+        const text = await fs.readFile(path.join(BACKUP_PATH, name), "utf8").catch(() => "");
+        const wert = (schluessel: string) => text.match(new RegExp(`^${schluessel}=(.+)$`, "m"))?.[1].trim() || null;
+        infos.set(info[1], { version: wert("version"), commit: wert("commit") });
+        continue;
+      }
       const treffer = name.match(BACKUP_DATEI_REGEX);
       if (!treffer) continue;
       const [, art, ts, enc] = treffer;
@@ -46,13 +58,15 @@ export async function ermittleBackupSaetze(): Promise<BackupUebersicht> {
       saetze.set(ts, eintrag);
     }
 
-    const liste = [...saetze.values()]
-      .sort((a, b) => b.zeitpunkt.getTime() - a.zeitpunkt.getTime())
-      .map(s => ({
+    const liste = [...saetze.entries()]
+      .sort(([, a], [, b]) => b.zeitpunkt.getTime() - a.zeitpunkt.getTime())
+      .map(([ts, s]) => ({
         zeitpunkt:      s.zeitpunkt,
         groesseBytes:   s.groesseBytes,
         vollstaendig:   s.hatDb && s.hatStorage,
         verschluesselt: !s.unverschluesselt,
+        version:        infos.get(ts)?.version ?? null,
+        commit:         infos.get(ts)?.commit ?? null,
       }));
 
     return { pfadLesbar: true, saetze: liste };
