@@ -6,7 +6,7 @@
 import { api, istEmail } from "./api";
 
 export function emailFensterUrl(id: string): string {
-  return `${window.location.origin}/email/${id}`;
+  return `${window.location.origin}/email/${encodeURIComponent(id)}`;
 }
 
 // Dokument-IDs sind UUIDs. Die ID kann aus Inhalten stammen, die Benutzer schreiben

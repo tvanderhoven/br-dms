@@ -100,7 +100,8 @@ export async function updatePruefen(erzwingen = false): Promise<void> {
     const headers: Record<string, string> = {
       "Accept": "application/vnd.github+json",
       "X-GitHub-Api-Version": "2022-11-28",
-      "User-Agent": `BR-DMS/${installierteVersion() ?? "unbekannt"} (Update-Check)`,
+      // Ohne Versionsnummer – GitHub muss nicht wissen, welcher Stand hier läuft
+      "User-Agent": "BR-DMS-Update-Check",
     };
     if (alt?.etag) headers["If-None-Match"] = alt.etag;
 

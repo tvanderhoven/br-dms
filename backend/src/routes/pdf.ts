@@ -28,8 +28,9 @@ function pdfZiel(sitzungId: string, versionNummer: string) {
   const pdfDir = path.join(STORAGE, "pdfs");
   const sauber = (t: string) => t.replace(/[^A-Za-z0-9._-]/g, "_");
   const dateiname = `sitzung-${sauber(sitzungId)}-v${sauber(versionNummer)}.pdf`;
-  const pdfPfad = path.join(pdfDir, dateiname);
-  if (path.dirname(pdfPfad) !== pdfDir) throw new Error("Ungültiger PDF-Pfad");
+  // resolve + startsWith: die Prüfung, die auch CodeQL als Schutz gegen Pfadmanipulation erkennt
+  const pdfPfad = path.resolve(pdfDir, dateiname);
+  if (!pdfPfad.startsWith(path.resolve(pdfDir) + path.sep)) throw new Error("Ungültiger PDF-Pfad");
   return { pdfDir, dateiname, pdfPfad };
 }
 
