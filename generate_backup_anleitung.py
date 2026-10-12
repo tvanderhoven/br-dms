@@ -352,7 +352,8 @@ def build():
     pdf.code("bash /volume1/docker/br-dms/backup.sh")
     pdf.h3("Erste Sicherung von Hand")
     pdf.code("sudo bash <DATA_PATH>/backup.sh\n"
-             "ls -lh <DATA_PATH>/backups/      # db_<Zeit>.sql.gz.enc, storage_<Zeit>.tar.gz.enc, info_<Zeit>.txt")
+             "ls -lh <DATA_PATH>/backups/\n"
+             "# db_<Zeit>.sql.gz.enc, storage_<Zeit>.tar.gz.enc, info_<Zeit>.txt")
     pdf.body(
         "Enden die beiden neuen Dateien auf .enc, ist die Sicherung verschlüsselt. Meldet das Skript "
         "„Kein BACKUP_KEY in der .env“, fehlt Schritt 4.1. In BR-DMS zeigt Einstellungen → System das "
