@@ -13,6 +13,13 @@ import UpdateBanner from "./UpdateBanner";
 
 // Ordnet Routen-Präfixe den abschaltbaren Modulen zu (siehe Einstellungen → Module).
 // Bei einem deaktivierten Modul: Sidebar-Eintrag ausgeblendet + Direktaufruf der URL wird auf "/" umgeleitet.
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
+
+// Seiten, die in der Online-Demo bewusst nicht nachgebaut sind (zu stark auf ein echtes
+// Backend angewiesen: Datei-Upload, PDF-Versand, 2FA, Personal-/Gehaltsdaten, …) –
+// siehe frontend/README-DEMO.md. Direktaufruf der URL landet auf dem Dashboard.
+const DEMO_GESPERRTE_PFADE = ["/eingang", "/dokumente", "/sitzungen", "/benutzer", "/wahlen", "/audit", "/einstellungen", "/konto", "/suche"];
+
 const MODUL_PFADE: Record<string, ModuleKey> = {
   "/gehaltstabelle":         "personalverwaltung",
   "/mitarbeiter":            "personalverwaltung",
@@ -444,8 +451,13 @@ export default function Layout() {
     };
   }, [inaktivitaetMinuten]);
 
+  // Demo-Modus: gesperrte Seiten direkt umleiten. Erst NACH allen Hooks geprüft
+  // (Rules of Hooks), daher hier statt weiter oben.
+  if (DEMO_MODE && DEMO_GESPERRTE_PFADE.some(p => location.pathname.startsWith(p))) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   // Direktaufruf einer URL eines deaktivierten Moduls → zurück zum Dashboard.
-  // Erst NACH allen Hooks geprüft (Rules of Hooks), daher hier statt weiter oben.
   const aktivesModulPfad = Object.keys(MODUL_PFADE).find(p => location.pathname.startsWith(p));
   if (aktivesModulPfad && module && module[MODUL_PFADE[aktivesModulPfad]] === false) {
     return <Navigate to="/dashboard" replace />;
@@ -570,7 +582,7 @@ export default function Layout() {
             Dashboard
           </NavLink>
           <NavGruppe titel="Postfach" gruppenKey="postfach" zu={!!navGruppenZu.postfach} onToggle={navGruppeUmschalten}>
-            {meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && (
+            {!DEMO_MODE && meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && (
               <NavLink to="/eingang" className={linkKlasse} onClick={() => setMobileOffen(false)}>
                 {({ isActive }) => (
                   <>
@@ -605,10 +617,12 @@ export default function Layout() {
           </NavGruppe>
 
           <NavGruppe titel="Sitzungen" gruppenKey="sitzungen" zu={!!navGruppenZu.sitzungen} onToggle={navGruppeUmschalten}>
-            <NavLink to="/sitzungen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
-              <CalendarDays size={16} />
-              Sitzungen
-            </NavLink>
+            {!DEMO_MODE && (
+              <NavLink to="/sitzungen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+                <CalendarDays size={16} />
+                Sitzungen
+              </NavLink>
+            )}
             {(meineRolle === "ADMIN" || meineRolle === "VORSITZ" || meineRolle === "STELLVERTRETER") && (
               <NavLink to="/vorlagen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
                 <LayoutTemplate size={16} />
@@ -632,10 +646,12 @@ export default function Layout() {
           </NavGruppe>
 
           <NavGruppe titel="Dokumente & Wissen" gruppenKey="dokumente" zu={!!navGruppenZu.dokumente} onToggle={navGruppeUmschalten}>
-            <NavLink to="/dokumente" className={linkKlasse} onClick={() => setMobileOffen(false)}>
-              <FileText size={16} />
-              Dokumente
-            </NavLink>
+            {!DEMO_MODE && (
+              <NavLink to="/dokumente" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+                <FileText size={16} />
+                Dokumente
+              </NavLink>
+            )}
             <NavLink to="/geschaeftsordnung" className={linkKlasse} onClick={() => setMobileOffen(false)}>
               <Scale size={16} />
               Geschäftsordnung
@@ -678,10 +694,12 @@ export default function Layout() {
               <Kanban size={16} />
               Themen-Backlog
             </NavLink>
-            <NavLink to="/wahlen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
-              <Vote size={16} />
-              Wahlen
-            </NavLink>
+            {!DEMO_MODE && (
+              <NavLink to="/wahlen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+                <Vote size={16} />
+                Wahlen
+              </NavLink>
+            )}
             {/* Lesen dürfen Mitglieder und aktiv vertretende Ersatzmitglieder (Backend: erfordert MITGLIED) */}
             {modulAktiv("kosten") && (meineRolle !== "ERSATZMITGLIED" || vertretungAktiv) && (
               <NavLink to="/kosten" className={linkKlasse} onClick={() => setMobileOffen(false)}>
@@ -728,7 +746,7 @@ export default function Layout() {
           <NavGruppe
             titel="Verwaltung"
             gruppenKey="verwaltung"
-            sichtbar={meineRolle === "ADMIN" || meineRolle === "VORSITZ" || meineRolle === "STELLVERTRETER"}
+            sichtbar={!DEMO_MODE && (meineRolle === "ADMIN" || meineRolle === "VORSITZ" || meineRolle === "STELLVERTRETER")}
             zu={!!navGruppenZu.verwaltung}
             onToggle={navGruppeUmschalten}
           >
@@ -785,7 +803,7 @@ export default function Layout() {
             {meineRolle !== "JAV" && meineRolle !== "SBV" && !ohneInhalt && <GlobaleSuche />}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            {meineRolle !== "JAV" && meineRolle !== "SBV" && meineRolle !== "ERSATZMITGLIED" && (
+            {!DEMO_MODE && meineRolle !== "JAV" && meineRolle !== "SBV" && meineRolle !== "ERSATZMITGLIED" && (
               <NavLink
                 to="/einstellungen"
                 title="Einstellungen"
