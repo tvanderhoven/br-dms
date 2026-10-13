@@ -235,6 +235,12 @@ export default function Login() {
         <p className="text-center text-xs text-gray-400 mt-6">
           Nur für autorisierte BR-Mitglieder
         </p>
+        {DEMO_MODE && (
+          <p className="text-center text-xs text-gray-400 mt-2 space-x-3">
+            <a href="https://br-dms.de/impressum.html" target="_blank" rel="noopener" className="hover:underline">Impressum</a>
+            <a href="https://br-dms.de/datenschutz.html" target="_blank" rel="noopener" className="hover:underline">Datenschutz</a>
+          </p>
+        )}
       </div>
     </div>
   );
