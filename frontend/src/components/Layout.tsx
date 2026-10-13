@@ -764,6 +764,15 @@ export default function Layout() {
         >
           Über BR-DMS · Open Source (AGPL)
         </button>
+        {DEMO_MODE && (
+          <div
+            className="shrink-0 px-4 pb-2.5 text-[11px] flex gap-3 opacity-70"
+            style={{ color: "rgb(var(--sidebar-text-muted))" }}
+          >
+            <a href="https://br-dms.de/impressum.html" target="_blank" rel="noopener" className="hover:opacity-100 hover:underline">Impressum</a>
+            <a href="https://br-dms.de/datenschutz.html" target="_blank" rel="noopener" className="hover:opacity-100 hover:underline">Datenschutz</a>
+          </div>
+        )}
       </aside>
 
       {ueberOffen && <UeberModal onSchliessen={() => setUeberOffen(false)} />}
