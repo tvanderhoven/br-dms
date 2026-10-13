@@ -2,7 +2,7 @@ import { useState, FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { api } from "../lib/api";
-import BrandLogo from "../components/BrandLogo";
+import BrDmsLogo from "../components/BrDmsLogo";
 
 // ── Öffentliche Kummerkasten-Seite ──────────────────────────────────
 // Bewusst KEIN Login, KEIN App-Layout/Sidebar – komplett eigenständige
@@ -40,7 +40,7 @@ export default function KummerkastenOeffentlich() {
       <div className="bg-white rounded-2xl border border-gray-200 shadow w-full max-w-xl p-8">
         <div className="flex flex-col items-center mb-6 text-center">
           <div className="mb-3">
-            <BrandLogo size={40} textClassName="text-xl text-gray-900" />
+            <BrDmsLogo height={40} className="text-xl text-gray-900" />
           </div>
           <h1 className="text-xl font-bold text-gray-900">Kummerkasten</h1>
           <p className="text-gray-500 text-sm mt-1">

@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { api, SuchErgebnis, KATEGORIE_LABEL, SITZUNG_STATUS_LABEL, RESSOURCE_KATEGORIE_LABEL, formatDatum, Rolle, ModuleKey, GesetzParagraph } from "../lib/api";
 import GesetzModal from "./GesetzModal";
-import BrandLogo from "./BrandLogo";
+import BrDmsLogo from "./BrDmsLogo";
 import UeberModal from "./UeberModal";
 import UpdateBanner from "./UpdateBanner";
 
@@ -519,9 +519,9 @@ export default function Layout() {
         {/* Logo */}
         <div className="px-4 pt-5 pb-3 border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
           <NavLink to="/dashboard" onClick={() => setMobileOffen(false)} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <BrandLogo
-              size={38}
-              textClassName="text-lg text-[rgb(var(--sidebar-text))]"
+            <BrDmsLogo
+              height={38}
+              className="text-lg text-[rgb(var(--sidebar-text))]"
             />
           </NavLink>
           <p className="text-[rgb(var(--sidebar-text-muted))] text-xs mt-1.5 leading-snug">Dokumentenmanagement für Betriebsräte</p>

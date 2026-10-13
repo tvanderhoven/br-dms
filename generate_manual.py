@@ -472,7 +472,7 @@ def build():
         "Sicher – Alle Dokumente AES-256-verschlüsselt, Zugriff nach Rollen, lückenloser Audit-Trail",
         "Rechtssicher – Fristen nach § 87, § 99 und § 102 BetrVG, unveränderliche Protokolle mit Zeitstempel",
         "Vollständig – Sitzungen, Beschlussregister, Aufgaben, Wissensarchiv, Personal- und Schulungsverwaltung",
-        "Anpassbar – Optionale Module ein- und ausschaltbar, eigenes Logo, eigene Farben",
+        "Anpassbar – Optionale Module ein- und ausschaltbar, eigenes Logo im Protokoll-Kopf, eigene Farben",
         "Unabhängig – 100 % self-hosted, keine externen Dienste, Open Source",
     ])
 
@@ -1450,7 +1450,8 @@ def build():
     pdf.body(
         "Ein Klick auf ein Farbschema setzt alle Farben auf einmal; „Board“ ist der Standard, „Board Rot“ "
         "nutzt die rote Akzentfarbe. Einzelne Farben, Schriftgröße und Hell-/Dunkelmodus lassen sich "
-        "anpassen. Das Design gilt für alle Benutzer und auch auf der Anmeldeseite und im Kummerkasten."
+        "anpassen. Das Design gilt für alle Benutzer und auch auf der Anmeldeseite und im Kummerkasten. "
+        "Das BR-DMS-Logo bleibt dabei immer stehen – ein eigenes Logo gibt es nur für die PDFs (9.6)."
     )
     pdf.bild("einstellungen-design", "Design-Einstellungen mit Farbschemata", hoehe_anteil=0.75)
 
@@ -1518,7 +1519,7 @@ def build():
     )
     pdf.bild("einstellungen-protokoll", "Logo und Anordnung von Kopf- und Fußzeile", hoehe_anteil=0.5)
     pdf.bullets([
-        "Logo – PNG oder JPG bis 2 MB; ohne Logo erscheint ein farbiger Balken",
+        "Logo im Protokoll-Kopf – PNG oder JPG bis 2 MB, erscheint nur in den PDFs (im System bleibt das BR-DMS-Logo); ohne Logo erscheint ein farbiger Balken",
         "Layout – Logo links, rechts oder kein Logo; in der Fußzeile Bezeichnung links und Seitenzahl rechts oder umgekehrt",
         "Kopfzeile & Farbe – Kopfzeile groß (z. B. „Betriebsrat“), Unterzeile klein (z. B. die Firma) und die Akzentfarbe",
         "Fußzeile & Unterschriften – Fußzeilentext, Bezeichnung der Unterschriftszeilen für Vorsitz und Zeuge/Zeugin sowie der Ort vor dem Datum (leer = nur Datum)",
