@@ -298,8 +298,8 @@ function ProtokollTab() {
 
       {/* Logo */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-        <h2 className="font-semibold text-gray-800 mb-1">Logo</h2>
-        <p className="text-sm text-gray-500 mb-4">Wird oben links im PDF angezeigt (PNG oder JPG, max. 2 MB).</p>
+        <h2 className="font-semibold text-gray-800 mb-1">Logo im Protokoll-Kopf</h2>
+        <p className="text-sm text-gray-500 mb-4">Erscheint nur im Kopf der PDFs (PNG oder JPG, max. 2 MB) – im System bleibt das BR-DMS-Logo.</p>
 
         <div className="flex items-center gap-4">
           {einstellungen.hat_logo === "true" ? (

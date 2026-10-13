@@ -2,7 +2,7 @@ import { useState, FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { api, ZweiFaktorEinrichtung } from "../lib/api";
-import BrandLogo from "../components/BrandLogo";
+import BrDmsLogo from "../components/BrDmsLogo";
 import { CodeFeld, Fehler, QrEinrichtung, Wiederherstellungscodes } from "../components/ZweiFaktorBausteine";
 
 // Ziel nach dem Login (?next=…) nur auf diesem Server zulassen. Erst vollständig auflösen,
@@ -154,7 +154,7 @@ export default function Login() {
       <div className="bg-white rounded-2xl border border-gray-200 shadow w-full max-w-sm p-8">
         <div className="flex flex-col items-center mb-8">
           <div className="mb-3">
-            <BrandLogo size={40} textClassName="text-2xl text-gray-900" />
+            <BrDmsLogo height={40} className="text-2xl text-gray-900" />
           </div>
           <p className="text-gray-500 text-sm">Dokumentenmanagement für Betriebsräte</p>
         </div>
@@ -245,7 +245,7 @@ function Rahmen({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-[rgb(var(--bg-primary))] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl border border-gray-200 shadow w-full max-w-sm p-8">
         <div className="flex justify-center mb-6">
-          <BrandLogo size={32} textClassName="text-xl text-gray-900" />
+          <BrDmsLogo height={32} className="text-xl text-gray-900" />
         </div>
         {children}
       </div>
