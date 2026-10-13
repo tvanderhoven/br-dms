@@ -7,6 +7,8 @@
 
 DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft vollständig im Intranet auf jedem Docker-Host (NAS wie QNAP/Synology, eigener Server, Cloud-VM) – ohne Cloud-Verbindung, ohne externen Zugriff.
 
+🇬🇧 **English summary:** [see below](#english)
+
 ---
 
 ## Features
@@ -472,3 +474,64 @@ Bereitstellung als gehosteter Dienst – unter derselben Lizenz offengelegt werd
 ---
 
 *Dieses System ist für den internen Betrieb im Intranet konzipiert und nicht für den Internetzugang ausgelegt.*
+
+---
+
+## English
+
+**BR-DMS** is a self-hosted document and meeting management system for **German works councils**
+(*Betriebsräte*). It runs entirely inside the company intranet on any Docker host – a NAS
+(QNAP, Synology), an own server or a VM – with no cloud connection, no external access and no telemetry.
+
+> **Please note:** BR-DMS is built around German labour law (*Betriebsverfassungsgesetz*, BetrVG):
+> statutory deadlines under §§ 87, 99 and 102, works council and youth representation elections,
+> works meetings, the roles of JAV (youth and trainee representatives) and SBV (representatives of
+> severely disabled employees). The user interface and the manual are **German only**.
+
+**Website:** [br-dms.de](https://br-dms.de) · **Online demo:** [demo.br-dms.de](https://demo.br-dms.de/login)
+(fictitious sample data) · **Contact:** [support@br-dms.de](mailto:support@br-dms.de)
+
+### What it does
+- **Documents** – encrypted storage (AES-256-GCM per file), full-text search including PDF content,
+  versions, categories with retention periods, folders, e-mails (`.eml`/`.msg`) as documents,
+  an inbox fed by upload or a watched network folder
+- **Meetings** – agenda, invitations by e-mail with delivery record and calendar entry, attendance
+  with substitute members, votes, register of resolutions, minutes as PDF with checksum,
+  meeting package as ZIP
+- **Hearings** – consultation procedures for hiring and dismissals (§ 99 / § 102 BetrVG) from
+  receipt to the written statement, deadlines closed automatically
+- **Organisation** – deadline calendar with e-mail reminders, tasks as board, list or Gantt chart,
+  topic backlog, cost overview (§ 40), elections, works agreements, training and qualifications,
+  employee records (optional module)
+- **Communication** – internal messages, anonymous suggestion box, global search
+
+### Security
+- Single entry point: an Nginx HTTPS proxy (TLS 1.2/1.3, CSP, HSTS); backend and database have no host ports
+- Role-based access checked on the server for every request; confidential items hidden from restricted roles;
+  the admin can be limited to technical administration without access to content
+- scrypt password hashes, login rate limiting, optional two-factor authentication (TOTP), token revocation
+  on logout and password change, audit log
+- Encrypted backups (AES-256, PBKDF2 with 600,000 iterations) – a copy can be stored off-site without being readable
+- Automated role tests check every API route per role before each update and on GitHub
+
+### Tech stack
+Node.js 24 · Fastify 5 · Prisma · PostgreSQL 16 · React 18 · Vite · Tailwind CSS · Nginx · Docker Compose
+
+### Quick start
+```bash
+git clone https://github.com/tvanderhoven/br-dms.git
+cd br-dms
+bash installation.sh   # interactive setup wizard (German), writes the .env
+```
+Then follow the commands the wizard prints (create the data folders, generate the certificate,
+`docker compose up -d --build`) and open `https://<host-ip>:8443`. Details: sections
+[Schnellstart](#schnellstart) and [HTTPS aktivieren](#https-aktivieren) above, or chapter 12 of the
+[manual](BR-DMS_Handbuch.pdf).
+
+To try it locally with sample data: `./demo/demo.sh start` → `https://localhost:8444`
+(login e.g. `s.kroeger` / `Demo2026!`).
+
+### Licence
+Copyright © 2026 Tim van der Hoven. Licensed under the [GNU Affero General Public License v3.0](LICENSE)
+(AGPL-3.0). Developed with the help of Claude (Anthropic). Bug reports and questions are welcome as
+GitHub issues or by e-mail – in English or German.
