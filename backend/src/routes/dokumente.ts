@@ -7,6 +7,8 @@
  * GET    /api/dokumente/:id/download – Entschlüsselt herunterladen
  * PATCH  /api/dokumente/:id      – Metadaten aktualisieren
  * DELETE /api/dokumente/:id      – Löschvormerkung setzen
+ * GET    /api/dokumente/:id/zugang – Zugang beim BR + Vorschau der Fristen (?zugangAm=…)
+ * POST   /api/dokumente/:id/zugang – Zugang bestätigen, Fristen ab Zugang neu berechnen
  *
  * E-Mails (.eml/.msg):
  * GET    /api/dokumente/:id/email                        – Kopf, Text, HTML, abgelegte Anhänge
@@ -29,6 +31,7 @@ import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { verarbeiteDokument, anhangAblegen, UngueltigeEmailError } from "../services/dokument-pipeline.service.js";
 import { emailFormat, emailLesen, istEmailMime, EmailFormat, EMAIL_MIME } from "../lib/email.js";
+import { type KuendigungsArt, ZugangFehler, zugangBestaetigen, zugangVorschau } from "../lib/zugang.js";
 
 const STORAGE = process.env.STORAGE_PATH ?? "/data/storage";
 const MASTER_KEY = process.env.ENCRYPTION_KEY!;
@@ -73,6 +76,16 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
           inboxGelesen: true,
           erstelltAm:   true,
           hochgeladenVon: { select: { name: true } },
+          // Fristsachen: Zugang bestätigen (lib/zugang.ts)
+          zugangAm:               true,
+          zugangBestaetigtAm:     true,
+          unterlagenVollstaendig: true,
+          fristen: {
+            where:   { status: "OFFEN" },
+            select:  { id: true, typ: true, faelligAm: true },
+            orderBy: { faelligAm: "asc" },
+          },
+          anhoerungsVorgang: { select: { kuendigungsArt: true } },
         },
         orderBy: { erstelltAm: "desc" },
       });
@@ -415,6 +428,70 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
       });
 
       return reply.send({ ok: true });
+    }
+  );
+
+  // ── GET /:id/zugang – Zugang + Vorschau der Fristen ─────────────
+  // ?zugangAm=ISO&kuendigungsArt=… berechnet, wie die offenen Fristen nach
+  // dem Bestätigen aussähen (ohne zu speichern).
+  app.get<{ Params: { id: string }; Querystring: { zugangAm?: string; kuendigungsArt?: string } }>(
+    "/:id/zugang",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (request, reply) => {
+      const dokument = await prisma.dokument.findUnique({
+        where:   { id: request.params.id },
+        include: { zugangBestaetigtVon: { select: { name: true } }, anhoerungsVorgang: { select: { kuendigungsArt: true } } },
+      });
+      if (!dokument || dokument.status === DokumentStatus.GELOESCHT) {
+        return reply.status(404).send({ fehler: "Nicht gefunden" });
+      }
+      if (!darfDokumentSehen(dokument, request.benutzer.rolle, request.benutzer.sub)) {
+        return reply.status(403).send({ fehler: "Vertrauliches Dokument" });
+      }
+      const zugangAm = request.query.zugangAm ? new Date(request.query.zugangAm) : (dokument.zugangAm ?? dokument.erstelltAm);
+      if (Number.isNaN(zugangAm.getTime())) return reply.status(400).send({ fehler: "Ungültiger Zugangszeitpunkt" });
+      const art = request.query.kuendigungsArt;
+      const kuendigungsArt = art === "ORDENTLICH" || art === "AUSSERORDENTLICH" ? art : null;
+
+      return reply.send({
+        zugangAm:               dokument.zugangAm,
+        zugangBestaetigtAm:     dokument.zugangBestaetigtAm,
+        zugangBestaetigtVon:    dokument.zugangBestaetigtVon?.name ?? null,
+        unterlagenVollstaendig: dokument.unterlagenVollstaendig,
+        kuendigungsArt:         dokument.anhoerungsVorgang?.kuendigungsArt ?? null,
+        fristen:                await zugangVorschau(dokument.id, zugangAm, kuendigungsArt),
+      });
+    }
+  );
+
+  // ── POST /:id/zugang – Zugang bestätigen, Fristen neu berechnen ─
+  app.post<{ Params: { id: string }; Body: { zugangAm?: string; kuendigungsArt?: string | null; unterlagenVollstaendig?: boolean | null } }>(
+    "/:id/zugang",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (request, reply) => {
+      const dokument = await prisma.dokument.findUnique({ where: { id: request.params.id } });
+      if (!dokument || dokument.status === DokumentStatus.GELOESCHT) {
+        return reply.status(404).send({ fehler: "Nicht gefunden" });
+      }
+      if (!darfDokumentSehen(dokument, request.benutzer.rolle, request.benutzer.sub)) {
+        return reply.status(403).send({ fehler: "Vertrauliches Dokument" });
+      }
+      const { zugangAm, kuendigungsArt, unterlagenVollstaendig } = request.body ?? {};
+      if (!zugangAm) return reply.status(400).send({ fehler: "zugangAm ist ein Pflichtfeld" });
+      if (kuendigungsArt && kuendigungsArt !== "ORDENTLICH" && kuendigungsArt !== "AUSSERORDENTLICH") {
+        return reply.status(400).send({ fehler: "Unbekannte Kündigungsart" });
+      }
+      try {
+        const fristen = await zugangBestaetigen(dokument.id, {
+          zugangAm:               new Date(zugangAm),
+          kuendigungsArt:         (kuendigungsArt as KuendigungsArt | null | undefined) ?? null,
+          unterlagenVollstaendig: typeof unterlagenVollstaendig === "boolean" ? unterlagenVollstaendig : null,
+        }, { benutzerId: request.benutzer.sub, ip: request.ip, userAgent: request.headers["user-agent"] ?? null });
+        return reply.send({ ok: true, fristen });
+      } catch (err) {
+        if (err instanceof ZugangFehler) return reply.status(400).send({ fehler: err.message });
+        throw err;
+      }
     }
   );
 

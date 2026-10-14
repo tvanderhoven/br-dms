@@ -12,6 +12,8 @@ import prisma from "../lib/prisma.js";
 import { STANDARD_AUFBEWAHRUNG_TAGE } from "../lib/kategorien.js";
 import { berechneFristende } from "../lib/fristRechner.js";
 import { ladeFeiertagsKalender } from "../lib/fristKalender.js";
+import { FRIST_DAUER_AB_ZUGANG } from "../lib/fristen.js";
+import { zugangVorschlag } from "../lib/zugang.js";
 import { Readable as ReadableStrom } from "node:stream";
 import { EMAIL_MIME, EmailInhalt, emailFormat, emailKopf, emailLesen, emailVolltext } from "../lib/email.js";
 
@@ -159,7 +161,7 @@ export async function verarbeiteDokument(opts: PipelineOptionen) {
   });
 
   const istAnhang = !!metadata.quelleDokumentId;
-  if (!istAnhang) await fristenAnlegen(docId, kategorie, metadata.kuendigungsArt);
+  if (!istAnhang) await fristenAnlegen(docId, kategorie, metadata.kuendigungsArt, zugangVorschlag(new Date(), email?.datum));
 
   if (!istAnhang && (kategorie === Kategorie.ANHOERUNG_99 || kategorie === Kategorie.ANHOERUNG_102)) {
     await prisma.anhoerungsVorgang.create({
@@ -239,38 +241,38 @@ export async function anhangAblegen(
 async function fristenAnlegen(
   dokumentId: string,
   kategorie: Kategorie,
-  kuendigungsArt?: "ORDENTLICH" | "AUSSERORDENTLICH",
+  kuendigungsArt: "ORDENTLICH" | "AUSSERORDENTLICH" | undefined,
+  zugang: Date,
 ): Promise<void> {
-  const jetzt = new Date();
-  const fristen: Array<{ typ: string; tage: number }> = [];
+  const typen: string[] = [];
 
   if (kategorie === Kategorie.ANHOERUNG_99) {
-    fristen.push({ typ: "ANHOERUNG_99_WOCHE", tage: 7 });
-    fristen.push({ typ: "WIDERSPRUCH", tage: 7 });
+    typen.push("ANHOERUNG_99_WOCHE", "WIDERSPRUCH");
   }
   if (kategorie === Kategorie.ANHOERUNG_102) {
     if (kuendigungsArt === "AUSSERORDENTLICH") {
-      fristen.push({ typ: "ANHOERUNG_102_AUSSERORDENTLICH", tage: 3 });
+      typen.push("ANHOERUNG_102_AUSSERORDENTLICH");
     } else if (kuendigungsArt === "ORDENTLICH") {
-      fristen.push({ typ: "ANHOERUNG_102_ORDENTLICH", tage: 7 });
+      typen.push("ANHOERUNG_102_ORDENTLICH");
     } else {
       // Keine Angabe (z.B. automatischer Watchfolder-Import ohne manuelle
-      // Klassifizierung) – sicherheitshalber beide Fristen anlegen.
-      fristen.push({ typ: "ANHOERUNG_102_ORDENTLICH", tage: 7 });
-      fristen.push({ typ: "ANHOERUNG_102_AUSSERORDENTLICH", tage: 3 });
+      // Klassifizierung) – sicherheitshalber beide Fristen anlegen; beim
+      // Bestätigen des Zugangs (lib/zugang.ts) fällt die unpassende weg.
+      typen.push("ANHOERUNG_102_ORDENTLICH", "ANHOERUNG_102_AUSSERORDENTLICH");
     }
   }
   if (kategorie === Kategorie.ZEITMODELL_87) {
-    fristen.push({ typ: "ZEITMODELL_87_WOCHE", tage: 7 });
+    typen.push("ZEITMODELL_87_WOCHE");
   }
 
-  if (fristen.length === 0) return;
+  if (typen.length === 0) return;
 
   // Ende nach §§ 187, 188, 193 BGB (Wochenende/Feiertag → nächster Werktag).
-  // Zugang = Eingang im System, bis der Zugangszeitpunkt bestätigt wird.
+  // Vorläufig ab dem vorgeschlagenen Zugang, bis Vorsitz/Stellvertretung ihn bestätigen.
+  await prisma.dokument.update({ where: { id: dokumentId }, data: { zugangAm: zugang } });
   const kalender = await ladeFeiertagsKalender();
-  for (const f of fristen) {
-    const { ende } = berechneFristende(jetzt, { tage: f.tage }, kalender);
-    await prisma.frist.create({ data: { dokumentId, typ: f.typ as any, faelligAm: ende } });
+  for (const typ of typen) {
+    const { ende } = berechneFristende(zugang, FRIST_DAUER_AB_ZUGANG[typ]!, kalender);
+    await prisma.frist.create({ data: { dokumentId, typ: typ as any, faelligAm: ende } });
   }
 }

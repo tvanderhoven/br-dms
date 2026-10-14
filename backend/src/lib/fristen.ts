@@ -1,3 +1,5 @@
+import type { FristDauer } from "./fristRechner.js";
+
 /**
  * Gemeinsame Bezeichnungen für Fristtypen – genutzt von E-Mail-Erinnerung,
  * Amtsübergabe-PDF usw. (Frontend: FRIST_TYP_LABEL in lib/api.ts).
@@ -24,3 +26,16 @@ export function fristTitel(f: {
     || (f.dokument ? (f.dokument.alias ?? f.dokument.titel) : "")
     || (FRIST_TYP_LABEL[f.typ] ?? f.typ);
 }
+
+/**
+ * Dauer der Fristen, die ab Zugang eines Dokuments laufen (dokument-pipeline.service.ts
+ * legt sie an, lib/zugang.ts rechnet sie nach Bestätigung des Zugangs neu).
+ * § 87 hat keine gesetzliche Frist – die Woche ist eine interne Bearbeitungsfrist.
+ */
+export const FRIST_DAUER_AB_ZUGANG: Record<string, FristDauer> = {
+  ANHOERUNG_99_WOCHE:             { wochen: 1 },   // § 99 Abs. 3 BetrVG
+  WIDERSPRUCH:                    { wochen: 1 },
+  ANHOERUNG_102_ORDENTLICH:       { wochen: 1 },   // § 102 Abs. 2 Satz 1 BetrVG
+  ANHOERUNG_102_AUSSERORDENTLICH: { tage: 3 },     // § 102 Abs. 2 Satz 3 BetrVG
+  ZEITMODELL_87_WOCHE:            { wochen: 1 },
+};
