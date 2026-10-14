@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, FormEvent } from "react";
 import { Settings, Save, Loader2, RotateCcw, Users, Clock, FileText, Upload, Trash2, Palette, Download, FolderOpen, CheckCircle2, XCircle, Puzzle, Scale, RefreshCw, AlertTriangle, Edit3, Plus, Star } from "lucide-react";
-import { api, ROLLE_LABEL, ZweiFaktorRichtlinie, WatchfolderLogEintrag, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen, Rolle, ModuleKey, MODULE_KEYS, MODULE_LABEL, GesetzStatus, Geschlecht, Zeitmodell } from "../lib/api";
+import { api, ROLLE_LABEL, ZweiFaktorRichtlinie, WatchfolderLogEintrag, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen, Rolle, ModuleKey, MODULE_KEYS, MODULE_LABEL, GesetzStatus, Geschlecht, Zeitmodell, FeiertagsEinstellung } from "../lib/api";
 import BenutzerVerwaltung from "./Benutzer";
 
 type Tab = "fristen" | "benutzer" | "protokoll" | "design" | "system" | "module" | "gesetze" | "amtsuebergabe";
@@ -1692,6 +1692,11 @@ export default function Einstellungen() {
         </div>
       )}
 
+      {/* Feiertage für die Fristberechnung (§ 193 BGB) – Systemeinstellung, kein Inhalt */}
+      {tab === "fristen" && meineRolle && ["ADMIN", "VORSITZ", "STELLVERTRETER"].includes(meineRolle) && (
+        <FeiertageBox />
+      )}
+
       {/* Fristen-Erinnerungsmail testen (nur VORSITZ/STELLVERTRETER/ADMIN) */}
       {tab === "fristen" && !ohneInhalt && meineRolle && ["ADMIN", "VORSITZ", "STELLVERTRETER"].includes(meineRolle) && (
         <FristenErinnerungTestBox />
@@ -1892,6 +1897,141 @@ function ModuleTab() {
           })}
         </div>
       )}
+
+      {fehler && (
+        <div className="px-6 py-3 bg-red-50 border-t border-red-100 text-red-700 text-sm">{fehler}</div>
+      )}
+    </div>
+  );
+}
+
+// ── Feiertage für die Fristberechnung ────────────────────────────────
+// Fristen nach § 99/§ 102 BetrVG enden nach § 193 BGB nicht an Samstag, Sonntag
+// oder Feiertag, sondern am nächsten Werktag. Welche Tage Feiertag sind, hängt
+// vom Bundesland ab (backend/src/lib/feiertage.ts).
+function FeiertageBox() {
+  const [daten, setDaten]           = useState<FeiertagsEinstellung | null>(null);
+  const [bundesland, setBundesland] = useState("");
+  const [zusatz, setZusatz]         = useState<string[]>([]);
+  const [speichert, setSpeichert]   = useState(false);
+  const [gespeichert, setGespeichert] = useState(false);
+  const [fehler, setFehler]         = useState("");
+
+  function laden() {
+    api.einstellungen.feiertage()
+      .then(d => { setDaten(d); setBundesland(d.bundesland ?? ""); setZusatz(d.zusatz); })
+      .catch(err => setFehler(err instanceof Error ? err.message : "Feiertage konnten nicht geladen werden"));
+  }
+  useEffect(laden, []);
+
+  async function speichern() {
+    setSpeichert(true);
+    setFehler("");
+    setGespeichert(false);
+    try {
+      await api.einstellungen.feiertageSpeichern(bundesland || null, zusatz);
+      setGespeichert(true);
+      laden();   // Vorschau neu berechnen
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler beim Speichern");
+    } finally {
+      setSpeichert(false);
+    }
+  }
+
+  if (!daten) {
+    return fehler
+      ? <div className="mt-6 bg-red-50 border border-red-100 text-red-700 text-sm rounded-xl px-6 py-3">{fehler}</div>
+      : null;
+  }
+
+  const geaendert = bundesland !== (daten.bundesland ?? "")
+    || [...zusatz].sort().join() !== [...daten.zusatz].sort().join();
+  const jahre = [...new Set(daten.vorschau.map(f => f.datum.slice(0, 4)))];
+
+  return (
+    <div className="mt-6 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-100">
+        <h2 className="font-semibold text-gray-800">Feiertage für die Fristberechnung</h2>
+        <p className="text-sm text-gray-500 mt-0.5">
+          Fällt das Ende einer Frist (z. B. § 99 oder § 102 BetrVG) auf einen Samstag, Sonntag oder Feiertag,
+          endet sie erst am nächsten Werktag (§ 193 BGB). Maßgeblich sind die Feiertage am Sitz des Betriebs.
+        </p>
+      </div>
+
+      <div className="px-6 py-4 space-y-4">
+        <label className="block">
+          <span className="text-sm font-medium text-gray-700">Bundesland</span>
+          <select
+            value={bundesland}
+            onChange={e => { setBundesland(e.target.value); setGespeichert(false); }}
+            className="mt-1 block w-full max-w-sm rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="">– nicht festgelegt (nur bundesweite Feiertage) –</option>
+            {Object.entries(daten.bundeslaender).map(([kuerzel, name]) => (
+              <option key={kuerzel} value={kuerzel}>{name}</option>
+            ))}
+          </select>
+        </label>
+        {!daten.bundesland && (
+          <p className="flex items-start gap-1.5 text-xs text-amber-700">
+            <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+            Ohne Bundesland zählen nur bundesweite Feiertage. Fristen enden dann ggf. einen Tag früher als nötig – nie später.
+          </p>
+        )}
+
+        <fieldset>
+          <legend className="text-sm font-medium text-gray-700">Regionale Feiertage (nur wenn sie am Betriebssitz gelten)</legend>
+          <div className="mt-1 space-y-1">
+            {Object.entries(daten.zusatzFeiertage).map(([schluessel, beschreibung]) => (
+              <label key={schluessel} className="flex items-start gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={zusatz.includes(schluessel)}
+                  onChange={e => {
+                    setGespeichert(false);
+                    setZusatz(z => e.target.checked ? [...z, schluessel] : z.filter(x => x !== schluessel));
+                  }}
+                />
+                {beschreibung}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={speichern}
+            disabled={!geaendert || speichert}
+            className="flex items-center gap-1.5 bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+          >
+            {speichert ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+            Speichern
+          </button>
+          {gespeichert && <span className="text-xs text-green-700">✓ Gespeichert – gilt für neu angelegte Fristen</span>}
+        </div>
+      </div>
+
+      <details className="px-6 py-3 border-t border-gray-100 bg-gray-50 text-sm">
+        <summary className="cursor-pointer text-gray-700">
+          Feiertage {jahre.join(" und ")} ({daten.bundesland ? daten.bundeslaender[daten.bundesland] : "bundesweit"})
+        </summary>
+        <div className="mt-2 grid gap-x-8 sm:grid-cols-2">
+          {jahre.map(jahr => (
+            <ul key={jahr} className="text-xs text-gray-600 space-y-0.5">
+              {daten.vorschau.filter(f => f.datum.startsWith(jahr)).map(f => (
+                <li key={f.datum}>
+                  <span className="inline-block w-28 tabular-nums">
+                    {new Date(`${f.datum}T12:00:00`).toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" })}
+                  </span>
+                  {f.name}
+                </li>
+              ))}
+            </ul>
+          ))}
+        </div>
+      </details>
 
       {fehler && (
         <div className="px-6 py-3 bg-red-50 border-t border-red-100 text-red-700 text-sm">{fehler}</div>

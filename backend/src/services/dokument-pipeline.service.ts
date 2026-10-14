@@ -10,6 +10,8 @@ import { Kategorie, AuditAktion } from "@prisma/client";
 import { encryptFile } from "../lib/encryption.js";
 import prisma from "../lib/prisma.js";
 import { STANDARD_AUFBEWAHRUNG_TAGE } from "../lib/kategorien.js";
+import { berechneFristende } from "../lib/fristRechner.js";
+import { ladeFeiertagsKalender } from "../lib/fristKalender.js";
 import { Readable as ReadableStrom } from "node:stream";
 import { EMAIL_MIME, EmailInhalt, emailFormat, emailKopf, emailLesen, emailVolltext } from "../lib/email.js";
 
@@ -262,9 +264,13 @@ async function fristenAnlegen(
     fristen.push({ typ: "ZEITMODELL_87_WOCHE", tage: 7 });
   }
 
+  if (fristen.length === 0) return;
+
+  // Ende nach §§ 187, 188, 193 BGB (Wochenende/Feiertag → nächster Werktag).
+  // Zugang = Eingang im System, bis der Zugangszeitpunkt bestätigt wird.
+  const kalender = await ladeFeiertagsKalender();
   for (const f of fristen) {
-    const faelligAm = new Date(jetzt);
-    faelligAm.setDate(faelligAm.getDate() + f.tage);
-    await prisma.frist.create({ data: { dokumentId, typ: f.typ as any, faelligAm } });
+    const { ende } = berechneFristende(jetzt, { tage: f.tage }, kalender);
+    await prisma.frist.create({ data: { dokumentId, typ: f.typ as any, faelligAm: ende } });
   }
 }
