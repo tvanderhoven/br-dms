@@ -286,6 +286,16 @@ export default function Fristenkalender() {
                       {formatDatum(f.faelligAm)}
                       {istUeberfaellig(f) && <span className="text-red-600 font-medium"> · überfällig</span>}
                     </p>
+                    {f.status === "OFFEN" && f.vorlaeufig && (
+                      <p className="text-xs text-amber-700 mt-0.5" title="Ab Eingang im System berechnet – der Zugang beim Betriebsrat ist noch nicht bestätigt (Eingang bzw. Dokumentansicht)">
+                        vorläufig – Zugang noch nicht bestätigt
+                      </p>
+                    )}
+                    {f.verschoben && f.verschoben.length > 0 && (
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        verschoben wegen {f.verschoben.map(v => v.grund).join(", ")} (§ 193 BGB)
+                      </p>
+                    )}
                     {f.status === "ERLEDIGT" && f.erledigtVon && (
                       <p className="text-xs text-green-600 mt-0.5">✓ {f.erledigtVon.name}{f.erledigtAm && `, ${formatDatum(f.erledigtAm)}`}</p>
                     )}

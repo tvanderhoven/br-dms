@@ -1084,6 +1084,9 @@ export interface FristMitDokument {
   typ: string;
   status: string;
   faelligAm: string;
+  // Nur in GET /api/fristen (Backend: lib/zugang.ts → fristHinweise)
+  vorlaeufig?: boolean;                          // Zugang des Dokuments noch nicht bestätigt
+  verschoben?: { tag: string; grund: string }[];  // § 193 BGB: übersprungene Tage
   bezeichnung?: string | null;
   notiz?: string | null;
   erledigtAm?: string | null;

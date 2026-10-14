@@ -168,3 +168,26 @@ export async function zugangBestaetigen(
 
   return fristen;
 }
+
+/**
+ * Für Fristlisten (Fristenkalender): vorläufig, solange der Zugang des Dokuments
+ * nicht bestätigt ist, und warum das Ende verschoben wurde (§ 193 BGB) – nur wenn
+ * die Frist noch dem errechneten Ende entspricht, also nicht von Hand geändert wurde.
+ */
+export async function fristHinweise<F extends {
+  typ: string;
+  faelligAm: Date;
+  dokument: { zugangAm: Date | null; zugangBestaetigtAm: Date | null } | null;
+}>(fristen: F[]): Promise<Array<F & { vorlaeufig: boolean; verschoben: Array<{ tag: string; grund: string }> }>> {
+  const kalender = fristen.some(f => f.dokument?.zugangAm) ? await ladeFeiertagsKalender() : null;
+  return fristen.map(f => {
+    const zugang = f.dokument?.zugangAm;
+    const dauer  = FRIST_DAUER_AB_ZUGANG[f.typ];
+    const ende   = zugang && dauer && kalender ? berechneFristende(zugang, dauer, kalender) : null;
+    return {
+      ...f,
+      vorlaeufig: !!zugang && !f.dokument?.zugangBestaetigtAm,
+      verschoben: ende && ende.ende.getTime() === f.faelligAm.getTime() ? ende.verschoben : [],
+    };
+  });
+}

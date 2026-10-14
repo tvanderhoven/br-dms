@@ -379,3 +379,22 @@ describe("Sitzungsvorschlag vor Fristende", () => {
     assert.equal((await anfrage(env, "STELLVERTRETER", "GET", `/api/dokumente/${id}/sitzungsvorschlag`)).statusCode, 200);
   });
 });
+
+describe("Fristenliste: vorläufig und Verschiebungsgrund", () => {
+  type FristAntwort = { id: string; dokumentId: string | null; vorlaeufig: boolean; verschoben: { grund: string }[] };
+  const liste = async () => JSON.parse((await anfrage(env, "MITGLIED", "GET", "/api/fristen")).body) as FristAntwort[];
+
+  test("unbestätigt → vorläufig; bestätigt mit Verschiebung → Gründe; von Hand geändert → keine Gründe", async () => {
+    const { id } = await anhoerung102("FRISTLISTE-102");
+    assert.equal((await liste()).find(f => f.dokumentId === id)?.vorlaeufig, true);
+
+    // Mittwoch 30.09. + 3 Tage = Samstag 03.10. (Tag der Deutschen Einheit) → Montag 05.10.
+    await anfrage(env, "VORSITZ", "POST", `/api/dokumente/${id}/zugang`, { zugangAm: "2026-09-30T08:30:00Z", kuendigungsArt: "AUSSERORDENTLICH" });
+    const frist = (await liste()).find(f => f.dokumentId === id)!;
+    assert.equal(frist.vorlaeufig, false);
+    assert.deepEqual(frist.verschoben.map(v => v.grund), ["Samstag (Tag der Deutschen Einheit)", "Sonntag"]);
+
+    await prisma.frist.update({ where: { id: frist.id }, data: { faelligAm: new Date("2026-10-04T21:59:59.999Z") } });
+    assert.deepEqual((await liste()).find(f => f.dokumentId === id)!.verschoben, []);
+  });
+});

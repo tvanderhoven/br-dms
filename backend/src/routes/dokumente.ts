@@ -177,9 +177,17 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
           textinhalt:    true,
           hochgeladenVon: { select: { name: true } },
           fristen: {
-            where:  { status: "OFFEN" },
-            select: { id: true, typ: true, faelligAm: true, status: true },
+            where:   { status: "OFFEN" },
+            select:  { id: true, typ: true, faelligAm: true, status: true },
+            orderBy: { faelligAm: "asc" },
           },
+          // Fristsachen: Zugang/Empfangsbestätigung (lib/zugang.ts, lib/empfangsbestaetigung.ts)
+          zugangAm:               true,
+          zugangBestaetigtAm:     true,
+          unterlagenVollstaendig: true,
+          empfangsbestaetigungAm: true,
+          empfangsbestaetigungAn: true,
+          anhoerungsVorgang:      { select: { kuendigungsArt: true } },
           // In welchen Sitzungen/TOPs wurde das Dokument behandelt?
           topVerknuepfungen: {
             select: {
