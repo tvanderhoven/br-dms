@@ -150,12 +150,15 @@ else
   echo "Kein passendes Storage-Backup gefunden (nur DB wird eingespielt)."
   RESTORE_STORAGE="n"
 fi
+# ${VAR,,} (bash 4+) gibt's auf manchen NAS-Systemen nicht (QNAP bringt bash 3.2 mit) -
+# deshalb hier einmalig portabel klein schreiben statt an jeder Vergleichsstelle.
+RESTORE_STORAGE="$(printf '%s' "$RESTORE_STORAGE" | tr '[:upper:]' '[:lower:]')"
 
 # --- Bestätigung ---
 echo ""
 echo "Folgendes wird wiederhergestellt:"
 echo "  DB:      $(basename "$DB_FILE")"
-[ "${RESTORE_STORAGE,,}" = "j" ] && echo "  Storage: $(basename "$STORAGE_FILE")"
+[ "$RESTORE_STORAGE" = "j" ] && echo "  Storage: $(basename "$STORAGE_FILE")"
 echo ""
 echo "ACHTUNG: Die aktuelle Datenbank wird dabei ÜBERSCHRIEBEN."
 if [ -n "$ARG_JA" ]; then CONFIRM="ja"; else read -rp "Fortfahren? (ja/N): " CONFIRM; fi
@@ -188,7 +191,7 @@ if [ -n "$ENDUNG" ]; then
     TMP_DIR="$(mktemp -d "$BACKUP_DIR/.restore_XXXXXX")"
     chmod 700 "$TMP_DIR"
     entschluesseln "$DB_FILE" > "$TMP_DIR/db.sql.gz"; DB_QUELLE="$TMP_DIR/db.sql.gz"
-    if [ "${RESTORE_STORAGE,,}" = "j" ]; then
+    if [ "$RESTORE_STORAGE" = "j" ]; then
       entschluesseln "$STORAGE_FILE" > "$TMP_DIR/storage.tar.gz"; STORAGE_QUELLE="$TMP_DIR/storage.tar.gz"
     fi
     ENDUNG=""   # ab hier unverschlüsselte Zwischendateien
@@ -222,7 +225,7 @@ fi
 echo "  ✓ Datenbank eingespielt"
 
 # --- Storage einspielen ---
-if [ "${RESTORE_STORAGE,,}" = "j" ]; then
+if [ "$RESTORE_STORAGE" = "j" ]; then
   echo "[$(date)] Storage wiederherstellen..."
   rm -rf "$DATA_PATH/storage"
   entschluesseln "$STORAGE_QUELLE" | tar -xzf - -C "$DATA_PATH"
