@@ -157,6 +157,7 @@ export const api = {
     },
     zugangBestaetigen: (id: string, data: { zugangAm: string; kuendigungsArt?: KuendigungsArt | null; unterlagenVollstaendig?: boolean | null }) =>
       request<{ ok: boolean }>(`/api/dokumente/${id}/zugang`, { method: "POST", body: JSON.stringify(data) }),
+    sitzungsvorschlag: (id: string) => request<Sitzungsvorschlag>(`/api/dokumente/${id}/sitzungsvorschlag`),
     empfangsbestaetigung: (id: string) => request<EmpfangsbestaetigungEntwurf>(`/api/dokumente/${id}/empfangsbestaetigung`),
     empfangsbestaetigungSenden: (id: string, data: { an: string; betreff: string; text: string }) =>
       request<{ gesendetAm: string; gesendetAn: string }>(`/api/dokumente/${id}/empfangsbestaetigung`, { method: "POST", body: JSON.stringify(data) }),
@@ -774,6 +775,21 @@ export interface Frist {
 }
 
 export type KuendigungsArt = "ORDENTLICH" | "AUSSERORDENTLICH";
+
+/** Passende Sitzung vor Fristende (GET /api/dokumente/:id/sitzungsvorschlag) */
+export interface VorgeschlageneSitzung {
+  id: string; titel: string;
+  datum: string;                 // Ortszeit in den UTC-Feldern (wie sitzungsdatum)
+  status: string; gremium: string | null;
+  rechtzeitig: boolean | null; letzterTag: boolean; topMoeglich: boolean;
+}
+export interface Sitzungsvorschlag {
+  fristende: string | null;
+  vorschlagTitel: string;
+  verknuepft: (VorgeschlageneSitzung & { topNummer: number; topTitel: string })[];
+  sitzungen: VorgeschlageneSitzung[];
+  sondersitzungNoetig: boolean;
+}
 
 /** Vorbelegung des Dialogs (GET /api/dokumente/:id/empfangsbestaetigung) */
 export interface EmpfangsbestaetigungEntwurf {

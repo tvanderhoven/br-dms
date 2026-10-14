@@ -11,6 +11,7 @@
  * POST   /api/dokumente/:id/zugang – Zugang bestätigen, Fristen ab Zugang neu berechnen
  * GET    /api/dokumente/:id/empfangsbestaetigung – Empfänger + Textvorschlag
  * POST   /api/dokumente/:id/empfangsbestaetigung – an den Arbeitgeber senden
+ * GET    /api/dokumente/:id/sitzungsvorschlag – passende Sitzung vor Fristende
  *
  * E-Mails (.eml/.msg):
  * GET    /api/dokumente/:id/email                        – Kopf, Text, HTML, abgelegte Anhänge
@@ -34,6 +35,7 @@ import { erfordert } from "../middleware/rbac.js";
 import { verarbeiteDokument, anhangAblegen, UngueltigeEmailError } from "../services/dokument-pipeline.service.js";
 import { emailFormat, emailLesen, istEmailMime, EmailFormat, EMAIL_MIME } from "../lib/email.js";
 import { type KuendigungsArt, ZugangFehler, zugangBestaetigen, zugangVorschau } from "../lib/zugang.js";
+import { sitzungsvorschlag } from "../lib/sitzungsvorschlag.js";
 import { EmpfangsbestaetigungFehler, senden as empfangsbestaetigungSenden, vorbelegung as empfangsbestaetigungVorbelegung } from "../lib/empfangsbestaetigung.js";
 
 const STORAGE = process.env.STORAGE_PATH ?? "/data/storage";
@@ -544,6 +546,17 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
         if (err instanceof EmpfangsbestaetigungFehler) return reply.status(400).send({ fehler: err.message });
         throw err;
       }
+    }
+  );
+
+  // ── GET /:id/sitzungsvorschlag – Sitzung vor Fristende (lib/sitzungsvorschlag.ts) ─
+  app.get<{ Params: { id: string } }>(
+    "/:id/sitzungsvorschlag",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (request, reply) => {
+      const dokument = await empfangsbestaetigungDokument(request, reply);
+      if (!dokument) return reply;
+      return reply.send(await sitzungsvorschlag(dokument.id));
     }
   );
 
