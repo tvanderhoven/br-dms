@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, FormEvent } from "react";
-import { Settings, Save, Loader2, RotateCcw, Users, Clock, FileText, Upload, Trash2, Palette, Download, FolderOpen, CheckCircle2, XCircle, Puzzle, Scale, RefreshCw, AlertTriangle, Edit3, Plus } from "lucide-react";
+import { Settings, Save, Loader2, RotateCcw, Users, Clock, FileText, Upload, Trash2, Palette, Download, FolderOpen, CheckCircle2, XCircle, Puzzle, Scale, RefreshCw, AlertTriangle, Edit3, Plus, Star } from "lucide-react";
 import { api, ROLLE_LABEL, ZweiFaktorRichtlinie, WatchfolderLogEintrag, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen, Rolle, ModuleKey, MODULE_KEYS, MODULE_LABEL, GesetzStatus, Geschlecht, Zeitmodell } from "../lib/api";
 import BenutzerVerwaltung from "./Benutzer";
 
@@ -1203,6 +1203,18 @@ function ZeitmodelleVerwaltung() {
     }
   }
 
+  // Höchstens ein Standard gleichzeitig (Backend setzt die anderen automatisch
+  // zurück) – dient nur als Rückfallwert, wenn ein Mitarbeiter noch keine
+  // eigene Zeitmodell-Historie hat (siehe ZeitmodellModal/TopGehaltModal).
+  async function standardSetzen(z: Zeitmodell) {
+    try {
+      await api.zeitmodelle.aktualisieren(z.id, { standard: !z.standard });
+      await laden_();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Fehler beim Ändern");
+    }
+  }
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-100">
@@ -1210,7 +1222,9 @@ function ZeitmodelleVerwaltung() {
         <p className="text-sm text-gray-500 mt-0.5">
           Bezeichnungen für Arbeitszeitmodelle (z.B. eigene Kürzel oder reale Stundenmodelle wie „38h") – werden in
           der Gehaltstabelle (Tab „Zeitmodell") zur Auswahl angeboten. Inaktive Zeitmodelle bleiben in bestehender
-          Historie sichtbar, stehen aber bei neuen Einträgen nicht mehr zur Wahl.
+          Historie sichtbar, stehen aber bei neuen Einträgen nicht mehr zur Wahl. Das mit Stern markierte Standard-
+          Zeitmodell wird nur vorausgewählt, wenn ein Mitarbeiter noch keine eigene Zeitmodell-Historie hat – hat
+          er schon ein aktuelles Zeitmodell, wird das als Vorschlag übernommen (deckt Ausnahmen automatisch ab).
         </p>
       </div>
       {laden ? (
@@ -1225,6 +1239,7 @@ function ZeitmodelleVerwaltung() {
                 <th className="py-1.5 pr-3">Bezeichnung</th>
                 <th className="py-1.5 pr-3">Wochenstunden</th>
                 <th className="py-1.5 pr-3">Status</th>
+                <th className="py-1.5 pr-3">Standard</th>
                 <th className="py-1.5" />
               </tr>
             </thead>
@@ -1249,6 +1264,7 @@ function ZeitmodelleVerwaltung() {
                         />
                       </td>
                       <td className="py-1.5 pr-3 text-gray-400">{z.aktiv ? "Aktiv" : "Inaktiv"}</td>
+                      <td className="py-1.5 pr-3 text-gray-400">{z.standard ? "Ja" : "–"}</td>
                       <td className="py-1.5 text-right whitespace-nowrap">
                         <button onClick={bearbeitungSpeichern} className="text-xs text-[rgb(var(--accent))] font-medium mr-3">Speichern</button>
                         <button onClick={() => setBearbeitetId(null)} className="text-xs text-gray-400">Abbrechen</button>
@@ -1268,6 +1284,15 @@ function ZeitmodelleVerwaltung() {
                           {z.aktiv ? "Aktiv" : "Inaktiv"}
                         </button>
                       </td>
+                      <td className="py-1.5 pr-3">
+                        <button
+                          onClick={() => standardSetzen(z)}
+                          title={z.standard ? "Als Standard entfernen" : "Als Standard festlegen (Rückfallwert ohne eigene Historie)"}
+                          className={`p-1 rounded transition-colors ${z.standard ? "text-amber-500 hover:text-amber-600" : "text-gray-300 hover:text-gray-400"}`}
+                        >
+                          <Star size={15} fill={z.standard ? "currentColor" : "none"} />
+                        </button>
+                      </td>
                       <td className="py-1.5 text-right">
                         <button onClick={() => bearbeitungStarten(z)} className="p-1 text-gray-400 hover:text-[rgb(var(--accent))]" title="Bearbeiten">
                           <Edit3 size={14} />
@@ -1278,7 +1303,7 @@ function ZeitmodelleVerwaltung() {
                 </tr>
               ))}
               {zeitmodelle.length === 0 && (
-                <tr><td colSpan={4} className="py-3 text-gray-400 text-center">Noch keine Zeitmodelle angelegt</td></tr>
+                <tr><td colSpan={5} className="py-3 text-gray-400 text-center">Noch keine Zeitmodelle angelegt</td></tr>
               )}
             </tbody>
           </table>

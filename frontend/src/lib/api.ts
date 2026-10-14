@@ -349,9 +349,9 @@ export const api = {
   // (nicht zu verwechseln mit api.zeitmodell – das ist die Zeitraum-Historie).
   zeitmodelle: {
     liste: () => request<Zeitmodell[]>("/api/zeitmodelle"),
-    erstellen: (data: { bezeichnung: string; wochenstunden?: number | null; sortierung?: number }) =>
+    erstellen: (data: { bezeichnung: string; wochenstunden?: number | null; sortierung?: number; standard?: boolean }) =>
       request<Zeitmodell>("/api/zeitmodelle", { method: "POST", body: JSON.stringify(data) }),
-    aktualisieren: (id: string, data: Partial<{ bezeichnung: string; wochenstunden: number | null; sortierung: number; aktiv: boolean }>) =>
+    aktualisieren: (id: string, data: Partial<{ bezeichnung: string; wochenstunden: number | null; sortierung: number; aktiv: boolean; standard: boolean }>) =>
       request<Zeitmodell>(`/api/zeitmodelle/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   },
 
@@ -1637,6 +1637,9 @@ export interface Zeitmodell {
   wochenstunden?: number | null;
   sortierung: number;
   aktiv: boolean;
+  // Vorauswahl beim Anlegen eines neuen Zeitraums ohne vorhandene Historie –
+  // höchstens eins gleichzeitig (Backend erzwingt das).
+  standard: boolean;
 }
 
 export interface ZeitmodellEintrag {

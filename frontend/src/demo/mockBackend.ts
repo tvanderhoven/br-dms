@@ -531,6 +531,11 @@ export function handleDemoRequest(method: string, pathname: string, searchParams
     if (vorlage) return nestedCrud(vorlage.tops, method, subId, body, "vt");
   }
 
+  // ── Zeitmodelle: höchstens ein "standard" gleichzeitig (wie im echten Backend) ──
+  if (resource === "zeitmodelle" && (method === "POST" || method === "PUT") && body.standard === true) {
+    db.zeitmodelle.forEach(z => { if (z.id !== id) z.standard = false; });
+  }
+
   // ── Generische Ressourcen-CRUD für alles andere Bekannte ────────────
   if (resource && db[resource] !== undefined) {
     return genericCrud(db[resource], method, id, body, resource);

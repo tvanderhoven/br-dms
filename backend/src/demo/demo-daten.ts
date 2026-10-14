@@ -381,7 +381,7 @@ async function main() {
   // Zeitmodell) – die Demo legt sich die gleichen vier Bezeichnungen wie bisher an.
   const zeitmodellIds: Record<"A" | "B" | "C" | "D", string> = { A: "", B: "", C: "", D: "" };
   for (const [i, bezeichnung] of (["A", "B", "C", "D"] as const).entries()) {
-    zeitmodellIds[bezeichnung] = (await prisma.zeitmodell.create({ data: { bezeichnung, sortierung: i } })).id;
+    zeitmodellIds[bezeichnung] = (await prisma.zeitmodell.create({ data: { bezeichnung, sortierung: i, standard: i === 0 } })).id;
   }
 
   type MA = { id: string; abteilung: string; name: string; art: Beschaeftigungsart; gruppe: number; stufe: number; at: boolean };
