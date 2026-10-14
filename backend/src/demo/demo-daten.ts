@@ -21,7 +21,7 @@ import { randomUUID } from "node:crypto";
 import { neuesPdf } from "../services/pdf.service.js";
 import {
   Prisma, Role, Geschlecht, Kategorie, FristTyp, SitzungStatus, TopStatus,
-  AnwesenheitsStatus, Beschaeftigungsart, Zeitmodell, BVStatus, SchulungsStatus,
+  AnwesenheitsStatus, Beschaeftigungsart, BVStatus, SchulungsStatus,
   KummerkastenStatus, AufgabenStatus, KanbanStatus, Prioritaet, AufgabeTyp, AuditAktion,
   WahlArt, WahlVerfahren, KostenArt, KostenStatus,
 } from "@prisma/client";
@@ -377,6 +377,13 @@ async function main() {
     abteilungIds[a.name] = (await prisma.abteilung.create({ data: { name: a.name } })).id;
   }
 
+  // Zeitmodell-Stammdaten: frei konfigurierbar statt festes Enum (siehe Model
+  // Zeitmodell) – die Demo legt sich die gleichen vier Bezeichnungen wie bisher an.
+  const zeitmodellIds: Record<"A" | "B" | "C" | "D", string> = { A: "", B: "", C: "", D: "" };
+  for (const [i, bezeichnung] of (["A", "B", "C", "D"] as const).entries()) {
+    zeitmodellIds[bezeichnung] = (await prisma.zeitmodell.create({ data: { bezeichnung, sortierung: i } })).id;
+  }
+
   type MA = { id: string; abteilung: string; name: string; art: Beschaeftigungsart; gruppe: number; stufe: number; at: boolean };
   const alleMA: MA[] = [];
   let pnr = 10001;
@@ -399,7 +406,10 @@ async function main() {
   for (const g of GREMIUM) vergeben.add(g.name);
 
   const HISTORIE_AB = datum(2016, 1, 1);
-  const ZEITMODELLE = [Zeitmodell.A, Zeitmodell.A, Zeitmodell.A, Zeitmodell.A, Zeitmodell.A, Zeitmodell.A, Zeitmodell.B, Zeitmodell.B, Zeitmodell.C, Zeitmodell.D];
+  const ZEITMODELLE = [
+    zeitmodellIds.A, zeitmodellIds.A, zeitmodellIds.A, zeitmodellIds.A, zeitmodellIds.A, zeitmodellIds.A,
+    zeitmodellIds.B, zeitmodellIds.B, zeitmodellIds.C, zeitmodellIds.D,
+  ];
 
   async function mitarbeiterAnlegen(vorname: string, nachname: string, abteilung: string, artVorgabe?: Beschaeftigungsart) {
     const def = ABTEILUNGEN.find(a => a.name === abteilung)!;
@@ -481,15 +491,15 @@ async function main() {
       // Zeitmodell-Historie: meist ein unbefristetes Modell, teils befristete Wechsel
       const basisModell = wahl(ZEITMODELLE);
       const zm: Prisma.ZeitmodellEintragCreateManyInput[] = [
-        { mitarbeiterId: ma.id, zeitmodell: basisModell, gueltigVon: eintraege[0].gueltigAb as Date, gueltigBis: null },
+        { mitarbeiterId: ma.id, zeitmodellId: basisModell, gueltigVon: eintraege[0].gueltigAb as Date, gueltigBis: null },
       ];
       if (chance(0.18)) {
         const von = tage(-zahl(60, 900));
         const bis = tage(zahl(1, 10) * 30, von);
-        const anderes = wahl([Zeitmodell.B, Zeitmodell.C, Zeitmodell.D].filter(z => z !== basisModell));
+        const anderes = wahl([zeitmodellIds.B, zeitmodellIds.C, zeitmodellIds.D].filter(z => z !== basisModell));
         zm[0].gueltigBis = tage(-1, von);
-        zm.push({ mitarbeiterId: ma.id, zeitmodell: anderes, gueltigVon: von, gueltigBis: bis, bemerkung: wahl(["Befristet auf Wunsch (Kinderbetreuung)", "Befristet – Pflege Angehöriger", "Befristete Teilzeit (§ 9a TzBfG)", "Projektphase"]) });
-        if (bis < HEUTE) zm.push({ mitarbeiterId: ma.id, zeitmodell: basisModell, gueltigVon: tage(1, bis), gueltigBis: null, bemerkung: "Rückkehr ins ursprüngliche Modell" });
+        zm.push({ mitarbeiterId: ma.id, zeitmodellId: anderes, gueltigVon: von, gueltigBis: bis, bemerkung: wahl(["Befristet auf Wunsch (Kinderbetreuung)", "Befristet – Pflege Angehöriger", "Befristete Teilzeit (§ 9a TzBfG)", "Projektphase"]) });
+        if (bis < HEUTE) zm.push({ mitarbeiterId: ma.id, zeitmodellId: basisModell, gueltigVon: tage(1, bis), gueltigBis: null, bemerkung: "Rückkehr ins ursprüngliche Modell" });
       }
       await prisma.zeitmodellEintrag.createMany({ data: zm });
 
@@ -1040,7 +1050,7 @@ async function main() {
       data: { vorname: vn, nachname: nn, pnr: String(pnr++), eintritt: start, geburtsdatum: datum(zahl(1984, 2001), zahl(1, 12), zahl(1, 28)), geschlecht: VORNAMEN_W.includes(vn) ? Geschlecht.WEIBLICH : Geschlecht.MAENNLICH, standort: abt === "Logistik" ? "Werk 1" : "Verwaltung", abteilungId: abteilungIds[abt] },
     });
     await prisma.gehaltsstufenEintrag.create({ data: { mitarbeiterId: ma.id, gruppe, stufe: 1, gueltigAb: start, bemerkung: `Einstellung ${titel} – Zustimmung BR`, sitzungId: sitzungIds[2] } });
-    await prisma.zeitmodellEintrag.create({ data: { mitarbeiterId: ma.id, zeitmodell: Zeitmodell.A, gueltigVon: start, sitzungId: sitzungIds[2] } });
+    await prisma.zeitmodellEintrag.create({ data: { mitarbeiterId: ma.id, zeitmodellId: zeitmodellIds.A, gueltigVon: start, sitzungId: sitzungIds[2] } });
   }
   console.log(`[Demo] ${plan.length} Sitzungen mit TOPs, Anwesenheit, Beschlüssen und Gehalts-Verknüpfungen angelegt`);
 

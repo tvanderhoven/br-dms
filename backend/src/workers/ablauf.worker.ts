@@ -22,6 +22,11 @@ const MITARBEITER_INCLUDE = {
   mitarbeiter: { include: { abteilung: { select: { name: true } } } },
 };
 
+const ZEITMODELL_INCLUDE = {
+  ...MITARBEITER_INCLUDE,
+  zeitmodell: { select: { bezeichnung: true } },
+};
+
 export class AblaufWorker {
   private readonly prisma = new PrismaClient();
 
@@ -38,7 +43,7 @@ export class AblaufWorker {
       const [zeitmodelle, ueberstunden] = await Promise.all([
         this.prisma.zeitmodellEintrag.findMany({
           where:   { gueltigBis: { gte: monatsanfang, lte: monatsende } },
-          include: MITARBEITER_INCLUDE,
+          include: ZEITMODELL_INCLUDE,
           orderBy: { gueltigBis: "asc" },
         }),
         this.prisma.ueberstundenEintrag.findMany({
@@ -53,7 +58,7 @@ export class AblaufWorker {
           typ:             "ZEITMODELL" as const,
           mitarbeiterName: `${z.mitarbeiter.nachname}, ${z.mitarbeiter.vorname}`,
           abteilung:       z.mitarbeiter.abteilung?.name ?? null,
-          detail:          `Zeitmodell ${z.zeitmodell}`,
+          detail:          `Zeitmodell ${z.zeitmodell.bezeichnung}`,
           gueltigBis:      z.gueltigBis!,
         })),
         ...ueberstunden.map(u => ({

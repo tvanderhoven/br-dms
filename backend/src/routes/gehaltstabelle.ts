@@ -99,6 +99,17 @@ async function verarbeiteImport(
     abteilungNameProId.set(a.id, a.name);
   });
 
+  // Zeitmodell-Label aus der Quelle (z.B. "B" in "B:3.2") gegen die in dieser
+  // Installation konfigurierten Zeitmodelle auflösen (case-insensitiv) – im
+  // Gegensatz zu Abteilungen wird hier NICHTS automatisch angelegt, weil ein
+  // unbekanntes Zeitmodell eher ein Tippfehler als ein neuer Wert ist.
+  const zeitmodellIdProLabel = new Map<string, string>(); // label(lower) -> id
+  const zeitmodellBezeichnungProId = new Map<string, string>(); // id -> bezeichnung, nur für Meldungstexte
+  (await client.zeitmodell.findMany({ where: { aktiv: true } })).forEach(z => {
+    zeitmodellIdProLabel.set(z.bezeichnung.toLowerCase(), z.id);
+    zeitmodellBezeichnungProId.set(z.id, z.bezeichnung);
+  });
+
   // Abgleich bewusst NUR über PNR bzw. Name (ohne Abteilung im Schlüssel) –
   // sonst würde ein Abteilungswechsel im Import dazu führen, dass der/die
   // Mitarbeiter:in nicht wiedererkannt und fälschlich doppelt angelegt wird.
@@ -155,6 +166,18 @@ async function verarbeiteImport(
         grund: `Gehaltsstufe "${gehaltsstufeRoh}" passt weder ins Format "Zeitmodell:Gruppe.Stufe" (z.B. B:3.2) noch ins AT-Format "AT:Betrag" (z.B. AT:4200)`,
       });
       continue;
+    }
+
+    let zeitmodellId: string | null = null;
+    if (geparsteStufe.art === "eingruppierung") {
+      zeitmodellId = zeitmodellIdProLabel.get(geparsteStufe.zeitmodellLabel.toLowerCase()) ?? null;
+      if (!zeitmodellId) {
+        zusammenfassung.fehler.push({
+          zeile: zeileNr,
+          grund: `Zeitmodell "${geparsteStufe.zeitmodellLabel}" ist in den Einstellungen nicht als aktives Zeitmodell angelegt`,
+        });
+        continue;
+      }
     }
 
     const gueltigAb = parseImportDatum(gueltigAbRoh);
@@ -304,10 +327,10 @@ async function verarbeiteImport(
       // Zeitmodell separat fortschreiben (eigene Historie, eigener Zeitraum) –
       // nur für tarifliche Eingruppierung, AT-Zeilen enthalten kein Zeitmodell.
       // Nur außerhalb des Dry-Runs, da diese Hilfsfunktion direkt schreibt.
-      if (geparsteStufe.art === "eingruppierung") {
+      if (geparsteStufe.art === "eingruppierung" && zeitmodellId) {
         const zeitmodellErgebnis = await zeitmodellPeriodeAnlegen(client, {
           mitarbeiterId: mitarbeiter.id,
-          zeitmodell:    geparsteStufe.zeitmodell,
+          zeitmodellId,
           gueltigVon:    gueltigAb,
           bemerkung,
         });
@@ -317,9 +340,11 @@ async function verarbeiteImport(
             grund: `Zeitmodell konnte nicht übernommen werden: ${zeitmodellErgebnis.grund}`,
           });
         } else if (zeitmodellErgebnis.art === "aktualisiert") {
+          const vorherigeBezeichnung = zeitmodellBezeichnungProId.get(zeitmodellErgebnis.vorherigesZeitmodellId) ?? "unbekannt";
+          const neueBezeichnung = zeitmodellBezeichnungProId.get(zeitmodellErgebnis.eintrag.zeitmodellId) ?? "unbekannt";
           zusammenfassung.geaendert.push({
             zeile: zeileNr,
-            grund: `Zeitmodell von "${zeitmodellErgebnis.vorherigesZeitmodell}" auf "${zeitmodellErgebnis.eintrag.zeitmodell}" geändert (ab ${gueltigAb.toLocaleDateString("de-DE")})`,
+            grund: `Zeitmodell von "${vorherigeBezeichnung}" auf "${neueBezeichnung}" geändert (ab ${gueltigAb.toLocaleDateString("de-DE")})`,
           });
         }
       }

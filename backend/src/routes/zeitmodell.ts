@@ -11,7 +11,7 @@
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { Prisma, Role, Zeitmodell } from "@prisma/client";
+import { Prisma, Role } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
@@ -24,7 +24,7 @@ interface ListenFilter {
 
 interface NeuerZeitraum {
   mitarbeiterId: string;
-  zeitmodell:    Zeitmodell;
+  zeitmodellId:  string;
   gueltigVon:    string;
   gueltigBis?:   string | null;
   bemerkung?:    string;
@@ -32,13 +32,16 @@ interface NeuerZeitraum {
 }
 
 interface ZeitraumUpdate {
-  zeitmodell?: Zeitmodell;
-  gueltigVon?: string;
-  gueltigBis?: string | null;
-  bemerkung?:  string | null;
+  zeitmodellId?: string;
+  gueltigVon?:   string;
+  gueltigBis?:   string | null;
+  bemerkung?:    string | null;
 }
 
-const ZEITMODELL_WERTE = Object.values(Zeitmodell);
+async function zeitmodellExistiertUndAktiv(zeitmodellId: string): Promise<boolean> {
+  const zeitmodell = await prisma.zeitmodell.findUnique({ where: { id: zeitmodellId } });
+  return !!zeitmodell && zeitmodell.aktiv;
+}
 
 const MITARBEITER_INCLUDE = {
   mitarbeiter: {
@@ -46,6 +49,9 @@ const MITARBEITER_INCLUDE = {
   },
   sitzung: {
     select: { id: true, titel: true, sitzungsdatum: true },
+  },
+  zeitmodell: {
+    select: { id: true, bezeichnung: true, wochenstunden: true },
   },
 };
 
@@ -98,11 +104,11 @@ export async function zeitmodellRouten(app: FastifyInstance): Promise<void> {
     "/",
     { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request: FastifyRequest<{ Body: NeuerZeitraum }>, reply: FastifyReply) => {
-      const { mitarbeiterId, zeitmodell, gueltigVon, gueltigBis, bemerkung, sitzungId } = request.body;
+      const { mitarbeiterId, zeitmodellId, gueltigVon, gueltigBis, bemerkung, sitzungId } = request.body;
 
       if (!mitarbeiterId?.trim()) return reply.status(400).send({ fehler: "mitarbeiterId ist ein Pflichtfeld" });
-      if (!zeitmodell || !ZEITMODELL_WERTE.includes(zeitmodell)) {
-        return reply.status(400).send({ fehler: `zeitmodell muss einer von ${ZEITMODELL_WERTE.join(", ")} sein` });
+      if (!zeitmodellId?.trim() || !(await zeitmodellExistiertUndAktiv(zeitmodellId))) {
+        return reply.status(400).send({ fehler: "zeitmodellId muss ein bestehendes, aktives Zeitmodell sein" });
       }
       if (!gueltigVon) return reply.status(400).send({ fehler: "gueltigVon ist ein Pflichtfeld" });
 
@@ -121,7 +127,7 @@ export async function zeitmodellRouten(app: FastifyInstance): Promise<void> {
       // Schließt automatisch einen offenen Vorgänger-Zeitraum, statt bei jeder
       // "neuer aktueller Zeitraum"-Eingabe eine Überschneidung abzulehnen.
       const ergebnis = await zeitmodellPeriodeAnlegen(prisma as unknown as Prisma.TransactionClient, {
-        mitarbeiterId, zeitmodell, gueltigVon: von, gueltigBis: bis, bemerkung: bemerkung?.trim() || null, sitzungId: sitzungId || null,
+        mitarbeiterId, zeitmodellId, gueltigVon: von, gueltigBis: bis, bemerkung: bemerkung?.trim() || null, sitzungId: sitzungId || null,
       });
 
       if (ergebnis.art === "konflikt") {
@@ -142,13 +148,13 @@ export async function zeitmodellRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request: FastifyRequest<{ Params: { id: string }; Body: ZeitraumUpdate }>, reply: FastifyReply) => {
       const { id } = request.params;
-      const { zeitmodell, gueltigVon, gueltigBis, bemerkung } = request.body;
+      const { zeitmodellId, gueltigVon, gueltigBis, bemerkung } = request.body;
 
       const vorhandener = await prisma.zeitmodellEintrag.findUnique({ where: { id } });
       if (!vorhandener) return reply.status(404).send({ fehler: "Zeitraum nicht gefunden" });
 
-      if (zeitmodell !== undefined && !ZEITMODELL_WERTE.includes(zeitmodell)) {
-        return reply.status(400).send({ fehler: `zeitmodell muss einer von ${ZEITMODELL_WERTE.join(", ")} sein` });
+      if (zeitmodellId !== undefined && !(await zeitmodellExistiertUndAktiv(zeitmodellId))) {
+        return reply.status(400).send({ fehler: "zeitmodellId muss ein bestehendes, aktives Zeitmodell sein" });
       }
 
       const von = gueltigVon !== undefined ? new Date(gueltigVon) : vorhandener.gueltigVon;
@@ -167,7 +173,7 @@ export async function zeitmodellRouten(app: FastifyInstance): Promise<void> {
       const aktualisiert = await prisma.zeitmodellEintrag.update({
         where: { id },
         data: {
-          ...(zeitmodell !== undefined ? { zeitmodell } : {}),
+          ...(zeitmodellId !== undefined ? { zeitmodellId } : {}),
           gueltigVon: von,
           gueltigBis: bis,
           ...(bemerkung !== undefined ? { bemerkung: bemerkung?.trim() || null } : {}),

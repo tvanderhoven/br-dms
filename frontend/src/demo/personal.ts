@@ -107,18 +107,28 @@ export const DEMO_GEHALT = DEMO_MITARBEITER.flatMap((m, i) => {
   return eintraege;
 });
 
-// Zeitmodelle: A Vollzeit Gleitzeit, B Schicht, C Teilzeit, D Vertrauensarbeitszeit (Bezeichnungen siehe Einstellungen)
+// Zeitmodelle: frei konfigurierbare Stammdaten (siehe Einstellungen → Zeitmodelle),
+// die Demo zeigt vier realistische Stundenmodelle statt bloßer Buchstaben.
+export const DEMO_ZEITMODELLE = [
+  { id: "demo-zm1", bezeichnung: "Vollzeit Gleitzeit", wochenstunden: 38, sortierung: 0, aktiv: true, erstelltAm: tag(-900), aktualisiertAm: tag(-900) },
+  { id: "demo-zm2", bezeichnung: "Schicht", wochenstunden: 35, sortierung: 1, aktiv: true, erstelltAm: tag(-900), aktualisiertAm: tag(-900) },
+  { id: "demo-zm3", bezeichnung: "Teilzeit", wochenstunden: 20, sortierung: 2, aktiv: true, erstelltAm: tag(-900), aktualisiertAm: tag(-900) },
+  { id: "demo-zm4", bezeichnung: "Vertrauensarbeitszeit", wochenstunden: 40, sortierung: 3, aktiv: true, erstelltAm: tag(-900), aktualisiertAm: tag(-900) },
+];
+const zmKurz = (z: typeof DEMO_ZEITMODELLE[number]) => ({ id: z.id, bezeichnung: z.bezeichnung, wochenstunden: z.wochenstunden });
+
 export const DEMO_ZEITMODELL = DEMO_MITARBEITER.flatMap((m, i) => {
   if (m.beschaeftigungsart === "STUDENT") return [];
-  const modell = m.abteilung.name === "Produktion" || m.abteilung.name === "Montage" ? "B" : AT_INDEX.has(i) ? "D" : i % 7 === 0 ? "C" : "A";
+  const modell = m.abteilung.name === "Produktion" || m.abteilung.name === "Montage" ? DEMO_ZEITMODELLE[1]
+    : AT_INDEX.has(i) ? DEMO_ZEITMODELLE[3] : i % 7 === 0 ? DEMO_ZEITMODELLE[2] : DEMO_ZEITMODELLE[0];
   const eintraege = [{
-    id: `demo-z${i + 1}-1`, mitarbeiterId: m.id, zeitmodell: modell, gueltigVon: m.eintritt, gueltigBis: null as string | null,
+    id: `demo-z${i + 1}-1`, mitarbeiterId: m.id, zeitmodell: zmKurz(modell), gueltigVon: m.eintritt, gueltigBis: null as string | null,
     bemerkung: null as string | null, sitzungId: null, sitzung: null, mitarbeiter: kurz(m), erstelltAm: m.eintritt, aktualisiertAm: m.eintritt,
   }];
   // Befristete Teilzeit, die bald endet – erscheint unter „Läuft bald ab“
   if (i === 7 || i === 20) {
     eintraege[0].gueltigBis = datum(tag(-180));
-    eintraege.push({ ...eintraege[0], id: `demo-z${i + 1}-2`, zeitmodell: "C", gueltigVon: datum(tag(-179)), gueltigBis: datum(tag(zahl(10, 25))),
+    eintraege.push({ ...eintraege[0], id: `demo-z${i + 1}-2`, zeitmodell: zmKurz(DEMO_ZEITMODELLE[2]), gueltigVon: datum(tag(-179)), gueltigBis: datum(tag(zahl(10, 25))),
       bemerkung: "Befristete Teilzeit (Elternzeit)" });
   }
   return eintraege;

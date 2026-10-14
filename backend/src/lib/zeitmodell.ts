@@ -3,13 +3,18 @@
  * (gehaltstabelle.ts) und den Zeitmodell-Routen (zeitmodell.ts).
  */
 
-import { Prisma, Zeitmodell, ZeitmodellEintrag } from "@prisma/client";
+import { Prisma, ZeitmodellEintrag } from "@prisma/client";
 
-export const GEHALTSSTUFE_REGEX = /^([A-Da-d]):([1-6])\.([1-4])$/;
+// Zeitmodell-Teil ist ein beliebiges, von der Installation frei vergebenes
+// Label (siehe Model Zeitmodell) statt eines festen Buchstabens – nur ":"
+// ist als Trennzeichen zum Gruppe.Stufe-Teil verboten. Die Auflösung gegen
+// die tatsächlich konfigurierten Bezeichnungen passiert beim Aufrufer
+// (gehaltstabelle.ts), weil dafür ein DB-Zugriff nötig ist.
+export const GEHALTSSTUFE_REGEX = /^([^:]+):([1-6])\.([1-4])$/;
 export const AT_REGEX = /^AT:(.+)$/i;
 
 export type GeparsteGehaltsstufe =
-  | { art: "eingruppierung"; zeitmodell: Zeitmodell; gruppe: number; stufe: number }
+  | { art: "eingruppierung"; zeitmodellLabel: string; gruppe: number; stufe: number }
   | { art: "at"; gehalt: number };
 
 // Erkennt deutsches ("4.200,50") und einfaches ("4200.50" / "4200") Zahlenformat.
@@ -36,10 +41,10 @@ export function parseGehaltsstufe(code: string): GeparsteGehaltsstufe | null {
   const treffer = wert.match(GEHALTSSTUFE_REGEX);
   if (!treffer) return null;
   return {
-    art:        "eingruppierung",
-    zeitmodell: treffer[1].toUpperCase() as Zeitmodell,
-    gruppe:     Number(treffer[2]),
-    stufe:      Number(treffer[3]),
+    art:             "eingruppierung",
+    zeitmodellLabel: treffer[1].trim(),
+    gruppe:          Number(treffer[2]),
+    stufe:           Number(treffer[3]),
   };
 }
 
@@ -70,7 +75,7 @@ export async function findeUeberlappung(
 
 export type ZeitmodellUpsertErgebnis =
   | { art: "angelegt" | "unveraendert"; eintrag: ZeitmodellEintrag }
-  | { art: "aktualisiert"; eintrag: ZeitmodellEintrag; vorherigesZeitmodell: Zeitmodell }
+  | { art: "aktualisiert"; eintrag: ZeitmodellEintrag; vorherigesZeitmodellId: string }
   | { art: "konflikt"; grund: string };
 
 // Legt einen neuen Zeitmodell-Zeitraum an.
@@ -88,9 +93,9 @@ export type ZeitmodellUpsertErgebnis =
 //   Verhalten, das die Eingruppierung schon immer hatte.
 export async function zeitmodellPeriodeAnlegen(
   client: Prisma.TransactionClient,
-  params: { mitarbeiterId: string; zeitmodell: Zeitmodell; gueltigVon: Date; gueltigBis?: Date | null; bemerkung?: string | null; sitzungId?: string | null },
+  params: { mitarbeiterId: string; zeitmodellId: string; gueltigVon: Date; gueltigBis?: Date | null; bemerkung?: string | null; sitzungId?: string | null },
 ): Promise<ZeitmodellUpsertErgebnis> {
-  const { mitarbeiterId, zeitmodell, gueltigVon, gueltigBis, bemerkung, sitzungId } = params;
+  const { mitarbeiterId, zeitmodellId, gueltigVon, gueltigBis, bemerkung, sitzungId } = params;
 
   if (gueltigBis) {
     const ueberlappung = await findeUeberlappung(client, mitarbeiterId, gueltigVon, gueltigBis);
@@ -101,7 +106,7 @@ export async function zeitmodellPeriodeAnlegen(
       };
     }
     const neu = await client.zeitmodellEintrag.create({
-      data: { mitarbeiterId, zeitmodell, gueltigVon, gueltigBis, bemerkung: bemerkung ?? null, sitzungId: sitzungId ?? null },
+      data: { mitarbeiterId, zeitmodellId, gueltigVon, gueltigBis, bemerkung: bemerkung ?? null, sitzungId: sitzungId ?? null },
     });
     return { art: "angelegt", eintrag: neu };
   }
@@ -110,7 +115,7 @@ export async function zeitmodellPeriodeAnlegen(
   const offener = bestehende.find(z => z.gueltigBis === null);
 
   if (offener) {
-    if (offener.gueltigVon.getTime() === gueltigVon.getTime() && offener.zeitmodell === zeitmodell) {
+    if (offener.gueltigVon.getTime() === gueltigVon.getTime() && offener.zeitmodellId === zeitmodellId) {
       return { art: "unveraendert", eintrag: offener };
     }
     if (offener.gueltigVon >= gueltigVon) {
@@ -119,8 +124,8 @@ export async function zeitmodellPeriodeAnlegen(
         grund: `Neuer Zeitraum (ab ${gueltigVon.toLocaleDateString("de-DE")}) liegt vor oder gleichzeitig mit dem bereits offenen Zeitraum (ab ${offener.gueltigVon.toLocaleDateString("de-DE")}) – bitte manuell prüfen`,
       };
     }
-    if (offener.zeitmodell === zeitmodell) {
-      // gleicher Buchstabe, nur ein neuerer Startpunkt – nichts zu tun
+    if (offener.zeitmodellId === zeitmodellId) {
+      // gleiches Zeitmodell, nur ein neuerer Startpunkt – nichts zu tun
       return { art: "unveraendert", eintrag: offener };
     }
 
@@ -138,9 +143,9 @@ export async function zeitmodellPeriodeAnlegen(
     });
 
     const neu = await client.zeitmodellEintrag.create({
-      data: { mitarbeiterId, zeitmodell, gueltigVon, bemerkung: bemerkung ?? null, sitzungId: sitzungId ?? null },
+      data: { mitarbeiterId, zeitmodellId, gueltigVon, bemerkung: bemerkung ?? null, sitzungId: sitzungId ?? null },
     });
-    return { art: "aktualisiert", eintrag: neu, vorherigesZeitmodell: offener.zeitmodell };
+    return { art: "aktualisiert", eintrag: neu, vorherigesZeitmodellId: offener.zeitmodellId };
   }
 
   const ueberlappung = await findeUeberlappung(client, mitarbeiterId, gueltigVon, null);
@@ -152,7 +157,7 @@ export async function zeitmodellPeriodeAnlegen(
   }
 
   const neu = await client.zeitmodellEintrag.create({
-    data: { mitarbeiterId, zeitmodell, gueltigVon, bemerkung: bemerkung ?? null, sitzungId: sitzungId ?? null },
+    data: { mitarbeiterId, zeitmodellId, gueltigVon, bemerkung: bemerkung ?? null, sitzungId: sitzungId ?? null },
   });
   return { art: "angelegt", eintrag: neu };
 }

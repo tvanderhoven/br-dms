@@ -4,10 +4,11 @@ import { Wallet, Plus, Trash2, Download, Upload, X, Loader2, Edit3, Filter, Aler
 import {
   api, GehaltsstufenEintrag, Abteilung, Mitarbeiter, GehaltstabelleImportZusammenfassung, formatDatum,
   Beschaeftigungsart, ALLE_BESCHAEFTIGUNGSARTEN, BESCHAEFTIGUNGSART_FARBE, BESCHAEFTIGUNGSART_KUERZEL, BESCHAEFTIGUNGSART_LABEL,
-  Zeitmodell, ZeitmodellEintrag, UeberstundenEintrag,
+  ZeitmodellEintrag, UeberstundenEintrag,
 } from "../lib/api";
 import MitarbeiterBearbeitenModal from "../components/MitarbeiterBearbeitenModal";
 import Sichtschutz from "../components/Sichtschutz";
+import { useZeitmodelle } from "../lib/useZeitmodelle";
 
 // Eingruppierung: Gruppe 1-6, Stufe 1-4 (siehe backend/prisma/schema.prisma)
 const GRUPPEN = [1, 2, 3, 4, 5, 6];
@@ -1185,15 +1186,15 @@ function PeriodenGantt({ zeilen, leerText, onBalkenDoppelklick }: {
 }
 
 // ── Tab: Zeitmodell – eigene Historie mit echtem Von/Bis-Zeitraum ──────
-const ZEITMODELLE_ALLE: Zeitmodell[] = ["A", "B", "C", "D"];
-
-// Feste, nicht rotierende Farbzuordnung – vier klar unterscheidbare Farben
-const ZEITMODELL_FARBE: Record<Zeitmodell, string> = {
-  A: "#3b82f6", // blue-500
-  B: "#8b5cf6", // violet-500
-  C: "#f59e0b", // amber-500
-  D: "#10b981", // emerald-500
-};
+// Zeitmodelle sind pro Installation frei konfigurierbar (siehe useZeitmodelle)
+// statt eines festen Satzes von Buchstaben – Farben werden deshalb aus der ID
+// abgeleitet statt fest zugeordnet zu sein.
+const ZEITMODELL_PALETTE = ["#3b82f6", "#8b5cf6", "#f59e0b", "#10b981", "#ec4899", "#06b6d4", "#f43f5e", "#84cc16"];
+function zeitmodellFarbe(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  return ZEITMODELL_PALETTE[hash % ZEITMODELL_PALETTE.length];
+}
 
 function mitarbeiterIstAktiv(m: { austritt?: string | null }): boolean {
   return !m.austritt || new Date(m.austritt) >= new Date();
@@ -1208,9 +1209,11 @@ function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mi
   const [nurAktive, setNurAktive] = useState(true);
   const [filterBefristung, setFilterBefristung] = useState<"" | "befristet" | "unbefristet">("");
   const [filterBeschaeftigungsart, setFilterBeschaeftigungsart] = useState<"" | Beschaeftigungsart>("");
-  // B ist das Standardmodell, das fast alle haben – standardmäßig ausgeblendet,
-  // sonst zeigt die Ansicht kaum mehr als eine Wand aus B-Balken.
-  const [zeitmodelleAn, setZeitmodelleAn] = useState<Record<Zeitmodell, boolean>>({ A: true, B: false, C: true, D: true });
+  const { aktive: aktiveZeitmodelle } = useZeitmodelle();
+  // IDs der ausgeblendeten Zeitmodelle (statt Record je bekanntem Zeitmodell,
+  // weil die Menge pro Installation frei konfigurierbar ist) – standardmäßig
+  // sind alle sichtbar.
+  const [zeitmodelleAus, setZeitmodelleAus] = useState<Set<string>>(new Set());
   const [ansicht, setAnsicht]     = useState<"tabelle" | "gantt">("tabelle");
   const [modal, setModal]         = useState(false);
   const [bearbeitet, setBearbeitet] = useState<ZeitmodellEintrag | null>(null);
@@ -1268,7 +1271,7 @@ function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mi
     (!nurAktive || mitarbeiterIstAktiv(z.mitarbeiter)) &&
     (!filterBefristung || (filterBefristung === "befristet" ? z.gueltigBis !== null : z.gueltigBis === null)) &&
     (!filterBeschaeftigungsart || (z.mitarbeiter.beschaeftigungsart ?? "MITARBEITER") === filterBeschaeftigungsart) &&
-    zeitmodelleAn[z.zeitmodell]
+    !zeitmodelleAus.has(z.zeitmodell.id)
   );
 
   function alleUmschalten() {
@@ -1293,8 +1296,8 @@ function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mi
       proMitarbeiter.get(key)!.balken.push({
         id: z.id,
         von: z.gueltigVon, bis: z.gueltigBis ?? null,
-        farbe: ZEITMODELL_FARBE[z.zeitmodell],
-        titel: `Zeitmodell ${z.zeitmodell}${z.bemerkung ? ` – ${z.bemerkung}` : ""}`,
+        farbe: zeitmodellFarbe(z.zeitmodell.id),
+        titel: `Zeitmodell ${z.zeitmodell.bezeichnung}${z.bemerkung ? ` – ${z.bemerkung}` : ""}`,
         quelle: z.sitzung ? `${z.sitzung.titel} (${formatDatum(z.sitzung.sitzungsdatum)})` : undefined,
       });
     }
@@ -1321,7 +1324,7 @@ function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mi
               <li key={z.id} className="flex items-center justify-between text-sm bg-white border border-amber-100 rounded-lg px-3 py-1.5">
                 <span className="text-gray-700">
                   {z.mitarbeiter.nachname}, {z.mitarbeiter.vorname}
-                  <span className="text-gray-400"> · Zeitmodell {z.zeitmodell}</span>
+                  <span className="text-gray-400"> · Zeitmodell {z.zeitmodell.bezeichnung}</span>
                 </span>
                 <span className="text-xs text-amber-700 font-medium shrink-0">bis {formatDatum(z.gueltigBis!)}</span>
               </li>
@@ -1369,22 +1372,29 @@ function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mi
             <option value="">Alle Beschäftigungsarten</option>
             {ALLE_BESCHAEFTIGUNGSARTEN.map(art => <option key={art} value={art}>{BESCHAEFTIGUNGSART_LABEL[art]}</option>)}
           </select>
-          <div className="flex items-center gap-1">
-            {ZEITMODELLE_ALLE.map(z => (
-              <button
-                key={z}
-                onClick={() => setZeitmodelleAn(prev => ({ ...prev, [z]: !prev[z] }))}
-                title={zeitmodelleAn[z] ? `Zeitmodell ${z} ausblenden` : `Zeitmodell ${z} einblenden`}
-                className={`w-7 h-7 rounded-full text-xs font-semibold flex items-center justify-center border transition-colors ${
-                  zeitmodelleAn[z]
-                    ? "text-white border-transparent"
-                    : "text-gray-400 border-gray-300 bg-white hover:bg-gray-50"
-                }`}
-                style={zeitmodelleAn[z] ? { backgroundColor: ZEITMODELL_FARBE[z] } : undefined}
-              >
-                {z}
-              </button>
-            ))}
+          <div className="flex items-center gap-1 flex-wrap">
+            {aktiveZeitmodelle.map(z => {
+              const an = !zeitmodelleAus.has(z.id);
+              return (
+                <button
+                  key={z.id}
+                  onClick={() => setZeitmodelleAus(prev => {
+                    const n = new Set(prev);
+                    if (n.has(z.id)) n.delete(z.id); else n.add(z.id);
+                    return n;
+                  })}
+                  title={an ? `Zeitmodell ${z.bezeichnung} ausblenden` : `Zeitmodell ${z.bezeichnung} einblenden`}
+                  className={`h-7 px-2.5 rounded-full text-xs font-semibold flex items-center justify-center border transition-colors ${
+                    an
+                      ? "text-white border-transparent"
+                      : "text-gray-400 border-gray-300 bg-white hover:bg-gray-50"
+                  }`}
+                  style={an ? { backgroundColor: zeitmodellFarbe(z.id) } : undefined}
+                >
+                  {z.bezeichnung}
+                </button>
+              );
+            })}
           </div>
           <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden">
             <button
@@ -1472,7 +1482,7 @@ function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mi
                       <SitzungLink sitzung={z.sitzung} />
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 text-gray-800 font-medium">{z.zeitmodell}</td>
+                  <td className="px-4 py-2.5 text-gray-800 font-medium">{z.zeitmodell.bezeichnung}</td>
                   <td className="px-4 py-2.5 text-gray-600">{formatDatum(z.gueltigVon)}</td>
                   <td className="px-4 py-2.5 text-gray-600">{z.gueltigBis ? formatDatum(z.gueltigBis) : "unbefristet"}</td>
                   <td className="px-4 py-2.5 text-gray-500">{z.bemerkung ?? "–"}</td>
@@ -1521,8 +1531,9 @@ function ZeitmodellModal({
   onSchliessen: () => void;
   onErfolg: () => void;
 }) {
+  const { aktive: aktiveZeitmodelle } = useZeitmodelle();
   const [mitarbeiterId, setMitarbeiterId] = useState(zeitraum?.mitarbeiterId ?? "");
-  const [zeitmodell, setZeitmodell]       = useState<Zeitmodell>(zeitraum?.zeitmodell ?? "A");
+  const [zeitmodellId, setZeitmodellId]   = useState(zeitraum?.zeitmodell.id ?? "");
   const [gueltigVon, setGueltigVon]       = useState(zeitraum?.gueltigVon?.slice(0, 10) ?? new Date().toISOString().slice(0, 10));
   const [unbefristet, setUnbefristet]     = useState(zeitraum ? !zeitraum.gueltigBis : true);
   const [gueltigBis, setGueltigBis]       = useState(zeitraum?.gueltigBis?.slice(0, 10) ?? "");
@@ -1530,20 +1541,27 @@ function ZeitmodellModal({
   const [laden, setLaden]                 = useState(false);
   const [fehler, setFehler]               = useState("");
 
+  // Bei neuem Zeitraum erstes aktives Zeitmodell vorauswählen, sobald die
+  // Liste geladen ist (Default kann nicht mehr fest "A" sein).
+  useEffect(() => {
+    if (!zeitraum && !zeitmodellId && aktiveZeitmodelle.length > 0) setZeitmodellId(aktiveZeitmodelle[0].id);
+  }, [zeitraum, zeitmodellId, aktiveZeitmodelle]);
+
   async function speichern(e: FormEvent) {
     e.preventDefault();
     setFehler("");
     if (!mitarbeiterId) { setFehler("Bitte einen Mitarbeiter auswählen"); return; }
+    if (!zeitmodellId)  { setFehler("Bitte ein Zeitmodell auswählen"); return; }
     if (!unbefristet && !gueltigBis) { setFehler('Bitte ein Enddatum angeben oder "unbefristet" wählen'); return; }
     setLaden(true);
     try {
       if (zeitraum) {
         await api.zeitmodell.aktualisieren(zeitraum.id, {
-          zeitmodell, gueltigVon, gueltigBis: unbefristet ? null : gueltigBis, bemerkung: bemerkung || undefined,
+          zeitmodellId, gueltigVon, gueltigBis: unbefristet ? null : gueltigBis, bemerkung: bemerkung || undefined,
         });
       } else {
         await api.zeitmodell.erstellen({
-          mitarbeiterId, zeitmodell, gueltigVon, gueltigBis: unbefristet ? null : gueltigBis, bemerkung: bemerkung || undefined,
+          mitarbeiterId, zeitmodellId, gueltigVon, gueltigBis: unbefristet ? null : gueltigBis, bemerkung: bemerkung || undefined,
         });
       }
       onErfolg();
@@ -1579,11 +1597,17 @@ function ZeitmodellModal({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Zeitmodell *</label>
               <select
-                required value={zeitmodell}
-                onChange={e => setZeitmodell(e.target.value as Zeitmodell)}
+                required value={zeitmodellId}
+                onChange={e => setZeitmodellId(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
               >
-                {ZEITMODELLE_ALLE.map(z => <option key={z} value={z}>{z}</option>)}
+                <option value="">– auswählen –</option>
+                {zeitraum && !aktiveZeitmodelle.some(z => z.id === zeitraum.zeitmodell.id) && (
+                  <option value={zeitraum.zeitmodell.id}>{zeitraum.zeitmodell.bezeichnung} (inaktiv)</option>
+                )}
+                {aktiveZeitmodelle.map(z => (
+                  <option key={z.id} value={z.id}>{z.bezeichnung}{z.wochenstunden ? ` (${z.wochenstunden}h)` : ""}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -2133,14 +2157,15 @@ function StatistikTab({
   // Statistik brauchen wir nur, welches Zeitmodell HEUTE je Mitarbeiter aktiv ist.
   const [alleZeitraeume, setAlleZeitraeume] = useState<ZeitmodellEintrag[]>([]);
   useEffect(() => { api.zeitmodell.liste().then(setAlleZeitraeume).catch(() => {}); }, []);
+  const { zeitmodelle } = useZeitmodelle();
 
   const zeitmodellAktuellProMitarbeiter = useMemo(() => {
     const heute = new Date();
-    const map = new Map<string, Zeitmodell>();
+    const map = new Map<string, string>(); // mitarbeiterId -> Bezeichnung
     for (const z of alleZeitraeume) {
       const von = new Date(z.gueltigVon);
       const bis = z.gueltigBis ? new Date(z.gueltigBis) : null;
-      if (von <= heute && (!bis || bis >= heute)) map.set(z.mitarbeiterId, z.zeitmodell);
+      if (von <= heute && (!bis || bis >= heute)) map.set(z.mitarbeiterId, z.zeitmodell.bezeichnung);
     }
     return map;
   }, [alleZeitraeume]);
@@ -2188,9 +2213,9 @@ function StatistikTab({
   const gruppeXZeitmodell = useMemo(() => {
     const paare = mitGruppeStufe
       .map(e => ({ gruppe: e.gruppe, wert: zeitmodellAktuellProMitarbeiter.get(e.mitarbeiterId) }))
-      .filter((p): p is { gruppe: number; wert: Zeitmodell } => p.wert !== undefined);
-    return gruppeXSpalteMatrix(paare, ZEITMODELLE_ALLE);
-  }, [mitGruppeStufe, zeitmodellAktuellProMitarbeiter]);
+      .filter((p): p is { gruppe: number; wert: string } => p.wert !== undefined);
+    return gruppeXSpalteMatrix(paare, zeitmodelle.map(z => z.bezeichnung));
+  }, [mitGruppeStufe, zeitmodellAktuellProMitarbeiter, zeitmodelle]);
 
   const gruppeXStufe = useMemo(
     () => gruppeXSpalteMatrix(mitGruppeStufe.map(e => ({ gruppe: e.gruppe, wert: String(e.stufe) })), STUFEN.map(String)),
@@ -2293,7 +2318,7 @@ function StatistikTab({
       <GruppeMatrixTabelle
         titel="Gruppe × Zeitmodell"
         unterschrift="Aktuelle Eingruppierung × aktuell gültiges Zeitmodell je Mitarbeiter"
-        spalten={ZEITMODELLE_ALLE}
+        spalten={zeitmodelle.map(z => z.bezeichnung)}
         matrix={gruppeXZeitmodell}
       />
       <GruppeMatrixTabelle

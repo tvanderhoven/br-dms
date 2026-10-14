@@ -345,6 +345,16 @@ export const api = {
       ),
   },
 
+  // Stammdaten: die in dieser Installation verfügbaren Zeitmodell-Bezeichnungen
+  // (nicht zu verwechseln mit api.zeitmodell – das ist die Zeitraum-Historie).
+  zeitmodelle: {
+    liste: () => request<Zeitmodell[]>("/api/zeitmodelle"),
+    erstellen: (data: { bezeichnung: string; wochenstunden?: number | null; sortierung?: number }) =>
+      request<Zeitmodell>("/api/zeitmodelle", { method: "POST", body: JSON.stringify(data) }),
+    aktualisieren: (id: string, data: Partial<{ bezeichnung: string; wochenstunden: number | null; sortierung: number; aktiv: boolean }>) =>
+      request<Zeitmodell>(`/api/zeitmodelle/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  },
+
   zeitmodell: {
     liste: (params: { mitarbeiterId?: string; abteilungId?: string } = {}) => {
       const q = new URLSearchParams();
@@ -355,7 +365,7 @@ export const api = {
     laufenBaldAb: (tage = 30) => request<ZeitmodellEintrag[]>(`/api/zeitmodell/laufen-bald-ab?tage=${tage}`),
     erstellen: (data: ZeitmodellEintragErstellen) =>
       request<ZeitmodellEintrag>("/api/zeitmodell", { method: "POST", body: JSON.stringify(data) }),
-    aktualisieren: (id: string, data: Partial<Pick<ZeitmodellEintragErstellen, "zeitmodell" | "gueltigVon" | "gueltigBis" | "bemerkung">>) =>
+    aktualisieren: (id: string, data: Partial<Pick<ZeitmodellEintragErstellen, "zeitmodellId" | "gueltigVon" | "gueltigBis" | "bemerkung">>) =>
       request<ZeitmodellEintrag>(`/api/zeitmodell/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     loeschen: (id: string) => request<{ ok: boolean }>(`/api/zeitmodell/${id}`, { method: "DELETE" }),
   },
@@ -1619,12 +1629,20 @@ export interface GehaltsstufenEintragErstellen {
   sitzungId?: string;
 }
 
-export type Zeitmodell = "A" | "B" | "C" | "D";
+// Stammdaten-Zeile (siehe api.zeitmodelle) – pro Installation frei konfigurierbar,
+// statt eines festen Satzes von Buchstaben.
+export interface Zeitmodell {
+  id: string;
+  bezeichnung: string;
+  wochenstunden?: number | null;
+  sortierung: number;
+  aktiv: boolean;
+}
 
 export interface ZeitmodellEintrag {
   id: string;
   mitarbeiterId: string;
-  zeitmodell: Zeitmodell;
+  zeitmodell: Pick<Zeitmodell, "id" | "bezeichnung" | "wochenstunden">;
   gueltigVon: string;
   gueltigBis?: string | null;
   bemerkung?: string | null;
@@ -1646,7 +1664,7 @@ export interface ZeitmodellEintrag {
 
 export interface ZeitmodellEintragErstellen {
   mitarbeiterId: string;
-  zeitmodell: Zeitmodell;
+  zeitmodellId: string;
   gueltigVon: string;
   gueltigBis?: string | null;
   bemerkung?: string;
