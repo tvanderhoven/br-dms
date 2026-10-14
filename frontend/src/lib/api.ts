@@ -517,6 +517,9 @@ export const api = {
     fristenErinnerung: () => request<{ aktiv: boolean }>("/api/einstellungen/fristen-erinnerung"),
     fristenErinnerungSpeichern: (aktiv: boolean) =>
       request<{ ok: boolean }>("/api/einstellungen/fristen-erinnerung", { method: "PUT", body: JSON.stringify({ aktiv }) }),
+    feiertage: () => request<FeiertagsEinstellung>("/api/einstellungen/feiertage"),
+    feiertageSpeichern: (bundesland: string | null, zusatz: string[]) =>
+      request<{ bundesland: string | null; zusatz: string[] }>("/api/einstellungen/feiertage", { method: "PUT", body: JSON.stringify({ bundesland, zusatz }) }),
     module: () => request<Record<ModuleKey, boolean>>("/api/einstellungen/module"),
     moduleSpeichern: (data: Partial<Record<ModuleKey, boolean>>) =>
       request<{ ok: boolean }>("/api/einstellungen/module", { method: "PUT", body: JSON.stringify(data) }),
@@ -1860,6 +1863,15 @@ export interface WissensEintragErstellen {
 }
 
 // ── Module (Admin-Ein/Ausschalter) ──────────────────────────────────
+/** Feiertagskalender für die Fristberechnung (§ 193 BGB) */
+export interface FeiertagsEinstellung {
+  bundesland:      string | null;              // null = nur bundesweite Feiertage
+  zusatz:          string[];
+  bundeslaender:   Record<string, string>;     // Kürzel → Name
+  zusatzFeiertage: Record<string, string>;     // Schlüssel → Beschreibung
+  vorschau:        { datum: string; name: string }[];
+}
+
 export type ModuleKey = "personalverwaltung" | "betriebsvereinbarungen" | "wissensarchiv" | "ressourcen" | "themensammlung" | "gremien" | "kosten";
 
 export const MODULE_KEYS: ModuleKey[] = [

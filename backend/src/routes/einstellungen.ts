@@ -8,6 +8,8 @@
  * GET  /api/einstellungen/admin-zugriff – darf der Admin Inhalte sehen?
  * PUT  /api/einstellungen/admin-zugriff – festlegen (nur VORSITZ/STELLVERTRETER)
  * GET  /api/einstellungen/update        – Hinweis auf ein neues Major/Minor-Release (VORSITZ, STELLVERTRETER, ADMIN)
+ * GET  /api/einstellungen/feiertage     – Bundesland + Zusatzfeiertage für die Fristberechnung
+ * PUT  /api/einstellungen/feiertage     – festlegen (VORSITZ)
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
@@ -25,6 +27,8 @@ import { ermittleBackupSaetze } from "../lib/backups.js";
 import { zweiFaktorRichtlinie, ZWEI_FAKTOR_MODUS, ZWEI_FAKTOR_PFLICHT } from "../lib/zweiFaktor.js";
 import { BackupWorker } from "../workers/backup.worker.js";
 import { updateHinweis, installierteVersion } from "../lib/updateCheck.js";
+import { BUNDESLAENDER, ZUSATZ_FEIERTAGE, feiertage, istBundesland, istZusatzFeiertag } from "../lib/feiertage.js";
+import { FRISTEN_BUNDESLAND, FRISTEN_ZUSATZ_FEIERTAGE, ladeFeiertagsKalender } from "../lib/fristKalender.js";
 
 const STORAGE = process.env.STORAGE_PATH ?? "/data/storage";
 const LOGO_VERZ = path.join(STORAGE, "logo");
@@ -558,6 +562,55 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
         create: { schluessel: "fristen.erinnerungsmail_aktiv", wert: aktiv ? "true" : "false" },
       });
       return reply.send({ ok: true, aktiv });
+    }
+  );
+
+  // ── Feiertage für die Fristberechnung (§ 193 BGB, lib/fristRechner.ts) ──
+  // Ohne Bundesland zählen nur bundesweite Feiertage – Fristen enden dann
+  // schlimmstenfalls einen Tag zu früh, nie zu spät.
+  app.get(
+    "/feiertage",
+    { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      const kalender = await ladeFeiertagsKalender();
+      const jahr = new Date().getFullYear();
+      return reply.send({
+        bundesland:      kalender.bundesland,
+        zusatz:          kalender.zusatz ?? [],
+        bundeslaender:   BUNDESLAENDER,
+        zusatzFeiertage: ZUSATZ_FEIERTAGE,
+        // Vorschau für die Einstellungsseite: dieses und nächstes Jahr
+        vorschau: [
+          ...feiertage(jahr, kalender.bundesland, kalender.zusatz),
+          ...feiertage(jahr + 1, kalender.bundesland, kalender.zusatz),
+        ],
+      });
+    }
+  );
+
+  app.put<{ Body: { bundesland?: string | null; zusatz?: string[] } }>(
+    "/feiertage",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (request, reply) => {
+      const land = request.body.bundesland ?? "";
+      if (land && !istBundesland(land)) return reply.status(400).send({ fehler: "Unbekanntes Bundesland" });
+      const zusatz = request.body.zusatz ?? [];
+      if (!Array.isArray(zusatz) || !zusatz.every(istZusatzFeiertag)) {
+        return reply.status(400).send({ fehler: "Unbekannter Zusatzfeiertag" });
+      }
+      for (const [schluessel, wert] of [[FRISTEN_BUNDESLAND, land], [FRISTEN_ZUSATZ_FEIERTAGE, zusatz.join(",")]] as const) {
+        await prisma.systemEinstellung.upsert({ where: { schluessel }, update: { wert }, create: { schluessel, wert } });
+      }
+      await prisma.auditLog.create({
+        data: {
+          benutzerId: request.benutzer.sub,
+          aktion:     AuditAktion.EINSTELLUNG_GEAENDERT,
+          ip:         request.ip,
+          userAgent:  request.headers["user-agent"] ?? null,
+          details:    { einstellung: FRISTEN_BUNDESLAND, wert: land || null, zusatz },
+        },
+      });
+      return reply.send({ bundesland: land || null, zusatz });
     }
   );
 

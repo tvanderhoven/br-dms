@@ -64,6 +64,7 @@
   "GET /api/einstellungen/aufbewahrung": "MITGLIED",
   "GET /api/einstellungen/backups": "VORSITZ",
   "GET /api/einstellungen/design": "ÖFFENTLICH",
+  "GET /api/einstellungen/feiertage": "MITGLIED",
   "GET /api/einstellungen/fristen-erinnerung": "MITGLIED",
   "GET /api/einstellungen/mail": "VORSITZ",
   "GET /api/einstellungen/module": "ANGEMELDET",
@@ -132,6 +133,7 @@
   "GET /api/wissen/suche": "ANGEMELDET",
   "GET /api/zeitmodell": "MITGLIED",
   "GET /api/zeitmodell/laufen-bald-ab": "MITGLIED",
+  "GET /api/zeitmodelle": "MITGLIED",
   "GET /health": "ÖFFENTLICH",
   "PATCH /api/aufgaben/:id": "ANGEMELDET",
   "PATCH /api/auth/passwort": "ANGEMELDET",
@@ -237,10 +239,12 @@
   "POST /api/wahlen/:id/ergebnis": "VORSITZ",
   "POST /api/wissen": "ANGEMELDET",
   "POST /api/zeitmodell": "MITGLIED",
+  "POST /api/zeitmodelle": "MITGLIED",
   "PUT /api/betriebsvereinbarungen/:id": "VORSITZ",
   "PUT /api/einstellungen/admin-zugriff": "ANGEMELDET",
   "PUT /api/einstellungen/aufbewahrung/:kategorie": "ADMIN",
   "PUT /api/einstellungen/design": "VORSITZ",
+  "PUT /api/einstellungen/feiertage": "VORSITZ",
   "PUT /api/einstellungen/fristen-erinnerung": "VORSITZ",
   "PUT /api/einstellungen/mail": "VORSITZ",
   "PUT /api/einstellungen/module": "ADMIN",
@@ -255,5 +259,6 @@
   "PUT /api/schulungen/:id": "ANGEMELDET",
   "PUT /api/sitzungen/:id/tops/reihenfolge": "VORSITZ",
   "PUT /api/ueberstunden/:id": "MITGLIED",
-  "PUT /api/zeitmodell/:id": "MITGLIED"
+  "PUT /api/zeitmodell/:id": "MITGLIED",
+  "PUT /api/zeitmodelle/:id": "MITGLIED"
 }
