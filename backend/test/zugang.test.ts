@@ -2,18 +2,20 @@
  * Zugang bestätigen (lib/zugang.ts): vorläufige Fristen beim Import, Vorschau,
  * Neuberechnung ab bestätigtem Zugang, unpassende § 102-Frist fällt weg.
  * Sofortmail und stündliche Sammelmail an Vorsitz/Stellvertretung (lib/eingangMeldung.ts),
- * Empfangsbestätigung an den Arbeitgeber (lib/empfangsbestaetigung.ts).
+ * Empfangsbestätigung an den Arbeitgeber (lib/empfangsbestaetigung.ts),
+ * Sitzungsvorschlag vor Fristende (lib/sitzungsvorschlag.ts).
  */
 
 import { after, before, describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { Readable } from "node:stream";
-import { AuditAktion, FristStatus, Kategorie } from "@prisma/client";
+import { AuditAktion, FristStatus, Kategorie, SitzungStatus } from "@prisma/client";
 import { verarbeiteDokument } from "../src/services/dokument-pipeline.service.js";
 import { zugangVorschlag } from "../src/lib/zugang.js";
 import { fristsacheEmpfaenger, sammelmailAktiv, sammelmeldungSenden, sofortmailAktiv } from "../src/lib/eingangMeldung.js";
 import { eingangSammelmailInhalt, fristsacheMailInhalt } from "../src/lib/mailer.js";
 import { entwurf } from "../src/lib/empfangsbestaetigung.js";
+import { sitzungsvorschlag } from "../src/lib/sitzungsvorschlag.js";
 import { anfrage, prisma, starteTestumgebung, type TestUmgebung } from "./hilfe.js";
 
 let env: TestUmgebung;
@@ -318,5 +320,62 @@ describe("Empfangsbestätigung an den Arbeitgeber", () => {
     assert.equal(res.statusCode, 400);
     assert.match(res.body, /kein Mailserver/);
     assert.equal((await prisma.dokument.findUniqueOrThrow({ where: { id } })).empfangsbestaetigungAm, null);
+  });
+});
+
+describe("Sitzungsvorschlag vor Fristende", () => {
+  let id: string;
+  const ids: Record<string, string> = {};
+  const jetzt = new Date("2026-10-12T10:00:00Z");
+  const sitzung = async (name: string, datum: string, status: SitzungStatus = SitzungStatus.ENTWURF, sitzungstyp = "ORDENTLICH") => {
+    ids[name] = (await prisma.sitzung.create({
+      data: { titel: `SV-${name}`, sitzungsdatum: new Date(datum), status, sitzungstyp, erstelltVonId: env.ids.VORSITZ },
+    })).id;
+  };
+
+  before(async () => {
+    id = (await anhoerung102("SITZUNGSVORSCHLAG-102")).id;
+    // Zugang Montag 12.10. → ordentliche Kündigung: Fristende Montag 19.10., 24:00 Uhr
+    await anfrage(env, "VORSITZ", "POST", `/api/dokumente/${id}/zugang`, { zugangAm: "2026-10-12T07:00:00Z", kuendigungsArt: "ORDENTLICH" });
+    await sitzung("vorbei", "2026-10-09T09:00:00Z");
+    await sitzung("abgesagt", "2026-10-13T09:00:00Z", SitzungStatus.ABGESAGT);
+    await sitzung("versammlung", "2026-10-14T09:00:00Z", SitzungStatus.ENTWURF, "BETRIEBSVERSAMMLUNG");
+    await sitzung("donnerstag", "2026-10-15T09:00:00Z");
+    await sitzung("fristtag", "2026-10-19T14:00:00Z", SitzungStatus.TAGESORDNUNG_FIXIERT);
+    await sitzung("zuSpaet", "2026-10-22T09:00:00Z");
+    await sitzung("vielZuSpaet", "2026-10-29T09:00:00Z");
+  });
+
+  const titel = (v: { sitzungen: { id: string }[] }) => v.sitzungen.map(s => Object.keys(ids).find(k => ids[k] === s.id));
+
+  test("nächste Sitzungen bis zur ersten nach Fristende; abgesagte, vergangene und Betriebsversammlungen fehlen", async () => {
+    const v = (await sitzungsvorschlag(id, jetzt))!;
+    assert.equal(v.fristende?.toISOString(), "2026-10-19T21:59:59.999Z");
+    assert.deepEqual(titel(v), ["donnerstag", "fristtag", "zuSpaet"]);
+    const [donnerstag, fristtag, zuSpaet] = v.sitzungen;
+    assert.deepEqual([donnerstag!.rechtzeitig, donnerstag!.topMoeglich], [true, true]);
+    assert.deepEqual([fristtag!.rechtzeitig, fristtag!.letzterTag, fristtag!.topMoeglich], [true, true, false]);
+    assert.equal(zuSpaet!.rechtzeitig, false);
+    assert.equal(v.sondersitzungNoetig, false);
+    assert.match(v.vorschlagTitel, /SITZUNGSVORSCHLAG-102/);
+  });
+
+  test("Tagesordnung der einzigen rechtzeitigen Entwurfs-Sitzung fixiert → Sondersitzung nötig", async () => {
+    await prisma.sitzung.update({ where: { id: ids.donnerstag }, data: { status: SitzungStatus.TAGESORDNUNG_FIXIERT } });
+    assert.equal((await sitzungsvorschlag(id, jetzt))!.sondersitzungNoetig, true);
+  });
+
+  test("schon auf einem rechtzeitigen TOP → keine Warnung, Sitzung steht unter verknüpft", async () => {
+    const top = await prisma.tOP.create({ data: { sitzungId: ids.fristtag!, nummer: 1, titel: "Anhörung" } });
+    await prisma.topDokument.create({ data: { topId: top.id, dokumentId: id, verknuepftVonId: env.ids.VORSITZ } });
+    const v = (await sitzungsvorschlag(id, jetzt))!;
+    assert.deepEqual(v.verknuepft.map(s => [s.id, s.topNummer, s.rechtzeitig]), [[ids.fristtag, 1, true]]);
+    assert.ok(!v.sitzungen.some(s => s.id === ids.fristtag));
+    assert.equal(v.sondersitzungNoetig, false);
+  });
+
+  test("Route nur für Vorsitz/Stellvertretung", async () => {
+    assert.equal((await anfrage(env, "MITGLIED", "GET", `/api/dokumente/${id}/sitzungsvorschlag`)).statusCode, 403);
+    assert.equal((await anfrage(env, "STELLVERTRETER", "GET", `/api/dokumente/${id}/sitzungsvorschlag`)).statusCode, 200);
   });
 });

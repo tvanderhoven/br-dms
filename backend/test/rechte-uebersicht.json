@@ -55,6 +55,7 @@
   "GET /api/dokumente/:id/email": "ANGEMELDET",
   "GET /api/dokumente/:id/email/anhaenge/:nr": "ANGEMELDET",
   "GET /api/dokumente/:id/empfangsbestaetigung": "VORSITZ",
+  "GET /api/dokumente/:id/sitzungsvorschlag": "VORSITZ",
   "GET /api/dokumente/:id/verknuepfungen": "ANGEMELDET",
   "GET /api/dokumente/:id/versionen": "ANGEMELDET",
   "GET /api/dokumente/:id/versionen/:vid/download": "ANGEMELDET",

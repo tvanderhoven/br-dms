@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import {
   api, Dokument, SitzungListItem, Benutzer, TOP, KATEGORIE_LABEL, formatDatum, formatDateigroesse,
-  ScanEingangEintrag, SitzungScanTyp, istEmail, KuendigungsArt, ZugangInfo, EmpfangsbestaetigungEntwurf } from "../lib/api";
+  ScanEingangEintrag, SitzungScanTyp, istEmail, KuendigungsArt, ZugangInfo, EmpfangsbestaetigungEntwurf, Sitzungsvorschlag, VorgeschlageneSitzung } from "../lib/api";
 import EmailVorschau from "../components/EmailVorschau";
 import { dokumentInNeuemTabOeffnen } from "../lib/dokumentOeffnen";
 
@@ -433,6 +433,17 @@ export default function Eingang() {
                     <ZugangKarte
                       dok={dok}
                       onBestaetigt={() => api.dokumente.inbox().then(setDokumente).catch(console.error)}
+                    />
+                  )}
+
+                  {/* Fristsachen: passende Sitzung vor Fristende (erst nach bestätigtem Zugang) */}
+                  {!aktiveAktion && (dok.fristen?.length ?? 0) > 0 && dok.zugangBestaetigtAm && (
+                    <SitzungsVorschlagKarte
+                      dok={dok}
+                      onTopAngelegt={() => {
+                        setDokumente(prev => prev.filter(d => d.id !== dok.id));
+                        setAusgeklappt(null);
+                      }}
                     />
                   )}
 
@@ -1164,6 +1175,131 @@ function EmpfangsbestaetigungBereich({ dok, onGesendet }: { dok: Dokument; onGes
             <button onClick={() => setOffen(false)} className="px-3 py-2 text-sm text-gray-600 hover:underline">Abbrechen</button>
           </div>
         </div>
+      )}
+
+      {fehler && <p className="text-sm text-red-700">{fehler}</p>}
+    </div>
+  );
+}
+
+// ── Fristsachen: Sitzung vor Fristende vorschlagen ───────────────────
+// Der Betriebsrat muss vor Fristende beschließen. Vorgeschlagen werden die nächsten
+// Sitzungen; reicht keine, kommt die Warnung "Sondersitzung nötig" (Backend:
+// lib/sitzungsvorschlag.ts). Sitzungszeiten liegen als Ortszeit in UTC-Feldern.
+const sitzungsZeit = (iso: string) =>
+  new Date(iso).toLocaleString("de-DE", { timeZone: "UTC", weekday: "short", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+function SitzungsHinweis({ s }: { s: VorgeschlageneSitzung }) {
+  if (s.rechtzeitig === false) return <span className="text-xs text-red-700">nach Fristende</span>;
+  if (s.letzterTag) return <span className="text-xs text-amber-700">am letzten Tag der Frist</span>;
+  if (s.rechtzeitig) return <span className="text-xs text-green-700">vor Fristende</span>;
+  return null;
+}
+
+function SitzungsVorschlagKarte({ dok, onTopAngelegt }: { dok: Dokument; onTopAngelegt: () => void }) {
+  const [v, setV]               = useState<Sitzungsvorschlag | null>(null);
+  const [topTitel, setTopTitel] = useState("");
+  const [legtAn, setLegtAn]     = useState<string | null>(null);
+  const [fehler, setFehler]     = useState("");
+
+  useEffect(() => {
+    api.dokumente.sitzungsvorschlag(dok.id)
+      .then(r => { setV(r); setTopTitel(r.vorschlagTitel); })
+      .catch(err => setFehler(err instanceof Error ? err.message : "Sitzungen konnten nicht geladen werden"));
+  }, [dok.id, dok.zugangBestaetigtAm]);
+
+  async function alsTop(sitzungId: string) {
+    if (!topTitel.trim()) return;
+    setLegtAn(sitzungId);
+    setFehler("");
+    try {
+      await api.dokumente.aktionSitzungTop(dok.id, { sitzungId, topTitel: topTitel.trim() });
+      onTopAngelegt();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "TOP konnte nicht angelegt werden");
+      setLegtAn(null);
+    }
+  }
+
+  if (!v) return fehler ? <p className="mt-3 text-sm text-red-700">{fehler}</p> : null;
+  const erste = v.sitzungen.find(s => s.rechtzeitig !== false && s.topMoeglich);
+
+  return (
+    <div className={`mt-3 p-4 border rounded-xl space-y-3 ${v.sondersitzungNoetig ? "bg-red-50 border-red-200" : "bg-white border-gray-200"}`}>
+      <h3 className="font-medium text-sm text-gray-900 flex items-center gap-1.5">
+        <Clock size={15} /> Beratung im Betriebsrat
+      </h3>
+
+      {v.sondersitzungNoetig && (
+        <p className="flex items-start gap-1.5 text-sm text-red-800">
+          <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+          <span>
+            Keine Sitzung vor Fristende{v.fristende ? ` (${datumMitTag(v.fristende)}, 24:00 Uhr)` : ""}, in die sich noch ein TOP aufnehmen lässt.
+            Bitte eine Sondersitzung einberufen – unter <a href="/sitzungen" className="underline">Sitzungen</a>.
+          </span>
+        </p>
+      )}
+
+      {v.verknuepft.length > 0 && (
+        <ul className="text-sm space-y-1">
+          {v.verknuepft.map(s => (
+            <li key={s.id} className="flex flex-wrap items-baseline gap-x-2">
+              <Check size={14} className="text-green-700 self-center" />
+              <span>TOP {s.topNummer} „{s.topTitel}“ in {s.titel}, {sitzungsZeit(s.datum)}</span>
+              <SitzungsHinweis s={s} />
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {v.sitzungen.length > 0 && (
+        <>
+          {v.sitzungen.some(s => s.topMoeglich) && (
+          <label className="block">
+            <span className="text-xs font-medium text-gray-700">Titel des TOPs</span>
+            <input
+              value={topTitel}
+              onChange={e => setTopTitel(e.target.value)}
+              className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            />
+          </label>
+          )}
+          <ul className="text-sm divide-y divide-gray-100 border border-gray-100 rounded-lg bg-white">
+            {v.sitzungen.map(s => (
+              <li key={s.id} className="px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span className="font-medium text-gray-800">{s.titel}</span>
+                  {s.gremium && <span className="text-xs text-gray-500"> · {s.gremium}</span>}
+                  <span className="block text-xs text-gray-500">
+                    {sitzungsZeit(s.datum)} · <SitzungsHinweis s={s} />
+                  </span>
+                </div>
+                {s.topMoeglich ? (
+                  <button
+                    onClick={() => alsTop(s.id)}
+                    disabled={legtAn !== null || !topTitel.trim()}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg disabled:opacity-50 ${
+                      s.id === erste?.id ? "text-white hover:brightness-90" : "border border-gray-300 text-gray-700 hover:bg-gray-50"
+                    }`}
+                    style={s.id === erste?.id ? { backgroundColor: "rgb(var(--accent))" } : undefined}
+                  >
+                    {legtAn === s.id ? <Loader2 size={14} className="animate-spin" /> : <Clock size={14} />}
+                    Als TOP aufnehmen
+                  </button>
+                ) : (
+                  <span className="text-xs text-gray-500">Tagesordnung fixiert</span>
+                )}
+              </li>
+            ))}
+          </ul>
+          {v.sitzungen.some(s => s.topMoeglich) && (
+            <p className="text-xs text-gray-500">Das Dokument wird mit dem TOP verknüpft und verlässt den Eingang.</p>
+          )}
+        </>
+      )}
+
+      {v.sitzungen.length === 0 && v.verknuepft.length === 0 && (
+        <p className="text-sm text-gray-600">Keine geplanten Sitzungen.</p>
       )}
 
       {fehler && <p className="text-sm text-red-700">{fehler}</p>}
