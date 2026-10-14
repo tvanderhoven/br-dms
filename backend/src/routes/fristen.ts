@@ -2,13 +2,14 @@ import { FastifyInstance, FastifyRequest } from "fastify";
 import { AuditAktion, FristStatus, FristTyp, Role } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { dokumentVertraulichFilter } from "../lib/vertraulich.js";
+import { fristHinweise } from "../lib/zugang.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { FristenWorker } from "../workers/fristen.worker.js";
 
 const FRIST_INCLUDE = {
   dokument: {
-    select: { id: true, titel: true, alias: true, kategorie: true, aktenzeichen: true },
+    select: { id: true, titel: true, alias: true, kategorie: true, aktenzeichen: true, zugangAm: true, zugangBestaetigtAm: true },
   },
   erledigtVon: { select: { name: true } },
 } as const;
@@ -65,7 +66,8 @@ export async function fristenRouten(app: FastifyInstance): Promise<void> {
         orderBy: { faelligAm: "asc" },
       });
 
-      return reply.send(fristen);
+      // vorläufig (Zugang unbestätigt) und Verschiebungsgrund (§ 193 BGB), siehe lib/zugang.ts
+      return reply.send(await fristHinweise(fristen));
     }
   );
 

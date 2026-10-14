@@ -7,8 +7,9 @@ import {
 import {
   api, Dokument, DokumentVersion, Kategorie, KATEGORIE_LABEL, KATEGORIE_KURZ, Aufbewahrungsregel, Gremium, Ordner,
   istEmail, istEmailDatei,
-  formatDatum, formatDateigroesse, fristFarbe,
+  formatDatum, formatDateigroesse, fristFarbe, FRIST_TYP_LABEL,
   AnhoerungVorgangAntwort, AnhoerungStatus, AnhoerungArt, ANHOERUNG_STATUS_LABEL, ANHOERUNG_ART_LABEL, gruendeFuerArt, BEGRUENDUNG_MINDESTLAENGE,
+  Rolle,
 } from "../lib/api";
 
 // Sitzungen/TOPs, in denen ein Dokument behandelt wurde – jüngste Sitzung zuerst
@@ -20,6 +21,7 @@ function behandeltIn(d: Dokument) {
 import KommentarBlock from "../components/KommentarBlock";
 import OrdnerBaum, { OrdnerAuswahl, DRAG_DOKUMENT, ordnerPfad, ordnerOptionen } from "../components/OrdnerBaum";
 import EmailVorschau from "../components/EmailVorschau";
+import { SitzungsVorschlagKarte, ZugangKarte } from "../components/Fristsache";
 import TabellenKopf from "../components/TabellenKopf";
 import { useSpalten, SpaltenDef } from "../lib/tabellenSpalten";
 import { dokumentInNeuemTabOeffnen } from "../lib/dokumentOeffnen";
@@ -91,6 +93,22 @@ export default function Dokumente() {
   const [stnText, setStnText]             = useState("");
   const [versandDatum, setVersandDatum]   = useState(() => new Date().toISOString().slice(0, 10));
   const [versandLaufend, setVersandLaufend] = useState(false);
+
+  // Fristsachen (Zugang bestätigen usw.) nur für Vorsitz/Stellvertretung – wie im Eingang
+  const [meineRolle, setMeineRolle] = useState<Rolle | null>(null);
+  useEffect(() => { api.auth.me().then(b => setMeineRolle(b.rolle)).catch(() => {}); }, []);
+  const fristsachenBearbeiten = meineRolle === "VORSITZ" || meineRolle === "STELLVERTRETER";
+
+  /** Nach Bestätigen/Senden/TOP: Liste und geöffnetes Dokument aktualisieren */
+  function fristsacheNeuLaden(dokumentId: string) {
+    api.dokumente.liste()
+      .then(liste => {
+        setDokumente(liste);
+        const neu = liste.find(x => x.id === dokumentId);
+        if (neu) { setVorschau(v => v?.id === dokumentId ? neu : v); ladeVorgang(neu); }
+      })
+      .catch(console.error);
+  }
 
   function laden_() {
     setLaden(true);
@@ -792,6 +810,16 @@ export default function Dokumente() {
             </button>
           </div>
 
+          {/* Fristsache: Zugang beim BR, Empfangsbestätigung, Sitzung vor Fristende */}
+          {fristsachenBearbeiten && (vorschau.zugangAm || (vorschau.fristen?.length ?? 0) > 0) && (
+            <div className="px-4 pb-3 border-b border-gray-100">
+              <ZugangKarte dok={vorschau} onBestaetigt={() => fristsacheNeuLaden(vorschau.id)} />
+              {vorschau.zugangBestaetigtAm && (vorschau.fristen?.length ?? 0) > 0 && (
+                <SitzungsVorschlagKarte dok={vorschau} onTopAngelegt={() => fristsacheNeuLaden(vorschau.id)} />
+              )}
+            </div>
+          )}
+
           {/* Anhörungs-Vorgang (§ 99 / § 102 BetrVG) */}
           {(vorschau.kategorie === "ANHOERUNG_99" || vorschau.kategorie === "ANHOERUNG_102") && (
             <div className="px-4 py-3 border-b border-gray-100 space-y-3">
@@ -832,7 +860,7 @@ export default function Dokumente() {
                       {vorgang.fristen.map(f => (
                         <div key={f.id} className="flex items-center justify-between gap-2 text-xs">
                           <span className={f.status === "ERLEDIGT" ? "text-gray-400 line-through" : fristFarbe(f.faelligAm)}>
-                            {f.bezeichnung ?? f.typ} – fällig {formatDatum(f.faelligAm)}
+                            {f.bezeichnung ?? FRIST_TYP_LABEL[f.typ] ?? f.typ} – fällig {formatDatum(f.faelligAm)}
                           </span>
                           <button
                             onClick={() => vorgangFristErledigen(f.id, f.status !== "ERLEDIGT")}
