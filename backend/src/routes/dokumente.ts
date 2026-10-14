@@ -9,6 +9,8 @@
  * DELETE /api/dokumente/:id      – Löschvormerkung setzen
  * GET    /api/dokumente/:id/zugang – Zugang beim BR + Vorschau der Fristen (?zugangAm=…)
  * POST   /api/dokumente/:id/zugang – Zugang bestätigen, Fristen ab Zugang neu berechnen
+ * GET    /api/dokumente/:id/empfangsbestaetigung – Empfänger + Textvorschlag
+ * POST   /api/dokumente/:id/empfangsbestaetigung – an den Arbeitgeber senden
  *
  * E-Mails (.eml/.msg):
  * GET    /api/dokumente/:id/email                        – Kopf, Text, HTML, abgelegte Anhänge
@@ -32,6 +34,7 @@ import { erfordert } from "../middleware/rbac.js";
 import { verarbeiteDokument, anhangAblegen, UngueltigeEmailError } from "../services/dokument-pipeline.service.js";
 import { emailFormat, emailLesen, istEmailMime, EmailFormat, EMAIL_MIME } from "../lib/email.js";
 import { type KuendigungsArt, ZugangFehler, zugangBestaetigen, zugangVorschau } from "../lib/zugang.js";
+import { EmpfangsbestaetigungFehler, senden as empfangsbestaetigungSenden, vorbelegung as empfangsbestaetigungVorbelegung } from "../lib/empfangsbestaetigung.js";
 
 const STORAGE = process.env.STORAGE_PATH ?? "/data/storage";
 const MASTER_KEY = process.env.ENCRYPTION_KEY!;
@@ -80,6 +83,8 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
           zugangAm:               true,
           zugangBestaetigtAm:     true,
           unterlagenVollstaendig: true,
+          empfangsbestaetigungAm: true,
+          empfangsbestaetigungAn: true,
           fristen: {
             where:   { status: "OFFEN" },
             select:  { id: true, typ: true, faelligAm: true },
@@ -490,6 +495,53 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
         return reply.send({ ok: true, fristen });
       } catch (err) {
         if (err instanceof ZugangFehler) return reply.status(400).send({ fehler: err.message });
+        throw err;
+      }
+    }
+  );
+
+  // ── Empfangsbestätigung an den Arbeitgeber (nach bestätigtem Zugang) ─
+  const empfangsbestaetigungDokument = async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+    const dokument = await prisma.dokument.findUnique({ where: { id: request.params.id } });
+    if (!dokument || dokument.status === DokumentStatus.GELOESCHT) {
+      reply.status(404).send({ fehler: "Nicht gefunden" });
+      return null;
+    }
+    if (!darfDokumentSehen(dokument, request.benutzer.rolle, request.benutzer.sub)) {
+      reply.status(403).send({ fehler: "Vertrauliches Dokument" });
+      return null;
+    }
+    return dokument;
+  };
+
+  app.get<{ Params: { id: string } }>(
+    "/:id/empfangsbestaetigung",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (request, reply) => {
+      const dokument = await empfangsbestaetigungDokument(request, reply);
+      if (!dokument) return reply;
+      try {
+        return reply.send(await empfangsbestaetigungVorbelegung(dokument.id, request.benutzer.sub));
+      } catch (err) {
+        if (err instanceof EmpfangsbestaetigungFehler) return reply.status(409).send({ fehler: err.message });
+        throw err;
+      }
+    }
+  );
+
+  app.post<{ Params: { id: string }; Body: { an?: string; betreff?: string; text?: string } }>(
+    "/:id/empfangsbestaetigung",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (request, reply) => {
+      const dokument = await empfangsbestaetigungDokument(request, reply);
+      if (!dokument) return reply;
+      const { an = "", betreff = "", text = "" } = request.body ?? {};
+      try {
+        return reply.send(await empfangsbestaetigungSenden(dokument.id, { an, betreff, text }, {
+          benutzerId: request.benutzer.sub, ip: request.ip, userAgent: request.headers["user-agent"] ?? null,
+        }));
+      } catch (err) {
+        if (err instanceof EmpfangsbestaetigungFehler) return reply.status(400).send({ fehler: err.message });
         throw err;
       }
     }

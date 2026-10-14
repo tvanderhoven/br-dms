@@ -231,6 +231,7 @@ enum AuditAktion {
   ANHOERUNG_STELLUNGNAHME_GESPEICHERT
   ANHOERUNG_VERSENDET
   ZUGANG_BESTAETIGT
+  EMPFANGSBESTAETIGUNG_VERSENDET
   ORDNER_ERSTELLT
   ORDNER_GEAENDERT
   ORDNER_GELOESCHT
@@ -414,6 +415,9 @@ model Dokument {
   zugangBestaetigtVon    Benutzer?  @relation("ZugangBestaetigtVon", fields: [zugangBestaetigtVonId], references: [id])
   // null = nicht angegeben; false = Unterrichtung unvollständig (Frist wird trotzdem ab Zugang gerechnet)
   unterlagenVollstaendig Boolean?   @map("unterlagen_vollstaendig")
+  // Empfangsbestätigung an den Arbeitgeber (lib/empfangsbestaetigung.ts) – zuletzt gesendet
+  empfangsbestaetigungAm DateTime?  @map("empfangsbestaetigung_am")
+  empfangsbestaetigungAn String?    @map("empfangsbestaetigung_an")
 
   hochgeladenVonId String      @map("hochgeladen_von_id")
   hochgeladenVon   Benutzer    @relation("HochgeladenVon", fields: [hochgeladenVonId], references: [id])

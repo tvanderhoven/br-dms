@@ -397,6 +397,18 @@ function textAlsHtml(t: string): string {
     .replace(/\n/g, "<br>");
 }
 
+/** Empfangsbestätigung an den Arbeitgeber (lib/empfangsbestaetigung.ts); Kopie an den Absender */
+export async function sendeEmpfangsbestaetigung(m: { an: string; kopieAn: string | null; betreff: string; text: string }): Promise<void> {
+  await transporter.sendMail({
+    from:    await absender(),
+    to:      m.an,
+    cc:      m.kopieAn ?? undefined,
+    subject: m.betreff,
+    text:    m.text,
+    html:    `<div style="font-family:sans-serif;font-size:14px;line-height:1.5">${textAlsHtml(m.text)}</div>`,
+  });
+}
+
 /** Verschickt eine Einladung; wirft bei Fehlern (der Aufrufer protokolliert). */
 export async function sendeEinladung(m: EinladungMail): Promise<void> {
   // Sitzungszeiten liegen "wie eingegeben" in UTC (09:00 Ortszeit = 09:00Z, siehe

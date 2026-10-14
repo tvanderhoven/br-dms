@@ -1,7 +1,8 @@
 /**
  * Zugang bestätigen (lib/zugang.ts): vorläufige Fristen beim Import, Vorschau,
  * Neuberechnung ab bestätigtem Zugang, unpassende § 102-Frist fällt weg.
- * Sofortmail und stündliche Sammelmail an Vorsitz/Stellvertretung (lib/eingangMeldung.ts).
+ * Sofortmail und stündliche Sammelmail an Vorsitz/Stellvertretung (lib/eingangMeldung.ts),
+ * Empfangsbestätigung an den Arbeitgeber (lib/empfangsbestaetigung.ts).
  */
 
 import { after, before, describe, test } from "node:test";
@@ -12,6 +13,7 @@ import { verarbeiteDokument } from "../src/services/dokument-pipeline.service.js
 import { zugangVorschlag } from "../src/lib/zugang.js";
 import { fristsacheEmpfaenger, sammelmailAktiv, sammelmeldungSenden, sofortmailAktiv } from "../src/lib/eingangMeldung.js";
 import { eingangSammelmailInhalt, fristsacheMailInhalt } from "../src/lib/mailer.js";
+import { entwurf } from "../src/lib/empfangsbestaetigung.js";
 import { anfrage, prisma, starteTestumgebung, type TestUmgebung } from "./hilfe.js";
 
 let env: TestUmgebung;
@@ -256,5 +258,65 @@ describe("Stündliche Sammelmail", () => {
     assert.equal(m.subject, "BR-DMS – 2 neue Dokumente im Eingang");
     assert.match(m.text, /14\.10\., 10:15 · Info <Werk 2>/);
     assert.match(m.html, /Info &lt;Werk 2&gt;/);
+  });
+});
+
+describe("Empfangsbestätigung an den Arbeitgeber", () => {
+  let id: string;
+
+  before(async () => {
+    id = (await anhoerung102("EMPFANG-102")).id;
+    const res = await anfrage(env, "VORSITZ", "PUT", "/api/einstellungen/eingang-mails", { hrAdresse: "Personal@Firma.example" });
+    assert.equal(res.statusCode, 200, res.body);
+  });
+
+  test("Entwurf: Zugang in deutscher Zeit, Unterzeichner, Hinweis bei unvollständigen Unterlagen", () => {
+    const basis = {
+      titel: "Anhörung Mustermann", kategorie: "§ 102 BetrVG – Kündigung", zugangAm: new Date("2026-09-30T08:30:00Z"),
+      absender: { name: "Sabine Kröger", rolle: "VORSITZ" }, signatur: null,
+    };
+    const vollstaendig = entwurf({ ...basis, unterlagenVollstaendig: true });
+    assert.equal(vollstaendig.betreff, "Empfangsbestätigung: Anhörung Mustermann");
+    assert.match(vollstaendig.text, /zugegangen am Mi\., 30\.09\.2026, 10:30 Uhr/);
+    assert.match(vollstaendig.text, /Sabine Kröger\nVorsitz des Betriebsrats/);
+    assert.doesNotMatch(vollstaendig.text, /nicht vollständig/);
+    assert.match(entwurf({ ...basis, unterlagenVollstaendig: false }).text, /noch nicht vollständig/);
+  });
+
+  test("ungültige HR-Adresse wird abgelehnt", async () => {
+    const res = await anfrage(env, "VORSITZ", "PUT", "/api/einstellungen/eingang-mails", { hrAdresse: "keine adresse" });
+    assert.equal(res.statusCode, 400);
+  });
+
+  test("vor bestätigtem Zugang: keine Empfangsbestätigung", async () => {
+    const res = await anfrage(env, "VORSITZ", "GET", `/api/dokumente/${id}/empfangsbestaetigung`);
+    assert.equal(res.statusCode, 409);
+    assert.match(res.body, /Zugang/);
+  });
+
+  test("nach bestätigtem Zugang: Vorbelegung mit HR-Adresse und Text", async () => {
+    await anfrage(env, "VORSITZ", "POST", `/api/dokumente/${id}/zugang`, {
+      zugangAm: "2026-09-30T08:30:00Z", kuendigungsArt: "ORDENTLICH", unterlagenVollstaendig: false,
+    });
+    const res = await anfrage(env, "STELLVERTRETER", "GET", `/api/dokumente/${id}/empfangsbestaetigung`);
+    assert.equal(res.statusCode, 200, res.body);
+    const v = JSON.parse(res.body) as { an: string; text: string; gesendetAm: string | null };
+    assert.equal(v.an, "personal@firma.example");
+    assert.match(v.text, /Stellv\. Vorsitz des Betriebsrats/);
+    assert.match(v.text, /noch nicht vollständig/);
+    assert.equal(v.gesendetAm, null);
+  });
+
+  test("Senden prüft Adresse, Text und Mailserver; Mitglied darf nicht", async () => {
+    const url = `/api/dokumente/${id}/empfangsbestaetigung`;
+    const gueltig = { an: "personal@firma.example", betreff: "Empfangsbestätigung", text: "Bestätigt." };
+    assert.equal((await anfrage(env, "MITGLIED", "POST", url, gueltig)).statusCode, 403);
+    assert.match((await anfrage(env, "VORSITZ", "POST", url, { ...gueltig, an: "falsch" })).body, /gültige Empfängeradresse/);
+    assert.match((await anfrage(env, "VORSITZ", "POST", url, { ...gueltig, text: "  " })).body, /nicht leer/);
+    // In der Testumgebung gibt es keinen Mailserver
+    const res = await anfrage(env, "VORSITZ", "POST", url, gueltig);
+    assert.equal(res.statusCode, 400);
+    assert.match(res.body, /kein Mailserver/);
+    assert.equal((await prisma.dokument.findUniqueOrThrow({ where: { id } })).empfangsbestaetigungAm, null);
   });
 });

@@ -10,7 +10,7 @@
  * GET  /api/einstellungen/update        – Hinweis auf ein neues Major/Minor-Release (VORSITZ, STELLVERTRETER, ADMIN)
  * GET  /api/einstellungen/feiertage     – Bundesland + Zusatzfeiertage für die Fristberechnung
  * PUT  /api/einstellungen/feiertage     – festlegen (VORSITZ)
- * GET  /api/einstellungen/eingang-mails – Sofortmail (Fristsachen) / stündliche Sammelmail an/aus
+ * GET  /api/einstellungen/eingang-mails – Sofortmail (Fristsachen) / stündliche Sammelmail an/aus, HR-Adresse
  * PUT  /api/einstellungen/eingang-mails – umschalten (VORSITZ)
  */
 
@@ -32,6 +32,7 @@ import { updateHinweis, installierteVersion } from "../lib/updateCheck.js";
 import { BUNDESLAENDER, ZUSATZ_FEIERTAGE, feiertage, istBundesland, istZusatzFeiertag } from "../lib/feiertage.js";
 import { FRISTEN_BUNDESLAND, FRISTEN_ZUSATZ_FEIERTAGE, ladeFeiertagsKalender } from "../lib/fristKalender.js";
 import { EINGANG_SAMMELMAIL_AKTIV, EINGANG_SOFORTMAIL_AKTIV, sammelmailAktiv, sofortmailAktiv } from "../lib/eingangMeldung.js";
+import { EINGANG_HR_ADRESSE, hrAdresse } from "../lib/empfangsbestaetigung.js";
 
 const STORAGE = process.env.STORAGE_PATH ?? "/data/storage";
 const LOGO_VERZ = path.join(STORAGE, "logo");
@@ -577,16 +578,26 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
       return reply.send({
         sofortmail: await sofortmailAktiv(),
         sammelmail: await sammelmailAktiv(),
+        hrAdresse:  await hrAdresse(),
         smtpAktiv:  !!process.env.SMTP_HOST,
       });
     }
   );
 
-  app.put<{ Body: { sofortmail?: boolean; sammelmail?: boolean } }>(
+  app.put<{ Body: { sofortmail?: boolean; sammelmail?: boolean; hrAdresse?: string } }>(
     "/eingang-mails",
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request, reply) => {
       const body = request.body ?? {};
+      if (typeof body.hrAdresse === "string") {
+        const adresse = body.hrAdresse.trim().toLowerCase();
+        if (adresse && !istEmailAdresse(adresse)) return reply.status(400).send({ fehler: "Ungültige HR-Adresse" });
+        await prisma.systemEinstellung.upsert({
+          where:  { schluessel: EINGANG_HR_ADRESSE },
+          update: { wert: adresse },
+          create: { schluessel: EINGANG_HR_ADRESSE, wert: adresse },
+        });
+      }
       for (const [schluessel, wert] of [[EINGANG_SOFORTMAIL_AKTIV, body.sofortmail], [EINGANG_SAMMELMAIL_AKTIV, body.sammelmail]] as const) {
         if (typeof wert !== "boolean") continue;
         await prisma.systemEinstellung.upsert({
@@ -595,7 +606,7 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
           create: { schluessel, wert: String(wert) },
         });
       }
-      return reply.send({ sofortmail: await sofortmailAktiv(), sammelmail: await sammelmailAktiv() });
+      return reply.send({ sofortmail: await sofortmailAktiv(), sammelmail: await sammelmailAktiv(), hrAdresse: await hrAdresse() });
     }
   );
 
