@@ -318,6 +318,58 @@ export async function sendeFristsacheEingang(email: string, name: string, m: Fri
   await transporter.sendMail({ from: await absender(), to: email, ...fristsacheMailInhalt(name, m) });
 }
 
+// ── Stündliche Sammelmail neuer Eingänge (lib/eingangMeldung.ts) ──────
+
+export interface EingangEintrag {
+  titel:      string;
+  kategorie:  string;
+  quelle:     string;
+  eingangAm:  Date;
+}
+
+export function eingangSammelmailInhalt(name: string, eintraege: EingangEintrag[], url: string): { subject: string; text: string; html: string } {
+  const h = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const zeit = (d: Date) => d.toLocaleString("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const anzahl = eintraege.length === 1 ? "1 neues Dokument" : `${eintraege.length} neue Dokumente`;
+
+  return {
+    subject: `BR-DMS – ${anzahl} im Eingang`,
+    text: [
+      `Hallo ${name},`,
+      "",
+      `seit der letzten Meldung sind ${anzahl} im Eingang:`,
+      "",
+      ...eintraege.map(e => `- ${zeit(e.eingangAm)} · ${e.titel} (${e.kategorie}, ${e.quelle})`),
+      "",
+      url,
+    ].join("\n"),
+    html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+      <div style="background:#1e3a8a;color:white;padding:16px 20px;border-radius:8px 8px 0 0">
+        <h2 style="margin:0;font-size:18px">BR-DMS – ${h(anzahl)} im Eingang</h2>
+      </div>
+      <div style="padding:20px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
+        <p>Hallo <strong>${h(name)}</strong>,</p>
+        <p>seit der letzten Meldung sind ${h(anzahl)} im Eingang:</p>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;font-size:14px">
+          <tbody>${eintraege.map(e => `<tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#6b7280;white-space:nowrap;vertical-align:top">${h(zeit(e.eingangAm))}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb"><strong>${h(e.titel)}</strong><br>
+              <span style="color:#6b7280;font-size:12px">${h(e.kategorie)} · ${h(e.quelle)}</span></td>
+          </tr>`).join("")}</tbody>
+        </table>
+        <p style="margin-top:20px">
+          <a href="${h(url)}" style="background:#1e40af;color:white;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block">→ Zum Eingang</a>
+        </p>
+        <p style="color:#9ca3af;font-size:11px;margin-top:20px">Automatische Nachricht von BR-DMS · höchstens einmal pro Stunde, nur bei neuen Eingängen · abschaltbar unter Einstellungen → Löschfristen</p>
+      </div>
+    </div>`,
+  };
+}
+
+export async function sendeEingangSammelmail(email: string, name: string, eintraege: EingangEintrag[], url: string): Promise<void> {
+  await transporter.sendMail({ from: await absender(), to: email, ...eingangSammelmailInhalt(name, eintraege, url) });
+}
+
 // ── Einladung zur Sitzung (Paket 4) ──────────────────────────────────
 
 const html = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");

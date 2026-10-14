@@ -1,7 +1,7 @@
 /**
  * Zugang bestätigen (lib/zugang.ts): vorläufige Fristen beim Import, Vorschau,
  * Neuberechnung ab bestätigtem Zugang, unpassende § 102-Frist fällt weg.
- * Sofortmail an Vorsitz/Stellvertretung (lib/eingangMeldung.ts).
+ * Sofortmail und stündliche Sammelmail an Vorsitz/Stellvertretung (lib/eingangMeldung.ts).
  */
 
 import { after, before, describe, test } from "node:test";
@@ -10,8 +10,8 @@ import { Readable } from "node:stream";
 import { AuditAktion, FristStatus, Kategorie } from "@prisma/client";
 import { verarbeiteDokument } from "../src/services/dokument-pipeline.service.js";
 import { zugangVorschlag } from "../src/lib/zugang.js";
-import { fristsacheEmpfaenger, sofortmailAktiv } from "../src/lib/eingangMeldung.js";
-import { fristsacheMailInhalt } from "../src/lib/mailer.js";
+import { fristsacheEmpfaenger, sammelmailAktiv, sammelmeldungSenden, sofortmailAktiv } from "../src/lib/eingangMeldung.js";
+import { eingangSammelmailInhalt, fristsacheMailInhalt } from "../src/lib/mailer.js";
 import { anfrage, prisma, starteTestumgebung, type TestUmgebung } from "./hilfe.js";
 
 let env: TestUmgebung;
@@ -182,12 +182,79 @@ describe("Sofortmail bei Fristsachen", () => {
     assert.doesNotMatch(m.html, /<Mustermann>/);
   });
 
-  test("Schalter: nur Vorsitz/Stellvertretung dürfen umschalten", async () => {
-    assert.equal((await anfrage(env, "MITGLIED", "PUT", "/api/einstellungen/eingang-sofortmail", { aktiv: false })).statusCode, 403);
-    const aus = await anfrage(env, "STELLVERTRETER", "PUT", "/api/einstellungen/eingang-sofortmail", { aktiv: false });
+  test("Schalter: nur Vorsitz/Stellvertretung dürfen umschalten, nur der genannte ändert sich", async () => {
+    const url = "/api/einstellungen/eingang-mails";
+    assert.equal((await anfrage(env, "MITGLIED", "PUT", url, { sofortmail: false })).statusCode, 403);
+    const aus = await anfrage(env, "STELLVERTRETER", "PUT", url, { sofortmail: false });
     assert.equal(aus.statusCode, 200, aus.body);
     assert.equal(await sofortmailAktiv(), false);
-    await anfrage(env, "VORSITZ", "PUT", "/api/einstellungen/eingang-sofortmail", { aktiv: true });
+    assert.equal(await sammelmailAktiv(), true);
+    await anfrage(env, "VORSITZ", "PUT", url, { sofortmail: true });
     assert.equal(await sofortmailAktiv(), true);
+  });
+});
+
+describe("Stündliche Sammelmail", () => {
+  type Post = Map<string, string[]>;
+  const sammeln = async (): Promise<Post> => {
+    const post: Post = new Map();
+    await sammelmeldungSenden({ senden: async (email, _name, eintraege) => { post.set(email, eintraege.map(e => e.titel)); } });
+    return post;
+  };
+  const neu = (titel: string, kategorie: Kategorie, userId: string, inboxQuelle: string) => verarbeiteDokument({
+    stream: Readable.from(Buffer.from(titel)), originalDateiname: `${titel}.txt`, mimetype: "text/plain",
+    userId, metadata: { titel, kategorie, inboxQuelle },
+  });
+  let mailVorsitz: string, mailStellv: string;
+
+  before(async () => {
+    const konten = await prisma.benutzer.findMany({ where: { id: { in: [env.ids.VORSITZ, env.ids.STELLVERTRETER] } } });
+    mailVorsitz = konten.find(k => k.id === env.ids.VORSITZ)!.email;
+    mailStellv  = konten.find(k => k.id === env.ids.STELLVERTRETER)!.email;
+  });
+
+  test("erster Lauf setzt nur den Stand – alte Eingänge werden nicht gemeldet", async () => {
+    assert.equal((await sammeln()).size, 0);
+  });
+
+  test("meldet neue, ungelesene Eingänge ohne Fristsachen; eigener Upload nicht an sich selbst", async () => {
+    await neu("SAMMEL-WATCH", Kategorie.SONSTIGES, env.ids.VORSITZ, "WATCHFOLDER");
+    await neu("SAMMEL-UPLOAD-VORSITZ", Kategorie.SCHRIFTVERKEHR, env.ids.VORSITZ, "UPLOAD");
+    await neu("SAMMEL-FRISTSACHE", Kategorie.ANHOERUNG_99, env.ids.VORSITZ, "WATCHFOLDER");
+    const gelesen = await neu("SAMMEL-GELESEN", Kategorie.SONSTIGES, env.ids.VORSITZ, "WATCHFOLDER");
+    await prisma.dokument.update({ where: { id: gelesen.id }, data: { inboxGelesen: true } });
+
+    const post = await sammeln();
+    assert.deepEqual(post.get(mailVorsitz), ["SAMMEL-WATCH"]);
+    assert.deepEqual(post.get(mailStellv), ["SAMMEL-WATCH", "SAMMEL-UPLOAD-VORSITZ"]);
+  });
+
+  test("nichts Neues → keine Mail", async () => {
+    assert.equal((await sammeln()).size, 0);
+  });
+
+  test("ausgeschaltet: keine Mail, und beim Wiedereinschalten keine Nachmeldung", async () => {
+    await anfrage(env, "VORSITZ", "PUT", "/api/einstellungen/eingang-mails", { sammelmail: false });
+    await neu("SAMMEL-WAEHREND-AUS", Kategorie.SONSTIGES, env.ids.MITGLIED, "UPLOAD");
+    assert.equal((await sammeln()).size, 0);
+    await anfrage(env, "VORSITZ", "PUT", "/api/einstellungen/eingang-mails", { sammelmail: true });
+    assert.equal((await sammeln()).size, 0);
+  });
+
+  test("Sofortmail aus: Fristsachen kommen mit in die Sammelmail", async () => {
+    await anfrage(env, "VORSITZ", "PUT", "/api/einstellungen/eingang-mails", { sofortmail: false });
+    await neu("SAMMEL-FRIST-OHNE-SOFORT", Kategorie.ANHOERUNG_99, env.ids.VORSITZ, "WATCHFOLDER");
+    assert.deepEqual((await sammeln()).get(mailVorsitz), ["SAMMEL-FRIST-OHNE-SOFORT"]);
+    await anfrage(env, "VORSITZ", "PUT", "/api/einstellungen/eingang-mails", { sofortmail: true });
+  });
+
+  test("Inhalt: Anzahl im Betreff, Titel maskiert", () => {
+    const m = eingangSammelmailInhalt("Thomas", [
+      { titel: "Info <Werk 2>", kategorie: "Arbeitgeber-Info", quelle: "Watch-Folder", eingangAm: new Date("2026-10-14T08:15:00Z") },
+      { titel: "Protokoll ASA", kategorie: "Arbeitsschutz", quelle: "hochgeladen von Sabine", eingangAm: new Date("2026-10-14T08:40:00Z") },
+    ], "http://br-dms.lokal/eingang");
+    assert.equal(m.subject, "BR-DMS – 2 neue Dokumente im Eingang");
+    assert.match(m.text, /14\.10\., 10:15 · Info <Werk 2>/);
+    assert.match(m.html, /Info &lt;Werk 2&gt;/);
   });
 });

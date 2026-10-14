@@ -5,6 +5,7 @@ import { startGesetzeWorker } from "./workers/gesetze.worker.js";
 import { startAblaufWorker } from "./workers/ablauf.worker.js";
 import { startBackupWorker } from "./workers/backup.worker.js";
 import { startUpdateCheckWorker } from "./workers/updateCheck.worker.js";
+import { startEingangWorker } from "./workers/eingang.worker.js";
 import { starteWatchFolder } from "./services/watchfolder.service.js";
 import { erstAdminAnlegen } from "./lib/erst-admin.js";
 import { konfigPruefen } from "./lib/konfigPruefen.js";
@@ -32,6 +33,7 @@ startGesetzeWorker();
 startAblaufWorker();
 startBackupWorker();
 startUpdateCheckWorker();
+startEingangWorker();
 
 if (process.env.WATCH_FOLDER_ENABLED === "true") {
   starteWatchFolder().catch(err => console.error("[watchfolder] Start fehlgeschlagen:", err));
