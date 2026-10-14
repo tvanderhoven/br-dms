@@ -1315,6 +1315,9 @@ model Zeitmodell {
   wochenstunden  Decimal? @db.Decimal(4, 1)
   sortierung     Int      @default(0)
   aktiv          Boolean  @default(true)
+  // Vorauswahl beim Anlegen eines neuen Zeitmodell-Zeitraums – höchstens eins
+  // gleichzeitig (Backend setzt beim Setzen automatisch alle anderen zurück).
+  standard       Boolean  @default(false)
 
   eintraege      ZeitmodellEintrag[]
 

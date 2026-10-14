@@ -1541,11 +1541,22 @@ function ZeitmodellModal({
   const [laden, setLaden]                 = useState(false);
   const [fehler, setFehler]               = useState("");
 
-  // Bei neuem Zeitraum erstes aktives Zeitmodell vorauswählen, sobald die
-  // Liste geladen ist (Default kann nicht mehr fest "A" sein).
+  // Vorauswahl beim Anlegen eines neuen Zeitraums: zuerst das aktuell offene
+  // Zeitmodell DIESES Mitarbeiters übernehmen (deckt Ausnahmen ab, die nicht
+  // dem globalen Standard folgen, z.B. wenn bei jemandem dauerhaft C statt A
+  // gilt), sonst das als Standard markierte Zeitmodell, sonst das erste aktive.
   useEffect(() => {
-    if (!zeitraum && !zeitmodellId && aktiveZeitmodelle.length > 0) setZeitmodellId(aktiveZeitmodelle[0].id);
-  }, [zeitraum, zeitmodellId, aktiveZeitmodelle]);
+    if (zeitraum) return; // beim Bearbeiten bleibt die vorhandene Auswahl unangetastet
+    const globalerStandard = () => aktiveZeitmodelle.find(z => z.standard)?.id ?? aktiveZeitmodelle[0]?.id ?? "";
+    if (!mitarbeiterId) { setZeitmodellId(globalerStandard()); return; }
+    let aktuell = true;
+    api.zeitmodell.liste({ mitarbeiterId }).then(liste => {
+      if (!aktuell) return;
+      const offen = liste.find(z => z.gueltigBis === null);
+      setZeitmodellId(offen ? offen.zeitmodell.id : globalerStandard());
+    }).catch(() => setZeitmodellId(globalerStandard()));
+    return () => { aktuell = false; };
+  }, [mitarbeiterId, zeitraum, aktiveZeitmodelle]);
 
   async function speichern(e: FormEvent) {
     e.preventDefault();

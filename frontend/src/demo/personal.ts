@@ -110,10 +110,10 @@ export const DEMO_GEHALT = DEMO_MITARBEITER.flatMap((m, i) => {
 // Zeitmodelle: frei konfigurierbare Stammdaten (siehe Einstellungen → Zeitmodelle),
 // die Demo zeigt vier realistische Stundenmodelle statt bloßer Buchstaben.
 export const DEMO_ZEITMODELLE = [
-  { id: "demo-zm1", bezeichnung: "Vollzeit Gleitzeit", wochenstunden: 38, sortierung: 0, aktiv: true, erstelltAm: tag(-900), aktualisiertAm: tag(-900) },
-  { id: "demo-zm2", bezeichnung: "Schicht", wochenstunden: 35, sortierung: 1, aktiv: true, erstelltAm: tag(-900), aktualisiertAm: tag(-900) },
-  { id: "demo-zm3", bezeichnung: "Teilzeit", wochenstunden: 20, sortierung: 2, aktiv: true, erstelltAm: tag(-900), aktualisiertAm: tag(-900) },
-  { id: "demo-zm4", bezeichnung: "Vertrauensarbeitszeit", wochenstunden: 40, sortierung: 3, aktiv: true, erstelltAm: tag(-900), aktualisiertAm: tag(-900) },
+  { id: "demo-zm1", bezeichnung: "Vollzeit Gleitzeit", wochenstunden: 38, sortierung: 0, aktiv: true, standard: true, erstelltAm: tag(-900), aktualisiertAm: tag(-900) },
+  { id: "demo-zm2", bezeichnung: "Schicht", wochenstunden: 35, sortierung: 1, aktiv: true, standard: false, erstelltAm: tag(-900), aktualisiertAm: tag(-900) },
+  { id: "demo-zm3", bezeichnung: "Teilzeit", wochenstunden: 20, sortierung: 2, aktiv: true, standard: false, erstelltAm: tag(-900), aktualisiertAm: tag(-900) },
+  { id: "demo-zm4", bezeichnung: "Vertrauensarbeitszeit", wochenstunden: 40, sortierung: 3, aktiv: true, standard: false, erstelltAm: tag(-900), aktualisiertAm: tag(-900) },
 ];
 const zmKurz = (z: typeof DEMO_ZEITMODELLE[number]) => ({ id: z.id, bezeichnung: z.bezeichnung, wochenstunden: z.wochenstunden });
 

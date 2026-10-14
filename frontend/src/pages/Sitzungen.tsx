@@ -1615,10 +1615,20 @@ function TopGehaltModal({
     api.abteilungen.liste().then(setAbteilungen).catch(() => {});
   }, []);
 
-  // Erstes aktives Zeitmodell vorauswählen, sobald die Liste geladen ist.
+  // Vorauswahl beim Zeitmodell-Tab: zuerst das aktuell offene Zeitmodell DIESES
+  // Mitarbeiters übernehmen (deckt Ausnahmen ab, die nicht dem globalen
+  // Standard folgen), sonst das als Standard markierte, sonst das erste aktive.
   useEffect(() => {
-    if (!zmZeitmodellId && aktiveZeitmodelle.length > 0) setZmZeitmodellId(aktiveZeitmodelle[0].id);
-  }, [zmZeitmodellId, aktiveZeitmodelle]);
+    const globalerStandard = () => aktiveZeitmodelle.find(z => z.standard)?.id ?? aktiveZeitmodelle[0]?.id ?? "";
+    if (!mitarbeiterId) { setZmZeitmodellId(globalerStandard()); return; }
+    let aktuell = true;
+    api.zeitmodell.liste({ mitarbeiterId }).then(liste => {
+      if (!aktuell) return;
+      const offen = liste.find(z => z.gueltigBis === null);
+      setZmZeitmodellId(offen ? offen.zeitmodell.id : globalerStandard());
+    }).catch(() => setZmZeitmodellId(globalerStandard()));
+    return () => { aktuell = false; };
+  }, [mitarbeiterId, aktiveZeitmodelle]);
 
   async function speichern(e: FormEvent) {
     e.preventDefault();

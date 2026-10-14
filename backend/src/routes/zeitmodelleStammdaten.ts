@@ -7,7 +7,11 @@
  *
  * GET  /api/zeitmodelle      – alle Zeitmodelle (inkl. inaktive)
  * POST /api/zeitmodelle      – neues Zeitmodell anlegen
- * PUT  /api/zeitmodelle/:id  – Zeitmodell bearbeiten (Bezeichnung/Wochenstunden/Sortierung/Aktiv)
+ * PUT  /api/zeitmodelle/:id  – Zeitmodell bearbeiten (Bezeichnung/Wochenstunden/Sortierung/Aktiv/Standard)
+ *
+ * "standard" ist die Vorauswahl beim Anlegen eines neuen Zeitmodell-Zeitraums
+ * (siehe routes/zeitmodell.ts) – höchstens eins gleichzeitig, das Setzen
+ * eines neuen Standards setzt automatisch alle anderen zurück.
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
@@ -20,6 +24,7 @@ interface NeuesZeitmodell {
   bezeichnung:   string;
   wochenstunden?: number | null;
   sortierung?:   number;
+  standard?:     boolean;
 }
 
 interface ZeitmodellUpdate {
@@ -27,6 +32,7 @@ interface ZeitmodellUpdate {
   wochenstunden?: number | null;
   sortierung?:    number;
   aktiv?:         boolean;
+  standard?:      boolean;
 }
 
 function gueltigeWochenstunden(wert: unknown): wert is number {
@@ -52,7 +58,7 @@ export async function zeitmodelleStammdatenRouten(app: FastifyInstance): Promise
     "/",
     { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request: FastifyRequest<{ Body: NeuesZeitmodell }>, reply: FastifyReply) => {
-      const { bezeichnung, wochenstunden, sortierung } = request.body;
+      const { bezeichnung, wochenstunden, sortierung, standard } = request.body;
 
       if (!bezeichnung?.trim()) return reply.status(400).send({ fehler: "bezeichnung ist ein Pflichtfeld" });
       if (wochenstunden != null && !gueltigeWochenstunden(wochenstunden)) {
@@ -62,12 +68,16 @@ export async function zeitmodelleStammdatenRouten(app: FastifyInstance): Promise
       const vorhanden = await prisma.zeitmodell.findUnique({ where: { bezeichnung: bezeichnung.trim() } });
       if (vorhanden) return reply.status(409).send({ fehler: "Zeitmodell existiert bereits" });
 
-      const zeitmodell = await prisma.zeitmodell.create({
-        data: {
-          bezeichnung: bezeichnung.trim(),
-          wochenstunden: wochenstunden ?? null,
-          sortierung: sortierung ?? 0,
-        },
+      const zeitmodell = await prisma.$transaction(async tx => {
+        if (standard) await tx.zeitmodell.updateMany({ data: { standard: false } });
+        return tx.zeitmodell.create({
+          data: {
+            bezeichnung: bezeichnung.trim(),
+            wochenstunden: wochenstunden ?? null,
+            sortierung: sortierung ?? 0,
+            standard: !!standard,
+          },
+        });
       });
       return reply.status(201).send(zeitmodell);
     }
@@ -79,7 +89,7 @@ export async function zeitmodelleStammdatenRouten(app: FastifyInstance): Promise
     { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request: FastifyRequest<{ Params: { id: string }; Body: ZeitmodellUpdate }>, reply: FastifyReply) => {
       const { id } = request.params;
-      const { bezeichnung, wochenstunden, sortierung, aktiv } = request.body;
+      const { bezeichnung, wochenstunden, sortierung, aktiv, standard } = request.body;
 
       const vorhandenes = await prisma.zeitmodell.findUnique({ where: { id } });
       if (!vorhandenes) return reply.status(404).send({ fehler: "Zeitmodell nicht gefunden" });
@@ -93,14 +103,20 @@ export async function zeitmodelleStammdatenRouten(app: FastifyInstance): Promise
         return reply.status(400).send({ fehler: "wochenstunden muss zwischen 0 und 60 liegen" });
       }
 
-      const aktualisiert = await prisma.zeitmodell.update({
-        where: { id },
-        data: {
-          ...(bezeichnung !== undefined ? { bezeichnung: bezeichnung.trim() } : {}),
-          ...(wochenstunden !== undefined ? { wochenstunden } : {}),
-          ...(sortierung !== undefined ? { sortierung } : {}),
-          ...(aktiv !== undefined ? { aktiv } : {}),
-        },
+      const aktualisiert = await prisma.$transaction(async tx => {
+        // Höchstens ein Standard-Zeitmodell gleichzeitig – beim Setzen alle
+        // anderen zurücksetzen, statt das dem Frontend zu überlassen.
+        if (standard === true) await tx.zeitmodell.updateMany({ where: { id: { not: id } }, data: { standard: false } });
+        return tx.zeitmodell.update({
+          where: { id },
+          data: {
+            ...(bezeichnung !== undefined ? { bezeichnung: bezeichnung.trim() } : {}),
+            ...(wochenstunden !== undefined ? { wochenstunden } : {}),
+            ...(sortierung !== undefined ? { sortierung } : {}),
+            ...(aktiv !== undefined ? { aktiv } : {}),
+            ...(standard !== undefined ? { standard } : {}),
+          },
+        });
       });
       return reply.send(aktualisiert);
     }
