@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, FormEvent } from "react";
 import { Settings, Save, Loader2, RotateCcw, Users, Clock, FileText, Upload, Trash2, Palette, Download, FolderOpen, CheckCircle2, XCircle, Puzzle, Scale, RefreshCw, AlertTriangle, Edit3, Plus, Star } from "lucide-react";
-import { api, ROLLE_LABEL, ZweiFaktorRichtlinie, WatchfolderLogEintrag, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen, Rolle, ModuleKey, MODULE_KEYS, MODULE_LABEL, GesetzStatus, Geschlecht, Zeitmodell, FeiertagsEinstellung } from "../lib/api";
+import { api, ROLLE_LABEL, ZweiFaktorRichtlinie, WatchfolderLogEintrag, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen, Rolle, ModuleKey, MODULE_KEYS, MODULE_LABEL, GesetzStatus, Geschlecht, Zeitmodell, FeiertagsEinstellung, EingangMailsEinstellung } from "../lib/api";
 import BenutzerVerwaltung from "./Benutzer";
 
 type Tab = "fristen" | "benutzer" | "protokoll" | "design" | "system" | "module" | "gesetze" | "amtsuebergabe";
@@ -1930,14 +1930,29 @@ const EINGANG_MAILS: { art: EingangMailArt; titel: string; text: string }[] = [
 ];
 
 function EingangMailsBox() {
-  const [stand, setStand]           = useState<{ sofortmail: boolean; sammelmail: boolean; smtpAktiv: boolean } | null>(null);
+  const [stand, setStand]           = useState<EingangMailsEinstellung | null>(null);
   const [umschaltet, setUmschaltet] = useState<EingangMailArt | null>(null);
+  const [hrAdresse, setHrAdresse]   = useState("");
+  const [hrGespeichert, setHrGespeichert] = useState(false);
   const [fehler, setFehler]         = useState("");
 
   useEffect(() => {
-    api.einstellungen.eingangMails().then(setStand)
+    api.einstellungen.eingangMails().then(s => { setStand(s); setHrAdresse(s.hrAdresse); })
       .catch(err => setFehler(err instanceof Error ? err.message : "Einstellung konnte nicht geladen werden"));
   }, []);
+
+  async function hrSpeichern() {
+    if (!stand) return;
+    setFehler("");
+    try {
+      const r = await api.einstellungen.eingangMailsSpeichern({ hrAdresse });
+      setStand({ ...stand, ...r });
+      setHrAdresse(r.hrAdresse);
+      setHrGespeichert(true);
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler beim Speichern");
+    }
+  }
 
   async function umschalten(art: EingangMailArt) {
     if (!stand) return;
@@ -1988,6 +2003,32 @@ function EingangMailsBox() {
           </button>
         </div>
       ))}
+      <div className="px-6 py-3 border-t border-gray-100 bg-gray-50">
+        <label className="block">
+          <span className="text-sm font-medium text-gray-800">Empfangsbestätigung an</span>
+          <span className="block text-xs text-gray-500 mt-0.5">
+            Adresse der Personalabteilung. Nach bestätigtem Zugang lässt sich im Eingang per Knopfdruck eine
+            Empfangsbestätigung mit dem Zugangszeitpunkt dorthin schicken – vor dem Senden änderbar.
+          </span>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <input
+              type="email"
+              value={hrAdresse}
+              placeholder="personal@firma.de"
+              onChange={e => { setHrAdresse(e.target.value); setHrGespeichert(false); }}
+              className="w-full max-w-sm rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+            <button
+              onClick={hrSpeichern}
+              disabled={!stand || hrAdresse.trim().toLowerCase() === stand.hrAdresse}
+              className="flex items-center gap-1.5 bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <Save size={14} /> Speichern
+            </button>
+            {hrGespeichert && <span className="text-xs text-green-700">✓ Gespeichert</span>}
+          </div>
+        </label>
+      </div>
       {fehler && (
         <div className="px-6 py-3 bg-red-50 border-t border-red-100 text-red-700 text-sm">{fehler}</div>
       )}

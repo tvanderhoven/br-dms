@@ -157,6 +157,9 @@ export const api = {
     },
     zugangBestaetigen: (id: string, data: { zugangAm: string; kuendigungsArt?: KuendigungsArt | null; unterlagenVollstaendig?: boolean | null }) =>
       request<{ ok: boolean }>(`/api/dokumente/${id}/zugang`, { method: "POST", body: JSON.stringify(data) }),
+    empfangsbestaetigung: (id: string) => request<EmpfangsbestaetigungEntwurf>(`/api/dokumente/${id}/empfangsbestaetigung`),
+    empfangsbestaetigungSenden: (id: string, data: { an: string; betreff: string; text: string }) =>
+      request<{ gesendetAm: string; gesendetAn: string }>(`/api/dokumente/${id}/empfangsbestaetigung`, { method: "POST", body: JSON.stringify(data) }),
 
     versionen: (id: string) => request<DokumentVersion[]>(`/api/dokumente/${id}/versionen`),
     versionHochladen: (id: string, formData: FormData) =>
@@ -525,9 +528,9 @@ export const api = {
     fristenErinnerung: () => request<{ aktiv: boolean }>("/api/einstellungen/fristen-erinnerung"),
     fristenErinnerungSpeichern: (aktiv: boolean) =>
       request<{ ok: boolean }>("/api/einstellungen/fristen-erinnerung", { method: "PUT", body: JSON.stringify({ aktiv }) }),
-    eingangMails: () => request<{ sofortmail: boolean; sammelmail: boolean; smtpAktiv: boolean }>("/api/einstellungen/eingang-mails"),
-    eingangMailsSpeichern: (data: { sofortmail?: boolean; sammelmail?: boolean }) =>
-      request<{ sofortmail: boolean; sammelmail: boolean }>("/api/einstellungen/eingang-mails", { method: "PUT", body: JSON.stringify(data) }),
+    eingangMails: () => request<EingangMailsEinstellung>("/api/einstellungen/eingang-mails"),
+    eingangMailsSpeichern: (data: { sofortmail?: boolean; sammelmail?: boolean; hrAdresse?: string }) =>
+      request<Omit<EingangMailsEinstellung, "smtpAktiv">>("/api/einstellungen/eingang-mails", { method: "PUT", body: JSON.stringify(data) }),
     feiertage: () => request<FeiertagsEinstellung>("/api/einstellungen/feiertage"),
     feiertageSpeichern: (bundesland: string | null, zusatz: string[]) =>
       request<{ bundesland: string | null; zusatz: string[] }>("/api/einstellungen/feiertage", { method: "PUT", body: JSON.stringify({ bundesland, zusatz }) }),
@@ -772,6 +775,13 @@ export interface Frist {
 
 export type KuendigungsArt = "ORDENTLICH" | "AUSSERORDENTLICH";
 
+/** Vorbelegung des Dialogs (GET /api/dokumente/:id/empfangsbestaetigung) */
+export interface EmpfangsbestaetigungEntwurf {
+  an: string; betreff: string; text: string;
+  gesendetAm: string | null; gesendetAn: string | null;
+  smtpAktiv: boolean;
+}
+
 /** Zugang + Vorschau der Fristen (GET /api/dokumente/:id/zugang) */
 export interface ZugangInfo {
   zugangAm:               string | null;
@@ -806,6 +816,8 @@ export interface Dokument {
   zugangAm?: string | null;
   zugangBestaetigtAm?: string | null;
   unterlagenVollstaendig?: boolean | null;
+  empfangsbestaetigungAm?: string | null;
+  empfangsbestaetigungAn?: string | null;
   anhoerungsVorgang?: { kuendigungsArt: KuendigungsArt | null } | null;
   // In welchen Sitzungen/TOPs behandelt (nur in der Dokumentliste)
   topVerknuepfungen?: { top: { nummer: number; titel: string; sitzung: { id: string; titel: string; sitzungsdatum: string; gremium?: { id: string; name: string } | null } } }[];
@@ -1449,7 +1461,7 @@ export type AuditAktion =
   | "DOKUMENT_AKTUALISIERT" | "DOKUMENT_GELOESCHT" | "DOKUMENT_METADATEN_GEAENDERT"
   | "DOKUMENT_TAG_GEAENDERT" | "DOKUMENT_ALIAS_GEAENDERT" | "DOKUMENT_TOP_GEAENDERT"
   | "DOKUMENT_AUFGABE_ERSTELLT" | "INBOX_DOKUMENT_GELESEN" | "WATCHFOLDER_DATEI_EMPFANGEN"
-  | "FRIST_ERSTELLT" | "FRIST_ERLEDIGT" | "ZUGANG_BESTAETIGT"
+  | "FRIST_ERSTELLT" | "FRIST_ERLEDIGT" | "ZUGANG_BESTAETIGT" | "EMPFANGSBESTAETIGUNG_VERSENDET"
   | "BENUTZER_ERSTELLT" | "BENUTZER_DEAKTIVIERT" | "BENUTZER_GELOESCHT"
   | "SITZUNG_ERSTELLT" | "SITZUNG_AKTUALISIERT" | "SITZUNG_FIXIERT"
   | "SITZUNG_PROTOKOLL_GESTARTET" | "SITZUNG_FINALISIERT" | "SITZUNG_GELOESCHT"
@@ -1493,6 +1505,7 @@ export const AUDIT_AKTION_LABEL: Record<AuditAktion, string> = {
   DOKUMENT_AUFGABE_ERSTELLT:   "Aufgabe aus Dokument erstellt",
   INBOX_DOKUMENT_GELESEN:      "Eingang gelesen",
   ZUGANG_BESTAETIGT:           "Zugang bestätigt",
+  EMPFANGSBESTAETIGUNG_VERSENDET: "Empfangsbestätigung versendet",
   WATCHFOLDER_DATEI_EMPFANGEN: "WatchFolder – Datei importiert",
   FRIST_ERSTELLT:              "Frist erstellt",
   FRIST_ERLEDIGT:              "Frist erledigt",
@@ -1898,6 +1911,14 @@ export interface WissensEintragErstellen {
 }
 
 // ── Module (Admin-Ein/Ausschalter) ──────────────────────────────────
+/** Mails über neue Eingänge + Empfänger der Empfangsbestätigung (Backend: lib/eingangMeldung.ts) */
+export interface EingangMailsEinstellung {
+  sofortmail: boolean;
+  sammelmail: boolean;
+  hrAdresse:  string;
+  smtpAktiv:  boolean;
+}
+
 /** Feiertagskalender für die Fristberechnung (§ 193 BGB) */
 export interface FeiertagsEinstellung {
   bundesland:      string | null;              // null = nur bundesweite Feiertage

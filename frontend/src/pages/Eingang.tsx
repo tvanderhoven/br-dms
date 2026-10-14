@@ -1,11 +1,11 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
   Inbox, FileText, Clock, Tag, CheckSquare, Eye, X, ChevronRight, ChevronDown, ChevronUp,
-  Loader2, Check, CheckCheck, History, Search, RotateCcw, ScanLine, Trash2, AlertTriangle, CalendarClock,
+  Loader2, Check, CheckCheck, History, Search, RotateCcw, ScanLine, Trash2, AlertTriangle, CalendarClock, Send,
 } from "lucide-react";
 import {
   api, Dokument, SitzungListItem, Benutzer, TOP, KATEGORIE_LABEL, formatDatum, formatDateigroesse,
-  ScanEingangEintrag, SitzungScanTyp, istEmail, KuendigungsArt, ZugangInfo } from "../lib/api";
+  ScanEingangEintrag, SitzungScanTyp, istEmail, KuendigungsArt, ZugangInfo, EmpfangsbestaetigungEntwurf } from "../lib/api";
 import EmailVorschau from "../components/EmailVorschau";
 import { dokumentInNeuemTabOeffnen } from "../lib/dokumentOeffnen";
 
@@ -1042,6 +1042,8 @@ function ZugangKarte({ dok, onBestaetigt }: { dok: Dokument; onBestaetigt: () =>
 
       {fehler && <p className="text-sm text-red-700">{fehler}</p>}
 
+      {bestaetigt && !bearbeiten && <EmpfangsbestaetigungBereich dok={dok} onGesendet={onBestaetigt} />}
+
       {bearbeiten && (
         <div className="flex items-center gap-2">
           <button
@@ -1059,6 +1061,112 @@ function ZugangKarte({ dok, onBestaetigt }: { dok: Dokument; onBestaetigt: () =>
           {ist102 && !art && <span className="text-xs text-gray-500">Bitte Kündigungsart wählen</span>}
         </div>
       )}
+    </div>
+  );
+}
+
+// Empfangsbestätigung an den Arbeitgeber – erst nach bestätigtem Zugang (Backend: lib/empfangsbestaetigung.ts)
+function EmpfangsbestaetigungBereich({ dok, onGesendet }: { dok: Dokument; onGesendet: () => void }) {
+  const [entwurf, setEntwurf]   = useState<EmpfangsbestaetigungEntwurf | null>(null);
+  const [offen, setOffen]       = useState(false);
+  const [sendet, setSendet]     = useState(false);
+  const [fehler, setFehler]     = useState("");
+
+  async function oeffnen() {
+    setFehler("");
+    try {
+      setEntwurf(await api.dokumente.empfangsbestaetigung(dok.id));
+      setOffen(true);
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Entwurf konnte nicht geladen werden");
+    }
+  }
+
+  async function senden() {
+    if (!entwurf) return;
+    setSendet(true);
+    setFehler("");
+    try {
+      await api.dokumente.empfangsbestaetigungSenden(dok.id, { an: entwurf.an, betreff: entwurf.betreff, text: entwurf.text });
+      setOffen(false);
+      onGesendet();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Senden fehlgeschlagen");
+    } finally {
+      setSendet(false);
+    }
+  }
+
+  return (
+    <div className="pt-3 border-t border-gray-100 space-y-2">
+      {!offen && (
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={oeffnen}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700"
+          >
+            <Send size={14} /> {dok.empfangsbestaetigungAm ? "Empfangsbestätigung erneut senden" : "Empfangsbestätigung an HR"}
+          </button>
+          {dok.empfangsbestaetigungAm && (
+            <span className="text-xs text-gray-600">
+              Gesendet an {dok.empfangsbestaetigungAn} am {datumZeit(dok.empfangsbestaetigungAm)} Uhr
+            </span>
+          )}
+        </div>
+      )}
+
+      {offen && entwurf && (
+        <div className="space-y-2">
+          {!entwurf.smtpAktiv && (
+            <p className="flex items-start gap-1.5 text-xs text-amber-800">
+              <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+              Es ist kein Mailserver eingerichtet – Senden ist nicht möglich.
+            </p>
+          )}
+          <label className="block">
+            <span className="text-xs font-medium text-gray-700">An</span>
+            <input
+              type="email"
+              value={entwurf.an}
+              placeholder="personal@firma.de (Voreinstellung unter Einstellungen → Löschfristen)"
+              onChange={e => setEntwurf({ ...entwurf, an: e.target.value })}
+              className="mt-1 block w-full max-w-md border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs font-medium text-gray-700">Betreff</span>
+            <input
+              value={entwurf.betreff}
+              onChange={e => setEntwurf({ ...entwurf, betreff: e.target.value })}
+              className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs font-medium text-gray-700">Text</span>
+            <textarea
+              value={entwurf.text}
+              rows={Math.min(18, entwurf.text.split("\n").length + 1)}
+              onChange={e => setEntwurf({ ...entwurf, text: e.target.value })}
+              className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono"
+            />
+          </label>
+          <p className="text-xs text-gray-500">Du bekommst eine Kopie. Der Versand wird im Audit-Log festgehalten.</p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={senden}
+              disabled={sendet || !entwurf.smtpAktiv || !entwurf.an.trim()}
+              className="flex items-center gap-1.5 px-3 py-2 text-white text-sm rounded-lg hover:brightness-90 disabled:opacity-50"
+              style={{ backgroundColor: "rgb(var(--accent))" }}
+            >
+              {sendet ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+              Senden
+            </button>
+            <button onClick={() => setOffen(false)} className="px-3 py-2 text-sm text-gray-600 hover:underline">Abbrechen</button>
+          </div>
+        </div>
+      )}
+
+      {fehler && <p className="text-sm text-red-700">{fehler}</p>}
     </div>
   );
 }
