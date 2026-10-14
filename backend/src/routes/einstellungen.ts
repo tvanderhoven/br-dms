@@ -10,6 +10,8 @@
  * GET  /api/einstellungen/update        – Hinweis auf ein neues Major/Minor-Release (VORSITZ, STELLVERTRETER, ADMIN)
  * GET  /api/einstellungen/feiertage     – Bundesland + Zusatzfeiertage für die Fristberechnung
  * PUT  /api/einstellungen/feiertage     – festlegen (VORSITZ)
+ * GET  /api/einstellungen/eingang-sofortmail – Sofortmail bei Fristsachen an/aus
+ * PUT  /api/einstellungen/eingang-sofortmail – umschalten (VORSITZ)
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
@@ -29,6 +31,7 @@ import { BackupWorker } from "../workers/backup.worker.js";
 import { updateHinweis, installierteVersion } from "../lib/updateCheck.js";
 import { BUNDESLAENDER, ZUSATZ_FEIERTAGE, feiertage, istBundesland, istZusatzFeiertag } from "../lib/feiertage.js";
 import { FRISTEN_BUNDESLAND, FRISTEN_ZUSATZ_FEIERTAGE, ladeFeiertagsKalender } from "../lib/fristKalender.js";
+import { EINGANG_SOFORTMAIL_AKTIV, sofortmailAktiv } from "../lib/eingangMeldung.js";
 
 const STORAGE = process.env.STORAGE_PATH ?? "/data/storage";
 const LOGO_VERZ = path.join(STORAGE, "logo");
@@ -562,6 +565,29 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
         create: { schluessel: "fristen.erinnerungsmail_aktiv", wert: aktiv ? "true" : "false" },
       });
       return reply.send({ ok: true, aktiv });
+    }
+  );
+
+  // ── Sofortmail bei eingehender Fristsache (lib/eingangMeldung.ts) ──
+  app.get(
+    "/eingang-sofortmail",
+    { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      return reply.send({ aktiv: await sofortmailAktiv(), smtpAktiv: !!process.env.SMTP_HOST });
+    }
+  );
+
+  app.put<{ Body: { aktiv: boolean } }>(
+    "/eingang-sofortmail",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (request, reply) => {
+      const wert = request.body?.aktiv === false ? "false" : "true";
+      await prisma.systemEinstellung.upsert({
+        where:  { schluessel: EINGANG_SOFORTMAIL_AKTIV },
+        update: { wert },
+        create: { schluessel: EINGANG_SOFORTMAIL_AKTIV, wert },
+      });
+      return reply.send({ ok: true, aktiv: wert === "true" });
     }
   );
 

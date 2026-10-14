@@ -1,6 +1,7 @@
 /**
  * Zugang bestätigen (lib/zugang.ts): vorläufige Fristen beim Import, Vorschau,
  * Neuberechnung ab bestätigtem Zugang, unpassende § 102-Frist fällt weg.
+ * Sofortmail an Vorsitz/Stellvertretung (lib/eingangMeldung.ts).
  */
 
 import { after, before, describe, test } from "node:test";
@@ -9,6 +10,8 @@ import { Readable } from "node:stream";
 import { AuditAktion, FristStatus, Kategorie } from "@prisma/client";
 import { verarbeiteDokument } from "../src/services/dokument-pipeline.service.js";
 import { zugangVorschlag } from "../src/lib/zugang.js";
+import { fristsacheEmpfaenger, sofortmailAktiv } from "../src/lib/eingangMeldung.js";
+import { fristsacheMailInhalt } from "../src/lib/mailer.js";
 import { anfrage, prisma, starteTestumgebung, type TestUmgebung } from "./hilfe.js";
 
 let env: TestUmgebung;
@@ -153,5 +156,38 @@ describe("Zugang bestätigen (§ 102 ohne Kündigungsart)", () => {
     assert.equal(res.statusCode, 200, res.body);
     const [frist] = await offeneFristen(id);
     assert.equal(frist?.faelligAm.toISOString(), "2026-10-15T21:59:59.999Z");
+  });
+});
+
+describe("Sofortmail bei Fristsachen", () => {
+  test("Watchfolder: Vorsitz und Stellvertretung; eigener Upload: nur die andere Person", async () => {
+    const namen = async (d: { hochgeladenVonId: string; inboxQuelle: string | null }) =>
+      (await fristsacheEmpfaenger(d)).map(e => e.id).sort();
+    const beide = [env.ids.VORSITZ, env.ids.STELLVERTRETER].sort();
+    assert.deepEqual(await namen({ hochgeladenVonId: env.ids.VORSITZ, inboxQuelle: "WATCHFOLDER" }), beide);
+    assert.deepEqual(await namen({ hochgeladenVonId: env.ids.VORSITZ, inboxQuelle: "UPLOAD" }), [env.ids.STELLVERTRETER]);
+    assert.deepEqual(await namen({ hochgeladenVonId: env.ids.MITGLIED, inboxQuelle: "UPLOAD" }), beide);
+  });
+
+  test("Inhalt: deutsche Zeit, Frist, Link; Titel wird im HTML maskiert", () => {
+    const m = fristsacheMailInhalt("Sabine", {
+      titel: "Kündigung <Mustermann>", kategorie: "§ 102 BetrVG – Kündigung", quelle: "Watch-Folder",
+      zugangVorschlag: new Date("2026-10-14T13:05:00Z"),
+      fristen: [{ typ: "ANHOERUNG_102_ORDENTLICH", faelligAm: new Date("2026-10-21T21:59:59.999Z") }],
+      url: "http://br-dms.lokal/eingang",
+    });
+    assert.match(m.text, /endet Mi\., 21\.10\.2026, 24:00 Uhr/);
+    assert.match(m.text, /ab Mi\., 14\.10\.2026, 15:05 Uhr/);
+    assert.match(m.html, /Kündigung &lt;Mustermann&gt;/);
+    assert.doesNotMatch(m.html, /<Mustermann>/);
+  });
+
+  test("Schalter: nur Vorsitz/Stellvertretung dürfen umschalten", async () => {
+    assert.equal((await anfrage(env, "MITGLIED", "PUT", "/api/einstellungen/eingang-sofortmail", { aktiv: false })).statusCode, 403);
+    const aus = await anfrage(env, "STELLVERTRETER", "PUT", "/api/einstellungen/eingang-sofortmail", { aktiv: false });
+    assert.equal(aus.statusCode, 200, aus.body);
+    assert.equal(await sofortmailAktiv(), false);
+    await anfrage(env, "VORSITZ", "PUT", "/api/einstellungen/eingang-sofortmail", { aktiv: true });
+    assert.equal(await sofortmailAktiv(), true);
   });
 });
