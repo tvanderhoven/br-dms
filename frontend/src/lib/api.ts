@@ -525,6 +525,9 @@ export const api = {
     fristenErinnerung: () => request<{ aktiv: boolean }>("/api/einstellungen/fristen-erinnerung"),
     fristenErinnerungSpeichern: (aktiv: boolean) =>
       request<{ ok: boolean }>("/api/einstellungen/fristen-erinnerung", { method: "PUT", body: JSON.stringify({ aktiv }) }),
+    eingangSofortmail: () => request<{ aktiv: boolean; smtpAktiv: boolean }>("/api/einstellungen/eingang-sofortmail"),
+    eingangSofortmailSpeichern: (aktiv: boolean) =>
+      request<{ ok: boolean; aktiv: boolean }>("/api/einstellungen/eingang-sofortmail", { method: "PUT", body: JSON.stringify({ aktiv }) }),
     feiertage: () => request<FeiertagsEinstellung>("/api/einstellungen/feiertage"),
     feiertageSpeichern: (bundesland: string | null, zusatz: string[]) =>
       request<{ bundesland: string | null; zusatz: string[] }>("/api/einstellungen/feiertage", { method: "PUT", body: JSON.stringify({ bundesland, zusatz }) }),

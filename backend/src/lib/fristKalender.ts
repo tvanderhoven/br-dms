@@ -1,5 +1,5 @@
 /**
- * Feiertagskalender der Installation (Einstellungen → Fristen): Bundesland und
+ * Feiertagskalender der Installation (Einstellungen → Löschfristen): Bundesland und
  * regionale Zusatzfeiertage, aus denen der Fristenrechner das Fristende nach
  * § 193 BGB bestimmt. Getrennt von fristRechner.ts, damit der Rechner ohne
  * Datenbank testbar bleibt.

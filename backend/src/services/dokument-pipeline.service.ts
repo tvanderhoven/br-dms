@@ -14,6 +14,7 @@ import { berechneFristende } from "../lib/fristRechner.js";
 import { ladeFeiertagsKalender } from "../lib/fristKalender.js";
 import { FRIST_DAUER_AB_ZUGANG } from "../lib/fristen.js";
 import { zugangVorschlag } from "../lib/zugang.js";
+import { meldeFristsache } from "../lib/eingangMeldung.js";
 import { Readable as ReadableStrom } from "node:stream";
 import { EMAIL_MIME, EmailInhalt, emailFormat, emailKopf, emailLesen, emailVolltext } from "../lib/email.js";
 
@@ -161,7 +162,11 @@ export async function verarbeiteDokument(opts: PipelineOptionen) {
   });
 
   const istAnhang = !!metadata.quelleDokumentId;
-  if (!istAnhang) await fristenAnlegen(docId, kategorie, metadata.kuendigungsArt, zugangVorschlag(new Date(), email?.datum));
+  if (!istAnhang && await fristenAnlegen(docId, kategorie, metadata.kuendigungsArt, zugangVorschlag(new Date(), email?.datum))) {
+    // Fristsache: Vorsitz/Stellvertretung sofort informieren – im Hintergrund,
+    // damit ein langsamer Mailserver den Import nicht aufhält
+    void meldeFristsache(docId).catch(err => console.error("[Eingang] Sofortmail:", err));
+  }
 
   if (!istAnhang && (kategorie === Kategorie.ANHOERUNG_99 || kategorie === Kategorie.ANHOERUNG_102)) {
     await prisma.anhoerungsVorgang.create({
@@ -243,7 +248,7 @@ async function fristenAnlegen(
   kategorie: Kategorie,
   kuendigungsArt: "ORDENTLICH" | "AUSSERORDENTLICH" | undefined,
   zugang: Date,
-): Promise<void> {
+): Promise<boolean> {
   const typen: string[] = [];
 
   if (kategorie === Kategorie.ANHOERUNG_99) {
@@ -265,7 +270,7 @@ async function fristenAnlegen(
     typen.push("ZEITMODELL_87_WOCHE");
   }
 
-  if (typen.length === 0) return;
+  if (typen.length === 0) return false;
 
   // Ende nach §§ 187, 188, 193 BGB (Wochenende/Feiertag → nächster Werktag).
   // Vorläufig ab dem vorgeschlagenen Zugang, bis Vorsitz/Stellvertretung ihn bestätigen.
@@ -275,4 +280,5 @@ async function fristenAnlegen(
     const { ende } = berechneFristende(zugang, FRIST_DAUER_AB_ZUGANG[typ]!, kalender);
     await prisma.frist.create({ data: { dokumentId, typ: typ as any, faelligAm: ende } });
   }
+  return true;
 }

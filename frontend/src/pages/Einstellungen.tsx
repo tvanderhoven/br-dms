@@ -1697,6 +1697,11 @@ export default function Einstellungen() {
         <FeiertageBox />
       )}
 
+      {/* Sofortmail, wenn eine Fristsache eingeht (Issue #25/#26) */}
+      {tab === "fristen" && meineRolle && ["ADMIN", "VORSITZ", "STELLVERTRETER"].includes(meineRolle) && (
+        <EingangSofortmailBox />
+      )}
+
       {/* Fristen-Erinnerungsmail testen (nur VORSITZ/STELLVERTRETER/ADMIN) */}
       {tab === "fristen" && !ohneInhalt && meineRolle && ["ADMIN", "VORSITZ", "STELLVERTRETER"].includes(meineRolle) && (
         <FristenErinnerungTestBox />
@@ -1898,6 +1903,70 @@ function ModuleTab() {
         </div>
       )}
 
+      {fehler && (
+        <div className="px-6 py-3 bg-red-50 border-t border-red-100 text-red-700 text-sm">{fehler}</div>
+      )}
+    </div>
+  );
+}
+
+// ── Sofortmail bei eingehender Fristsache ─────────────────────────────
+// Geht beim Import einer Anhörung (§ 99/§ 102) oder § 87-Sache sofort an
+// Vorsitz/Stellvertretung – nicht erst mit der Fristen-Erinnerung um 07:00 Uhr.
+function EingangSofortmailBox() {
+  const [stand, setStand]           = useState<{ aktiv: boolean; smtpAktiv: boolean } | null>(null);
+  const [umschaltet, setUmschaltet] = useState(false);
+  const [fehler, setFehler]         = useState("");
+
+  useEffect(() => {
+    api.einstellungen.eingangSofortmail().then(setStand)
+      .catch(err => setFehler(err instanceof Error ? err.message : "Einstellung konnte nicht geladen werden"));
+  }, []);
+
+  async function umschalten() {
+    if (!stand) return;
+    setUmschaltet(true);
+    setFehler("");
+    try {
+      const r = await api.einstellungen.eingangSofortmailSpeichern(!stand.aktiv);
+      setStand({ ...stand, aktiv: r.aktiv });
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler beim Umschalten");
+    } finally {
+      setUmschaltet(false);
+    }
+  }
+
+  return (
+    <div className="mt-6 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="px-6 py-4 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="font-semibold text-gray-800">Sofortmail bei Fristsachen</h2>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Geht eine Anhörung (§ 99, § 102) oder eine § 87-Sache ein, bekommen Vorsitz und Stellvertretung sofort eine Mail
+            mit der vorläufigen Frist und der Bitte, den Zugang im Eingang zu bestätigen. Wer das Dokument selbst hochgeladen hat, bekommt keine.
+          </p>
+          {stand && !stand.smtpAktiv && (
+            <p className="flex items-start gap-1.5 text-xs text-amber-700 mt-2">
+              <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+              Kein Mailserver eingerichtet (SMTP_HOST in der .env) – es werden keine Mails verschickt.
+            </p>
+          )}
+        </div>
+        <button
+          onClick={umschalten}
+          disabled={!stand || umschaltet}
+          role="switch"
+          aria-checked={stand?.aktiv ?? false}
+          aria-label="Sofortmail bei Fristsachen"
+          title={stand?.aktiv ? "Aktiv – klicken zum Abschalten" : "Aus – klicken zum Aktivieren"}
+          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-60 ${
+            stand?.aktiv ? "bg-[rgb(var(--accent))]" : "bg-gray-300"
+          }`}
+        >
+          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${stand?.aktiv ? "translate-x-6" : "translate-x-1"}`} />
+        </button>
+      </div>
       {fehler && (
         <div className="px-6 py-3 bg-red-50 border-t border-red-100 text-red-700 text-sm">{fehler}</div>
       )}

@@ -260,6 +260,64 @@ export async function sendeFristenZusammenfassung(
   });
 }
 
+// ── Fristsache eingegangen (lib/eingangMeldung.ts) ───────────────────
+
+export interface FristsacheMail {
+  titel:           string;
+  kategorie:       string;
+  quelle:          string;     // "Watch-Folder", "Hochgeladen von …"
+  zugangVorschlag: Date;
+  fristen:         { typ: string; faelligAm: Date }[];
+  url:             string;
+}
+
+const berlin = (d: Date, mitZeit = false) => d.toLocaleString("de-DE", {
+  timeZone: "Europe/Berlin", weekday: "short", day: "2-digit", month: "2-digit", year: "numeric",
+  ...(mitZeit ? { hour: "2-digit", minute: "2-digit" } : {}),
+});
+
+/** Betreff, Text und HTML der Meldung – ohne Versand, damit testbar */
+export function fristsacheMailInhalt(name: string, m: FristsacheMail): { subject: string; text: string; html: string } {
+  const h = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const fristText = m.fristen.map(f => `${FRIST_TYP_LABEL[f.typ] ?? f.typ}: endet ${berlin(f.faelligAm)}, 24:00 Uhr (vorläufig)`);
+
+  return {
+    subject: `BR-DMS – Fristsache eingegangen: ${m.titel}`,
+    text: [
+      `Hallo ${name},`,
+      "",
+      `im Eingang liegt eine neue Fristsache: ${m.titel} (${m.kategorie}, ${m.quelle}).`,
+      "",
+      ...fristText,
+      "",
+      `Die Frist ist vorläufig ab ${berlin(m.zugangVorschlag, true)} Uhr berechnet. Bitte den Zugang beim Betriebsrat im Eingang bestätigen oder korrigieren:`,
+      m.url,
+    ].join("\n"),
+    html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+      <div style="background:#b45309;color:white;padding:16px 20px;border-radius:8px 8px 0 0">
+        <h2 style="margin:0;font-size:18px">BR-DMS – Fristsache eingegangen</h2>
+      </div>
+      <div style="padding:20px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
+        <p>Hallo <strong>${h(name)}</strong>,</p>
+        <p>im Eingang liegt eine neue Fristsache:</p>
+        <p style="font-size:16px;margin:12px 0"><strong>${h(m.titel)}</strong><br>
+          <span style="color:#6b7280;font-size:13px">${h(m.kategorie)} · ${h(m.quelle)}</span></p>
+        <ul style="padding-left:20px">${fristText.map(t => `<li>${h(t)}</li>`).join("")}</ul>
+        <p>Die Frist ist <strong>vorläufig</strong> ab ${h(berlin(m.zugangVorschlag, true))} Uhr berechnet.
+          Maßgeblich ist der Zugang beim Betriebsrat – bitte im Eingang bestätigen oder korrigieren.</p>
+        <p style="margin-top:20px">
+          <a href="${h(m.url)}" style="background:#b45309;color:white;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block">→ Zum Eingang</a>
+        </p>
+        <p style="color:#9ca3af;font-size:11px;margin-top:20px">Automatische Nachricht von BR-DMS an Vorsitz und Stellvertretung · abschaltbar unter Einstellungen → Löschfristen</p>
+      </div>
+    </div>`,
+  };
+}
+
+export async function sendeFristsacheEingang(email: string, name: string, m: FristsacheMail): Promise<void> {
+  await transporter.sendMail({ from: await absender(), to: email, ...fristsacheMailInhalt(name, m) });
+}
+
 // ── Einladung zur Sitzung (Paket 4) ──────────────────────────────────
 
 const html = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
