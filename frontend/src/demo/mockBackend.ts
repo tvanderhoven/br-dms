@@ -42,6 +42,7 @@ const db: Record<string, Eintrag[]> = {
   mitarbeiter: klon(P.DEMO_MITARBEITER),
   abteilungen: klon(P.DEMO_ABTEILUNGEN),
   gehaltstabelle: klon(P.DEMO_GEHALT),
+  zeitmodelle: klon(P.DEMO_ZEITMODELLE),
   zeitmodell: klon(P.DEMO_ZEITMODELL),
   ueberstunden: klon(P.DEMO_UEBERSTUNDEN),
   wahlen: [],

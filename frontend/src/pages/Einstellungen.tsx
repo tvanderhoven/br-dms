@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { Settings, Save, Loader2, RotateCcw, Users, Clock, FileText, Upload, Trash2, Palette, Download, FolderOpen, CheckCircle2, XCircle, Puzzle, Scale, RefreshCw, AlertTriangle } from "lucide-react";
-import { api, ROLLE_LABEL, ZweiFaktorRichtlinie, WatchfolderLogEintrag, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen, Rolle, ModuleKey, MODULE_KEYS, MODULE_LABEL, GesetzStatus, Geschlecht } from "../lib/api";
+import { useEffect, useRef, useState, FormEvent } from "react";
+import { Settings, Save, Loader2, RotateCcw, Users, Clock, FileText, Upload, Trash2, Palette, Download, FolderOpen, CheckCircle2, XCircle, Puzzle, Scale, RefreshCw, AlertTriangle, Edit3, Plus } from "lucide-react";
+import { api, ROLLE_LABEL, ZweiFaktorRichtlinie, WatchfolderLogEintrag, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen, Rolle, ModuleKey, MODULE_KEYS, MODULE_LABEL, GesetzStatus, Geschlecht, Zeitmodell } from "../lib/api";
 import BenutzerVerwaltung from "./Benutzer";
 
 type Tab = "fristen" | "benutzer" | "protokoll" | "design" | "system" | "module" | "gesetze" | "amtsuebergabe";
@@ -1120,6 +1120,205 @@ function MailAbsenderEinstellung() {
   );
 }
 
+// ── Zeitmodelle: je Installation frei konfigurierbare Bezeichnungen (z.B.
+// eigene Kürzel oder reale Stundenmodelle wie "38h") statt eines festen
+// Satzes von Buchstaben – werden in der Gehaltstabelle zur Auswahl angeboten.
+function ZeitmodelleVerwaltung() {
+  const [zeitmodelle, setZeitmodelle] = useState<Zeitmodell[]>([]);
+  const [laden, setLaden]             = useState(true);
+  const [neuBezeichnung, setNeuBezeichnung]     = useState("");
+  const [neuWochenstunden, setNeuWochenstunden] = useState("");
+  const [anlegenLaden, setAnlegenLaden] = useState(false);
+  const [fehler, setFehler]             = useState("");
+
+  const [bearbeitetId, setBearbeitetId]                     = useState<string | null>(null);
+  const [bearbeitetBezeichnung, setBearbeitetBezeichnung]   = useState("");
+  const [bearbeitetWochenstunden, setBearbeitetWochenstunden] = useState("");
+
+  async function laden_() {
+    setLaden(true);
+    try {
+      setZeitmodelle(await api.zeitmodelle.liste());
+    } finally {
+      setLaden(false);
+    }
+  }
+  useEffect(() => { laden_(); }, []);
+
+  function parseWochenstunden(wert: string): number | undefined {
+    if (!wert.trim()) return undefined;
+    const zahl = Number(wert.replace(",", "."));
+    return Number.isFinite(zahl) ? zahl : undefined;
+  }
+
+  async function neuAnlegen(e: FormEvent) {
+    e.preventDefault();
+    setFehler("");
+    if (!neuBezeichnung.trim()) { setFehler("Bitte eine Bezeichnung angeben"); return; }
+    setAnlegenLaden(true);
+    try {
+      await api.zeitmodelle.erstellen({
+        bezeichnung:   neuBezeichnung.trim(),
+        wochenstunden: parseWochenstunden(neuWochenstunden),
+        sortierung:    zeitmodelle.length,
+      });
+      setNeuBezeichnung(""); setNeuWochenstunden("");
+      await laden_();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler beim Anlegen");
+    } finally {
+      setAnlegenLaden(false);
+    }
+  }
+
+  function bearbeitungStarten(z: Zeitmodell) {
+    setFehler("");
+    setBearbeitetId(z.id);
+    setBearbeitetBezeichnung(z.bezeichnung);
+    setBearbeitetWochenstunden(z.wochenstunden != null ? String(z.wochenstunden) : "");
+  }
+
+  async function bearbeitungSpeichern() {
+    if (!bearbeitetId) return;
+    setFehler("");
+    if (!bearbeitetBezeichnung.trim()) { setFehler("Bitte eine Bezeichnung angeben"); return; }
+    try {
+      await api.zeitmodelle.aktualisieren(bearbeitetId, {
+        bezeichnung:   bearbeitetBezeichnung.trim(),
+        wochenstunden: parseWochenstunden(bearbeitetWochenstunden) ?? null,
+      });
+      setBearbeitetId(null);
+      await laden_();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler beim Speichern");
+    }
+  }
+
+  async function aktivUmschalten(z: Zeitmodell) {
+    try {
+      await api.zeitmodelle.aktualisieren(z.id, { aktiv: !z.aktiv });
+      await laden_();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Fehler beim Ändern");
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-100">
+        <h2 className="font-semibold text-gray-800">Zeitmodelle</h2>
+        <p className="text-sm text-gray-500 mt-0.5">
+          Bezeichnungen für Arbeitszeitmodelle (z.B. eigene Kürzel oder reale Stundenmodelle wie „38h") – werden in
+          der Gehaltstabelle (Tab „Zeitmodell") zur Auswahl angeboten. Inaktive Zeitmodelle bleiben in bestehender
+          Historie sichtbar, stehen aber bei neuen Einträgen nicht mehr zur Wahl.
+        </p>
+      </div>
+      {laden ? (
+        <div className="flex items-center justify-center h-20 text-gray-400">
+          <Loader2 className="animate-spin mr-2" size={16} /> Laden…
+        </div>
+      ) : (
+        <div className="px-6 py-4">
+          <table className="w-full text-sm mb-3">
+            <thead>
+              <tr className="text-left text-xs text-gray-500 uppercase">
+                <th className="py-1.5 pr-3">Bezeichnung</th>
+                <th className="py-1.5 pr-3">Wochenstunden</th>
+                <th className="py-1.5 pr-3">Status</th>
+                <th className="py-1.5" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {zeitmodelle.map(z => (
+                <tr key={z.id}>
+                  {bearbeitetId === z.id ? (
+                    <>
+                      <td className="py-1.5 pr-3">
+                        <input
+                          value={bearbeitetBezeichnung}
+                          onChange={e => setBearbeitetBezeichnung(e.target.value)}
+                          className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                        />
+                      </td>
+                      <td className="py-1.5 pr-3">
+                        <input
+                          value={bearbeitetWochenstunden}
+                          onChange={e => setBearbeitetWochenstunden(e.target.value)}
+                          placeholder="optional"
+                          className="w-24 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                        />
+                      </td>
+                      <td className="py-1.5 pr-3 text-gray-400">{z.aktiv ? "Aktiv" : "Inaktiv"}</td>
+                      <td className="py-1.5 text-right whitespace-nowrap">
+                        <button onClick={bearbeitungSpeichern} className="text-xs text-[rgb(var(--accent))] font-medium mr-3">Speichern</button>
+                        <button onClick={() => setBearbeitetId(null)} className="text-xs text-gray-400">Abbrechen</button>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="py-1.5 pr-3 font-medium text-gray-800">{z.bezeichnung}</td>
+                      <td className="py-1.5 pr-3 text-gray-600">{z.wochenstunden != null ? `${z.wochenstunden} h` : "–"}</td>
+                      <td className="py-1.5 pr-3">
+                        <button
+                          onClick={() => aktivUmschalten(z)}
+                          className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                            z.aktiv ? "text-emerald-700 border-emerald-200 bg-emerald-50 hover:bg-emerald-100" : "text-gray-400 border-gray-200 bg-gray-50 hover:bg-gray-100"
+                          }`}
+                        >
+                          {z.aktiv ? "Aktiv" : "Inaktiv"}
+                        </button>
+                      </td>
+                      <td className="py-1.5 text-right">
+                        <button onClick={() => bearbeitungStarten(z)} className="p-1 text-gray-400 hover:text-[rgb(var(--accent))]" title="Bearbeiten">
+                          <Edit3 size={14} />
+                        </button>
+                      </td>
+                    </>
+                  )}
+                </tr>
+              ))}
+              {zeitmodelle.length === 0 && (
+                <tr><td colSpan={4} className="py-3 text-gray-400 text-center">Noch keine Zeitmodelle angelegt</td></tr>
+              )}
+            </tbody>
+          </table>
+
+          <form onSubmit={neuAnlegen} className="flex items-end gap-2 flex-wrap">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Neue Bezeichnung</label>
+              <input
+                value={neuBezeichnung}
+                onChange={e => setNeuBezeichnung(e.target.value)}
+                placeholder="z.B. 38h oder A"
+                className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Wochenstunden</label>
+              <input
+                value={neuWochenstunden}
+                onChange={e => setNeuWochenstunden(e.target.value)}
+                placeholder="optional"
+                className="w-28 border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={anlegenLaden}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-white hover:brightness-90 disabled:opacity-60 transition-colors"
+              style={{ backgroundColor: "rgb(var(--accent))" }}
+            >
+              {anlegenLaden ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+              Anlegen
+            </button>
+          </form>
+          {fehler && <p className="text-sm text-red-600 mt-2">{fehler}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SystemTab() {
   const [info, setInfo]         = useState<{ watchFolderPfad: string; watchFolderAktiv: boolean } | null>(null);
   const [laden, setLaden]       = useState(true);
@@ -1147,6 +1346,7 @@ function SystemTab() {
   return (
     <div className="space-y-4">
       {meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && <MailAbsenderEinstellung />}
+      {meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && <ZeitmodelleVerwaltung />}
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100">

@@ -1305,11 +1305,23 @@ model GehaltsstufenEintrag {
   @@map("gehaltsstufen_eintraege")
 }
 
-enum Zeitmodell {
-  A
-  B
-  C
-  D
+// Zeitmodell-Stammdaten – je Installation frei konfigurierbar (z.B. eigene
+// Buchstaben-Codes oder reale Stundenmodelle wie "38h"), statt wie früher ein
+// festes 4-Werte-Enum (A/B/C/D). wochenstunden ist optional, weil nicht jede
+// Installation damit rechnen will/kann (siehe 2026-10-14_zeitmodell_stammdaten.sql).
+model Zeitmodell {
+  id             String   @id @default(uuid())
+  bezeichnung    String   @unique
+  wochenstunden  Decimal? @db.Decimal(4, 1)
+  sortierung     Int      @default(0)
+  aktiv          Boolean  @default(true)
+
+  eintraege      ZeitmodellEintrag[]
+
+  erstelltAm     DateTime @default(now()) @map("erstellt_am")
+  aktualisiertAm DateTime @updatedAt @map("aktualisiert_am")
+
+  @@map("zeitmodelle")
 }
 
 // Zeitmodell-Historie mit echtem Gültigkeitszeitraum (gueltigBis = null heißt
@@ -1321,7 +1333,8 @@ model ZeitmodellEintrag {
   mitarbeiterId  String      @map("mitarbeiter_id")
   mitarbeiter    Mitarbeiter @relation(fields: [mitarbeiterId], references: [id], onDelete: Cascade)
 
-  zeitmodell     Zeitmodell
+  zeitmodellId   String      @map("zeitmodell_id")
+  zeitmodell     Zeitmodell  @relation(fields: [zeitmodellId], references: [id], onDelete: Restrict)
   gueltigVon     DateTime    @map("gueltig_von")
   gueltigBis     DateTime?   @map("gueltig_bis")
   bemerkung      String?
@@ -1336,6 +1349,7 @@ model ZeitmodellEintrag {
   aktualisiertAm DateTime    @updatedAt @map("aktualisiert_am")
 
   @@index([mitarbeiterId, gueltigVon])
+  @@index([zeitmodellId])
   @@map("zeitmodell_eintraege")
 }
 

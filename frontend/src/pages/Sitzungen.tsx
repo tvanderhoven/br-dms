@@ -9,11 +9,12 @@ import {
   Users, Inbox, ListPlus,
 } from "lucide-react";
 import {
-  api, Sitzung, SitzungListItem, SitzungStatus, TOP, TopStatus, Dokument, Mitarbeiter, Abteilung, Zeitmodell, Rolle,
+  api, Sitzung, SitzungListItem, SitzungStatus, TOP, TopStatus, Dokument, Mitarbeiter, Abteilung, Rolle,
   TOP_STATUS_LABEL, KATEGORIE_LABEL, SITZUNGSTYP_LABEL, KummerkastenEintrag, SitzungScan, SitzungScanTyp,
   istBetriebsversammlung, sitzungStatusLabel, formatDatum,
   AnhoerungVorgangAntwort, AnhoerungArt, ANHOERUNG_ART_LABEL, gruendeFuerArt,
 } from "../lib/api";
+import { useZeitmodelle } from "../lib/useZeitmodelle";
 import SitzungsEditor from "../components/SitzungsEditor";
 import AnwesenheitsListe from "../components/AnwesenheitsListe";
 import EinladungKarte from "../components/EinladungKarte";
@@ -1562,8 +1563,6 @@ function TopZeile({
 }
 
 // ── Gehaltsstufe aus TOP in die Gehaltstabelle übertragen ─────────
-const ZEITMODELLE_TOP_MODAL: Zeitmodell[] = ["A", "B", "C", "D"];
-
 function TopGehaltModal({
   sitzungId, sitzungsdatum, onSchliessen,
 }: { sitzungId: string; sitzungsdatum: string; onSchliessen: () => void }) {
@@ -1588,7 +1587,8 @@ function TopGehaltModal({
   const [bemerkung, setBemerkung]   = useState("");
 
   // Zeitmodell
-  const [zmZeitmodell, setZmZeitmodell] = useState<Zeitmodell>("A");
+  const { aktive: aktiveZeitmodelle } = useZeitmodelle();
+  const [zmZeitmodellId, setZmZeitmodellId] = useState("");
   const [zmGueltigVon, setZmGueltigVon] = useState(sitzungsdatum?.slice(0, 10) ?? new Date().toISOString().slice(0, 10));
   const [zmUnbefristet, setZmUnbefristet] = useState(true);
   const [zmGueltigBis, setZmGueltigBis]   = useState("");
@@ -1614,6 +1614,11 @@ function TopGehaltModal({
     api.mitarbeiter.liste().then(setMitarbeiterListe).catch(() => {});
     api.abteilungen.liste().then(setAbteilungen).catch(() => {});
   }, []);
+
+  // Erstes aktives Zeitmodell vorauswählen, sobald die Liste geladen ist.
+  useEffect(() => {
+    if (!zmZeitmodellId && aktiveZeitmodelle.length > 0) setZmZeitmodellId(aktiveZeitmodelle[0].id);
+  }, [zmZeitmodellId, aktiveZeitmodelle]);
 
   async function speichern(e: FormEvent) {
     e.preventDefault();
@@ -1683,6 +1688,11 @@ function TopGehaltModal({
           sitzungId,
         });
       } else if (tab === "zeitmodell") {
+        if (!zmZeitmodellId) {
+          setFehler("Bitte ein Zeitmodell auswählen");
+          setLaden(false);
+          return;
+        }
         if (!zmUnbefristet && !zmGueltigBis) {
           setFehler('Bitte ein Enddatum angeben oder "unbefristet" wählen');
           setLaden(false);
@@ -1690,7 +1700,7 @@ function TopGehaltModal({
         }
         await api.zeitmodell.erstellen({
           mitarbeiterId: zielMitarbeiterId,
-          zeitmodell:    zmZeitmodell,
+          zeitmodellId:  zmZeitmodellId,
           gueltigVon:    zmGueltigVon,
           gueltigBis:    zmUnbefristet ? null : zmGueltigBis,
           bemerkung:     zmBemerkung || undefined,
@@ -1939,11 +1949,14 @@ function TopGehaltModal({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Zeitmodell *</label>
                   <select
-                    required value={zmZeitmodell}
-                    onChange={e => setZmZeitmodell(e.target.value as Zeitmodell)}
+                    required value={zmZeitmodellId}
+                    onChange={e => setZmZeitmodellId(e.target.value)}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
                   >
-                    {ZEITMODELLE_TOP_MODAL.map(z => <option key={z} value={z}>{z}</option>)}
+                    <option value="">– auswählen –</option>
+                    {aktiveZeitmodelle.map(z => (
+                      <option key={z.id} value={z.id}>{z.bezeichnung}{z.wochenstunden ? ` (${z.wochenstunden}h)` : ""}</option>
+                    ))}
                   </select>
                 </div>
 

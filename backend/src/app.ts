@@ -42,6 +42,7 @@ import { exportRouten } from "./routes/export.js";
 import { mitarbeiterRouten, abteilungenRouten } from "./routes/mitarbeiter.js";
 import { gehaltstabelleRouten } from "./routes/gehaltstabelle.js";
 import { zeitmodellRouten } from "./routes/zeitmodell.js";
+import { zeitmodelleStammdatenRouten } from "./routes/zeitmodelleStammdaten.js";
 import { ueberstundenRouten } from "./routes/ueberstunden.js";
 import { betriebsvereinbarungenRouten } from "./routes/betriebsvereinbarungen.js";
 import { qualifikationenRouten, schulungenRouten } from "./routes/schulungen.js";
@@ -144,6 +145,7 @@ export async function baueApp(optionen: AppOptionen = {}): Promise<FastifyInstan
   await app.register(abteilungenRouten,        { prefix: "/api/abteilungen" });
   await app.register(gehaltstabelleRouten,     { prefix: "/api/gehaltstabelle" });
   await app.register(zeitmodellRouten,         { prefix: "/api/zeitmodell" });
+  await app.register(zeitmodelleStammdatenRouten, { prefix: "/api/zeitmodelle" });
   await app.register(ueberstundenRouten,       { prefix: "/api/ueberstunden" });
   await app.register(betriebsvereinbarungenRouten, { prefix: "/api/betriebsvereinbarungen" });
   await app.register(qualifikationenRouten,    { prefix: "/api/qualifikationen" });
