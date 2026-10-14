@@ -285,7 +285,14 @@ class Manual(FPDF):
             self.h2(ueberschrift)
         self._tabelle_zeichnen(kopf, zeilen, breiten)
 
-    def _tabelle_zeichnen(self, kopf, zeilen, breiten):
+    def _tabelle_zeichnen(self, kopf, zeilen, breiten, kopf_pruefen=True):
+        # Kopf nie allein am Seitenende: passt er samt erster Zeile nicht mehr,
+        # beginnt die Tabelle gleich auf der nächsten Seite
+        if kopf_pruefen and zeilen:
+            with self.offset_rendering() as probe:
+                probe._tabelle_zeichnen(kopf, zeilen[:1], breiten, kopf_pruefen=False)
+            if probe.page_break_triggered:
+                self.add_page()
         self.set_font("S", "", 9)
         self.set_text_color(*C_INK)
         self.set_draw_color(*C_LINE)
@@ -595,6 +602,51 @@ def build():
     pdf.bild("eingang-aktionen", "Aufgeklappter Eintrag mit Aktionsleiste und Vorschau", hoehe_anteil=0.55)
     pdf.body("Der Eingang ist Vorsitz, Stellvertretung und Admin vorbehalten.")
 
+    pdf.h3("Fristsachen: Zugang bestätigen")
+    pdf.body(
+        "Bei Anhörungen (§ 99, § 102) und § 87-Sachen läuft die Frist ab dem Zugang beim Betriebsrat – nicht "
+        "ab dem Scan. BR-DMS schlägt deshalb beim Eingang einen Zugangszeitpunkt vor (bei E-Mails die "
+        "Sendezeit, sonst den Eingang im System) und berechnet die Frist zunächst vorläufig. Solange der "
+        "Zugang nicht bestätigt ist, steht am Eintrag „Frist vorläufig – Zugang bestätigen“. Klappt man ihn "
+        "auf, erscheinen über der Aktionsleiste bis zu drei Karten:"
+    )
+    pdf.schritt(1, "Zugang beim Betriebsrat",
+                "Zeitpunkt prüfen und bei Bedarf korrigieren, bei § 102 ordentliche oder außerordentliche Kündigung "
+                "wählen und angeben, ob die Unterlagen vollständig sind. Schon vor dem Bestätigen zeigt die Karte das "
+                "neue Fristende samt Grund einer Verschiebung, z. B. „endet Mo., 05.10.2026, 24:00 Uhr – verschoben "
+                "wegen Samstag (Tag der Deutschen Einheit), Sonntag“. „Zugang bestätigen“ rechnet die Fristen neu; "
+                "„Korrigieren“ ändert den Zugang später noch einmal. Jede Bestätigung steht im Audit-Log.")
+    pdf.schritt(2, "Empfangsbestätigung an HR",
+                "Nach dem Bestätigen schickt der Knopf eine Empfangsbestätigung mit dem Zugangszeitpunkt an die "
+                "Personalabteilung (Adresse unter Einstellungen → Löschfristen, Kapitel 9.5). Empfänger, Betreff und "
+                "Text sind vorbelegt und vor dem Senden änderbar; sind die Unterlagen als unvollständig markiert, "
+                "bittet der Text um Nachreichung. Die absendende Person bekommt eine Kopie, der Versand steht im "
+                "Audit-Log und am Dokument („Gesendet an … am …“).")
+    pdf.schritt(3, "Beratung im Betriebsrat",
+                "Zeigt die nächsten Sitzungen mit „vor Fristende“, „am letzten Tag der Frist“ oder „nach Fristende“. "
+                "„Als TOP aufnehmen“ legt den TOP mit vorgeschlagenem Titel an – das geht nur, solange die "
+                "Tagesordnung nicht fixiert ist. Gibt es vor Fristende keine solche Sitzung, erscheint rot: "
+                "Sondersitzung einberufen.")
+    pdf.hinweis(
+        "Maßgeblich ist, wann das Schreiben dem Betriebsrat zugegangen ist – in der Regel dem Vorsitz bzw. bei "
+        "Verhinderung der Stellvertretung (§ 26 Abs. 2 BetrVG). Liegt es außerhalb der Dienstzeit im Postfach, "
+        "etwa am Samstag oder abends, geht es in der Regel erst am nächsten Arbeitstag zu. Der Vorschlag des "
+        "Systems ersetzt diese Prüfung nicht. Bei unvollständiger Unterrichtung beginnt die Frist nach "
+        "überwiegender Ansicht erst mit den fehlenden Angaben – BR-DMS rechnet sicherheitshalber trotzdem ab "
+        "Zugang.",
+        "achtung", "Zugang prüfen")
+    pdf.body(
+        "Dieselben Karten stehen auch in der Vorschau des Dokuments im Dokumentenarchiv (Kapitel 3.2) – so "
+        "lässt sich der Zugang auch dann noch bestätigen oder korrigieren, wenn das Dokument den Eingang "
+        "schon verlassen hat."
+    )
+    pdf.h3("Mails über neue Eingänge")
+    pdf.bullets([
+        "Sofortmail – Geht eine Fristsache ein, bekommen Vorsitz und Stellvertretung sofort eine Mail mit der vorläufigen Frist und der Bitte, den Zugang zu bestätigen",
+        "Stündliche Sammelmail – Alle übrigen neuen, noch ungelesenen Dokumente gesammelt zur vollen Stunde, nur wenn etwas Neues da ist",
+        "Wer ein Dokument selbst hochgeladen hat, bekommt dazu keine Mail; beide Mails lassen sich abschalten (Kapitel 9.5)",
+    ])
+
     pdf.h2("3.2  Dokumentenarchiv")
     pdf.body(
         "Das Archiv enthält alle Dokumente. Über der Liste stehen die Kategorien mit der Zahl ihrer "
@@ -711,6 +763,19 @@ def build():
         "Fristenkalender zeigt alle Fristen in der Monatsansicht, farbig nach Dringlichkeit; "
         "vor Ablauf verschickt das System eine Erinnerung per E-Mail."
     )
+    pdf.h3("So rechnet BR-DMS")
+    pdf.bullets([
+        "Beginn – Der Tag des Zugangs zählt nicht mit (§ 187 Abs. 1 BGB); die Uhrzeit des Zugangs spielt keine Rolle",
+        "Ende – Mit Ablauf des letzten Tages, also 24:00 Uhr deutscher Zeit; eine Wochenfrist endet am gleichen Wochentag der Folgewoche (§ 188 BGB)",
+        "Wochenende und Feiertage – Fällt das Ende auf einen Samstag, Sonntag oder gesetzlichen Feiertag, endet die Frist am nächsten Werktag (§ 193 BGB). Welche Feiertage gelten, richtet sich nach dem Bundesland in den Einstellungen (Kapitel 9.5)",
+        "Vorläufig – Bis der Zugang beim Betriebsrat bestätigt ist (Kapitel 3.1), steht an der Frist „vorläufig – Zugang noch nicht bestätigt“",
+        "Verschoben – Wurde das Ende nach § 193 BGB verschoben, nennt der Kalender den Grund, z. B. „verschoben wegen Samstag, Sonntag“",
+    ])
+    pdf.body(
+        "Beispiel: Zugang am Donnerstag, außerordentliche Kündigung (3 Tage) – rechnerisch endet die Frist am "
+        "Sonntag, tatsächlich am Montag um 24:00 Uhr. Zugang am Freitag vor Ostern, ordentliche Kündigung "
+        "(1 Woche) – rechnerisch Karfreitag, wegen Karfreitag, Wochenende und Ostermontag tatsächlich Dienstag."
+    )
     pdf.bild("fristenkalender", "Fristenkalender in der Monatsansicht", hoehe_anteil=0.62)
     pdf.bullets([
         "Erledigen – Häkchen an der Frist (im Kalender oder auf dem Dashboard); Name und Datum werden festgehalten, der Pfeil öffnet sie wieder",
@@ -725,7 +790,7 @@ def build():
             ["Anhörung § 99 (Einstellung, Versetzung, Eingruppierung)", "1 Woche", "§ 99 Abs. 3 BetrVG"],
             ["Anhörung § 102, ordentliche Kündigung", "1 Woche", "§ 102 Abs. 2 BetrVG"],
             ["Anhörung § 102, außerordentliche Kündigung", "3 Tage", "§ 102 Abs. 2 BetrVG"],
-            ["Mitbestimmung § 87 (z. B. Mehrarbeit)", "1 Woche", "§ 87 BetrVG"],
+            ["Mitbestimmung § 87 (z. B. Mehrarbeit)", "1 Woche", "keine gesetzliche Frist – interne Bearbeitungsfrist"],
             ["Widerspruch", "1 Woche", "§ 99 / § 102 BetrVG"],
             ["Betriebsversammlung im Quartal", "bis Quartalsende", "§ 43 Abs. 1 BetrVG"],
             ["Individuelle Frist", "frei wählbar", "–"],
@@ -1340,10 +1405,14 @@ def build():
     pdf.body("Der typische Weg einer Anhörung nach § 99 durch das System:")
     pdf.schritt(1, "Dokument geht ein",
                 "Per Upload oder automatisch über den Watch-Folder. Das System liest den Text aus, "
-                "verschlüsselt die Datei, legt die Frist an und zeigt das Dokument im Eingang.")
-    pdf.schritt(2, "Sichten und zuordnen",
-                "Der Vorsitz prüft Kategorie und Frist, vergibt bei Bedarf ein Aktenzeichen und verknüpft "
-                "das Dokument mit einem TOP der nächsten Sitzung.")
+                "verschlüsselt die Datei, legt die Frist vorläufig an, zeigt das Dokument im Eingang und "
+                "schickt Vorsitz und Stellvertretung sofort eine Mail.")
+    pdf.schritt(2, "Zugang bestätigen und zuordnen",
+                "Der Vorsitz prüft den Zugangszeitpunkt und bestätigt ihn – erst dann ist die Frist "
+                "endgültig. Auf Wunsch geht eine Empfangsbestätigung an die Personalabteilung. Dann "
+                "Kategorie prüfen, bei Bedarf ein Aktenzeichen vergeben und das Dokument mit einem TOP "
+                "einer Sitzung vor Fristende verknüpfen – gibt es keine, eine Sondersitzung einberufen "
+                "(Kapitel 3.1).")
     pdf.schritt(3, "Vorbereiten",
                 "Ein Mitglied erhält die Aufgabe, eine Stellungnahme vorzubereiten. Unterlagen hängen am TOP.")
     pdf.schritt(4, "Einladen",
@@ -1509,6 +1578,29 @@ def build():
     pdf.body(
         "Die tägliche Fristen-Erinnerung lässt sich mit dem Schalter „Automatischer Versand“ pausieren, "
         "etwa während der Betriebsferien. „Jetzt testen“ funktioniert auch im pausierten Zustand."
+    )
+    pdf.h3("Feiertage für die Fristberechnung")
+    pdf.body(
+        "Fristen enden nicht an Samstagen, Sonntagen und gesetzlichen Feiertagen, sondern am nächsten "
+        "Werktag (§ 193 BGB, Kapitel 3.3). Dafür das Bundesland des Betriebssitzes wählen; regionale "
+        "Feiertage (Mariä Himmelfahrt in überwiegend katholischen Gemeinden Bayerns, Fronleichnam in "
+        "einzelnen Gemeinden Sachsens und Thüringens, Augsburger Friedensfest) zusätzlich ankreuzen, wenn sie "
+        "am Betriebssitz gelten. Darunter steht zur Kontrolle die Liste der Feiertage für dieses und das "
+        "nächste Jahr. Die Einstellung gilt für neu berechnete Fristen."
+    )
+    pdf.hinweis(
+        "Ohne Bundesland zählt BR-DMS nur die bundesweiten Feiertage. Eine Frist endet dann im Zweifel einen "
+        "Tag früher als nötig – nie später.",
+        "info", "Noch kein Bundesland gewählt")
+    pdf.h3("Mails über neue Eingänge")
+    pdf.bullets([
+        "Sofortmail bei Fristsachen – An Vorsitz und Stellvertretung, sobald eine Anhörung oder § 87-Sache eingeht",
+        "Stündliche Sammelmail – Alle übrigen neuen Eingänge zur vollen Stunde, nur wenn etwas Neues da ist; beim Wiedereinschalten kommen keine alten Eingänge nach",
+        "Empfangsbestätigung an – Adresse der Personalabteilung als Voreinstellung für die Empfangsbestätigung (Kapitel 3.1); im Dialog vor dem Senden änderbar",
+    ])
+    pdf.body(
+        "Ohne Mailserver (SMTP_HOST in der .env, Kapitel 12.5) weist der Kasten darauf hin; dann werden "
+        "keine Mails verschickt."
     )
 
     pdf.h2("9.6  Protokoll-Layout")
