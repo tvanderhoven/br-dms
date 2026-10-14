@@ -149,6 +149,14 @@ export const api = {
       request<{ id: string }>(`/api/dokumente/${id}/aktionen/aufgabe`, { method: "POST", body: JSON.stringify(data) }),
     aktionErledigt: (id: string) =>
       request<{ ok: boolean }>(`/api/dokumente/${id}/aktionen/erledigt`, { method: "POST", body: JSON.stringify({}) }),
+    zugang: (id: string, zugangAm?: string, kuendigungsArt?: KuendigungsArt | null) => {
+      const q = new URLSearchParams();
+      if (zugangAm) q.set("zugangAm", zugangAm);
+      if (kuendigungsArt) q.set("kuendigungsArt", kuendigungsArt);
+      return request<ZugangInfo>(`/api/dokumente/${id}/zugang${q.toString() ? `?${q}` : ""}`);
+    },
+    zugangBestaetigen: (id: string, data: { zugangAm: string; kuendigungsArt?: KuendigungsArt | null; unterlagenVollstaendig?: boolean | null }) =>
+      request<{ ok: boolean }>(`/api/dokumente/${id}/zugang`, { method: "POST", body: JSON.stringify(data) }),
 
     versionen: (id: string) => request<DokumentVersion[]>(`/api/dokumente/${id}/versionen`),
     versionHochladen: (id: string, formData: FormData) =>
@@ -759,6 +767,23 @@ export interface Frist {
   bezeichnung?: string | null; notiz?: string | null; erledigtAm?: string | null;
 }
 
+export type KuendigungsArt = "ORDENTLICH" | "AUSSERORDENTLICH";
+
+/** Zugang + Vorschau der Fristen (GET /api/dokumente/:id/zugang) */
+export interface ZugangInfo {
+  zugangAm:               string | null;
+  zugangBestaetigtAm:     string | null;
+  zugangBestaetigtVon:    string | null;
+  unterlagenVollstaendig: boolean | null;
+  kuendigungsArt:         KuendigungsArt | null;
+  fristen: {
+    id: string | null;                                 // null = wird neu angelegt
+    typ: string; bezeichnung: string;
+    faelligAm: string | null; neuFaelligAm: string | null;   // neuFaelligAm null = entfällt
+    verschoben: { tag: string; grund: string }[];
+  }[];
+}
+
 export interface Dokument {
   id: string; titel: string; alias?: string; tags: string[];
   kategorie: Kategorie; status: DokumentStatus;
@@ -773,6 +798,12 @@ export interface Dokument {
   textinhalt?: string | null;
   hochgeladenVon?: { name: string };
   fristen?: Frist[];
+  // Zugang beim BR (Fristbeginn) – gesetzt bei Dokumenten mit Frist; ohne
+  // zugangBestaetigtAm sind die Fristen vorläufig (Backend: lib/zugang.ts)
+  zugangAm?: string | null;
+  zugangBestaetigtAm?: string | null;
+  unterlagenVollstaendig?: boolean | null;
+  anhoerungsVorgang?: { kuendigungsArt: KuendigungsArt | null } | null;
   // In welchen Sitzungen/TOPs behandelt (nur in der Dokumentliste)
   topVerknuepfungen?: { top: { nummer: number; titel: string; sitzung: { id: string; titel: string; sitzungsdatum: string; gremium?: { id: string; name: string } | null } } }[];
 }
@@ -1415,7 +1446,7 @@ export type AuditAktion =
   | "DOKUMENT_AKTUALISIERT" | "DOKUMENT_GELOESCHT" | "DOKUMENT_METADATEN_GEAENDERT"
   | "DOKUMENT_TAG_GEAENDERT" | "DOKUMENT_ALIAS_GEAENDERT" | "DOKUMENT_TOP_GEAENDERT"
   | "DOKUMENT_AUFGABE_ERSTELLT" | "INBOX_DOKUMENT_GELESEN" | "WATCHFOLDER_DATEI_EMPFANGEN"
-  | "FRIST_ERSTELLT" | "FRIST_ERLEDIGT"
+  | "FRIST_ERSTELLT" | "FRIST_ERLEDIGT" | "ZUGANG_BESTAETIGT"
   | "BENUTZER_ERSTELLT" | "BENUTZER_DEAKTIVIERT" | "BENUTZER_GELOESCHT"
   | "SITZUNG_ERSTELLT" | "SITZUNG_AKTUALISIERT" | "SITZUNG_FIXIERT"
   | "SITZUNG_PROTOKOLL_GESTARTET" | "SITZUNG_FINALISIERT" | "SITZUNG_GELOESCHT"
@@ -1458,6 +1489,7 @@ export const AUDIT_AKTION_LABEL: Record<AuditAktion, string> = {
   DOKUMENT_TOP_GEAENDERT:      "TOP-Zuweisung geändert",
   DOKUMENT_AUFGABE_ERSTELLT:   "Aufgabe aus Dokument erstellt",
   INBOX_DOKUMENT_GELESEN:      "Eingang gelesen",
+  ZUGANG_BESTAETIGT:           "Zugang bestätigt",
   WATCHFOLDER_DATEI_EMPFANGEN: "WatchFolder – Datei importiert",
   FRIST_ERSTELLT:              "Frist erstellt",
   FRIST_ERLEDIGT:              "Frist erledigt",

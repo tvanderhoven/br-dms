@@ -64,9 +64,10 @@ export interface FeiertagsKalender {
 /** Grund, warum an diesem Tag keine Frist enden kann – null bei Werktag */
 export function keinWerktag(tag: string, kalender: FeiertagsKalender): string | null {
   const wt = wochentag(tag);
-  if (wt === 6) return "Samstag";
-  if (wt === 0) return "Sonntag";
-  return feiertagAm(tag, kalender.bundesland, kalender.zusatz);
+  const feiertag = feiertagAm(tag, kalender.bundesland, kalender.zusatz);
+  const wochenende = wt === 6 ? "Samstag" : wt === 0 ? "Sonntag" : null;
+  if (wochenende && feiertag) return `${wochenende} (${feiertag})`;
+  return wochenende ?? feiertag;
 }
 
 export interface FristDauer {

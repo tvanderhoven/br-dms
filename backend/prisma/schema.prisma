@@ -230,6 +230,7 @@ enum AuditAktion {
   ANHOERUNG_STATUS_GEAENDERT
   ANHOERUNG_STELLUNGNAHME_GESPEICHERT
   ANHOERUNG_VERSENDET
+  ZUGANG_BESTAETIGT
   ORDNER_ERSTELLT
   ORDNER_GEAENDERT
   ORDNER_GELOESCHT
@@ -293,6 +294,7 @@ model Benutzer {
   fremdprotokolleHochgeladen Fremdprotokoll[] @relation("FremdprotokollHochgeladenVon")
   gremienMitgliedschaften GremiumMitglied[]
   anhoerungenVersendet   AnhoerungsVorgang[] @relation("AnhoerungVersendet")
+  zugaengeBestaetigt     Dokument[]          @relation("ZugangBestaetigtVon")
 
   @@map("benutzer")
 }
@@ -402,6 +404,16 @@ model Dokument {
   geloeschtAm     DateTime?     @map("geloescht_am")
   loeschgrund     String?       @map("loeschgrund")
   wiedervorlageAm DateTime?     @map("wiedervorlage_am")
+
+  // Zugang beim Betriebsrat (Fristbeginn, §§ 187 ff. BGB) – nur bei Dokumenten mit Frist.
+  // Beim Import vorgeschlagen (E-Mail-Datum bzw. Eingang), bis Vorsitz/Stellvertretung
+  // ihn bestätigen; solange zugangBestaetigtAm leer ist, sind die Fristen vorläufig.
+  zugangAm               DateTime?  @map("zugang_am")
+  zugangBestaetigtAm     DateTime?  @map("zugang_bestaetigt_am")
+  zugangBestaetigtVonId  String?    @map("zugang_bestaetigt_von_id")
+  zugangBestaetigtVon    Benutzer?  @relation("ZugangBestaetigtVon", fields: [zugangBestaetigtVonId], references: [id])
+  // null = nicht angegeben; false = Unterrichtung unvollständig (Frist wird trotzdem ab Zugang gerechnet)
+  unterlagenVollstaendig Boolean?   @map("unterlagen_vollstaendig")
 
   hochgeladenVonId String      @map("hochgeladen_von_id")
   hochgeladenVon   Benutzer    @relation("HochgeladenVon", fields: [hochgeladenVonId], references: [id])

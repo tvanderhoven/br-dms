@@ -1,11 +1,11 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
   Inbox, FileText, Clock, Tag, CheckSquare, Eye, X, ChevronRight, ChevronDown, ChevronUp,
-  Loader2, Check, CheckCheck, History, Search, RotateCcw, ScanLine, Trash2,
+  Loader2, Check, CheckCheck, History, Search, RotateCcw, ScanLine, Trash2, AlertTriangle, CalendarClock,
 } from "lucide-react";
 import {
   api, Dokument, SitzungListItem, Benutzer, TOP, KATEGORIE_LABEL, formatDatum, formatDateigroesse,
-  ScanEingangEintrag, SitzungScanTyp, istEmail } from "../lib/api";
+  ScanEingangEintrag, SitzungScanTyp, istEmail, KuendigungsArt, ZugangInfo } from "../lib/api";
 import EmailVorschau from "../components/EmailVorschau";
 import { dokumentInNeuemTabOeffnen } from "../lib/dokumentOeffnen";
 
@@ -405,6 +405,7 @@ export default function Eingang() {
                     <span className="text-xs text-gray-400">{KATEGORIE_LABEL[dok.kategorie]}</span>
                     <span className="text-xs text-gray-400">{formatDatum(dok.erstelltAm)}</span>
                     <span className="text-xs text-gray-400">{formatDateigroesse(dok.dateigroesse)}</span>
+                    <FristBadge dok={dok} />
                   </div>
                   <p className={`font-semibold truncate ${!dok.inboxGelesen ? "text-gray-900" : "text-gray-700"}`}>
                     {dok.alias ?? dok.titel}
@@ -425,6 +426,14 @@ export default function Eingang() {
                     <div className="mt-4 flex items-center gap-2 bg-green-50 text-green-800 border border-green-200 rounded-lg px-3 py-2 text-sm">
                       <Check className="w-4 h-4 flex-shrink-0" /> {aktionErfolg}
                     </div>
+                  )}
+
+                  {/* Fristsachen: Zugang beim BR bestätigen (Fristbeginn) */}
+                  {!aktiveAktion && (dok.fristen?.length ?? 0) > 0 && (
+                    <ZugangKarte
+                      dok={dok}
+                      onBestaetigt={() => api.dokumente.inbox().then(setDokumente).catch(console.error)}
+                    />
                   )}
 
                   {/* Aktions-Buttons */}
@@ -870,6 +879,186 @@ function ScanEingangKarte({
       </div>
 
       {fehler && <p className="text-xs text-red-600 mt-2">{fehler}</p>}
+    </div>
+  );
+}
+
+// ── Fristsachen: Zugang bestätigen ───────────────────────────────────
+// Die Frist läuft ab Zugang beim Betriebsrat, nicht ab Import. Das System schlägt
+// den Zugang vor (E-Mail-Datum bzw. Eingang); Vorsitz/Stellvertretung bestätigen
+// oder korrigieren ihn, danach werden die Fristen neu berechnet (Backend: lib/zugang.ts).
+
+const datumMitTag = (iso: string) =>
+  new Date(iso).toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" });
+
+const datumZeit = (iso: string) =>
+  new Date(iso).toLocaleString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+/** Date → Wert für <input type="datetime-local"> in Ortszeit */
+function alsEingabe(iso: string): string {
+  const d = new Date(iso);
+  const z = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`;
+}
+
+function FristBadge({ dok }: { dok: Dokument }) {
+  const naechste = dok.fristen?.[0];
+  if (!naechste) return null;
+  return dok.zugangBestaetigtAm ? (
+    <span className="text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-700 flex items-center gap-1">
+      <CalendarClock size={12} /> Frist bis {datumMitTag(naechste.faelligAm)}
+    </span>
+  ) : (
+    <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 flex items-center gap-1">
+      <AlertTriangle size={12} /> Frist vorläufig – Zugang bestätigen
+    </span>
+  );
+}
+
+function ZugangKarte({ dok, onBestaetigt }: { dok: Dokument; onBestaetigt: () => void }) {
+  const ist102 = dok.kategorie === "ANHOERUNG_102";
+  const bestaetigt = !!dok.zugangBestaetigtAm;
+
+  const [bearbeiten, setBearbeiten]   = useState(!bestaetigt);
+  const [zugang, setZugang]           = useState(() => alsEingabe(dok.zugangAm ?? dok.erstelltAm));
+  const [art, setArt]                 = useState<KuendigungsArt | null>(dok.anhoerungsVorgang?.kuendigungsArt ?? null);
+  const [vollstaendig, setVollstaendig] = useState(dok.unterlagenVollstaendig !== false);
+  const [info, setInfo]               = useState<ZugangInfo | null>(null);
+  const [speichert, setSpeichert]     = useState(false);
+  const [fehler, setFehler]           = useState("");
+
+  // Vorschau der Fristen bei jeder Änderung (kurz entprellt)
+  useEffect(() => {
+    const iso = zugang ? new Date(zugang).toISOString() : undefined;
+    const t = setTimeout(() => {
+      api.dokumente.zugang(dok.id, iso, art)
+        .then(i => { setInfo(i); setFehler(""); })
+        .catch(err => setFehler(err instanceof Error ? err.message : "Vorschau fehlgeschlagen"));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [dok.id, zugang, art, dok.zugangBestaetigtAm]);
+
+  async function bestaetigen() {
+    if (!zugang) return;
+    setSpeichert(true);
+    setFehler("");
+    try {
+      await api.dokumente.zugangBestaetigen(dok.id, {
+        zugangAm: new Date(zugang).toISOString(),
+        kuendigungsArt: ist102 ? art : null,
+        unterlagenVollstaendig: vollstaendig,
+      });
+      setBearbeiten(false);
+      onBestaetigt();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler beim Bestätigen");
+    } finally {
+      setSpeichert(false);
+    }
+  }
+
+  const rahmen = bestaetigt ? "bg-white border-gray-200" : "bg-amber-50 border-amber-200";
+
+  return (
+    <div className={`mt-4 p-4 border rounded-xl space-y-3 ${rahmen}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-medium text-sm text-gray-900 flex items-center gap-1.5">
+            <CalendarClock size={15} /> Zugang beim Betriebsrat
+          </h3>
+          {bestaetigt && !bearbeiten ? (
+            <p className="text-xs text-gray-600 mt-0.5">
+              Zugegangen {datumZeit(dok.zugangAm!)} · bestätigt{info?.zugangBestaetigtVon ? ` von ${info.zugangBestaetigtVon}` : ""} am {datumMitTag(dok.zugangBestaetigtAm!)}
+            </p>
+          ) : (
+            <p className="text-xs text-gray-600 mt-0.5">
+              Die Frist beginnt mit dem Zugang beim Betriebsrat, nicht mit dem Scan. Vorschlag: {
+                istEmail(dok.mimeTyp) ? "Sendezeit der E-Mail" : "Eingang im System"
+              } – bitte prüfen. Liegt ein Schreiben außerhalb der Dienstzeit im Postfach, geht es in der Regel erst am nächsten Arbeitstag zu.
+            </p>
+          )}
+        </div>
+        {bestaetigt && !bearbeiten && (
+          <button onClick={() => setBearbeiten(true)} className="text-xs text-accent hover:underline shrink-0">Korrigieren</button>
+        )}
+      </div>
+
+      {bearbeiten && (
+        <div className="space-y-3">
+          <label className="block">
+            <span className="text-xs font-medium text-gray-700">Zugegangen am</span>
+            <input
+              type="datetime-local"
+              value={zugang}
+              max={alsEingabe(new Date().toISOString())}
+              onChange={e => setZugang(e.target.value)}
+              className="mt-1 block w-full max-w-xs border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            />
+          </label>
+
+          {ist102 && (
+            <fieldset>
+              <legend className="text-xs font-medium text-gray-700">Kündigung</legend>
+              <div className="mt-1 flex flex-wrap gap-4 text-sm text-gray-700">
+                {([["ORDENTLICH", "ordentlich (1 Woche)"], ["AUSSERORDENTLICH", "außerordentlich (3 Tage)"]] as const).map(([wert, label]) => (
+                  <label key={wert} className="flex items-center gap-1.5">
+                    <input type="radio" name={`art-${dok.id}`} checked={art === wert} onChange={() => setArt(wert)} />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
+
+          <label className="flex items-start gap-2 text-sm text-gray-700">
+            <input type="checkbox" className="mt-0.5" checked={vollstaendig} onChange={e => setVollstaendig(e.target.checked)} />
+            Unterlagen vollständig
+          </label>
+          {!vollstaendig && (
+            <p className="text-xs text-amber-800">
+              Bei unvollständiger Unterrichtung beginnt die Frist nach überwiegender Ansicht erst mit den fehlenden Angaben.
+              Das System rechnet sicherheitshalber trotzdem ab Zugang – fehlende Unterlagen beim Arbeitgeber anfordern.
+            </p>
+          )}
+        </div>
+      )}
+
+      {info && info.fristen.length > 0 && (
+        <ul className="text-sm space-y-1">
+          {info.fristen.map(f => {
+            const ende = bearbeiten ? f.neuFaelligAm : f.faelligAm;
+            return (
+              <li key={f.id ?? f.typ} className={ende ? "text-gray-800" : "text-gray-400 line-through"}>
+                <span className="font-medium">{f.bezeichnung}:</span>{" "}
+                {ende ? <>endet {datumMitTag(ende)}, 24:00 Uhr</> : "entfällt"}
+                {bearbeiten && ende && f.verschoben.length > 0 && (
+                  <span className="text-xs text-gray-500"> – verschoben wegen {f.verschoben.map(v => v.grund).join(", ")}</span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {fehler && <p className="text-sm text-red-700">{fehler}</p>}
+
+      {bearbeiten && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={bestaetigen}
+            disabled={speichert || !zugang || (ist102 && !art)}
+            className="flex items-center gap-1.5 px-3 py-2 text-white text-sm rounded-lg hover:brightness-90 disabled:opacity-50"
+            style={{ backgroundColor: "rgb(var(--accent))" }}
+          >
+            {speichert ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+            Zugang bestätigen
+          </button>
+          {bestaetigt && (
+            <button onClick={() => setBearbeiten(false)} className="px-3 py-2 text-sm text-gray-600 hover:underline">Abbrechen</button>
+          )}
+          {ist102 && !art && <span className="text-xs text-gray-500">Bitte Kündigungsart wählen</span>}
+        </div>
+      )}
     </div>
   );
 }

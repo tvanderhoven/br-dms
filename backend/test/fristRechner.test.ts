@@ -105,6 +105,12 @@ describe("Fristende", () => {
     assert.equal(berechneFristende(z, { wochen: 1 }, { bundesland: "SN", zusatz: ["FRONLEICHNAM"] }).letzterTag, "2026-06-05");
   });
 
+  test("Samstag, der zugleich Feiertag ist, nennt beides", () => {
+    const f = berechneFristende(zugang("2026-09-30T08:30:00Z"), { tage: 3 }, NW);
+    assert.equal(f.letzterTag, "2026-10-05");
+    assert.deepEqual(f.verschoben.map(v => v.grund), ["Samstag (Tag der Deutschen Einheit)", "Sonntag"]);
+  });
+
   test("Frist über die Zeitumstellung hinweg", () => {
     const f = berechneFristende(zugang("2026-10-22T09:00:00Z"), { wochen: 1 }, NW);
     assert.equal(f.letzterTag, "2026-10-29");
