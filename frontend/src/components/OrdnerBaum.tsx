@@ -1,4 +1,4 @@
-import { useEffect, useState, DragEvent, KeyboardEvent } from "react";
+import { useEffect, useState, DragEvent, KeyboardEvent, ReactElement } from "react";
 import {
   ChevronRight, ChevronDown, Folder, FolderOpen, FolderPlus, Pencil, Trash2, Layers, FileText, Check, X, ChevronsLeft,
 } from "lucide-react";
@@ -176,9 +176,9 @@ export default function OrdnerBaum({
       : "text-gray-700 hover:bg-gray-100"
     }`;
 
-  function zweig(elternId: string | null, tiefe: number): JSX.Element[] {
+  function zweig(elternId: string | null, tiefe: number): ReactElement[] {
     const kinder = ordner.filter(o => o.elternId === elternId).sort(nachName);
-    const zeilen: JSX.Element[] = [];
+    const zeilen: ReactElement[] = [];
     for (const o of kinder) {
       const hatKinder = ordner.some(x => x.elternId === o.id);
       const istOffen  = offen.has(o.id);
