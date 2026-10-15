@@ -2726,7 +2726,7 @@ function SitzungScanKarte({
     }
   }
 
-  function slot(label: string, typ: SitzungScanTyp, scan: SitzungScan | undefined, inputRef: RefObject<HTMLInputElement>) {
+  function slot(label: string, typ: SitzungScanTyp, scan: SitzungScan | undefined, inputRef: RefObject<HTMLInputElement | null>) {
     return (
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
