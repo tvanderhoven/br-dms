@@ -10,6 +10,7 @@ import GesetzModal from "./GesetzModal";
 import BrDmsLogo from "./BrDmsLogo";
 import UeberModal from "./UeberModal";
 import UpdateBanner from "./UpdateBanner";
+import HaftungshinweisModal, { disclaimerBereitsBestaetigt, DisclaimerFooterZeile } from "./Haftungshinweis";
 
 // Ordnet Routen-Präfixe den abschaltbaren Modulen zu (siehe Einstellungen → Module).
 // Bei einem deaktivierten Modul: Sidebar-Eintrag ausgeblendet + Direktaufruf der URL wird auf "/" umgeleitet.
@@ -320,6 +321,9 @@ export default function Layout() {
   const [module, setModule]                       = useState<Record<ModuleKey, boolean> | null>(null);
   const [toast, setToast]                         = useState<string | null>(null);
   const [ueberOffen, setUeberOffen]               = useState(false);
+  // Pflicht-Hinweis einmalig pro Browser (localStorage), danach über den Footer freiwillig wieder aufrufbar
+  const [disclaimerPflichtOffen, setDisclaimerPflichtOffen] = useState(() => !disclaimerBereitsBestaetigt());
+  const [disclaimerFreiwilligOffen, setDisclaimerFreiwilligOffen] = useState(false);
   const [inaktivitaetMinuten, setInaktivitaetMinuten] = useState(0);
   const prevCounts = useRef({ inbox: 0, nachrichten: 0, aufgaben: 0 });
   const ersterLauf = useRef(true);
@@ -764,6 +768,12 @@ export default function Layout() {
         >
           Über BR-DMS · Open Source (AGPL)
         </button>
+        <div
+          className="shrink-0 px-4 pb-2.5 opacity-70 hover:opacity-100 transition-opacity"
+          style={{ color: "rgb(var(--sidebar-text-muted))" }}
+        >
+          <DisclaimerFooterZeile onMehrErfahren={() => setDisclaimerFreiwilligOffen(true)} />
+        </div>
         {DEMO_MODE && (
           <div
             className="shrink-0 px-4 pb-2.5 text-[11px] flex gap-3 opacity-70"
@@ -776,6 +786,8 @@ export default function Layout() {
       </aside>
 
       {ueberOffen && <UeberModal onSchliessen={() => setUeberOffen(false)} />}
+      {disclaimerPflichtOffen && <HaftungshinweisModal pflicht onSchliessen={() => setDisclaimerPflichtOffen(false)} />}
+      {disclaimerFreiwilligOffen && <HaftungshinweisModal onSchliessen={() => setDisclaimerFreiwilligOffen(false)} />}
 
       {/* Mobile Overlay */}
       {mobileOffen && (

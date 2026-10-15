@@ -11,6 +11,29 @@ DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft v
 
 ---
 
+## ⚠️ Wichtiger Hinweis (Disclaimer)
+
+BR-DMS ist ein Community-Projekt und keine
+Rechtsberatung.
+
+- Alle rechtlichen Bezüge (z. B. auf das Betriebsverfassungsgesetz, die
+  DSGVO oder das BDSG) sowie alle Vorlagen und Texte geben meine
+  persönliche Auslegung und mein Rechtsverständnis wieder.
+- Sie wurden nicht von einer Rechtsanwältin oder einem Rechtsanwalt
+  geprüft und können unvollständig, veraltet oder fehlerhaft sein.
+- Die Nutzung erfolgt in eigener Verantwortung. Bitte prüft vor dem
+  Einsatz, ob die Inhalte für euer Gremium und eure Situation passen,
+  und holt euch im Zweifel rechtlichen Rat (z. B. Gewerkschaft oder
+  Fachanwalt für Arbeitsrecht).
+- Hinweise, Korrekturen und abweichende Rechtsauffassungen sind
+  ausdrücklich willkommen (Issue oder Pull Request).
+
+Soweit gesetzlich zulässig, übernehme ich keine Gewähr für Richtigkeit,
+Vollständigkeit und Aktualität. Gesetzliche Haftungsregelungen, die sich
+nicht ausschließen lassen, bleiben unberührt.
+
+---
+
 ## Features
 
 ### Dokumente & Eingang
