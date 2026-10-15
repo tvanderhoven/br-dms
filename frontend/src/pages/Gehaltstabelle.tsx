@@ -300,7 +300,7 @@ export default function Gehaltstabelle() {
         <select
           value={filterAbteilung}
           onChange={e => setFilterAbteilung(e.target.value)}
-          className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+          className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
         >
           <option value="">Alle Abteilungen</option>
           {abteilungenMitMitarbeitern.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -308,7 +308,7 @@ export default function Gehaltstabelle() {
         <select
           value={filterMitarbeiter}
           onChange={e => setFilterMitarbeiter(e.target.value)}
-          className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+          className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
         >
           <option value="">Alle Mitarbeiter</option>
           {mitarbeiterListe.map(m => <option key={m.id} value={m.id}>{m.nachname}, {m.vorname}</option>)}
@@ -317,19 +317,19 @@ export default function Gehaltstabelle() {
           type="date"
           value={filterVon}
           onChange={e => setFilterVon(e.target.value)}
-          className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+          className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
         />
         <span className="text-xs text-gray-400">bis</span>
         <input
           type="date"
           value={filterBis}
           onChange={e => setFilterBis(e.target.value)}
-          className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+          className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
         />
         <select
           value={filterBeschaeftigungsart}
           onChange={e => setFilterBeschaeftigungsart(e.target.value as "" | Beschaeftigungsart)}
-          className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+          className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
         >
           <option value="">Alle Beschäftigungsarten</option>
           {ALLE_BESCHAEFTIGUNGSARTEN.map(art => <option key={art} value={art}>{BESCHAEFTIGUNGSART_LABEL[art]}</option>)}
@@ -349,7 +349,7 @@ export default function Gehaltstabelle() {
           type="checkbox"
           checked={nurAktive}
           onChange={e => setNurAktive(e.target.checked)}
-          className="rounded border-gray-300 focus:ring-2 focus:ring-[rgb(var(--accent))]"
+          className="rounded-sm border-gray-300 focus:ring-2 focus:ring-[rgb(var(--accent))]"
         />
         Nur aktive Mitarbeiter
       </label>
@@ -429,7 +429,7 @@ export default function Gehaltstabelle() {
                         {e.mitarbeiter.nachname}, {e.mitarbeiter.vorname}
                         {e.mitarbeiter.beschaeftigungsart && e.mitarbeiter.beschaeftigungsart !== "MITARBEITER" && (
                           <span
-                            className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${BESCHAEFTIGUNGSART_FARBE[e.mitarbeiter.beschaeftigungsart].badge}`}
+                            className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-sm ${BESCHAEFTIGUNGSART_FARBE[e.mitarbeiter.beschaeftigungsart].badge}`}
                             title={BESCHAEFTIGUNGSART_LABEL[e.mitarbeiter.beschaeftigungsart]}
                           >
                             {BESCHAEFTIGUNGSART_KUERZEL[e.mitarbeiter.beschaeftigungsart]}
@@ -460,14 +460,14 @@ export default function Gehaltstabelle() {
                     <td className="px-4 py-2.5 text-right whitespace-nowrap">
                       <button
                         onClick={() => { setBearbeitet(e); setModal(true); }}
-                        className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
+                        className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm transition-colors"
                         title="Bearbeiten"
                       >
                         <Edit3 size={14} />
                       </button>
                       <button
                         onClick={() => loeschen(e.id)}
-                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-sm transition-colors"
                         title="Löschen"
                       >
                         <Trash2 size={14} />
@@ -750,7 +750,7 @@ function EintragModal({
                   <select
                     value={mitarbeiterId}
                     onChange={e => setMitarbeiterId(e.target.value)}
-                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                   >
                     <option value="">– auswählen –</option>
                     {mitarbeiterListe.map(m => (
@@ -771,25 +771,25 @@ function EintragModal({
                     <input
                       type="text" placeholder="Vorname" value={vorname} autoFocus
                       onChange={e => setVorname(e.target.value)}
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                     />
                     <input
                       type="text" placeholder="Nachname" value={nachname}
                       onChange={e => setNachname(e.target.value)}
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <input
                       type="text" placeholder="PNR (optional)" value={pnr}
                       onChange={e => setPnr(e.target.value)}
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                     />
                     <input
                       type="date" placeholder="Eintritt" value={eintritt}
                       onChange={e => setEintritt(e.target.value)}
                       title="Eintrittsdatum (optional)"
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -797,13 +797,13 @@ function EintragModal({
                       type="date" placeholder="Austritt" value={austritt}
                       onChange={e => setAustritt(e.target.value)}
                       title="Austrittsdatum (optional)"
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                     />
                   </div>
                   <select
                     value={abteilungId}
                     onChange={e => setAbteilungId(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                   >
                     <option value="">Abteilung (optional)</option>
                     {abteilungen.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -844,7 +844,7 @@ function EintragModal({
                 type="text" required value={gehaltAt}
                 onChange={e => setGehaltAt(e.target.value)}
                 placeholder="z.B. 4200"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
               />
             </div>
           ) : (
@@ -855,7 +855,7 @@ function EintragModal({
                   <select
                     required value={gruppe}
                     onChange={e => setGruppe(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                   >
                     <option value="">– wählen –</option>
                     {[1, 2, 3, 4, 5, 6].map(g => <option key={g} value={g}>{g}</option>)}
@@ -866,14 +866,14 @@ function EintragModal({
                   <select
                     required value={stufe}
                     onChange={e => setStufe(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                   >
                     <option value="">– wählen –</option>
                     {[1, 2, 3, 4].map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
               </div>
-              <p className="text-xs text-gray-400 -mt-2">
+              <p className="text-xs text-gray-400 first:-mt-2">
                 Das Zeitmodell wird getrennt im Tab „Zeitmodell" verwaltet.
               </p>
             </>
@@ -885,7 +885,7 @@ function EintragModal({
               type="date" required
               value={gueltigAb}
               onChange={e => setGueltigAb(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
             />
           </div>
 
@@ -896,7 +896,7 @@ function EintragModal({
               value={bemerkung}
               onChange={e => setBemerkung(e.target.value)}
               placeholder="Optional"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
             />
           </div>
 
@@ -1055,7 +1055,7 @@ function PeriodenGantt({ zeilen, leerText, onBalkenDoppelklick }: {
       <div className="flex items-center justify-end gap-2 px-3 py-1.5 border-b border-gray-100 bg-gray-50">
         <button
           onClick={zuHeuteScrollen}
-          className="text-xs text-gray-500 hover:text-gray-800 px-2 py-1 rounded hover:bg-gray-200 transition-colors"
+          className="text-xs text-gray-500 hover:text-gray-800 px-2 py-1 rounded-sm hover:bg-gray-200 transition-colors"
         >
           Heute
         </button>
@@ -1064,7 +1064,7 @@ function PeriodenGantt({ zeilen, leerText, onBalkenDoppelklick }: {
           onClick={() => setMonatBreite(b => Math.max(MONAT_BREITE_MIN, b - 20))}
           disabled={monatBreite <= MONAT_BREITE_MIN}
           title="Monate schmaler"
-          className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+          className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded-sm disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
         >
           <ZoomOut size={14} />
         </button>
@@ -1072,7 +1072,7 @@ function PeriodenGantt({ zeilen, leerText, onBalkenDoppelklick }: {
           onClick={() => setMonatBreite(b => Math.min(MONAT_BREITE_MAX, b + 20))}
           disabled={monatBreite >= MONAT_BREITE_MAX}
           title="Monate breiter"
-          className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+          className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded-sm disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
         >
           <ZoomIn size={14} />
         </button>
@@ -1131,7 +1131,7 @@ function PeriodenGantt({ zeilen, leerText, onBalkenDoppelklick }: {
                       return (
                         <div
                           key={i}
-                          className="absolute rounded-sm"
+                          className="absolute rounded-xs"
                           style={{ left: `${l}%`, width: `${w}%`, height: `${GRUPPE_BAR_H}px`, top: `${top}px`, backgroundColor: "rgba(55, 65, 81, 0.55)" }}
                           title={`${abteilung}: ${formatDatum(new Date(iv.von).toISOString())} – ${iv.bis !== null ? formatDatum(new Date(iv.bis).toISOString()) : "laufend"}`}
                         />
@@ -1160,7 +1160,7 @@ function PeriodenGantt({ zeilen, leerText, onBalkenDoppelklick }: {
                         return (
                           <div
                             key={i}
-                            className={`absolute rounded flex items-center px-2 text-white text-xs font-medium overflow-hidden ${onBalkenDoppelklick ? "cursor-pointer" : ""}`}
+                            className={`absolute rounded-sm flex items-center px-2 text-white text-xs font-medium overflow-hidden ${onBalkenDoppelklick ? "cursor-pointer" : ""}`}
                             style={{ left: `${l}%`, width: `${w}%`, height: `${BAR_H}px`, top: `${top}px`, backgroundColor: b.farbe }}
                             title={[
                               b.titel,
@@ -1338,7 +1338,7 @@ function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mi
           <select
             value={filterMitarbeiter}
             onChange={e => setFilterMitarbeiter(e.target.value)}
-            className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+            className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
           >
             <option value="">Alle Mitarbeiter</option>
             {mitarbeiterListe.map(m => <option key={m.id} value={m.id}>{m.nachname}, {m.vorname}</option>)}
@@ -1346,7 +1346,7 @@ function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mi
           <select
             value={filterAbteilung}
             onChange={e => setFilterAbteilung(e.target.value)}
-            className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+            className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
           >
             <option value="">Alle Abteilungen</option>
             {abteilungen.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -1358,7 +1358,7 @@ function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mi
           <select
             value={filterBefristung}
             onChange={e => setFilterBefristung(e.target.value as "" | "befristet" | "unbefristet")}
-            className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+            className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
           >
             <option value="">Befristet & unbefristet</option>
             <option value="befristet">Nur befristete</option>
@@ -1367,7 +1367,7 @@ function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mi
           <select
             value={filterBeschaeftigungsart}
             onChange={e => setFilterBeschaeftigungsart(e.target.value as "" | Beschaeftigungsart)}
-            className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+            className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
           >
             <option value="">Alle Beschäftigungsarten</option>
             {ALLE_BESCHAEFTIGUNGSARTEN.map(art => <option key={art} value={art}>{BESCHAEFTIGUNGSART_LABEL[art]}</option>)}
@@ -1489,14 +1489,14 @@ function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mi
                   <td className="px-4 py-2.5 text-right whitespace-nowrap">
                     <button
                       onClick={() => { setBearbeitet(z); setModal(true); }}
-                      className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
+                      className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm transition-colors"
                       title="Bearbeiten"
                     >
                       <Edit3 size={14} />
                     </button>
                     <button
                       onClick={() => loeschen(z.id)}
-                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-sm transition-colors"
                       title="Löschen"
                     >
                       <Trash2 size={14} />
@@ -1597,7 +1597,7 @@ function ZeitmodellModal({
             <select
               required disabled={!!zeitraum} value={mitarbeiterId}
               onChange={e => setMitarbeiterId(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] disabled:bg-gray-100"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] disabled:bg-gray-100"
             >
               <option value="">– auswählen –</option>
               {mitarbeiterListe.map(m => <option key={m.id} value={m.id}>{m.nachname}, {m.vorname}</option>)}
@@ -1610,7 +1610,7 @@ function ZeitmodellModal({
               <select
                 required value={zeitmodellId}
                 onChange={e => setZeitmodellId(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
               >
                 <option value="">– auswählen –</option>
                 {zeitraum && !aktiveZeitmodelle.some(z => z.id === zeitraum.zeitmodell.id) && (
@@ -1626,7 +1626,7 @@ function ZeitmodellModal({
               <input
                 type="date" required value={gueltigVon}
                 onChange={e => setGueltigVon(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
               />
             </div>
           </div>
@@ -1636,7 +1636,7 @@ function ZeitmodellModal({
               <input
                 type="checkbox" checked={unbefristet}
                 onChange={e => setUnbefristet(e.target.checked)}
-                className="rounded border-gray-300 text-[rgb(var(--accent))]"
+                className="rounded-sm border-gray-300 text-[rgb(var(--accent))]"
               />
               <span className="text-sm text-gray-700">Unbefristet</span>
             </label>
@@ -1646,7 +1646,7 @@ function ZeitmodellModal({
                 <input
                   type="date" required value={gueltigBis}
                   onChange={e => setGueltigBis(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                 />
               </div>
             )}
@@ -1658,7 +1658,7 @@ function ZeitmodellModal({
               rows={2} value={bemerkung}
               onChange={e => setBemerkung(e.target.value)}
               placeholder="Optional"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
             />
           </div>
 
@@ -1784,7 +1784,7 @@ function UeberstundenTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: 
           <select
             value={filterMitarbeiter}
             onChange={e => setFilterMitarbeiter(e.target.value)}
-            className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+            className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
           >
             <option value="">Alle Mitarbeiter</option>
             {mitarbeiterListe.map(m => <option key={m.id} value={m.id}>{m.nachname}, {m.vorname}</option>)}
@@ -1792,7 +1792,7 @@ function UeberstundenTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: 
           <select
             value={filterAbteilung}
             onChange={e => setFilterAbteilung(e.target.value)}
-            className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+            className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
           >
             <option value="">Alle Abteilungen</option>
             {abteilungen.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -1804,7 +1804,7 @@ function UeberstundenTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: 
           <select
             value={filterBeschaeftigungsart}
             onChange={e => setFilterBeschaeftigungsart(e.target.value as "" | Beschaeftigungsart)}
-            className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+            className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
           >
             <option value="">Alle Beschäftigungsarten</option>
             {ALLE_BESCHAEFTIGUNGSARTEN.map(art => <option key={art} value={art}>{BESCHAEFTIGUNGSART_LABEL[art]}</option>)}
@@ -1873,14 +1873,14 @@ function UeberstundenTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: 
                   <td className="px-4 py-2.5 text-right whitespace-nowrap">
                     <button
                       onClick={() => { setBearbeitet(z); setModal(true); }}
-                      className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
+                      className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm transition-colors"
                       title="Bearbeiten"
                     >
                       <Edit3 size={14} />
                     </button>
                     <button
                       onClick={() => loeschen(z.id)}
-                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-sm transition-colors"
                       title="Löschen"
                     >
                       <Trash2 size={14} />
@@ -1961,7 +1961,7 @@ function UeberstundenModal({
             <select
               required disabled={!!zeitraum} value={mitarbeiterId}
               onChange={e => setMitarbeiterId(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] disabled:bg-gray-100"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] disabled:bg-gray-100"
             >
               <option value="">– auswählen –</option>
               {mitarbeiterListe.map(m => <option key={m.id} value={m.id}>{m.nachname}, {m.vorname}</option>)}
@@ -1974,7 +1974,7 @@ function UeberstundenModal({
               type="text" value={regelung}
               onChange={e => setRegelung(e.target.value)}
               placeholder="Optional – z.B. Ausgleich in Freizeit, Auszahlung ab 20h"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
             />
           </div>
 
@@ -1983,7 +1983,7 @@ function UeberstundenModal({
             <input
               type="date" required value={gueltigVon}
               onChange={e => setGueltigVon(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
             />
           </div>
 
@@ -1992,7 +1992,7 @@ function UeberstundenModal({
               <input
                 type="checkbox" checked={unbefristet}
                 onChange={e => setUnbefristet(e.target.checked)}
-                className="rounded border-gray-300 text-[rgb(var(--accent))]"
+                className="rounded-sm border-gray-300 text-[rgb(var(--accent))]"
               />
               <span className="text-sm text-gray-700">Unbefristet</span>
             </label>
@@ -2002,7 +2002,7 @@ function UeberstundenModal({
                 <input
                   type="date" required value={gueltigBis}
                   onChange={e => setGueltigBis(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                 />
               </div>
             )}
@@ -2014,7 +2014,7 @@ function UeberstundenModal({
               rows={2} value={bemerkung}
               onChange={e => setBemerkung(e.target.value)}
               placeholder="Optional"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
             />
           </div>
 
@@ -2090,7 +2090,7 @@ function GruppenTabelle({ titel, spaltenTitel, zeilen }: { titel: string; spalte
         <tbody>
           {zeilen.map(z => (
             <tr key={z.name} className="border-t border-gray-100">
-              <td className="px-3 py-1.5 text-gray-700 truncate max-w-[12rem]" title={z.name}>{z.name}</td>
+              <td className="px-3 py-1.5 text-gray-700 truncate max-w-48" title={z.name}>{z.name}</td>
               {GRUPPEN.map(g => (
                 <td key={g} className="px-2 py-1.5 text-center text-gray-600">{z.proGruppe[g] || "–"}</td>
               ))}
@@ -2285,7 +2285,7 @@ function StatistikTab({
         <MiniStat titel="Zeitarbeiter" wert={anzahlProArt.ZEITARBEITER} />
         <MiniStat titel="AT" wert={atEintraege.length} />
       </div>
-      <p className="text-xs text-gray-400 -mt-3">
+      <p className="text-xs text-gray-400 first:-mt-3">
         Basis: Mitarbeiter mit mindestens einem Gehaltsstufen-Eintrag{nurAktive && " · nur aktive"}
         {atEintraege.length > 0 && ` · Ø AT-Gehalt ${formatGehalt(atDurchschnitt)}`}
       </p>
@@ -2348,7 +2348,7 @@ function StatistikTab({
             <select
               value={statistikAbteilung}
               onChange={e => setStatistikAbteilung(e.target.value)}
-              className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
             >
               <option value="">– Abteilung wählen –</option>
               {abteilungenMitDaten.map(a => <option key={a} value={a}>{a}</option>)}

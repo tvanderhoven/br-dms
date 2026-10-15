@@ -252,7 +252,7 @@ export default function Themensammlung() {
               type="date"
               value={von}
               onChange={e => setVon(e.target.value)}
-              className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent)/0.3)]"
+              className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent)/0.3)]"
             />
           </div>
           <div>
@@ -261,7 +261,7 @@ export default function Themensammlung() {
               type="date"
               value={bis}
               onChange={e => setBis(e.target.value)}
-              className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent)/0.3)]"
+              className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent)/0.3)]"
             />
           </div>
           <div>
@@ -271,7 +271,7 @@ export default function Themensammlung() {
               value={stichwort}
               onChange={e => setStichwort(e.target.value)}
               placeholder="z.B. öffentlich"
-              className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent)/0.3)]"
+              className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent)/0.3)]"
             />
           </div>
         </div>

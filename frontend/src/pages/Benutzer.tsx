@@ -213,7 +213,7 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
                     <select
                       value={b.geschlecht ?? ""}
                       onChange={e => geschlechtAendern(b, e.target.value as Geschlecht | "")}
-                      className="text-xs border border-gray-300 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                      className="text-xs border border-gray-300 rounded-lg px-2 py-1 bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                     >
                       <option value="">–</option>
                       <option value="MAENNLICH">{GESCHLECHT_LABEL.MAENNLICH}</option>
@@ -247,7 +247,7 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
                       {!ohneInhalt && <button
                         onClick={() => setResetId(b.id)}
                         title="Passwort zurücksetzen"
-                        className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
+                        className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm transition-colors"
                       >
                         <KeyRound size={13} />
                         PW reset
@@ -257,7 +257,7 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
                         <button
                           onClick={() => zweiFaktorZuruecksetzen(b)}
                           title="Zwei-Faktor-Anmeldung entfernen (z. B. Handy verloren) – die Person meldet sich danach nur mit Passwort an"
-                          className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                          className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-sm transition-colors"
                         >
                           <ShieldOff size={13} />
                           2FA reset
@@ -283,7 +283,7 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
                         <button
                           onClick={() => benutzerLoeschen(b)}
                           title="Endgültig löschen (nur möglich ohne vorhandene Daten im System)"
-                          className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                          className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-sm transition-colors"
                         >
                           <Trash2 size={13} />
                           Löschen
@@ -349,7 +349,7 @@ function EinladungsAdresse({ benutzer, onGespeichert, onFehler }: {
           if (e.key === "Escape") { setWert(benutzer.einladungEmail ?? ""); setBearbeiten(false); }
         }}
         placeholder="Zweitadresse für Einladungen"
-        className="mt-0.5 w-56 text-xs border border-gray-300 rounded px-1.5 py-0.5 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+        className="mt-0.5 w-56 text-xs border border-gray-300 rounded-sm px-1.5 py-0.5 focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
       />
     );
   }
@@ -486,13 +486,13 @@ function WahlRangZelle({ benutzer, onGeaendert }: { benutzer: Benutzer; onGeaend
       onChange={e => setWert(e.target.value)}
       onBlur={commit}
       placeholder="–"
-      className="w-16 border border-gray-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+      className="w-16 border border-gray-300 rounded-lg px-2 py-1 text-xs focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
     />
   );
 }
 
 // ── Hilfskomponenten ──────────────────────────────────────────────
-const input = "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white";
+const input = "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white";
 
 function Modal({ titel, onSchliessen, children }: { titel: string; onSchliessen: () => void; children: React.ReactNode }) {
   return (

@@ -82,7 +82,7 @@ function TopVerknuepfenModal({
             <select
               value={sitzungId}
               onChange={e => setSitzungId(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
             >
               <option value="">– auswählen –</option>
               {sitzungen.map(s => (
@@ -100,7 +100,7 @@ function TopVerknuepfenModal({
                 value={topId}
                 onChange={e => setTopId(e.target.value)}
                 disabled={laedt || !sitzung}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] disabled:opacity-50"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] disabled:opacity-50"
               >
                 <option value="">{laedt ? "lädt…" : "– auswählen –"}</option>
                 {sitzung?.tops.map(t => (
@@ -182,7 +182,7 @@ function ThemaBearbeitenModal({
               autoFocus
               value={titel}
               onChange={e => setTitel(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
             />
           </div>
 
@@ -202,7 +202,7 @@ function ThemaBearbeitenModal({
               <select
                 value={prioritaet}
                 onChange={e => setPrioritaet(e.target.value as Prioritaet)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
               >
                 {(Object.keys(PRIO_LABEL) as Prioritaet[]).map(p => (
                   <option key={p} value={p}>{PRIO_LABEL[p]}</option>
@@ -214,7 +214,7 @@ function ThemaBearbeitenModal({
               <select
                 value={zugewiesenAnId}
                 onChange={e => setZugewiesenAnId(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
               >
                 <option value="">– niemand –</option>
                 {benutzer.filter(b => b.aktiv).map(b => (
@@ -312,7 +312,7 @@ function KanbanAnsicht({
                   className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 cursor-grab active:cursor-grabbing group"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium text-gray-800 flex-1 min-w-0 break-words">
+                    <p className="text-sm font-medium text-gray-800 flex-1 min-w-0 wrap-break-word">
                       {karte.titel}
                     </p>
                     <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -397,7 +397,7 @@ function KanbanAnsicht({
                   onChange={e => setNeuTitel(s => ({ ...s, [spalte.status]: e.target.value }))}
                   onKeyDown={e => { if (e.key === "Enter") absenden(spalte.status); }}
                   placeholder="+ Thema / Idee…"
-                  className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                 />
               </div>
             </div>

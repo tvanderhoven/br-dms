@@ -39,10 +39,10 @@ function FehlerMelden() {
       <div className="space-y-2">
         <input value={titel} onChange={e => setTitel(e.target.value)} maxLength={120}
           placeholder="Kurz: Was funktioniert nicht?"
-          className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]/30" />
+          className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]/30" />
         <textarea value={beschreibung} onChange={e => setBeschreibung(e.target.value)} maxLength={4000} rows={4}
           placeholder="Was haben Sie gemacht, was ist passiert, was hätten Sie erwartet?"
-          className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 resize-y focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]/30" />
+          className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 resize-y focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]/30" />
         <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
           GitHub-Issues sind öffentlich. Bitte keine Namen, Personaldaten oder Inhalte aus Dokumenten eintragen.
           Version, Seite und Browser werden automatisch angehängt.

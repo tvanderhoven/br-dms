@@ -119,7 +119,7 @@ export default function Suche() {
             onKeyDown={onKeyDown}
             placeholder="Über alle Bereiche suchen…"
             autoFocus
-            className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent)/0.3)] text-sm"
+            className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 shadow-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent)/0.3)] text-sm"
           />
         </div>
         {ergebnisse && aktuellerBegriff.length >= 2 && (
@@ -171,7 +171,7 @@ export default function Suche() {
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-100 leading-snug">
                         {dok.alias ?? dok.titel}
                       </p>
-                      <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${DOK_STATUS_STYLE[dok.status] ?? "bg-gray-100 text-gray-500"}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${DOK_STATUS_STYLE[dok.status] ?? "bg-gray-100 text-gray-500"}`}>
                         {DOK_STATUS_LABEL[dok.status] ?? dok.status}
                       </span>
                     </div>
@@ -221,11 +221,11 @@ export default function Suche() {
                         {auf.titel}
                       </p>
                       {auf.erledigt ? (
-                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex-shrink-0">
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full shrink-0">
                           Erledigt
                         </span>
                       ) : (
-                        <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${PRIORITAET_STYLE[auf.prioritaet] ?? "bg-gray-100 text-gray-500"}`}>
+                        <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${PRIORITAET_STYLE[auf.prioritaet] ?? "bg-gray-100 text-gray-500"}`}>
                           {PRIORITAET_LABEL[auf.prioritaet] ?? auf.prioritaet}
                         </span>
                       )}
@@ -260,7 +260,7 @@ export default function Suche() {
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-100 leading-snug">
                         {s.titel}
                       </p>
-                      <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${SITZUNG_STATUS_STYLE[s.status] ?? "bg-gray-100 text-gray-500"}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${SITZUNG_STATUS_STYLE[s.status] ?? "bg-gray-100 text-gray-500"}`}>
                         {SITZUNG_STATUS_LABEL[s.status]}
                       </span>
                     </div>
@@ -328,14 +328,14 @@ export default function Suche() {
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${RESSOURCE_KATEGORIE_FARBE[r.kategorie]}`}>
+                        <span className={`text-xs px-1.5 py-0.5 rounded-sm font-medium ${RESSOURCE_KATEGORIE_FARBE[r.kategorie]}`}>
                           {RESSOURCE_KATEGORIE_LABEL[r.kategorie]}
                         </span>
                       </div>
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{r.titel}</p>
                       <p className="text-xs text-accent/80 truncate mt-0.5">{r.url}</p>
                     </div>
-                    <ExternalLink className="w-4 h-4 text-gray-300 group-hover:text-[rgb(var(--accent))] flex-shrink-0 mt-0.5 transition-colors" />
+                    <ExternalLink className="w-4 h-4 text-gray-300 group-hover:text-[rgb(var(--accent))] shrink-0 mt-0.5 transition-colors" />
                   </a>
                 ))}
               </div>
@@ -361,7 +361,7 @@ export default function Suche() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-100 leading-snug">{bv.titel}</p>
-                      <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0 bg-gray-100 text-gray-600">
+                      <span className="text-xs px-2 py-0.5 rounded-full shrink-0 bg-gray-100 text-gray-600">
                         {BV_STATUS_LABEL[bv.status] ?? bv.status}
                       </span>
                     </div>
@@ -393,7 +393,7 @@ export default function Suche() {
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-100 leading-snug">
                         {s.qualifikation.name}{s.titel ? ` – ${s.titel}` : ""}
                       </p>
-                      <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0 bg-gray-100 text-gray-600">
+                      <span className="text-xs px-2 py-0.5 rounded-full shrink-0 bg-gray-100 text-gray-600">
                         {SCHULUNG_STATUS_LABEL[s.status] ?? s.status}
                       </span>
                     </div>

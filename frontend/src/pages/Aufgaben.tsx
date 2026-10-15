@@ -71,7 +71,7 @@ const LEER: FormState = {
   farbe: STANDARD_FARBE,
 };
 
-const inputKlasse = "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]";
+const inputKlasse = "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]";
 
 // ── Hilfsfunktionen ──────────────────────────────────────────────────
 function datumFarbe(datum?: string): string {
@@ -103,7 +103,7 @@ function VorhabenBadge({ aufgabe }: { aufgabe: Aufgabe }) {
   if (!aufgabe.oberProjekt) return null;
   return (
     <span className="text-xs text-gray-500 flex items-center gap-1 min-w-0" title={`Vorhaben: ${aufgabe.oberProjekt.titel}`}>
-      <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: aufgabe.oberProjekt.farbe || STANDARD_FARBE }} />
+      <span className="w-2 h-2 rounded-xs shrink-0" style={{ backgroundColor: aufgabe.oberProjekt.farbe || STANDARD_FARBE }} />
       <span className="truncate">{aufgabe.oberProjekt.titel}</span>
     </span>
   );
@@ -185,7 +185,7 @@ function BoardAnsicht({
                   className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 cursor-grab active:cursor-grabbing group"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className={`text-sm font-medium flex-1 min-w-0 break-words ${
+                    <p className={`text-sm font-medium flex-1 min-w-0 wrap-break-word ${
                       spalte.status === "ERLEDIGT" ? "text-gray-400 line-through" : "text-gray-800"
                     }`}>
                       {karte.titel}
@@ -243,7 +243,7 @@ function BoardAnsicht({
                   onChange={e => setNeuTitel(s => ({ ...s, [spalte.status]: e.target.value }))}
                   onKeyDown={e => { if (e.key === "Enter") absenden(spalte.status); }}
                   placeholder="+ Aufgabe…"
-                  className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                 />
               </div>
             </div>
@@ -492,7 +492,7 @@ function ZeitplanAnsicht({
 
     return (
       <div
-        className="absolute rounded flex items-center px-2 text-white text-xs font-medium cursor-pointer transition-all overflow-hidden"
+        className="absolute rounded-sm flex items-center px-2 text-white text-xs font-medium cursor-pointer transition-all overflow-hidden"
         style={{
           left: `${l}%`, width: `${w}%`, height: `${barH}px`, top: `${top}px`,
           backgroundColor: farbe, opacity: aufgabe.erledigt ? 0.45 : 0.9,
@@ -513,7 +513,7 @@ function ZeitplanAnsicht({
           onClick={() => setMonatBreite(b => Math.max(MONAT_BREITE_MIN, b - 20))}
           disabled={monatBreite <= MONAT_BREITE_MIN}
           title="Monate schmaler"
-          className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+          className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded-sm disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
         >
           <ZoomOut size={14} />
         </button>
@@ -521,7 +521,7 @@ function ZeitplanAnsicht({
           onClick={() => setMonatBreite(b => Math.min(MONAT_BREITE_MAX, b + 20))}
           disabled={monatBreite >= MONAT_BREITE_MAX}
           title="Monate breiter"
-          className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+          className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded-sm disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
         >
           <ZoomIn size={14} />
         </button>
@@ -567,7 +567,7 @@ function ZeitplanAnsicht({
                     className="shrink-0 border-r border-gray-200 px-3 flex items-center gap-2 sticky left-0 bg-white hover:bg-gray-50 z-10"
                     style={{ width: LABEL_W }}
                   >
-                    <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: projektFarbe }} />
+                    <span className="w-3 h-3 rounded-xs shrink-0" style={{ backgroundColor: projektFarbe }} />
                     <span className={`text-sm truncate font-semibold text-gray-800 ${eintrag.erledigt ? "line-through text-gray-400" : ""}`}>
                       {eintrag.titel}
                     </span>
@@ -617,7 +617,7 @@ function ZeitplanAnsicht({
           })}
 
           <div className="px-4 py-2 flex items-center gap-1.5 text-xs text-gray-400 border-t border-gray-100">
-            <div className="w-3 h-0.5 bg-red-400 rounded" />
+            <div className="w-3 h-0.5 bg-red-400 rounded-sm" />
             Heute · Aufgaben erscheinen hier mit Zeitraum oder Fälligkeit
           </div>
         </div>
@@ -691,7 +691,7 @@ function EintragModal({
             </div>
           )}
           {!bearbeiten && istVorhaben && (
-            <p className="text-xs text-gray-500 -mt-2">
+            <p className="text-xs text-gray-500 first:-mt-2">
               Ein Vorhaben bündelt mehrere Aufgaben über einen Zeitraum, z. B. „JAV-Wahl 2026“ oder „Betriebsversammlung Q4“.
             </p>
           )}
@@ -726,7 +726,7 @@ function EintragModal({
                   />
                 ))}
                 <input type="color" value={form.farbe} onChange={e => setzen({ farbe: e.target.value })}
-                  className="w-7 h-7 rounded cursor-pointer border border-gray-200" title="Eigene Farbe" />
+                  className="w-7 h-7 rounded-sm cursor-pointer border border-gray-200" title="Eigene Farbe" />
               </div>
             </div>
           )}
@@ -1045,7 +1045,7 @@ export default function Aufgaben() {
         <select
           value={vorhabenFilter}
           onChange={e => setVorhabenFilter(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
         >
           <option value="">Alle Vorhaben</option>
           <option value={OHNE_VORHABEN}>Ohne Vorhaben</option>

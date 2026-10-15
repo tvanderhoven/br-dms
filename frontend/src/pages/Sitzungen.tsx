@@ -239,7 +239,7 @@ export default function Sitzungen() {
         <div className="flex items-center gap-2">
           {gremien.length > 0 && (
             <select value={gremiumFilter} onChange={e => setGremiumFilter(e.target.value)}
-              className="border border-gray-300 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]">
+              className="border border-gray-300 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]">
               <option value="ALLE">Alle Gremien</option>
               <option value="BR">Betriebsrat</option>
               {gremien.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
@@ -413,22 +413,22 @@ function SitzungBearbeitenModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Titel *</label>
             <input value={titel} onChange={e => setTitel(e.target.value)} required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Datum *</label>
             <input type="date" value={datum} onChange={e => setDatum(e.target.value)} required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Ort</label>
             <input value={ort} onChange={e => setOrt(e.target.value)} placeholder="Optional"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Typ</label>
             <select value={typ} onChange={e => setTyp(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
               {/* Betriebsversammlung ↔ BR-Sitzung lässt sich nicht umwandeln (Anwesenheit/Beschlüsse) */}
               {Object.entries(SITZUNGSTYP_LABEL)
                 .filter(([wert]) => istBetriebsversammlung(wert) === istBetriebsversammlung(sitzung.sitzungstyp))
@@ -439,7 +439,7 @@ function SitzungBearbeitenModal({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Gremium</label>
               <select value={gremiumId} onChange={e => setGremiumId(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
                 <option value="">Betriebsrat</option>
                 {gremien.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
@@ -448,7 +448,7 @@ function SitzungBearbeitenModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Notizen</label>
             <textarea value={notizen} onChange={e => setNotizen(e.target.value)} rows={3} placeholder="Optional"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
           </div>
           {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
           <div className="flex gap-3 pt-2">
@@ -514,23 +514,23 @@ function NeueSitzungModal({
             <label className="block text-sm font-medium text-gray-700 mb-1">Titel *</label>
             <input value={titel} onChange={e => setTitel(e.target.value)} required
               placeholder="z.B. BR-Sitzung April 2026"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Datum *</label>
             <input type="datetime-local" value={datum} onChange={e => setDatum(e.target.value)} required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Ort</label>
               <input value={ort} onChange={e => setOrt(e.target.value)} placeholder="Optional"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Typ</label>
               <select value={typ} onChange={e => setTyp(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
                 {Object.entries(SITZUNGSTYP_LABEL).map(([wert, label]) => (
                   <option key={wert} value={wert}>{label}</option>
                 ))}
@@ -538,13 +538,13 @@ function NeueSitzungModal({
             </div>
           </div>
           {STANDARD_TOP_HINWEIS[typ] && !vorlageId && (
-            <p className="text-xs text-gray-500 -mt-2">{STANDARD_TOP_HINWEIS[typ]}</p>
+            <p className="text-xs text-gray-500 first:-mt-2">{STANDARD_TOP_HINWEIS[typ]}</p>
           )}
           {vorlagen.length > 0 && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Vorlage</label>
               <select value={vorlageId} onChange={e => setVorlageId(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
                 <option value="">Keine Vorlage</option>
                 {vorlagen.map(v => (
                   <option key={v.id} value={v.id}>{v.name} ({v.tops.length} TOPs)</option>
@@ -556,7 +556,7 @@ function NeueSitzungModal({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Gremium</label>
               <select value={gremiumId} onChange={e => setGremiumId(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
                 <option value="">Betriebsrat</option>
                 {gremien.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
@@ -565,7 +565,7 @@ function NeueSitzungModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Notizen</label>
             <textarea value={notizen} onChange={e => setNotizen(e.target.value)} rows={3} placeholder="Optional"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
           </div>
           {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
           <div className="flex gap-3 pt-2">
@@ -751,7 +751,7 @@ function SitzungDetail({
               <button
                 onClick={() => setBearbeitenModal(true)}
                 title="Metadaten bearbeiten"
-                className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
+                className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm transition-colors"
               >
                 <Pencil size={15} />
               </button>
@@ -760,7 +760,7 @@ function SitzungDetail({
               <button
                 onClick={sitzungLoeschen}
                 title={imEntwurf ? "Sitzung löschen" : "Sitzung absagen"}
-                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-sm transition-colors"
               >
                 <Trash2 size={15} />
               </button>
@@ -945,7 +945,7 @@ function SitzungDetail({
                 className={`relative transition-opacity ${gezogenId === top.id ? "opacity-40" : ""}`}
               >
               {ablage?.idx === idx && gezogenId && gezogenId !== top.id && (
-                <div className={`absolute left-3 right-3 h-0.5 rounded bg-[rgb(var(--accent))] z-10 ${ablage.davor ? "-top-px" : "-bottom-px"}`} />
+                <div className={`absolute left-3 right-3 h-0.5 rounded-sm bg-[rgb(var(--accent))] z-10 ${ablage.davor ? "-top-px" : "-bottom-px"}`} />
               )}
               <TopZeile
                 top={top}
@@ -1261,7 +1261,7 @@ function TopZeile({
               <select
                 value={topStatus}
                 onChange={e => setTopStatus(e.target.value as TopStatus)}
-                className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
               >
                 {(istBV ? TOP_STATUS_BV : Object.keys(TOP_STATUS_LABEL) as TopStatus[]).map(s => (
                   <option key={s} value={s}>{TOP_STATUS_LABEL[s]}</option>
@@ -1332,7 +1332,7 @@ function TopZeile({
                     <button
                       title="Dokument öffnen"
                       onClick={dokumentOeffnen}
-                      className="p-1 ml-1 text-accent/60 hover:text-accent hover:bg-accent/10 rounded"
+                      className="p-1 ml-1 text-accent/60 hover:text-accent hover:bg-accent/10 rounded-sm"
                     >
                       <Eye size={13} />
                     </button>
@@ -1346,7 +1346,7 @@ function TopZeile({
                             }
                           }}
                           title="Verknüpfung trennen"
-                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-sm"
                         >
                           <Unlink size={13} />
                         </button>
@@ -1367,7 +1367,7 @@ function TopZeile({
                 onClick={onVerschiebenHoch}
                 disabled={istErster}
                 title="Nach oben"
-                className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors disabled:opacity-25 disabled:cursor-default"
+                className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm transition-colors disabled:opacity-25 disabled:cursor-default"
               >
                 <ChevronUp size={15} />
               </button>
@@ -1375,7 +1375,7 @@ function TopZeile({
                 onClick={onVerschiebenRunter}
                 disabled={istLetzter}
                 title="Nach unten"
-                className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors disabled:opacity-25 disabled:cursor-default"
+                className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm transition-colors disabled:opacity-25 disabled:cursor-default"
               >
                 <ChevronDown size={15} />
               </button>
@@ -1386,7 +1386,7 @@ function TopZeile({
           <button
             onClick={() => setKommentareOffen(o => !o)}
             title={kommentarAnzahl > 0 ? `${kommentarAnzahl} Kommentar(e)` : "Kommentare"}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${kommentareOffen ? "text-purple-600 bg-purple-50" : "text-gray-500 hover:text-purple-600 hover:bg-purple-50"}`}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm text-xs font-medium transition-colors ${kommentareOffen ? "text-purple-600 bg-purple-50" : "text-gray-500 hover:text-purple-600 hover:bg-purple-50"}`}
           >
             <MessageSquare size={14} /> Kommentar
             {kommentarAnzahl > 0 && (
@@ -1399,7 +1399,7 @@ function TopZeile({
             <button
               onClick={() => setAufgabeModal(true)}
               title="Als Aufgabe anlegen"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm text-xs font-medium text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
             >
               <CheckSquare size={14} /> Als Aufgabe
             </button>
@@ -1408,7 +1408,7 @@ function TopZeile({
             <button
               onClick={() => setErgebnisOffen(true)}
               title={istBV ? "Verlauf / Ergebnis eintragen" : "Ergebnis / Beschluss eintragen"}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium text-gray-500 hover:text-orange-600 hover:bg-orange-50 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm text-xs font-medium text-gray-500 hover:text-orange-600 hover:bg-orange-50 transition-colors"
             >
               <ClipboardList size={14} /> {istBV ? "Ergebnis" : "Beschluss"}
             </button>
@@ -1418,7 +1418,7 @@ function TopZeile({
             <button
               onClick={() => setAntragModal(true)}
               title="Antrag an den Betriebsrat ins Themen-Backlog übernehmen"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium text-gray-500 hover:text-[rgb(var(--accent))] hover:bg-accent/5 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm text-xs font-medium text-gray-500 hover:text-[rgb(var(--accent))] hover:bg-accent/5 transition-colors"
             >
               <ListPlus size={14} /> Antrag
             </button>
@@ -1429,7 +1429,7 @@ function TopZeile({
             <button
               onClick={mehrUmschalten}
               title="Weitere Aktionen"
-              className={`p-1.5 rounded transition-colors ${mehrOffen ? "text-gray-700 bg-gray-100" : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"}`}
+              className={`p-1.5 rounded-sm transition-colors ${mehrOffen ? "text-gray-700 bg-gray-100" : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"}`}
             >
               <MoreHorizontal size={15} />
             </button>
@@ -1808,7 +1808,7 @@ function TopGehaltModal({
                   <select
                     value={mitarbeiterId}
                     onChange={e => setMitarbeiterId(e.target.value)}
-                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                   >
                     <option value="">– auswählen –</option>
                     {mitarbeiterListe.map(m => (
@@ -1829,25 +1829,25 @@ function TopGehaltModal({
                     <input
                       type="text" placeholder="Vorname" value={vorname} autoFocus
                       onChange={e => setVorname(e.target.value)}
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                     />
                     <input
                       type="text" placeholder="Nachname" value={nachname}
                       onChange={e => setNachname(e.target.value)}
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <input
                       type="text" placeholder="PNR (optional)" value={pnr}
                       onChange={e => setPnr(e.target.value)}
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                     />
                     <input
                       type="date" placeholder="Eintritt" value={eintritt}
                       onChange={e => setEintritt(e.target.value)}
                       title="Eintrittsdatum (optional)"
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -1855,13 +1855,13 @@ function TopGehaltModal({
                       type="date" placeholder="Austritt" value={austritt}
                       onChange={e => setAustritt(e.target.value)}
                       title="Austrittsdatum (optional)"
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                     />
                   </div>
                   <select
                     value={abteilungId}
                     onChange={e => setAbteilungId(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                   >
                     <option value="">Abteilung (optional)</option>
                     {abteilungen.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -1903,7 +1903,7 @@ function TopGehaltModal({
                       type="text" required value={gehaltAt}
                       onChange={e => setGehaltAt(e.target.value)}
                       placeholder="z.B. 4200"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                     />
                   </div>
                 ) : (
@@ -1913,7 +1913,7 @@ function TopGehaltModal({
                       <select
                         required value={gruppe}
                         onChange={e => setGruppe(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                       >
                         <option value="">– wählen –</option>
                         {[1, 2, 3, 4, 5, 6].map(g => <option key={g} value={g}>{g}</option>)}
@@ -1924,7 +1924,7 @@ function TopGehaltModal({
                       <select
                         required value={stufe}
                         onChange={e => setStufe(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                       >
                         <option value="">– wählen –</option>
                         {[1, 2, 3, 4].map(s => <option key={s} value={s}>{s}</option>)}
@@ -1938,7 +1938,7 @@ function TopGehaltModal({
                   <input
                     type="date" required value={gueltigAb}
                     onChange={e => setGueltigAb(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                   />
                 </div>
 
@@ -1948,7 +1948,7 @@ function TopGehaltModal({
                     type="text" value={bemerkung}
                     onChange={e => setBemerkung(e.target.value)}
                     placeholder="Optional"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                   />
                 </div>
               </>
@@ -1961,7 +1961,7 @@ function TopGehaltModal({
                   <select
                     required value={zmZeitmodellId}
                     onChange={e => setZmZeitmodellId(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                   >
                     <option value="">– auswählen –</option>
                     {aktiveZeitmodelle.map(z => (
@@ -1975,7 +1975,7 @@ function TopGehaltModal({
                   <input
                     type="date" required value={zmGueltigVon}
                     onChange={e => setZmGueltigVon(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                   />
                 </div>
 
@@ -1984,7 +1984,7 @@ function TopGehaltModal({
                     <input
                       type="checkbox" checked={zmUnbefristet}
                       onChange={e => setZmUnbefristet(e.target.checked)}
-                      className="rounded border-gray-300 text-[rgb(var(--accent))]"
+                      className="rounded-sm border-gray-300 text-[rgb(var(--accent))]"
                     />
                     <span className="text-sm text-gray-700">Unbefristet</span>
                   </label>
@@ -1994,7 +1994,7 @@ function TopGehaltModal({
                       <input
                         type="date" required value={zmGueltigBis}
                         onChange={e => setZmGueltigBis(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                       />
                     </div>
                   )}
@@ -2006,7 +2006,7 @@ function TopGehaltModal({
                     type="text" value={zmBemerkung}
                     onChange={e => setZmBemerkung(e.target.value)}
                     placeholder="Optional"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                   />
                 </div>
               </>
@@ -2020,7 +2020,7 @@ function TopGehaltModal({
                     type="text" value={usRegelung}
                     onChange={e => setUsRegelung(e.target.value)}
                     placeholder="Optional – z.B. Ausgleich in Freizeit, Auszahlung ab 20h"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                   />
                 </div>
 
@@ -2029,7 +2029,7 @@ function TopGehaltModal({
                   <input
                     type="date" required value={usGueltigVon}
                     onChange={e => setUsGueltigVon(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                   />
                 </div>
 
@@ -2038,7 +2038,7 @@ function TopGehaltModal({
                     <input
                       type="checkbox" checked={usUnbefristet}
                       onChange={e => setUsUnbefristet(e.target.checked)}
-                      className="rounded border-gray-300 text-[rgb(var(--accent))]"
+                      className="rounded-sm border-gray-300 text-[rgb(var(--accent))]"
                     />
                     <span className="text-sm text-gray-700">Unbefristet</span>
                   </label>
@@ -2048,7 +2048,7 @@ function TopGehaltModal({
                       <input
                         type="date" required value={usGueltigBis}
                         onChange={e => setUsGueltigBis(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                       />
                     </div>
                   )}
@@ -2060,7 +2060,7 @@ function TopGehaltModal({
                     type="text" value={usBemerkung}
                     onChange={e => setUsBemerkung(e.target.value)}
                     placeholder="Optional"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                   />
                 </div>
               </>
@@ -2130,7 +2130,7 @@ function TopModal({
             <label className="block text-sm font-medium text-gray-700 mb-1">Titel *</label>
             <input value={titel} onChange={e => setTitel(e.target.value)} required autoFocus
               placeholder="z.B. Anhörung gemäß § 99 BetrVG – Einstellung Herr Müller"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Sachverhalt / Beschreibung</label>
@@ -2146,7 +2146,7 @@ function TopModal({
               type="checkbox"
               checked={vertraulich}
               onChange={e => setVertraulich(e.target.checked)}
-              className="rounded border-gray-300 text-[rgb(var(--accent))]"
+              className="rounded-sm border-gray-300 text-[rgb(var(--accent))]"
             />
             <span className="text-sm text-gray-700">Vertraulich (für JAV/SBV-Zugang ausgeblendet)</span>
           </label>
@@ -2224,18 +2224,18 @@ function ExtraktModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Titel *</label>
             <input value={formTitel} onChange={e => setFormTitel(e.target.value)} required autoFocus
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Sachverhalt / Situation *</label>
             <textarea value={formInhalt} onChange={e => setFormInhalt(e.target.value)} required rows={4}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Lösung / Ergebnis</label>
             <textarea value={formLoesung} onChange={e => setFormLoesung(e.target.value)} rows={3}
               placeholder="Wie wurde das Problem gelöst?"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Kategorien / Schlagworte</label>
@@ -2243,7 +2243,7 @@ function ExtraktModal({
               <input value={tagInput} onChange={e => setTagInput(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); tagHinzufuegen(); } }}
                 placeholder="Schlagwort eingeben…"
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
               <button type="button" onClick={tagHinzufuegen}
                 className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm text-gray-600">
                 <Tag size={14} />
@@ -2352,7 +2352,7 @@ function StellungnahmeModal({
               <select
                 value={beschlussId}
                 onChange={e => setBeschlussId(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
               >
                 <option value="">Beschluss wählen…</option>
                 {daten.verfuegbareBeschluesse.map(b => (
@@ -2479,7 +2479,7 @@ function DokumentLinkModal({
             value={suche}
             onChange={e => setSuche(e.target.value)}
             placeholder="Dokument suchen (Titel oder Aktenzeichen)…"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
           />
 
           <div className="border border-gray-200 rounded-lg overflow-hidden max-h-56 overflow-y-auto">
@@ -2519,7 +2519,7 @@ function DokumentLinkModal({
             <label className="block text-sm font-medium text-gray-700 mb-1">Hinweis (optional)</label>
             <input value={hinweis} onChange={e => setHinweis(e.target.value)}
               placeholder="z.B. Bewerbungsunterlagen für TOP 3"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
           </div>
 
           {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
@@ -2590,7 +2590,7 @@ function SpontanTopModal({
               onChange={e => setTitel(e.target.value)}
               placeholder="z.B. Antrag AG – Überstundenregelung Abteilung X"
               autoFocus
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
             />
           </div>
 
@@ -2651,7 +2651,7 @@ function TeilnahmeKarte({ sitzung, onAktualisieren }: { sitzung: Sitzung; onAktu
         <div className="flex items-center gap-2">
           <input
             type="number" min={0} value={wert} onChange={e => setWert(e.target.value)} placeholder="Anzahl"
-            className="w-24 border border-amber-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+            className="w-24 border border-amber-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
           />
           <button
             onClick={speichern} disabled={laden || !geaendert}
@@ -2769,7 +2769,7 @@ function SitzungScanKarte({
                   onClick={() => loeschen(typ)}
                   disabled={laden === typ}
                   title="Scan löschen"
-                  className="p-1.5 text-amber-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  className="p-1.5 text-amber-400 hover:text-red-600 hover:bg-red-50 rounded-sm transition-colors"
                 >
                   <Trash2 size={13} />
                 </button>
@@ -2911,7 +2911,7 @@ function KummerkastenFragenModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">In TOP übernehmen</label>
             <select value={zielTopId} onChange={e => setZielTopId(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]">
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]">
               {sitzung.tops.map(t => <option key={t.id} value={t.id}>{t.nummer}. {t.titel}</option>)}
             </select>
           </div>
@@ -3004,12 +3004,12 @@ function AntragBacklogModal({
               <label className="block text-sm font-medium text-gray-700 mb-1">Antrag (Kurztitel) *</label>
               <input value={titel} onChange={e => setTitel(e.target.value)} required autoFocus
                 placeholder="z. B. Überdachte Fahrradstellplätze"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Wortlaut / Begründung</label>
               <textarea value={text} onChange={e => setText(e.target.value)} rows={4} placeholder="Optional"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
             </div>
             {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
             <div className="flex gap-3 pt-2">

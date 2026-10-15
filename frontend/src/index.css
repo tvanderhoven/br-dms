@@ -1,6 +1,61 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-gray-50: #fafafa;
+  --color-gray-100: #f4f4f5;
+  --color-gray-200: #e4e4e7;
+  --color-gray-300: #d4d4d8;
+  --color-gray-400: #a1a1aa;
+  --color-gray-500: #71717a;
+  --color-gray-600: #52525b;
+  --color-gray-700: #3f3f46;
+  --color-gray-800: #27272a;
+  --color-gray-900: #18181b;
+  --color-gray-950: #09090b;
+
+  --color-accent: rgb(var(--accent));
+  --color-accent-hover: rgb(var(--accent-hover));
+  --color-brand-red: rgb(var(--brand-red));
+
+  --color-brand-50: rgb(var(--brand-50));
+  --color-brand-500: rgb(var(--brand-500));
+  --color-brand-600: rgb(var(--brand-600));
+  --color-brand-700: rgb(var(--brand-700));
+
+  --color-surface-sidebar: rgb(var(--sidebar-bg));
+  --color-surface-accent: rgb(var(--accent));
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.04), 0 12px 24px -20px rgb(0 0 0 / 0.3);
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 14px 28px -20px rgb(0 0 0 / 0.35);
+}
+
+/*
+  Tailwind 4 nimmt als Rahmenfarbe ohne Angabe die Textfarbe (currentcolor),
+  Tailwind 3 nahm gray-200. Damit Rahmen ohne eigene Farbe aussehen wie bisher,
+  bleibt gray-200 der Standard.
+*/
+/*
+  Tailwind 4 setzt bei Knöpfen den normalen Mauszeiger statt der Hand –
+  wie in Tailwind 3 soll ein klickbarer Knopf die Hand zeigen.
+*/
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
 
 @layer base {
   :root {

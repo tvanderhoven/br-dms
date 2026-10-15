@@ -119,14 +119,14 @@ export default function GeschaeftsordnungSeite() {
                   <td className="px-4 py-2.5 text-right whitespace-nowrap">
                     <button
                       onClick={() => { setBearbeitet(g); setModal(true); }}
-                      className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
+                      className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm transition-colors"
                       title="Bearbeiten"
                     >
                       <Edit3 size={14} />
                     </button>
                     <button
                       onClick={() => loeschen(g.id)}
-                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-sm transition-colors"
                       title="Löschen"
                     >
                       <Trash2 size={14} />
@@ -204,13 +204,13 @@ function GeschaeftsordnungModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Beschlossen am *</label>
             <input type="date" required value={beschlossenAm} autoFocus onChange={e => setBeschlossenAm(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Verknüpftes Dokument</label>
             <select value={dokumentId} onChange={e => setDokumentId(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]">
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]">
               <option value="">– keins –</option>
               {dokumente.map(d => <option key={d.id} value={d.id}>{d.titel}</option>)}
             </select>
@@ -225,7 +225,7 @@ function GeschaeftsordnungModal({
             <label className="block text-sm font-medium text-gray-700 mb-1">Bemerkung</label>
             <textarea rows={2} value={bemerkung} onChange={e => setBemerkung(e.target.value)}
               placeholder="z.B. löst die Fassung vom ... ab"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
           </div>
 
           {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}

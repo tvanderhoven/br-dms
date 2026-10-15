@@ -83,11 +83,11 @@ export default function EmailVorschau({ dokumentId, onDokumentOeffnen, onAbgeleg
     <div className="flex flex-col h-full min-h-0 bg-white">
       {/* Kopf */}
       <dl className="px-4 py-3 border-b border-gray-100 text-xs grid grid-cols-[3.2rem_1fr] gap-x-2 gap-y-0.5">
-        <dt className="text-gray-400">Von</dt><dd className="text-gray-800 break-words">{mail.von || "–"}</dd>
-        <dt className="text-gray-400">An</dt><dd className="text-gray-700 break-words">{mail.an.join(", ") || "–"}</dd>
-        {mail.cc.length > 0 && (<><dt className="text-gray-400">Cc</dt><dd className="text-gray-700 break-words">{mail.cc.join(", ")}</dd></>)}
+        <dt className="text-gray-400">Von</dt><dd className="text-gray-800 wrap-break-word">{mail.von || "–"}</dd>
+        <dt className="text-gray-400">An</dt><dd className="text-gray-700 wrap-break-word">{mail.an.join(", ") || "–"}</dd>
+        {mail.cc.length > 0 && (<><dt className="text-gray-400">Cc</dt><dd className="text-gray-700 wrap-break-word">{mail.cc.join(", ")}</dd></>)}
         <dt className="text-gray-400">Datum</dt><dd className="text-gray-700">{mail.datum ? datumZeit(mail.datum) : "–"}</dd>
-        <dt className="text-gray-400">Betreff</dt><dd className="text-gray-900 font-medium break-words">{mail.betreff || "(kein Betreff)"}</dd>
+        <dt className="text-gray-400">Betreff</dt><dd className="text-gray-900 font-medium wrap-break-word">{mail.betreff || "(kein Betreff)"}</dd>
       </dl>
 
       {/* Anhänge */}
@@ -101,17 +101,17 @@ export default function EmailVorschau({ dokumentId, onDokumentOeffnen, onAbgeleg
               <span className="truncate flex-1 text-gray-700" title={a.name}>{a.name}</span>
               <span className="text-gray-400 shrink-0">{formatDateigroesse(a.groesse)}</span>
               <button onClick={() => anhangHerunterladen(a.nr, a.name)} title="Herunterladen"
-                className="p-1 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded shrink-0">
+                className="p-1 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm shrink-0">
                 <Download size={12} />
               </button>
               {a.dokument ? (
                 <button onClick={() => onDokumentOeffnen(a.dokument!.id)} title="Als Dokument abgelegt – öffnen"
-                  className="p-1 text-green-600 hover:bg-green-50 rounded shrink-0">
+                  className="p-1 text-green-600 hover:bg-green-50 rounded-sm shrink-0">
                   <FileCheck2 size={12} />
                 </button>
               ) : a.ablegbar ? (
                 <button onClick={() => alsDokumentAblegen(a.nr)} disabled={ablegen !== null} title="Als eigenes Dokument ablegen"
-                  className="p-1 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded shrink-0 disabled:opacity-50">
+                  className="p-1 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm shrink-0 disabled:opacity-50">
                   {ablegen === a.nr ? <Loader2 size={12} className="animate-spin" /> : <FilePlus2 size={12} />}
                 </button>
               ) : <span className="w-5 shrink-0" />}
@@ -141,7 +141,7 @@ export default function EmailVorschau({ dokumentId, onDokumentOeffnen, onAbgeleg
             className="w-full h-full border-0 bg-white"
           />
         ) : (
-          <pre className="h-full overflow-auto px-4 py-3 text-xs text-gray-800 whitespace-pre-wrap break-words font-sans">
+          <pre className="h-full overflow-auto px-4 py-3 text-xs text-gray-800 whitespace-pre-wrap wrap-break-word font-sans">
             {mail.text || "(kein Text)"}
           </pre>
         )}

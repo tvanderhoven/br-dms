@@ -118,14 +118,14 @@ export default function Wahlen() {
                 <div className="flex items-center gap-1">
                   {w.vorhabenId && (
                     <button onClick={() => navigate("/aufgaben?ansicht=zeitplan")} title="Vorhaben im Zeitplan"
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium text-gray-500 hover:text-accent hover:bg-accent/5">
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm text-xs font-medium text-gray-500 hover:text-accent hover:bg-accent/5">
                       <CalendarRange size={14} /> Zeitplan
                     </button>
                   )}
                   <button onClick={() => setModal({ wahl: w })} title="Bearbeiten"
-                    className="p-1.5 text-gray-400 hover:text-accent hover:bg-accent/5 rounded"><Pencil size={15} /></button>
+                    className="p-1.5 text-gray-400 hover:text-accent hover:bg-accent/5 rounded-sm"><Pencil size={15} /></button>
                   <button onClick={() => loeschen(w)} title="Löschen"
-                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 size={15} /></button>
+                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-sm"><Trash2 size={15} /></button>
                 </div>
               </div>
 
@@ -216,7 +216,7 @@ function WahlModal({ wahl, onSchliessen, onGespeichert }: {
     }
   }
 
-  const input = "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]";
+  const input = "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]";
   const vereinfacht = verfahren === "VEREINFACHT";
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onSchliessen}>
@@ -240,7 +240,7 @@ function WahlModal({ wahl, onSchliessen, onGespeichert }: {
               </select>
             </div>
           </div>
-          <p className="text-xs text-gray-500 -mt-2">{VERFAHREN_HINWEIS[art]}</p>
+          <p className="text-xs text-gray-500 first:-mt-2">{VERFAHREN_HINWEIS[art]}</p>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -434,7 +434,7 @@ function WaehlerlisteBereich({ wahl, onWahlGeaendert }: { wahl: Wahl; onWahlGeae
                   </button>
                 </div>
               </div>
-              <p className="text-xs text-gray-400 -mt-2">
+              <p className="text-xs text-gray-400 first:-mt-2">
                 Das PDF enthält keine Geburtsdaten (Abdruck zum Aushang). Die CSV mit Geburtsdaten ist nur für den Wahlvorstand bestimmt.
               </p>
 
@@ -454,7 +454,7 @@ function WaehlerlisteBereich({ wahl, onWahlGeaendert }: { wahl: Wahl; onWahlGeae
                 <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 bg-gray-50">
                   <Search size={14} className="text-gray-400" />
                   <input value={suche} onChange={e => setSuche(e.target.value)} placeholder="Name oder Abteilung filtern"
-                    className="flex-1 bg-transparent text-sm focus:outline-none" />
+                    className="flex-1 bg-transparent text-sm focus:outline-hidden" />
                   {laden && <Loader2 size={14} className="animate-spin text-gray-400" />}
                 </div>
                 <div className="max-h-96 overflow-y-auto">
@@ -493,7 +493,7 @@ function WaehlerlisteBereich({ wahl, onWahlGeaendert }: { wahl: Wahl; onWahlGeae
                   {gefiltert.length === 0 && <p className="text-sm text-gray-400 text-center py-6">Niemand gefunden</p>}
                 </div>
               </div>
-              <p className="text-xs text-gray-400 -mt-2">
+              <p className="text-xs text-gray-400 first:-mt-2">
                 Wählbarkeit {wahl.art === "BR" ? "nach § 8 (ab 18, 6 Monate im Betrieb, nicht Zeitarbeit)" : "nach § 61 Abs. 2 (unter 25) – BR-Mitglieder sind nicht wählbar, das prüft das Programm nicht"}.
               </p>
 
@@ -654,7 +654,7 @@ function ErgebnisModal({ wahl, onSchliessen, onUebernommen }: {
     catch (err) { setFehler(err instanceof Error ? err.message : "Übernahme fehlgeschlagen"); setLaden(false); }
   }
 
-  const input = "w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]";
+  const input = "w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]";
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onSchliessen}>
       <div onClick={e => e.stopPropagation()} className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col">
@@ -688,7 +688,7 @@ function ErgebnisModal({ wahl, onSchliessen, onUebernommen }: {
                       <input list="ergebnis-namen" value={z.name} onChange={e => aendern(i, { name: e.target.value })} placeholder="Vorname Nachname" className={input} />
                       {p && (
                         <p className="text-xs mt-0.5">
-                          <span className={`px-1.5 py-0.5 rounded ${AKTION_LABEL[p.aktion][1]}`}>{AKTION_LABEL[p.aktion][0]}</span>
+                          <span className={`px-1.5 py-0.5 rounded-sm ${AKTION_LABEL[p.aktion][1]}`}>{AKTION_LABEL[p.aktion][0]}</span>
                           {p.fehler && <span className="text-red-600 ml-1">{p.fehler}</span>}
                           {!p.fehler && p.neueRolle && p.alteRolle !== p.neueRolle && (
                             <span className="text-gray-500 ml-1">{p.alteRolle ? `${ROLLEN_LABEL[p.alteRolle]} → ` : ""}{ROLLEN_LABEL[p.neueRolle]}</span>

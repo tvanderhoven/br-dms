@@ -50,7 +50,7 @@ export default function UpdateBanner() {
         <span className="text-blue-800/80"> Das Update spielt der Admin des Servers ein (Handbuch Kapitel 13.1).</span>
       </div>
       <button onClick={ausblenden} title="Für diese Version ausblenden"
-        className="shrink-0 rounded p-0.5 text-blue-700 hover:bg-blue-100">
+        className="shrink-0 rounded-sm p-0.5 text-blue-700 hover:bg-blue-100">
         <X size={16} />
       </button>
     </div>

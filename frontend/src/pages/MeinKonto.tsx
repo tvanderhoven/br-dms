@@ -10,7 +10,7 @@ import PasswortAendernModal from "../components/PasswortAendernModal";
 import { CodeFeld, Fehler, QrEinrichtung, Wiederherstellungscodes } from "../components/ZweiFaktorBausteine";
 
 const eingabeKlasse =
-  "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]";
+  "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]";
 const knopf =
   "flex items-center gap-1.5 border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60";
 const hauptKnopf =
@@ -206,7 +206,7 @@ function Zeile({ label, children, aktion }: { label: string; children: ReactNode
   return (
     <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
       <dt className="text-sm text-gray-500 sm:w-48 shrink-0">{label}</dt>
-      <dd className="text-sm text-gray-800 flex-1 min-w-0 break-words">{children}</dd>
+      <dd className="text-sm text-gray-800 flex-1 min-w-0 wrap-break-word">{children}</dd>
       {aktion && <div className="shrink-0">{aktion}</div>}
     </div>
   );

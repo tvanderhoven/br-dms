@@ -90,7 +90,7 @@ function RegelZeile({
                 min="1"
                 value={tage}
                 onChange={e => setTage(e.target.value)}
-                className="w-28 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                className="w-28 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
               />
               {tage && parseInt(tage) > 0 && (
                 <span className="text-xs text-gray-500">= {tageZuText(parseInt(tage))}</span>
@@ -104,7 +104,7 @@ function RegelZeile({
               value={rg}
               onChange={e => setRg(e.target.value)}
               placeholder="z. B. § 99 BetrVG"
-              className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
             />
           </div>
           <div>
@@ -113,7 +113,7 @@ function RegelZeile({
               value={beschr}
               onChange={e => setBeschr(e.target.value)}
               placeholder="z. B. Personalakte Kündigung"
-              className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
             />
           </div>
         </div>
@@ -277,7 +277,7 @@ function ProtokollTab() {
         value={einstellungen?.[key] ?? ""}
         onChange={e => aendern(key, e.target.value)}
         placeholder={placeholder}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
       />
     </div>
   );
@@ -410,7 +410,7 @@ function ProtokollTab() {
               value={einstellungen?.farbe ?? ""}
               onChange={e => aendern("farbe", e.target.value)}
               placeholder="#1e40af"
-              className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
             />
             <span className="text-xs text-gray-400">Wird für Überschriften, Trennlinien und den Badge verwendet.</span>
           </div>
@@ -469,15 +469,15 @@ function ThemeKarte({ theme, aktiv, onClick }: { theme: typeof THEMES[0]; aktiv:
       }`}
     >
       <div className="flex h-12 rounded-lg overflow-hidden">
-        <div className="w-8 flex-shrink-0 flex flex-col gap-1 p-1" style={{ backgroundColor: theme.sidebar }}>
+        <div className="w-8 shrink-0 flex flex-col gap-1 p-1" style={{ backgroundColor: theme.sidebar }}>
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-1.5 rounded-sm opacity-60" style={{ backgroundColor: "white", width: i === 0 ? "100%" : "70%" }} />
+            <div key={i} className="h-1.5 rounded-xs opacity-60" style={{ backgroundColor: "white", width: i === 0 ? "100%" : "70%" }} />
           ))}
         </div>
         <div className="flex-1 flex flex-col gap-1 p-1.5" style={{ backgroundColor: theme.bg }}>
-          <div className="h-2 rounded-sm w-3/4" style={{ backgroundColor: theme.text, opacity: 0.2 }} />
-          <div className="h-2 rounded-sm w-1/2" style={{ backgroundColor: theme.text, opacity: 0.12 }} />
-          <div className="mt-auto h-2.5 rounded-sm w-2/3" style={{ backgroundColor: theme.accent, opacity: 0.85 }} />
+          <div className="h-2 rounded-xs w-3/4" style={{ backgroundColor: theme.text, opacity: 0.2 }} />
+          <div className="h-2 rounded-xs w-1/2" style={{ backgroundColor: theme.text, opacity: 0.12 }} />
+          <div className="mt-auto h-2.5 rounded-xs w-2/3" style={{ backgroundColor: theme.accent, opacity: 0.85 }} />
         </div>
       </div>
       <p className={`text-xs text-center mt-1.5 font-medium ${aktiv ? "text-[rgb(var(--accent))]" : "text-gray-500"}`}>
@@ -533,7 +533,7 @@ function DesignTab() {
 
   if (laden) return <div className="flex items-center justify-center h-32 text-gray-400"><Loader2 className="animate-spin mr-2" size={18} /> Laden…</div>;
 
-  const inputKlasse = "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]";
+  const inputKlasse = "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]";
   const aktiv = aktivesTheme();
 
   return (
@@ -563,7 +563,7 @@ function DesignTab() {
               <div className="flex gap-2">
                 <input type="color" value={einstellungen[key]}
                   onChange={e => aendern(key, e.target.value)}
-                  className="w-10 h-9 border border-gray-300 rounded cursor-pointer shrink-0" />
+                  className="w-10 h-9 border border-gray-300 rounded-sm cursor-pointer shrink-0" />
                 <input type="text" value={einstellungen[key]}
                   onChange={e => aendern(key, e.target.value)}
                   className={inputKlasse} />
@@ -603,7 +603,7 @@ function DesignTab() {
         <div className="flex rounded-xl overflow-hidden border border-gray-200 h-20 shadow-inner">
           <div className="w-24 flex flex-col gap-1 p-2" style={{ backgroundColor: einstellungen.sidebar_farbe }}>
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-2 rounded-sm opacity-50" style={{ backgroundColor: "white", width: i === 0 ? "80%" : i === 1 ? "60%" : i === 2 ? "70%" : "50%" }} />
+              <div key={i} className="h-2 rounded-xs opacity-50" style={{ backgroundColor: "white", width: i === 0 ? "80%" : i === 1 ? "60%" : i === 2 ? "70%" : "50%" }} />
             ))}
           </div>
           <div className="flex-1 flex items-center justify-center gap-3 px-4" style={{ backgroundColor: einstellungen.hintergrund }}>
@@ -670,7 +670,7 @@ function GefahrenzonenAktion({
           value={bestaetigung}
           onChange={e => setBestaetigung(e.target.value)}
           placeholder='"LÖSCHEN" eintippen zum Freischalten'
-          className="border border-red-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 w-64"
+          className="border border-red-300 rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-red-400 w-64"
         />
         <button
           onClick={starten}
@@ -698,7 +698,7 @@ function GehaltstabelleGefahrenzone() {
       </div>
       <p className="text-sm text-gray-500 mb-4">
         Nur für Admins. Beide Aktionen können nicht rückgängig gemacht werden. Es gibt bewusst keinen Daten-Export aus der App
-        (siehe unten) – vorher ggf. ein reguläres Datenbank-Backup ziehen (<code className="font-mono text-xs bg-gray-50 border border-gray-200 rounded px-1 py-0.5">./backup.sh</code>, siehe oben).
+        (siehe unten) – vorher ggf. ein reguläres Datenbank-Backup ziehen (<code className="font-mono text-xs bg-gray-50 border border-gray-200 rounded-sm px-1 py-0.5">./backup.sh</code>, siehe oben).
       </p>
       <div className="space-y-3">
         <GefahrenzonenAktion
@@ -772,7 +772,7 @@ function SicherheitEinstellung() {
           <input
             type="number" min={0} max={480} value={minuten}
             onChange={e => setMinuten(e.target.value)}
-            className="w-20 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+            className="w-20 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
           />
           <span className="text-sm text-gray-600">Minuten Inaktivität</span>
           <button
@@ -851,7 +851,7 @@ function ZweiFaktorEinstellung() {
               <div className="flex flex-wrap gap-x-5 gap-y-2">
                 {ROLLEN_2FA.map(rolle => (
                   <label key={rolle} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                    <input type="checkbox" checked={r.pflichtRollen.includes(rolle)} onChange={() => rolleUmschalten(rolle)} className="rounded border-gray-300" />
+                    <input type="checkbox" checked={r.pflichtRollen.includes(rolle)} onChange={() => rolleUmschalten(rolle)} className="rounded-sm border-gray-300" />
                     {ROLLE_LABEL[rolle]}
                   </label>
                 ))}
@@ -1003,7 +1003,7 @@ function WahlQuoteEinstellung() {
           <select
             value={geschlecht}
             onChange={e => setGeschlecht(e.target.value as Geschlecht | "")}
-            className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+            className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
           >
             <option value="">Nicht konfiguriert</option>
             <option value="MAENNLICH">Männlich</option>
@@ -1013,7 +1013,7 @@ function WahlQuoteEinstellung() {
           <input
             type="number" min={0} value={mindestsitze}
             onChange={e => setMindestsitze(e.target.value)}
-            className="w-20 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+            className="w-20 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
           />
           <button
             onClick={speichernKlick}
@@ -1077,7 +1077,7 @@ function MailAbsenderEinstellung() {
     }
   }
 
-  const feld = "border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]";
+  const feld = "border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]";
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
       <h2 className="font-semibold text-gray-800 mb-1">E-Mail-Absender</h2>
@@ -1252,7 +1252,7 @@ function ZeitmodelleVerwaltung() {
                         <input
                           value={bearbeitetBezeichnung}
                           onChange={e => setBearbeitetBezeichnung(e.target.value)}
-                          className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                          className="w-full border border-gray-300 rounded-sm px-2 py-1 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                         />
                       </td>
                       <td className="py-1.5 pr-3">
@@ -1260,7 +1260,7 @@ function ZeitmodelleVerwaltung() {
                           value={bearbeitetWochenstunden}
                           onChange={e => setBearbeitetWochenstunden(e.target.value)}
                           placeholder="optional"
-                          className="w-24 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                          className="w-24 border border-gray-300 rounded-sm px-2 py-1 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                         />
                       </td>
                       <td className="py-1.5 pr-3 text-gray-400">{z.aktiv ? "Aktiv" : "Inaktiv"}</td>
@@ -1288,7 +1288,7 @@ function ZeitmodelleVerwaltung() {
                         <button
                           onClick={() => standardSetzen(z)}
                           title={z.standard ? "Als Standard entfernen" : "Als Standard festlegen (Rückfallwert ohne eigene Historie)"}
-                          className={`p-1 rounded transition-colors ${z.standard ? "text-amber-500 hover:text-amber-600" : "text-gray-300 hover:text-gray-400"}`}
+                          className={`p-1 rounded-sm transition-colors ${z.standard ? "text-amber-500 hover:text-amber-600" : "text-gray-300 hover:text-gray-400"}`}
                         >
                           <Star size={15} fill={z.standard ? "currentColor" : "none"} />
                         </button>
@@ -1315,7 +1315,7 @@ function ZeitmodelleVerwaltung() {
                 value={neuBezeichnung}
                 onChange={e => setNeuBezeichnung(e.target.value)}
                 placeholder="z.B. 38h oder A"
-                className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
               />
             </div>
             <div>
@@ -1324,7 +1324,7 @@ function ZeitmodelleVerwaltung() {
                 value={neuWochenstunden}
                 onChange={e => setNeuWochenstunden(e.target.value)}
                 placeholder="optional"
-                className="w-28 border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                className="w-28 border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
               />
             </div>
             <button
@@ -1407,7 +1407,7 @@ function SystemTab() {
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Unterordner nach Kategorie</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                 {UNTERORDNER.map(o => (
-                  <div key={o} className="flex items-center gap-1.5 text-xs text-gray-600 bg-gray-50 rounded px-2 py-1.5">
+                  <div key={o} className="flex items-center gap-1.5 text-xs text-gray-600 bg-gray-50 rounded-sm px-2 py-1.5">
                     <FolderOpen size={12} className="text-gray-400 shrink-0" />
                     <code className="font-mono">{o}</code>
                   </div>
@@ -1419,7 +1419,7 @@ function SystemTab() {
             </p>
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Scan-Eingang (kein Dokument, Zuordnung im Eingang)</p>
-              <div className="flex items-center gap-1.5 text-xs text-gray-600 bg-gray-50 rounded px-2 py-1.5 w-fit">
+              <div className="flex items-center gap-1.5 text-xs text-gray-600 bg-gray-50 rounded-sm px-2 py-1.5 w-fit">
                 <FolderOpen size={12} className="text-gray-400 shrink-0" />
                 <code className="font-mono">protokoll_scan</code>
               </div>
@@ -1468,7 +1468,7 @@ function SystemTab() {
           <div>
             <p className="font-medium text-gray-800 mb-1">Backup erstellen</p>
             <p>
-              <code className="bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5 font-mono text-xs">./backup.sh</code> im
+              <code className="bg-gray-50 border border-gray-200 rounded-sm px-1.5 py-0.5 font-mono text-xs">./backup.sh</code> im
               Projektordner auf dem NAS ausführen. Am besten täglich automatisch über den{" "}
               <b>QNAP Task Scheduler</b> einrichten, statt es manuell zu machen.
             </p>
@@ -1565,7 +1565,7 @@ function SystemTab() {
           <div>
             <p className="font-medium text-gray-800 mb-1">Wiederherstellen</p>
             <p>
-              <code className="bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5 font-mono text-xs">./restore.sh</code> im
+              <code className="bg-gray-50 border border-gray-200 rounded-sm px-1.5 py-0.5 font-mono text-xs">./restore.sh</code> im
               Projektordner ausführen — fragt interaktiv, welches Backup eingespielt werden soll, stoppt dafür kurz das Backend,
               spielt Datenbank (und optional den Storage-Ordner) ein und startet das Backend neu.
             </p>
@@ -1771,7 +1771,7 @@ function AmtsuebergabeTab() {
     <div className="space-y-4">
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
         <div className="flex items-start gap-3">
-          <Download className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+          <Download className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
           <div>
             <h2 className="font-semibold text-gray-800">Amtsübergabe-Export</h2>
             <p className="text-sm text-gray-500 mt-0.5 mb-3">

@@ -8,7 +8,7 @@ import { Loader2, Copy, Check, Printer } from "lucide-react";
 import type { ZweiFaktorEinrichtung } from "../lib/api";
 
 const eingabeKlasse =
-  "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]";
+  "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]";
 
 /** QR-Code + Geheimnis zum Abtippen + Feld für den ersten Code */
 export function QrEinrichtung({ daten, onBestaetigen }: {
@@ -42,7 +42,7 @@ export function QrEinrichtung({ daten, onBestaetigen }: {
       </ol>
       <div className="flex flex-col items-center gap-2">
         <img src={daten.qrCode} alt="QR-Code für die Authenticator-App" width={220} height={220} className="border border-gray-200 rounded-lg" />
-        <code className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded px-2 py-1 select-all break-all text-center">
+        <code className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-sm px-2 py-1 select-all break-all text-center">
           {daten.geheimnis}
         </code>
       </div>
@@ -128,7 +128,7 @@ export function Wiederherstellungscodes({ codes, onFertig, fertigText = "Weiter"
         </button>
       </div>
       <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-        <input type="checkbox" checked={notiert} onChange={e => setNotiert(e.target.checked)} className="rounded border-gray-300" />
+        <input type="checkbox" checked={notiert} onChange={e => setNotiert(e.target.checked)} className="rounded-sm border-gray-300" />
         Ich habe die Codes gesichert
       </label>
       <button

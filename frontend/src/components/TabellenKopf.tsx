@@ -84,7 +84,7 @@ export default function TabellenKopf({ spalten, defs }: {
                 <button
                   onClick={() => setMenuOffen(o => !o)}
                   title="Spalten ein- und ausblenden"
-                  className="p-1 rounded text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 normal-case"
+                  className="p-1 rounded-sm text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 normal-case"
                 >
                   <Columns3 size={15} />
                 </button>
@@ -97,7 +97,7 @@ export default function TabellenKopf({ spalten, defs }: {
                           type="checkbox"
                           checked={!spalten.ausgeblendet.includes(d.id)}
                           onChange={() => spalten.umschalten(d.id)}
-                          className="rounded border-gray-300 text-[rgb(var(--accent))]"
+                          className="rounded-sm border-gray-300 text-[rgb(var(--accent))]"
                         />
                         <span className="flex-1">{d.label}</span>
                         {spalten.ohnePlatz.includes(d.id) && (

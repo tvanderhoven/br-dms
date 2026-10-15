@@ -69,7 +69,7 @@ export default function KummerkastenOeffentlich() {
                 value={nachricht}
                 onChange={e => setNachricht(e.target.value)}
                 placeholder="Was möchtest du dem Betriebsrat mitteilen?"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent resize-y min-h-[220px]"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-accent resize-y min-h-[220px]"
               />
             </div>
 
@@ -84,12 +84,12 @@ export default function KummerkastenOeffentlich() {
                 value={absenderName}
                 onChange={e => setAbsenderName(e.target.value)}
                 placeholder="Kannst du frei lassen, wenn du anonym bleiben möchtest"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-accent"
               />
             </div>
 
             {/* Honeypot – für Menschen unsichtbar, einfache Bots füllen es oft blind aus */}
-            <div className="absolute -left-[9999px]" aria-hidden="true">
+            <div className="absolute left-[-9999px]" aria-hidden="true">
               <label htmlFor="webseite">Webseite</label>
               <input
                 id="webseite"

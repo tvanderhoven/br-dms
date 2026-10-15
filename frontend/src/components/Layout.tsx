@@ -93,14 +93,14 @@ function GlobaleSuche() {
       <div
         className="flex items-center rounded-lg px-2.5 py-1.5 gap-2 border border-[rgb(var(--sidebar-text)/0.18)] bg-[rgb(var(--sidebar-text)/0.08)] focus-within:border-[rgb(var(--sidebar-text)/0.4)] focus-within:bg-[rgb(var(--sidebar-text)/0.12)] transition-colors"
       >
-        <Search className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "rgb(var(--sidebar-text-muted))" }} />
+        <Search className="w-3.5 h-3.5 shrink-0" style={{ color: "rgb(var(--sidebar-text-muted))" }} />
         <input
           type="text"
           value={query}
           onChange={onChange}
           onKeyDown={onKeyDown}
           placeholder="Suchen… (Enter für Vollsuche)"
-          className="bg-transparent text-[rgb(var(--sidebar-text))] placeholder:text-[rgb(var(--sidebar-text-muted))] text-xs w-full outline-none"
+          className="bg-transparent text-[rgb(var(--sidebar-text))] placeholder:text-[rgb(var(--sidebar-text-muted))] text-xs w-full outline-hidden"
         />
         {query && (
           <button onClick={reset} style={{ color: "rgb(var(--sidebar-text-muted))" }} className="hover:text-[rgb(var(--sidebar-text))]">
@@ -177,7 +177,7 @@ function GlobaleSuche() {
                         <p className="text-xs font-medium text-gray-800 truncate">{r.titel}</p>
                         <p className="text-xs text-gray-400">{RESSOURCE_KATEGORIE_LABEL[r.kategorie]}</p>
                       </div>
-                      <Globe className="w-3 h-3 text-gray-300 flex-shrink-0" />
+                      <Globe className="w-3 h-3 text-gray-300 shrink-0" />
                     </a>
                   ))}
                 </>
@@ -292,7 +292,9 @@ function NavGruppe({
 }) {
   if (!sichtbar) return null;
   return (
-    <div className="mt-3 first:mt-0 pl-2" style={{ borderLeft: `2px solid ${GRUPPEN_FARBE[gruppenKey] ?? "transparent"}` }}>
+    // Abstand zur vorigen Gruppe kommt vom space-y-0.5 der Navigation (in Tailwind 3 hat
+    // space-y ein mt-3 hier stillschweigend überschrieben – so bleibt das gewohnte Bild)
+    <div className="pl-2" style={{ borderLeft: `2px solid ${GRUPPEN_FARBE[gruppenKey] ?? "transparent"}` }}>
       <button
         onClick={() => onToggle(gruppenKey)}
         className="w-full flex items-center justify-between px-3 py-1 text-[11px] font-bold uppercase tracking-wider opacity-75 hover:opacity-100 transition-opacity"

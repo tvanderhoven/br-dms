@@ -49,7 +49,7 @@ export default function PasswortAendernModal({ onSchliessen }: { onSchliessen: (
                 <input
                   type="password" required autoFocus
                   value={aktuelles} onChange={e => setAktuelles(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                 />
               </div>
               <div>
@@ -58,7 +58,7 @@ export default function PasswortAendernModal({ onSchliessen }: { onSchliessen: (
                   type="password" required minLength={8}
                   value={neues} onChange={e => setNeues(e.target.value)}
                   placeholder="Mindestens 8 Zeichen"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                 />
               </div>
               <div>
@@ -66,7 +66,7 @@ export default function PasswortAendernModal({ onSchliessen }: { onSchliessen: (
                 <input
                   type="password" required
                   value={wdh} onChange={e => setWdh(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                 />
               </div>
               {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}

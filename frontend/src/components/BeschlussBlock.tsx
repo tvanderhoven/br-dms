@@ -201,7 +201,7 @@ function EinzelBeschluss({
           <button
             onClick={loeschenFn}
             disabled={loeschen}
-            className="p-1 text-gray-300 hover:text-red-500 rounded transition-colors"
+            className="p-1 text-gray-300 hover:text-red-500 rounded-sm transition-colors"
           >
             {loeschen ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
           </button>
@@ -228,7 +228,7 @@ function EinzelBeschluss({
               onChange={e => setAntragstext(e.target.value)}
               rows={3}
               placeholder="Wortlaut des Antrags…"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
             />
           )}
         </div>
@@ -242,7 +242,7 @@ function EinzelBeschluss({
             <select
               value={rechtsgrundlage}
               onChange={e => setRechtsgrundlage(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs bg-white focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs bg-white focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
             >
               {RECHTSGRUNDLAGEN.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
@@ -381,7 +381,7 @@ function StimmenFeld({
         min={0}
         value={wert}
         onChange={e => onChange(Math.max(0, parseInt(e.target.value) || 0))}
-        className={`w-full text-center text-2xl font-bold bg-transparent focus:outline-none ${farben.num}`}
+        className={`w-full text-center text-2xl font-bold bg-transparent focus:outline-hidden ${farben.num}`}
       />
       <p className={`text-xs ${farben.label}`}>{label}</p>
     </div>
