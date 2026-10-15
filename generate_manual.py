@@ -1304,7 +1304,8 @@ def build():
     pdf.body(
         "Die Liste lässt sich nach Name oder Personalnummer, Abteilung, Standort und Beschäftigungsart "
         "filtern; „Nur aktive“ blendet Ausgetretene aus. Der Stift am Ende einer Zeile öffnet die "
-        "Stammdaten zum Bearbeiten. Über die Kästchen vor den Namen werden mehrere Mitarbeiter markiert – "
+        "Stammdaten zum Bearbeiten – dort lässt sich auch das „Zeitmodell laut Vertrag“ eintragen, wenn "
+        "jemand dauerhaft ein anderes Zeitmodell hat als üblich (Kapitel 7.3). Über die Kästchen vor den Namen werden mehrere Mitarbeiter markiert – "
         "das Kästchen im Tabellenkopf wählt alle gefilterten. Dann erscheint eine Leiste, in der ein "
         "Standort eingetragen und mit „Standort übernehmen“ für alle Markierten gesetzt wird."
     )
@@ -1360,11 +1361,19 @@ def build():
     pdf.bild("ueberstunden", "Überstundenregelungen je Mitarbeiter in der Tabellenansicht", hoehe_anteil=0.55)
     pdf.h3("Zeitmodell")
     pdf.body(
-        "Hier wird das Arbeitszeitmodell (A, B, C oder D – was sich dahinter verbirgt, regelt die "
-        "betriebliche Vereinbarung) mit Zeitraum geführt. "
+        "Hier wird das Arbeitszeitmodell mit Zeitraum geführt. Welche Zeitmodelle es gibt, legen Vorsitz "
+        "und Stellvertretung unter Einstellungen → System fest – mit Bezeichnung, auf Wunsch Wochenstunden, "
+        "und einem Stern für das Zeitmodell, das im Betrieb üblich ist (Standard). "
         "Läuft ein Zeitmodell oder eine Überstundenregelung im laufenden Monat aus, erhalten Vorsitz und "
         "Stellvertretung am 15. eine Erinnerung (Kapitel 9.5)."
     )
+    pdf.body("Bei „Neuer Zeitraum“ schlägt BR-DMS das Zeitmodell vor, sobald ein Mitarbeiter gewählt ist:")
+    pdf.bullets([
+        "Zeitmodell laut Vertrag – wenn es in den Stammdaten des Mitarbeiters eingetragen ist (Kapitel 7.1)",
+        "sonst sein aktuelles unbefristetes Zeitmodell aus der Historie",
+        "sonst das Standard-Zeitmodell mit dem Stern",
+    ])
+    pdf.body("Der Vorschlag lässt sich vor dem Speichern jederzeit ändern; dasselbe gilt im Sitzungs-TOP (Kapitel 4.3).")
     pdf.bild("gehaltstabelle-zeitmodell", "Zeitmodell-Historie mit Ablaufwarnung", hoehe_anteil=0.55)
     pdf.h2("7.4  Betriebsvereinbarungen")
     pdf.body(

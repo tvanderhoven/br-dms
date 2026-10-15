@@ -46,6 +46,7 @@ interface NeuerMitarbeiter {
   geburtsdatum?: string | null;
   geschlecht?:  Geschlecht | null;
   beschaeftigungsart?: Beschaeftigungsart;
+  vertragsZeitmodellId?: string | null;
 }
 
 interface MitarbeiterUpdate {
@@ -60,6 +61,7 @@ interface MitarbeiterUpdate {
   geschlecht?:  Geschlecht | null;
   gehaltIgnorieren?: boolean;
   beschaeftigungsart?: Beschaeftigungsart;
+  vertragsZeitmodellId?: string | null;
 }
 
 interface StandortBatch {
@@ -384,7 +386,7 @@ export async function mitarbeiterRouten(app: FastifyInstance): Promise<void> {
     "/",
     { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request: FastifyRequest<{ Body: NeuerMitarbeiter }>, reply: FastifyReply) => {
-      const { vorname, nachname, abteilungId, pnr, eintritt, austritt, standort, geburtsdatum, geschlecht, beschaeftigungsart } = request.body;
+      const { vorname, nachname, abteilungId, pnr, eintritt, austritt, standort, geburtsdatum, geschlecht, beschaeftigungsart, vertragsZeitmodellId } = request.body;
 
       if (!vorname?.trim() || !nachname?.trim()) {
         return reply.status(400).send({ fehler: "Vorname und Nachname sind Pflicht" });
@@ -401,6 +403,9 @@ export async function mitarbeiterRouten(app: FastifyInstance): Promise<void> {
         const abteilung = await prisma.abteilung.findUnique({ where: { id: abteilungId } });
         if (!abteilung) return reply.status(404).send({ fehler: "Abteilung nicht gefunden" });
       }
+      if (vertragsZeitmodellId && !(await prisma.zeitmodell.findUnique({ where: { id: vertragsZeitmodellId } }))) {
+        return reply.status(404).send({ fehler: "Zeitmodell nicht gefunden" });
+      }
 
       const mitarbeiter = await prisma.mitarbeiter.create({
         data: {
@@ -414,6 +419,7 @@ export async function mitarbeiterRouten(app: FastifyInstance): Promise<void> {
           geburtsdatum: geburtsdatum ? new Date(geburtsdatum) : null,
           geschlecht:  geschlecht ?? null,
           beschaeftigungsart: beschaeftigungsart ?? Beschaeftigungsart.MITARBEITER,
+          vertragsZeitmodellId: vertragsZeitmodellId || null,
         },
         include: { abteilung: { select: ABTEILUNG_SELECT } },
       });
@@ -428,7 +434,7 @@ export async function mitarbeiterRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request: FastifyRequest<{ Params: { id: string }; Body: MitarbeiterUpdate }>, reply: FastifyReply) => {
       const { id } = request.params;
-      const { vorname, nachname, abteilungId, pnr, eintritt, austritt, standort, geburtsdatum, geschlecht, gehaltIgnorieren, beschaeftigungsart } = request.body;
+      const { vorname, nachname, abteilungId, pnr, eintritt, austritt, standort, geburtsdatum, geschlecht, gehaltIgnorieren, beschaeftigungsart, vertragsZeitmodellId } = request.body;
 
       // Mitglieder dürfen nur den Gehaltstabellen-Schalter setzen, alles andere Vorsitz/Stellvertretung
       const nurGehaltSchalter = Object.keys(request.body ?? {}).every(k => k === "gehaltIgnorieren");
@@ -450,6 +456,9 @@ export async function mitarbeiterRouten(app: FastifyInstance): Promise<void> {
         const abteilung = await prisma.abteilung.findUnique({ where: { id: abteilungId } });
         if (!abteilung) return reply.status(404).send({ fehler: "Abteilung nicht gefunden" });
       }
+      if (vertragsZeitmodellId && !(await prisma.zeitmodell.findUnique({ where: { id: vertragsZeitmodellId } }))) {
+        return reply.status(404).send({ fehler: "Zeitmodell nicht gefunden" });
+      }
 
       const aktualisiert = await prisma.mitarbeiter.update({
         where: { id },
@@ -465,6 +474,7 @@ export async function mitarbeiterRouten(app: FastifyInstance): Promise<void> {
           ...(geschlecht  !== undefined ? { geschlecht: geschlecht || null } : {}),
           ...(gehaltIgnorieren !== undefined ? { gehaltIgnorieren } : {}),
           ...(beschaeftigungsart !== undefined ? { beschaeftigungsart } : {}),
+          ...(vertragsZeitmodellId !== undefined ? { vertragsZeitmodellId: vertragsZeitmodellId || null } : {}),
         },
         include: { abteilung: { select: ABTEILUNG_SELECT } },
       });

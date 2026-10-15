@@ -303,7 +303,7 @@ export const api = {
     liste:         () => request<Mitarbeiter[]>("/api/mitarbeiter"),
     erstellen:     (data: { vorname: string; nachname: string; abteilungId?: string; pnr?: string; eintritt?: string; austritt?: string; standort?: string; geburtsdatum?: string; geschlecht?: Geschlecht | null; beschaeftigungsart?: Beschaeftigungsart }) =>
       request<Mitarbeiter>("/api/mitarbeiter", { method: "POST", body: JSON.stringify(data) }),
-    aktualisieren: (id: string, data: Partial<{ vorname: string; nachname: string; abteilungId: string | null; pnr: string; eintritt: string; austritt: string; standort: string | null; geburtsdatum: string; geschlecht: Geschlecht | null; gehaltIgnorieren: boolean; beschaeftigungsart: Beschaeftigungsart }>) =>
+    aktualisieren: (id: string, data: Partial<{ vorname: string; nachname: string; abteilungId: string | null; pnr: string; eintritt: string; austritt: string; standort: string | null; geburtsdatum: string; geschlecht: Geschlecht | null; gehaltIgnorieren: boolean; beschaeftigungsart: Beschaeftigungsart; vertragsZeitmodellId: string | null }>) =>
       request<Mitarbeiter>(`/api/mitarbeiter/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     loeschen:      (id: string) => request<{ ok: boolean }>(`/api/mitarbeiter/${id}`, { method: "DELETE" }),
     standortBatch: (ids: string[], standort: string | null) =>
@@ -1639,6 +1639,7 @@ export interface Mitarbeiter {
   abteilung?: { id: string; name: string } | null;
   gehaltIgnorieren?: boolean;
   beschaeftigungsart?: Beschaeftigungsart;
+  vertragsZeitmodellId?: string | null;   // Zeitmodell laut Vertrag – Vorauswahl für neue Zeiträume
   erstelltAm: string;
   aktualisiertAm: string;
 }
