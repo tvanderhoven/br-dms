@@ -18,3 +18,7 @@ sicherung_vor_demo/
 
 # Commit-Stempel, schreiben die Deploy-Skripte (siehe frontend/vite.config.ts)
 frontend/src/buildinfo.json
+
+# Lokale Backups, gehören nicht ins Repo
+backups/
+backups.zip

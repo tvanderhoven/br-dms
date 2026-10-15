@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { X, Info, Mail, Scale, Bug, ExternalLink } from "lucide-react";
+import { X, Info, Mail, Scale, Bug, ExternalLink, AlertTriangle } from "lucide-react";
 import pkg from "../../package.json";
+import { DisclaimerInhalt } from "./Haftungshinweis";
 
 export const SUPPORT_EMAIL = "support@br-dms.de";
 const ISSUE_URL = "https://github.com/tvanderhoven/br-dms/issues/new";
@@ -79,6 +80,15 @@ export default function UeberModal({ onSchliessen }: { onSchliessen: () => void 
           <div>
             <p className="text-lg font-extrabold tracking-tight text-gray-900">BR-DMS</p>
             <p>Dokumentenmanagement für Betriebsräte · Version {VERSION_ANZEIGE}</p>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1 flex items-center gap-1.5">
+              <AlertTriangle size={13} className="text-amber-500" /> Wichtiger Hinweis (Disclaimer)
+            </p>
+            <div className="space-y-2">
+              <DisclaimerInhalt />
+            </div>
           </div>
 
           <FehlerMelden />
