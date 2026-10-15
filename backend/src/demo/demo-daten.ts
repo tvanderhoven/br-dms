@@ -38,6 +38,9 @@ import { wahlFristenAbgleichen } from "../lib/wahlFristen.js";
 import { sitzungAnlegen } from "../lib/sitzungAnlegen.js";
 import { schulungskostenAbgleichen } from "../lib/kosten.js";
 import { alleGesetzeAktualisieren } from "../services/gesetze.service.js";
+import { berechneFristende } from "../lib/fristRechner.js";
+import { ladeFeiertagsKalender } from "../lib/fristKalender.js";
+import { FRIST_DAUER_AB_ZUGANG } from "../lib/fristen.js";
 
 const STORAGE     = process.env.STORAGE_PATH ?? "/data/storage";
 const MASTER_KEY  = process.env.ENCRYPTION_KEY!;
@@ -193,6 +196,33 @@ async function dokumentAnlegen(opts: {
   return dok;
 }
 
+// Frist wie im Echtbetrieb: ab Zugang nach §§ 187, 188, 193 BGB (lib/fristRechner.ts)
+async function fristAbZugang(zugang: Date, typ: FristTyp): Promise<Date> {
+  return berechneFristende(zugang, FRIST_DAUER_AB_ZUGANG[typ]!, await ladeFeiertagsKalender()).ende;
+}
+
+// Zugang beim BR (lib/zugang.ts): ohne bestaetigtVon bleibt die Frist vorläufig
+async function zugangSetzen(dokumentId: string, zugangAm: Date, opts: {
+  bestaetigtVon?: string; empfangsbestaetigung?: boolean; unterlagenVollstaendig?: boolean;
+} = {}) {
+  const bestaetigtAm = new Date(zugangAm.getTime() + 2 * 36e5);
+  await prisma.dokument.update({
+    where: { id: dokumentId },
+    data: {
+      zugangAm,
+      ...(opts.bestaetigtVon ? {
+        zugangBestaetigtAm:     bestaetigtAm,
+        zugangBestaetigtVonId:  opts.bestaetigtVon,
+        unterlagenVollstaendig: opts.unterlagenVollstaendig ?? true,
+      } : {}),
+      ...(opts.empfangsbestaetigung ? {
+        empfangsbestaetigungAm: new Date(bestaetigtAm.getTime() + 10 * 60_000),
+        empfangsbestaetigungAn: `personal@${DEMO_DOMAIN}`,
+      } : {}),
+    },
+  });
+}
+
 // Fremdprotokoll eines anderen Gremiums – abgelegt wie ein Upload in routes/fremdprotokolle.ts
 async function fremdprotokollAnlegen(opts: {
   gremiumId: string;
@@ -341,6 +371,9 @@ async function main() {
     "mail.absender_name":   "Betriebsrat Nordwerk",
     "mail.absender_adresse": `betriebsrat@${DEMO_DOMAIN}`,
     "mail.signatur":        "Betriebsrat Nordwerk · Werk 1, Raum 104\nTel. 0123 456-78",
+    // Fristen nach § 193 BGB mit den Feiertagen in NRW; Empfangsbestätigungen an die Personalabteilung
+    "fristen.bundesland":   "NW",
+    "eingang.hr_adresse":   `personal@${DEMO_DOMAIN}`,
   };
   for (const [schluessel, wert] of Object.entries(einstellungen)) {
     await prisma.systemEinstellung.upsert({ where: { schluessel }, update: { wert }, create: { schluessel, wert } });
@@ -605,7 +638,12 @@ async function main() {
       erstelltAm: erstellt, vonId: personal, vertraulich: true, tags: [abt],
       ungelesen: tageZurueck > -3, quelle: tageZurueck > -3 ? "WATCHFOLDER" : "UPLOAD",
     });
-    const frist = tage(7, erstellt);
+    // Ältere Fälle: Zugang bestätigt und Empfangsbestätigung raus; die frischen aus dem
+    // Watch-Folder warten noch auf die Bestätigung (Frist vorläufig)
+    const zugang = new Date(erstellt.getTime() + 9.5 * 36e5);
+    const bestaetigt = tageZurueck <= -3;
+    await zugangSetzen(d.id, zugang, bestaetigt ? { bestaetigtVon: vorsitz, empfangsbestaetigung: true } : {});
+    const frist = await fristAbZugang(zugang, FristTyp.ANHOERUNG_99_WOCHE);
     await prisma.frist.create({
       data: {
         dokumentId: d.id, typ: FristTyp.ANHOERUNG_99_WOCHE, faelligAm: frist,
@@ -631,8 +669,37 @@ async function main() {
     ],
     erstelltAm: tage(-36), vonId: personal, vertraulich: true, tags: ["Probezeit"],
   });
+  const zugang102 = new Date(tage(-36).getTime() + 10 * 36e5);
+  await zugangSetzen(dok102.id, zugang102, { bestaetigtVon: vorsitz, empfangsbestaetigung: true });
   await prisma.frist.create({
-    data: { dokumentId: dok102.id, typ: FristTyp.ANHOERUNG_102_ORDENTLICH, faelligAm: tage(-29), status: "ERLEDIGT", erledigtAm: tage(-31), erledigtVonId: vorsitz, erstelltAm: tage(-36) },
+    data: { dokumentId: dok102.id, typ: FristTyp.ANHOERUNG_102_ORDENTLICH, faelligAm: await fristAbZugang(zugang102, FristTyp.ANHOERUNG_102_ORDENTLICH), status: "ERLEDIGT", erledigtAm: tage(-31), erledigtVonId: vorsitz, erstelltAm: tage(-36) },
+  });
+
+  // § 102 außerordentlich – heute früh über den Watch-Folder eingegangen, Zugang schon
+  // bestätigt; die nächste Sitzung (Tagesordnung fixiert) liegt nach Fristende →
+  // im Eingang erscheint "Sondersitzung einberufen"
+  const az102a = "P-102-2026-009";
+  // heute früh – aber nie in der Zukunft, falls die Demo vor dieser Uhrzeit eingespielt wird
+  const eingang102a = new Date(Math.min(HEUTE.getTime() + 7.75 * 36e5, Date.now() - 30 * 60_000));
+  const dok102a = await dokumentAnlegen({
+    titel: "Anhörung § 102 – Außerordentliche Kündigung (Arbeitszeitbetrug)", kategorie: Kategorie.ANHOERUNG_102,
+    dateiname: `Anhoerung_102_${az102a}.pdf`, kopf: pKopf(az102a), aktenzeichen: az102a,
+    abschnitte: [
+      ["Anhörung des Betriebsrats gemäß § 102 BetrVG", "Wir beabsichtigen, das Arbeitsverhältnis mit dem unten genannten Beschäftigten außerordentlich fristlos, hilfsweise ordentlich zu kündigen."],
+      ["Sozialdaten", "Eintritt vor 6 Jahren, 41 Jahre, verheiratet, zwei unterhaltsberechtigte Kinder, keine Schwerbehinderung."],
+      ["Kündigungsgründe", "Manipulation der Zeiterfassung an drei Tagen im laufenden Monat (Ausstempeln durch einen Kollegen); Anhörung des Beschäftigten ist erfolgt."],
+      ["Frist", "Wir bitten um Stellungnahme innerhalb von drei Tagen (§ 102 Abs. 2 Satz 3 BetrVG)."],
+    ],
+    erstelltAm: eingang102a, vonId: personal, vertraulich: true, tags: ["Zeiterfassung"],
+    ungelesen: true, quelle: "WATCHFOLDER",
+  });
+  await zugangSetzen(dok102a.id, new Date(eingang102a.getTime() - 15 * 60_000), { bestaetigtVon: vorsitz });
+  await prisma.anhoerungsVorgang.create({ data: { dokumentId: dok102a.id, kuendigungsArt: "AUSSERORDENTLICH" } });
+  await prisma.frist.create({
+    data: {
+      dokumentId: dok102a.id, typ: FristTyp.ANHOERUNG_102_AUSSERORDENTLICH, erstelltAm: eingang102a,
+      faelligAm: await fristAbZugang(new Date(eingang102a.getTime() - 15 * 60_000), FristTyp.ANHOERUNG_102_AUSSERORDENTLICH),
+    },
   });
 
   // § 87 Zeitmodell / Mehrarbeit – Frist läuft gerade
@@ -645,7 +712,9 @@ async function main() {
     ],
     erstelltAm: tage(-3), vonId: personal, ungelesen: true, tags: ["Mehrarbeit", "Montage"],
   });
-  await prisma.frist.create({ data: { dokumentId: dok87.id, typ: FristTyp.ZEITMODELL_87_WOCHE, faelligAm: tage(4), erstelltAm: tage(-3) } });
+  const zugang87 = new Date(tage(-3).getTime() + 11 * 36e5);
+  await zugangSetzen(dok87.id, zugang87, { bestaetigtVon: stv, empfangsbestaetigung: true });
+  await prisma.frist.create({ data: { dokumentId: dok87.id, typ: FristTyp.ZEITMODELL_87_WOCHE, faelligAm: await fristAbZugang(zugang87, FristTyp.ZEITMODELL_87_WOCHE), erstelltAm: tage(-3) } });
 
   // Bewerbungen + Sonstiges
   const dokBewerbung = await dokumentAnlegen({

@@ -627,6 +627,8 @@ def build():
                 "„Als TOP aufnehmen“ legt den TOP mit vorgeschlagenem Titel an – das geht nur, solange die "
                 "Tagesordnung nicht fixiert ist. Gibt es vor Fristende keine solche Sitzung, erscheint rot: "
                 "Sondersitzung einberufen.")
+    pdf.bild("eingang-zugang", "Zugang noch offen: Vorschlag prüfen, Fristende vorab sehen, dann bestätigen", hoehe_anteil=0.5)
+    pdf.bild("eingang-fristsache", "Zugang bestätigt: Empfangsbestätigung und Beratung – hier fehlt eine Sitzung vor Fristende", hoehe_anteil=0.56)
     pdf.hinweis(
         "Maßgeblich ist, wann das Schreiben dem Betriebsrat zugegangen ist – in der Regel dem Vorsitz bzw. bei "
         "Verhinderung der Stellvertretung (§ 26 Abs. 2 BetrVG). Liegt es außerhalb der Dienstzeit im Postfach, "
@@ -771,6 +773,7 @@ def build():
         "Vorläufig – Bis der Zugang beim Betriebsrat bestätigt ist (Kapitel 3.1), steht an der Frist „vorläufig – Zugang noch nicht bestätigt“",
         "Verschoben – Wurde das Ende nach § 193 BGB verschoben, nennt der Kalender den Grund, z. B. „verschoben wegen Samstag, Sonntag“",
     ])
+    pdf.bild("fristenkalender-vorlaeufig", "Fristenliste mit nach § 193 BGB verschobenen Fristen", hoehe_anteil=0.76)
     pdf.body(
         "Beispiel: Zugang am Donnerstag, außerordentliche Kündigung (3 Tage) – rechnerisch endet die Frist am "
         "Sonntag, tatsächlich am Montag um 24:00 Uhr. Zugang am Freitag vor Ostern, ordentliche Kündigung "
@@ -1588,6 +1591,7 @@ def build():
         "am Betriebssitz gelten. Darunter steht zur Kontrolle die Liste der Feiertage für dieses und das "
         "nächste Jahr. Die Einstellung gilt für neu berechnete Fristen."
     )
+    pdf.bild("einstellungen-feiertage", "Bundesland, regionale Feiertage und Feiertagsliste", hoehe_anteil=0.66)
     pdf.hinweis(
         "Ohne Bundesland zählt BR-DMS nur die bundesweiten Feiertage. Eine Frist endet dann im Zweifel einen "
         "Tag früher als nötig – nie später.",
@@ -1598,6 +1602,7 @@ def build():
         "Stündliche Sammelmail – Alle übrigen neuen Eingänge zur vollen Stunde, nur wenn etwas Neues da ist; beim Wiedereinschalten kommen keine alten Eingänge nach",
         "Empfangsbestätigung an – Adresse der Personalabteilung als Voreinstellung für die Empfangsbestätigung (Kapitel 3.1); im Dialog vor dem Senden änderbar",
     ])
+    pdf.bild("einstellungen-eingang-mails", "Mails über neue Eingänge und Empfänger der Empfangsbestätigung", hoehe_anteil=0.63)
     pdf.body(
         "Ohne Mailserver (SMTP_HOST in der .env, Kapitel 12.5) weist der Kasten darauf hin; dann werden "
         "keine Mails verschickt."
