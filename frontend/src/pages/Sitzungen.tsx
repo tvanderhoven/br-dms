@@ -14,7 +14,7 @@ import {
   istBetriebsversammlung, sitzungStatusLabel, formatDatum,
   AnhoerungVorgangAntwort, AnhoerungArt, ANHOERUNG_ART_LABEL, gruendeFuerArt,
 } from "../lib/api";
-import { useZeitmodelle } from "../lib/useZeitmodelle";
+import { useZeitmodelle, zeitmodellVorschlag } from "../lib/useZeitmodelle";
 import SitzungsEditor from "../components/SitzungsEditor";
 import AnwesenheitsListe from "../components/AnwesenheitsListe";
 import EinladungKarte from "../components/EinladungKarte";
@@ -1615,20 +1615,14 @@ function TopGehaltModal({
     api.abteilungen.liste().then(setAbteilungen).catch(() => {});
   }, []);
 
-  // Vorauswahl beim Zeitmodell-Tab: zuerst das aktuell offene Zeitmodell DIESES
-  // Mitarbeiters übernehmen (deckt Ausnahmen ab, die nicht dem globalen
-  // Standard folgen), sonst das als Standard markierte, sonst das erste aktive.
+  // Vorauswahl beim Zeitmodell-Tab: Vertrag, sonst offenes unbefristetes
+  // Zeitmodell, sonst Standard (lib/useZeitmodelle.ts)
   useEffect(() => {
-    const globalerStandard = () => aktiveZeitmodelle.find(z => z.standard)?.id ?? aktiveZeitmodelle[0]?.id ?? "";
-    if (!mitarbeiterId) { setZmZeitmodellId(globalerStandard()); return; }
     let aktuell = true;
-    api.zeitmodell.liste({ mitarbeiterId }).then(liste => {
-      if (!aktuell) return;
-      const offen = liste.find(z => z.gueltigBis === null);
-      setZmZeitmodellId(offen ? offen.zeitmodell.id : globalerStandard());
-    }).catch(() => setZmZeitmodellId(globalerStandard()));
+    zeitmodellVorschlag(mitarbeiterListe.find(m => m.id === mitarbeiterId), aktiveZeitmodelle)
+      .then(id => { if (aktuell) setZmZeitmodellId(id); });
     return () => { aktuell = false; };
-  }, [mitarbeiterId, aktiveZeitmodelle]);
+  }, [mitarbeiterId, aktiveZeitmodelle, mitarbeiterListe]);
 
   async function speichern(e: FormEvent) {
     e.preventDefault();

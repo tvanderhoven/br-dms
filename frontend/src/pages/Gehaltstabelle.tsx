@@ -8,7 +8,7 @@ import {
 } from "../lib/api";
 import MitarbeiterBearbeitenModal from "../components/MitarbeiterBearbeitenModal";
 import Sichtschutz from "../components/Sichtschutz";
-import { useZeitmodelle } from "../lib/useZeitmodelle";
+import { useZeitmodelle, zeitmodellVorschlag } from "../lib/useZeitmodelle";
 
 // Eingruppierung: Gruppe 1-6, Stufe 1-4 (siehe backend/prisma/schema.prisma)
 const GRUPPEN = [1, 2, 3, 4, 5, 6];
@@ -1541,22 +1541,15 @@ function ZeitmodellModal({
   const [laden, setLaden]                 = useState(false);
   const [fehler, setFehler]               = useState("");
 
-  // Vorauswahl beim Anlegen eines neuen Zeitraums: zuerst das aktuell offene
-  // Zeitmodell DIESES Mitarbeiters übernehmen (deckt Ausnahmen ab, die nicht
-  // dem globalen Standard folgen, z.B. wenn bei jemandem dauerhaft C statt A
-  // gilt), sonst das als Standard markierte Zeitmodell, sonst das erste aktive.
+  // Vorauswahl beim Anlegen eines neuen Zeitraums: Vertrag, sonst offenes
+  // unbefristetes Zeitmodell, sonst Standard (lib/useZeitmodelle.ts)
   useEffect(() => {
     if (zeitraum) return; // beim Bearbeiten bleibt die vorhandene Auswahl unangetastet
-    const globalerStandard = () => aktiveZeitmodelle.find(z => z.standard)?.id ?? aktiveZeitmodelle[0]?.id ?? "";
-    if (!mitarbeiterId) { setZeitmodellId(globalerStandard()); return; }
     let aktuell = true;
-    api.zeitmodell.liste({ mitarbeiterId }).then(liste => {
-      if (!aktuell) return;
-      const offen = liste.find(z => z.gueltigBis === null);
-      setZeitmodellId(offen ? offen.zeitmodell.id : globalerStandard());
-    }).catch(() => setZeitmodellId(globalerStandard()));
+    zeitmodellVorschlag(mitarbeiterListe.find(m => m.id === mitarbeiterId), aktiveZeitmodelle)
+      .then(id => { if (aktuell) setZeitmodellId(id); });
     return () => { aktuell = false; };
-  }, [mitarbeiterId, zeitraum, aktiveZeitmodelle]);
+  }, [mitarbeiterId, zeitraum, aktiveZeitmodelle, mitarbeiterListe]);
 
   async function speichern(e: FormEvent) {
     e.preventDefault();

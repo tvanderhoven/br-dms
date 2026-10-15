@@ -1279,6 +1279,11 @@ model Mitarbeiter {
   abteilungId    String?    @map("abteilung_id")
   abteilung      Abteilung? @relation(fields: [abteilungId], references: [id], onDelete: SetNull)
 
+  // Zeitmodell laut Arbeitsvertrag – Vorauswahl beim Anlegen eines neuen Zeitmodell-
+  // Zeitraums, vor dem allgemeinen Standard (Zeitmodell.standard). null = Standard.
+  vertragsZeitmodellId String?     @map("vertrags_zeitmodell_id")
+  vertragsZeitmodell   Zeitmodell? @relation("VertragsZeitmodell", fields: [vertragsZeitmodellId], references: [id], onDelete: SetNull)
+
   erstelltAm     DateTime   @default(now()) @map("erstellt_am")
   aktualisiertAm DateTime   @updatedAt @map("aktualisiert_am")
 
@@ -1336,6 +1341,7 @@ model Zeitmodell {
   standard       Boolean  @default(false)
 
   eintraege      ZeitmodellEintrag[]
+  vertragsMitarbeiter Mitarbeiter[] @relation("VertragsZeitmodell")
 
   erstelltAm     DateTime @default(now()) @map("erstellt_am")
   aktualisiertAm DateTime @updatedAt @map("aktualisiert_am")

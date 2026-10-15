@@ -1,6 +1,7 @@
 import { useState, FormEvent } from "react";
 import { X, Loader2 } from "lucide-react";
 import { api, Abteilung, Mitarbeiter, Beschaeftigungsart, Geschlecht, ALLE_BESCHAEFTIGUNGSARTEN, BESCHAEFTIGUNGSART_LABEL } from "../lib/api";
+import { useZeitmodelle } from "../lib/useZeitmodelle";
 
 // ── Modal: Mitarbeiter-Stammdaten bearbeiten ───────────────────────
 // Gemeinsam genutzt von Gehaltstabelle.tsx (Bearbeiten-Icon neben dem Eintrag)
@@ -25,6 +26,11 @@ export default function MitarbeiterBearbeitenModal({
   const [geschlecht, setGeschlecht]   = useState<Geschlecht | "">(mitarbeiter.geschlecht ?? "");
   const [gehaltIgnorieren, setGehaltIgnorieren] = useState(mitarbeiter.gehaltIgnorieren ?? false);
   const [beschaeftigungsart, setBeschaeftigungsart] = useState<Beschaeftigungsart>(mitarbeiter.beschaeftigungsart ?? "MITARBEITER");
+  const [vertragsZeitmodellId, setVertragsZeitmodellId] = useState(mitarbeiter.vertragsZeitmodellId ?? "");
+  const { zeitmodelle, aktive: aktiveZeitmodelle } = useZeitmodelle();
+  const standardZeitmodell = aktiveZeitmodelle.find(z => z.standard);
+  // Ein inzwischen deaktiviertes Vertrags-Zeitmodell bleibt sichtbar, statt still zu verschwinden
+  const zeitmodellOptionen = zeitmodelle.filter(z => z.aktiv || z.id === vertragsZeitmodellId);
   const [laden, setLaden]             = useState(false);
   const [fehler, setFehler]           = useState("");
 
@@ -49,6 +55,7 @@ export default function MitarbeiterBearbeitenModal({
         geschlecht:  geschlecht || null,
         gehaltIgnorieren,
         beschaeftigungsart,
+        vertragsZeitmodellId: vertragsZeitmodellId || null,
       });
       onErfolg(aktualisiert);
     } catch (err) {
@@ -177,6 +184,23 @@ export default function MitarbeiterBearbeitenModal({
                 {ALLE_BESCHAEFTIGUNGSARTEN.map(b => <option key={b} value={b}>{BESCHAEFTIGUNGSART_LABEL[b]}</option>)}
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Zeitmodell laut Vertrag</label>
+            <select
+              value={vertragsZeitmodellId}
+              onChange={e => setVertragsZeitmodellId(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
+            >
+              <option value="">– wie Standard{standardZeitmodell ? ` (${standardZeitmodell.bezeichnung})` : ""} –</option>
+              {zeitmodellOptionen.map(z => (
+                <option key={z.id} value={z.id}>{z.bezeichnung}{z.aktiv ? "" : " (inaktiv)"}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Wird beim Anlegen eines neuen Zeitmodell-Zeitraums vorausgewählt – z. B. wenn jemand dauerhaft mehr oder weniger Stunden hat als üblich.
+            </p>
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer">
