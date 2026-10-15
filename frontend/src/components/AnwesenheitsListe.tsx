@@ -273,7 +273,7 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false, vorSitz
                       value={item.anwesenheit?.status ?? ""}
                       onChange={e => onStatusChange(item, e.target.value as AnwesenheitsStatus | "")}
                       disabled={speichern === item.benutzer.id || hasPending}
-                      className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] disabled:opacity-50"
+                      className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] disabled:opacity-50"
                     >
                       <option value="">Nicht gesetzt</option>
                       <option value="ANWESEND">{label.ANWESEND}</option>
@@ -298,7 +298,7 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false, vorSitz
                     onChange={e =>
                       setPendingErsatz(prev => ({ ...prev, [item.benutzer.id]: e.target.value }))
                     }
-                    className="border border-accent/40 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    className="border border-accent/40 rounded-lg px-2 py-1 text-xs bg-white focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                     autoFocus
                   >
                     <option value="">– Bitte wählen –</option>

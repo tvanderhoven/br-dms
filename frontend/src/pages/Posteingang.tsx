@@ -139,7 +139,7 @@ export default function Posteingang() {
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                      {!istGelesen && <span className="w-2 h-2 rounded-full bg-[rgb(var(--accent))] flex-shrink-0" />}
+                      {!istGelesen && <span className="w-2 h-2 rounded-full bg-[rgb(var(--accent))] shrink-0" />}
                       {TYP_LABEL[n.typ] && (
                         <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${TYP_BADGE[n.typ]}`}>
                           {TYP_LABEL[n.typ]}
@@ -162,8 +162,8 @@ export default function Posteingang() {
                     )}
                   </div>
                   {offen
-                    ? <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />
-                    : <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />}
+                    ? <ChevronUp className="w-4 h-4 text-gray-400 shrink-0 mt-1" />
+                    : <ChevronDown className="w-4 h-4 text-gray-400 shrink-0 mt-1" />}
                 </button>
 
                 {offen && (
@@ -287,7 +287,7 @@ function ComposeModal({ onSchliessen, onErfolg }: {
               <select
                 value={empfaengerId}
                 onChange={e => setEmpfaengerId(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white"
+                className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white"
               >
                 <option value="alle">Alle BR-Mitglieder</option>
                 {benutzer.map(b => (
@@ -304,7 +304,7 @@ function ComposeModal({ onSchliessen, onErfolg }: {
             <label className="block text-sm font-medium text-gray-700 mb-1">Betreff</label>
             <input
               value={betreff} onChange={e => setBetreff(e.target.value)} required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
               placeholder="Betreff eingeben…"
             />
           </div>
@@ -313,7 +313,7 @@ function ComposeModal({ onSchliessen, onErfolg }: {
             <label className="block text-sm font-medium text-gray-700 mb-1">Nachricht</label>
             <textarea
               value={inhalt} onChange={e => setInhalt(e.target.value)} required rows={6}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
               placeholder="Nachricht eingeben…"
             />
           </div>

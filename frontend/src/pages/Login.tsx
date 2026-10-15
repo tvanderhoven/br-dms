@@ -179,7 +179,7 @@ export default function Login() {
               onChange={e => setEmail(e.target.value)}
               required
               autoFocus
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
               placeholder="name oder name@beispiel.de"
             />
           </div>
@@ -196,7 +196,7 @@ export default function Login() {
               value={passwort}
               onChange={e => setPasswort(e.target.value)}
               required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
             />
           </div>
 
@@ -205,7 +205,7 @@ export default function Login() {
               type="checkbox"
               checked={eingeloggtBleiben}
               onChange={e => setEingeloggtBleiben(e.target.checked)}
-              className="rounded border-gray-300 text-[rgb(var(--accent))]"
+              className="rounded-sm border-gray-300 text-[rgb(var(--accent))]"
             />
             <span className="text-sm text-gray-600">Eingeloggt bleiben</span>
           </label>

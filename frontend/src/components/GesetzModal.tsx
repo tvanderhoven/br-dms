@@ -11,7 +11,7 @@ export default function GesetzModal({
   onSchliessen: () => void;
 }) {
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4" onClick={onSchliessen}>
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-60 p-4" onClick={onSchliessen}>
       <div
         className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6"
         onClick={e => e.stopPropagation()}

@@ -395,15 +395,15 @@ export default function Dokumente() {
     <div className="flex flex-col md:flex-row h-full">
       {/* ── Ordnerbaum (ab 1024 px; einklappbar; sonst Auswahlliste im Filter) ── */}
       {!baumOffen && (
-        <aside className="hidden lg:flex flex-col items-center w-10 flex-shrink-0 border-r border-gray-200 bg-white py-3 lg:sticky lg:top-0 lg:h-screen lg:self-start">
+        <aside className="hidden lg:flex flex-col items-center w-10 shrink-0 border-r border-gray-200 bg-white py-3 lg:sticky lg:top-0 lg:h-screen lg:self-start">
           <button onClick={() => setBaumOffen(true)} title="Ordner einblenden"
-            className="flex flex-col items-center gap-1 p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded">
+            className="flex flex-col items-center gap-1 p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm">
             <ChevronsRight size={15} />
             <Folder size={15} />
           </button>
         </aside>
       )}
-      <aside className={`${baumOffen ? "hidden lg:block" : "hidden"} w-56 flex-shrink-0 border-r border-gray-200 bg-white p-3 overflow-y-auto lg:sticky lg:top-0 lg:h-screen lg:self-start`}>
+      <aside className={`${baumOffen ? "hidden lg:block" : "hidden"} w-56 shrink-0 border-r border-gray-200 bg-white p-3 overflow-y-auto lg:sticky lg:top-0 lg:h-screen lg:self-start`}>
         <OrdnerBaum
           ordner={ordner}
           anzahl={anzahlJeOrdner}
@@ -454,12 +454,12 @@ export default function Dokumente() {
               value={suche}
               onChange={e => setSuche(e.target.value)}
               placeholder="Titel oder Aktenzeichen…"
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
             />
           </div>
           {/* Ordnerwahl, solange der Baum nicht zu sehen ist (eingeklappt oder schmaler Bildschirm) */}
           <select value={auswahl} onChange={e => setAuswahl(e.target.value)} title="Ordner"
-            className={`${baumOffen ? "lg:hidden" : ""} border border-gray-300 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]`}>
+            className={`${baumOffen ? "lg:hidden" : ""} border border-gray-300 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]`}>
             <option value="ALLE">Alle Dokumente</option>
             <option value="OHNE">Ohne Ordner</option>
             {ordnerOptionen(ordner).map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
@@ -467,7 +467,7 @@ export default function Dokumente() {
           {gremien.length > 0 && (
             <select value={gremiumFilter} onChange={e => setGremiumFilter(e.target.value)}
               title="Nach Gremium der behandelten Sitzung filtern"
-              className="border border-gray-300 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]">
+              className="border border-gray-300 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]">
               <option value="">Alle Gremien</option>
               <option value="BR">Betriebsrat</option>
               {gremien.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
@@ -552,7 +552,7 @@ export default function Dokumente() {
                   const zelle = (id: string) => {
                     switch (id) {
                       case "titel": return (
-                        <td key={id} className="px-3 py-3 break-words">
+                        <td key={id} className="px-3 py-3 wrap-break-word">
                           <div className="flex items-center gap-2">
                           {d.vertraulich && <Lock size={12} className="text-amber-500 shrink-0" />}
                           <div>
@@ -635,7 +635,7 @@ export default function Dokumente() {
                             {d.fristen!.filter(f => f.status === "OFFEN").map(f => {
                               const tage = Math.ceil((new Date(f.faelligAm).getTime() - Date.now()) / 86_400_000);
                               return (
-                                <span key={f.id} className={`inline-block text-xs px-1.5 py-0.5 rounded border ${fristFarbe(f.faelligAm)}`}>
+                                <span key={f.id} className={`inline-block text-xs px-1.5 py-0.5 rounded-sm border ${fristFarbe(f.faelligAm)}`}>
                                   {tage < 0 ? "Abgelaufen" : tage === 0 ? "Heute" : `${tage}T`}
                                 </span>
                               );
@@ -669,28 +669,28 @@ export default function Dokumente() {
                           <button
                             onClick={() => dokumentInNeuemFensterOeffnen(d)}
                             title="In neuem Fenster öffnen"
-                            className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
+                            className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm transition-colors"
                           >
                             <ExternalLink size={15} />
                           </button>
                           <button
                             onClick={() => herunterladen(d)}
                             title="Herunterladen"
-                            className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
+                            className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm transition-colors"
                           >
                             <Download size={15} />
                           </button>
                           <button
                             onClick={() => setBearbeitenDok(d)}
                             title="Bearbeiten"
-                            className="p-1.5 text-gray-400 hover:text-accent hover:bg-accent/5 rounded transition-colors"
+                            className="p-1.5 text-gray-400 hover:text-accent hover:bg-accent/5 rounded-sm transition-colors"
                           >
                             <Pencil size={15} />
                           </button>
                           <button
                             onClick={() => setLoeschId(d.id)}
                             title="Löschen"
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-sm transition-colors"
                           >
                             <Trash2 size={15} />
                           </button>
@@ -767,7 +767,7 @@ export default function Dokumente() {
           Höhen-Verhalten des restlichen Layouts, da vh-Einheiten nicht von
           Eltern-Elementen abhängen). */}
       {vorschau && (
-        <div className="w-full md:w-96 flex-shrink-0 border-l md:border-t-0 border-t border-gray-200 flex flex-col bg-white md:sticky md:top-0 md:h-screen md:self-start">
+        <div className="w-full md:w-96 shrink-0 border-l md:border-t-0 border-t border-gray-200 flex flex-col bg-white md:sticky md:top-0 md:h-screen md:self-start">
           {/* Header */}
           <div className="px-4 py-3 border-b border-gray-100 flex items-start justify-between gap-2">
             <div className="min-w-0">
@@ -783,7 +783,7 @@ export default function Dokumente() {
                 </p>
               )}
             </div>
-            <button onClick={schliesseVorschau} className="p-1 hover:bg-gray-100 rounded flex-shrink-0">
+            <button onClick={schliesseVorschau} className="p-1 hover:bg-gray-100 rounded-sm shrink-0">
               <X size={15} className="text-gray-400" />
             </button>
           </div>
@@ -792,19 +792,19 @@ export default function Dokumente() {
           <div className="px-4 py-2 border-b border-gray-100 flex gap-2">
             <button
               onClick={() => dokumentInNeuemFensterOeffnen(vorschau)}
-              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-[rgb(var(--accent))] px-2 py-1.5 rounded hover:bg-accent/5 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-[rgb(var(--accent))] px-2 py-1.5 rounded-sm hover:bg-accent/5 transition-colors"
             >
               <ExternalLink size={13} /> Neues Fenster
             </button>
             <button
               onClick={() => herunterladen(vorschau)}
-              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-[rgb(var(--accent))] px-2 py-1.5 rounded hover:bg-accent/5 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-[rgb(var(--accent))] px-2 py-1.5 rounded-sm hover:bg-accent/5 transition-colors"
             >
               <Download size={13} /> Herunterladen
             </button>
             <button
               onClick={() => setBearbeitenDok(vorschau)}
-              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-accent px-2 py-1.5 rounded hover:bg-accent/5 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-accent px-2 py-1.5 rounded-sm hover:bg-accent/5 transition-colors"
             >
               <Pencil size={13} /> Bearbeiten
             </button>
@@ -864,7 +864,7 @@ export default function Dokumente() {
                           </span>
                           <button
                             onClick={() => vorgangFristErledigen(f.id, f.status !== "ERLEDIGT")}
-                            className="p-1 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded flex-shrink-0"
+                            className="p-1 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm shrink-0"
                             title={f.status === "ERLEDIGT" ? "Als offen markieren" : "Als erledigt markieren"}
                           >
                             <CheckCircle2 size={13} className={f.status === "ERLEDIGT" ? "text-green-600" : ""} />
@@ -876,7 +876,7 @@ export default function Dokumente() {
 
                   {/* Stellungnahme */}
                   {vorgang.vorgang.status === "BEANTWORTET" ? (
-                    <div className="text-xs text-gray-600 space-y-1 bg-gray-50 rounded p-2">
+                    <div className="text-xs text-gray-600 space-y-1 bg-gray-50 rounded-sm p-2">
                       <p className="font-medium text-gray-700">
                         {vorgang.vorgang.stellungnahmeArt ? ANHOERUNG_ART_LABEL[vorgang.vorgang.stellungnahmeArt] : "Stellungnahme"} – versendet
                       </p>
@@ -898,7 +898,7 @@ export default function Dokumente() {
                       <select
                         value={stnArt}
                         onChange={e => { setStnArt(e.target.value as AnhoerungArt | ""); setStnGruende([]); }}
-                        className="w-full text-xs border border-gray-200 rounded px-2 py-1.5"
+                        className="w-full text-xs border border-gray-200 rounded-sm px-2 py-1.5"
                       >
                         <option value="">Art der Stellungnahme wählen…</option>
                         {(Object.keys(ANHOERUNG_ART_LABEL) as AnhoerungArt[]).map(a => (
@@ -907,7 +907,7 @@ export default function Dokumente() {
                       </select>
 
                       {gruendeFuerArt(stnArt).length > 0 && (
-                        <div className="space-y-1 bg-gray-50 rounded p-2">
+                        <div className="space-y-1 bg-gray-50 rounded-sm p-2">
                           {gruendeFuerArt(stnArt).map(g => (
                             <label key={g.code} className="flex items-start gap-1.5 text-[11px] text-gray-600 cursor-pointer">
                               <input
@@ -935,14 +935,14 @@ export default function Dokumente() {
                           ? "Begründung – konkret zum Fall: Namen, Stellen, Daten (siehe Hinweise oben)"
                           : "Begründung / weitere Ausführungen…"}
                         rows={3}
-                        className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 resize-none"
+                        className="w-full text-xs border border-gray-200 rounded-sm px-2 py-1.5 resize-none"
                       />
 
                       <div className="flex items-center justify-between gap-2">
                         <button
                           onClick={stellungnahmeSpeichern}
                           disabled={vorgangSpeichern}
-                          className="text-xs text-gray-600 hover:text-[rgb(var(--accent))] px-2 py-1 rounded hover:bg-accent/5 disabled:opacity-50"
+                          className="text-xs text-gray-600 hover:text-[rgb(var(--accent))] px-2 py-1 rounded-sm hover:bg-accent/5 disabled:opacity-50"
                         >
                           {vorgangSpeichern ? "Speichert…" : "Speichern"}
                         </button>
@@ -950,7 +950,7 @@ export default function Dokumente() {
                           onClick={stellungnahmeEntwurfAnzeigen}
                           disabled={vorgangSpeichern}
                           title="Speichert und zeigt den Brief mit Wasserzeichen – zum Gegenlesen vor dem Versand"
-                          className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-[rgb(var(--accent))] px-2 py-1 rounded hover:bg-accent/5 disabled:opacity-50"
+                          className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-[rgb(var(--accent))] px-2 py-1 rounded-sm hover:bg-accent/5 disabled:opacity-50"
                         >
                           <FileText size={12} /> Entwurf als PDF
                         </button>
@@ -961,12 +961,12 @@ export default function Dokumente() {
                           type="date"
                           value={versandDatum}
                           onChange={e => setVersandDatum(e.target.value)}
-                          className="text-xs border border-gray-200 rounded px-2 py-1.5"
+                          className="text-xs border border-gray-200 rounded-sm px-2 py-1.5"
                         />
                         <button
                           onClick={vorgangAlsVersendetMarkieren}
                           disabled={versandLaufend}
-                          className="flex items-center gap-1.5 text-xs text-white bg-[rgb(var(--accent))] px-2 py-1.5 rounded hover:brightness-90 disabled:opacity-50"
+                          className="flex items-center gap-1.5 text-xs text-white bg-[rgb(var(--accent))] px-2 py-1.5 rounded-sm hover:brightness-90 disabled:opacity-50"
                         >
                           {versandLaufend ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
                           Als versendet markieren
@@ -1026,7 +1026,7 @@ export default function Dokumente() {
                       </div>
                       <button
                         onClick={() => ladeVersionHerunter(v)}
-                        className="p-1 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded flex-shrink-0"
+                        className="p-1 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm shrink-0"
                         title={`v${v.version} herunterladen`}
                       >
                         <Download size={12} />
@@ -1217,7 +1217,7 @@ function UploadModal({ ordner, startOrdnerId, onSchliessen, onErfolg }: {
               type="checkbox"
               checked={istVersion}
               onChange={e => { setIstVersion(e.target.checked); setVersionVonId(null); setVersionVonTitel(""); setVersionSuche(""); setVersionTreffer([]); }}
-              className="rounded border-gray-300 text-[rgb(var(--accent))]"
+              className="rounded-sm border-gray-300 text-[rgb(var(--accent))]"
             />
             <span className="text-sm text-gray-700">Als neue Version eines vorhandenen Dokuments</span>
           </label>
@@ -1231,7 +1231,7 @@ function UploadModal({ ordner, startOrdnerId, onSchliessen, onErfolg }: {
               {versionVonId ? (
                 <div className="flex items-center justify-between bg-accent/5 border border-accent/25 rounded-lg px-3 py-2 text-sm">
                   <span className="text-accent font-medium truncate">{versionVonTitel}</span>
-                  <button type="button" onClick={() => { setVersionVonId(null); setVersionVonTitel(""); }} className="text-accent/60 hover:text-accent ml-2 flex-shrink-0">
+                  <button type="button" onClick={() => { setVersionVonId(null); setVersionVonTitel(""); }} className="text-accent/60 hover:text-accent ml-2 shrink-0">
                     <X size={14} />
                   </button>
                 </div>
@@ -1243,7 +1243,7 @@ function UploadModal({ ordner, startOrdnerId, onSchliessen, onErfolg }: {
                       value={versionSuche}
                       onChange={e => onSucheChange(e.target.value)}
                       placeholder="Titel suchen…"
-                      className="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                      className="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                     />
                     {sucheLaden && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-gray-400" />}
                   </div>
@@ -1275,7 +1275,7 @@ function UploadModal({ ordner, startOrdnerId, onSchliessen, onErfolg }: {
                 value={aenderungsnotiz}
                 onChange={e => setAenderungsnotiz(e.target.value)}
                 placeholder="Was wurde geändert? (optional)"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
               />
             </div>
           )}
@@ -1290,7 +1290,7 @@ function UploadModal({ ordner, startOrdnerId, onSchliessen, onErfolg }: {
                   onChange={e => setTitel(e.target.value)}
                   required={!istMail}
                   placeholder={istMail ? "Leer lassen = Betreff der E-Mail" : undefined}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                 />
               </div>
 
@@ -1299,7 +1299,7 @@ function UploadModal({ ordner, startOrdnerId, onSchliessen, onErfolg }: {
                 <select
                   value={kategorie}
                   onChange={e => setKategorie(e.target.value as Kategorie)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white"
                 >
                   {ALLE_KATEGORIEN.map(k => (
                     <option key={k} value={k}>{KATEGORIE_LABEL[k]}</option>
@@ -1313,7 +1313,7 @@ function UploadModal({ ordner, startOrdnerId, onSchliessen, onErfolg }: {
                   <select
                     value={kuendigungsArt}
                     onChange={e => setKuendigungsArt(e.target.value as "ORDENTLICH" | "AUSSERORDENTLICH")}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white"
                   >
                     <option value="ORDENTLICH">Ordentliche Kündigung (Anhörungsfrist 7 Tage)</option>
                     <option value="AUSSERORDENTLICH">Außerordentliche Kündigung (Anhörungsfrist 3 Tage)</option>
@@ -1329,7 +1329,7 @@ function UploadModal({ ordner, startOrdnerId, onSchliessen, onErfolg }: {
                     type="checkbox"
                     checked={anhaengeAblegen}
                     onChange={e => setAnhaengeAblegen(e.target.checked)}
-                    className="rounded border-gray-300 text-[rgb(var(--accent))] mt-0.5"
+                    className="rounded-sm border-gray-300 text-[rgb(var(--accent))] mt-0.5"
                   />
                   <span className="text-sm text-gray-700">
                     PDF-, Word- und Excel-Anhänge zusätzlich als eigene Dokumente ablegen
@@ -1343,7 +1343,7 @@ function UploadModal({ ordner, startOrdnerId, onSchliessen, onErfolg }: {
                 <input
                   value={aktenzeichen}
                   onChange={e => setAktenzeichen(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                   placeholder="Optional"
                 />
               </div>
@@ -1353,7 +1353,7 @@ function UploadModal({ ordner, startOrdnerId, onSchliessen, onErfolg }: {
                   type="checkbox"
                   checked={vertraulich}
                   onChange={e => setVertraulich(e.target.checked)}
-                  className="rounded border-gray-300 text-[rgb(var(--accent))]"
+                  className="rounded-sm border-gray-300 text-[rgb(var(--accent))]"
                 />
                 <span className="text-sm text-gray-700">Vertraulich (nur Vorsitz und Stellvertretung)</span>
               </label>
@@ -1395,7 +1395,7 @@ function OrdnerFeld({ ordner, wert, onChange }: { ordner: Ordner[]; wert: string
       <select
         value={wert}
         onChange={e => onChange(e.target.value)}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white"
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white"
       >
         <option value="">– ohne Ordner –</option>
         {ordnerOptionen(ordner).map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
@@ -1472,7 +1472,7 @@ function BearbeitenModal({ dokument, ordner, onSchliessen, onErfolg }: {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <h2 className="font-semibold text-gray-900">Dokument bearbeiten</h2>
           <button onClick={onSchliessen} className="text-gray-400 hover:text-gray-600">
             <X size={18} />
@@ -1486,7 +1486,7 @@ function BearbeitenModal({ dokument, ordner, onSchliessen, onErfolg }: {
             <input
               value={titel}
               onChange={e => setTitel(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
               placeholder={dokument.titel}
             />
           </div>
@@ -1496,7 +1496,7 @@ function BearbeitenModal({ dokument, ordner, onSchliessen, onErfolg }: {
             <select
               value={kategorie}
               onChange={e => kategorieWechseln(e.target.value as Kategorie)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white"
             >
               {ALLE_KATEGORIEN.map(k => (
                 <option key={k} value={k}>{KATEGORIE_LABEL[k]}</option>
@@ -1511,7 +1511,7 @@ function BearbeitenModal({ dokument, ordner, onSchliessen, onErfolg }: {
             <input
               value={aktenzeichen}
               onChange={e => setAktenzeichen(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
               placeholder="Optional"
             />
           </div>
@@ -1522,7 +1522,7 @@ function BearbeitenModal({ dokument, ordner, onSchliessen, onErfolg }: {
               value={beschreibung}
               onChange={e => setBeschreibung(e.target.value)}
               rows={2}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
               placeholder="Optional"
             />
           </div>
@@ -1534,7 +1534,7 @@ function BearbeitenModal({ dokument, ordner, onSchliessen, onErfolg }: {
               value={deleteAt}
               min={morgen}
               onChange={e => { setDeleteAt(e.target.value); setAngepasst(false); }}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
             />
             {vorschlag && (
               <p className="text-xs text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
@@ -1567,7 +1567,7 @@ function BearbeitenModal({ dokument, ordner, onSchliessen, onErfolg }: {
               type="checkbox"
               checked={vertraulich}
               onChange={e => setVertraulich(e.target.checked)}
-              className="rounded border-gray-300 text-[rgb(var(--accent))]"
+              className="rounded-sm border-gray-300 text-[rgb(var(--accent))]"
             />
             <span className="text-sm text-gray-700">Vertraulich (nur Vorsitz und Stellvertretung)</span>
           </label>

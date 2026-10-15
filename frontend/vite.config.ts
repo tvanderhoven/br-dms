@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
@@ -21,7 +22,7 @@ function commitStand(): string {
 }
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   server: { port: 5173 },
   define: { __BUILD_COMMIT__: JSON.stringify(commitStand()) },
 });

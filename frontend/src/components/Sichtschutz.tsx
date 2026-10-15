@@ -17,7 +17,7 @@ export default function Sichtschutz({ children }: { children: React.ReactNode })
     window.addEventListener("blur", verstecken);
     document.addEventListener("visibilitychange", sichtbarkeitGeaendert);
     return () => {
-      window.removeEventListener("blur", verstecken);
+      window.removeEventListener("blur-sm", verstecken);
       document.removeEventListener("visibilitychange", sichtbarkeitGeaendert);
     };
   }, []);

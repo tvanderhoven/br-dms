@@ -54,7 +54,7 @@ function TopEditForm({
         onChange={e => setTitel(e.target.value)}
         placeholder="Titel *"
         autoFocus
-        className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+        className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
       />
       <div className="border border-gray-200 rounded-lg overflow-hidden">
         <SitzungsEditor
@@ -121,7 +121,7 @@ function NeuerTopForm({
           value={titel}
           onChange={e => setTitel(e.target.value)}
           placeholder="Neuen TOP hinzufügen…"
-          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
         />
         <button
           type="button"
@@ -248,13 +248,13 @@ export default function Vorlagen() {
               onChange={e => setNeuerName(e.target.value)}
               placeholder="Name der Vorlage *"
               required autoFocus
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
             />
             <input
               value={neueBeschr}
               onChange={e => setNeueBeschr(e.target.value)}
               placeholder="Beschreibung (optional)"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
             />
             <div className="flex gap-2">
               <button type="submit"
@@ -306,8 +306,8 @@ export default function Vorlagen() {
                     <p className="text-xs text-gray-400 mt-0.5">{v.tops.length} TOP{v.tops.length !== 1 ? "s" : ""}</p>
                   </div>
                   {offen
-                    ? <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />
-                    : <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />}
+                    ? <ChevronUp className="w-4 h-4 text-gray-400 shrink-0 mt-1" />
+                    : <ChevronDown className="w-4 h-4 text-gray-400 shrink-0 mt-1" />}
                 </button>
 
                 {/* Ausgeklappter Inhalt */}
@@ -320,14 +320,14 @@ export default function Vorlagen() {
                           <input
                             value={editName}
                             onChange={e => setEditName(e.target.value)}
-                            className="text-lg font-bold border-b-2 border-[rgb(var(--accent))] outline-none w-full bg-transparent"
+                            className="text-lg font-bold border-b-2 border-[rgb(var(--accent))] outline-hidden w-full bg-transparent"
                             autoFocus
                           />
                           <input
                             value={editBeschr}
                             onChange={e => setEditBeschr(e.target.value)}
                             placeholder="Beschreibung (optional)"
-                            className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                            className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                           />
                           <div className="flex gap-2">
                             <button onClick={() => nameSpeichern(v.id)}
@@ -399,27 +399,27 @@ export default function Vorlagen() {
                                   <button
                                     onClick={() => topVerschieben(v, top, "hoch")}
                                     disabled={idx === 0}
-                                    className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30 rounded"
+                                    className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30 rounded-sm"
                                   >
                                     <ChevronUp size={14} />
                                   </button>
                                   <button
                                     onClick={() => topVerschieben(v, top, "runter")}
                                     disabled={idx === sortierteTops.length - 1}
-                                    className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30 rounded"
+                                    className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30 rounded-sm"
                                   >
                                     <ChevronDown size={14} />
                                   </button>
                                   <button
                                     onClick={() => setEditTopId(top.id)}
-                                    className="p-1 text-gray-400 hover:text-[rgb(var(--accent))] rounded"
+                                    className="p-1 text-gray-400 hover:text-[rgb(var(--accent))] rounded-sm"
                                     title="Bearbeiten"
                                   >
                                     <Pencil size={14} />
                                   </button>
                                   <button
                                     onClick={() => topLoeschen(v.id, top.id)}
-                                    className="p-1 text-gray-400 hover:text-red-600 rounded"
+                                    className="p-1 text-gray-400 hover:text-red-600 rounded-sm"
                                   >
                                     <X size={14} />
                                   </button>

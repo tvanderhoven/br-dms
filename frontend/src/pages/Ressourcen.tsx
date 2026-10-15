@@ -34,7 +34,7 @@ function Favicon({ url }: { url: string }) {
     <img
       src={src}
       onError={() => setFehler(true)}
-      className="w-4 h-4 rounded-sm shrink-0 object-contain"
+      className="w-4 h-4 rounded-xs shrink-0 object-contain"
       alt=""
     />
   );
@@ -143,13 +143,13 @@ export default function Ressourcen() {
       {/* Filter */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-5 flex flex-wrap gap-3 items-center">
         <div className="flex items-center bg-gray-100 rounded-lg px-2.5 py-1.5 flex-1 min-w-[180px]">
-          <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+          <Search className="w-3.5 h-3.5 text-gray-400 shrink-0" />
           <input
             type="text"
             value={suche}
             onChange={e => setSuche(e.target.value)}
             placeholder="Suchen…"
-            className="bg-transparent text-sm w-full outline-none ml-2 text-gray-700 placeholder-gray-400"
+            className="bg-transparent text-sm w-full outline-hidden ml-2 text-gray-700 placeholder-gray-400"
           />
           {suche && (
             <button onClick={() => setSuche("")} className="text-gray-400 hover:text-gray-600">
@@ -218,8 +218,8 @@ export default function Ressourcen() {
                   )}
                 </div>
                 {ausgeklappt === r.id
-                  ? <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />
-                  : <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />}
+                  ? <ChevronUp className="w-4 h-4 text-gray-400 shrink-0 mt-1" />
+                  : <ChevronDown className="w-4 h-4 text-gray-400 shrink-0 mt-1" />}
               </button>
 
               {ausgeklappt === r.id && (
@@ -289,7 +289,7 @@ export default function Ressourcen() {
                   value={form.titel}
                   onChange={e => setForm(f => ({ ...f, titel: e.target.value }))}
                   placeholder="z.B. NotebookLM – BR-Wissensdatenbank"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                 />
               </div>
 
@@ -300,7 +300,7 @@ export default function Ressourcen() {
                   value={form.url}
                   onChange={e => setForm(f => ({ ...f, url: e.target.value }))}
                   placeholder="https://..."
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] font-mono"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] font-mono"
                 />
               </div>
 
@@ -309,7 +309,7 @@ export default function Ressourcen() {
                 <select
                   value={form.kategorie}
                   onChange={e => setForm(f => ({ ...f, kategorie: e.target.value as RessourceKategorie }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                 >
                   {KATEGORIEN.map(k => (
                     <option key={k} value={k}>{RESSOURCE_KATEGORIE_LABEL[k]}</option>
@@ -324,7 +324,7 @@ export default function Ressourcen() {
                   value={form.beschreibung}
                   onChange={e => setForm(f => ({ ...f, beschreibung: e.target.value }))}
                   placeholder="Wofür wird diese Ressource genutzt?"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
                 />
               </div>
 
@@ -337,7 +337,7 @@ export default function Ressourcen() {
                     onChange={e => setTagInput(e.target.value)}
                     onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); tagHinzufuegen(); } }}
                     placeholder="Schlagwort eingeben…"
-                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                   />
                   <button type="button" onClick={tagHinzufuegen}
                     className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm text-gray-600">

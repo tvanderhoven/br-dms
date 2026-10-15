@@ -33,7 +33,7 @@ export default function TOPMentionPicker({ tops, onSelect, onClose }: Props) {
           value={suche}
           onChange={(e) => setSuche(e.target.value)}
           placeholder="TOP suchen..."
-          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+          className="w-full px-2 py-1 text-sm border border-gray-300 rounded-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
           onKeyDown={(e) => {
             if (e.key === "Escape") onClose();
           }}

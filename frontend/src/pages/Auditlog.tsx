@@ -84,7 +84,7 @@ function DetailsVorschau({ details }: { details: Record<string, unknown> | null 
         {kurzText.slice(0, 50)}{kurzText.length > 50 ? "…" : ""}
       </button>
       {offen && (
-        <pre className="mt-1 text-xs bg-gray-50 border border-gray-200 rounded p-2 whitespace-pre-wrap break-all max-w-xs">
+        <pre className="mt-1 text-xs bg-gray-50 border border-gray-200 rounded-sm p-2 whitespace-pre-wrap break-all max-w-xs">
           {JSON.stringify(details, null, 2)}
         </pre>
       )}
@@ -196,7 +196,7 @@ export default function Auditlog() {
             <select
               value={benutzerId}
               onChange={e => { setBenutzerId(e.target.value); setSeite(1); }}
-              className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent)/0.3)] min-w-[160px]"
+              className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-700 bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent)/0.3)] min-w-[160px]"
             >
               <option value="">Alle Benutzer</option>
               {benutzerListe.map(b => (
@@ -212,7 +212,7 @@ export default function Auditlog() {
               type="date"
               value={von}
               onChange={e => { setVon(e.target.value); setSeite(1); }}
-              className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent)/0.3)]"
+              className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-700 bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent)/0.3)]"
             />
           </div>
 
@@ -223,7 +223,7 @@ export default function Auditlog() {
               type="date"
               value={bis}
               onChange={e => { setBis(e.target.value); setSeite(1); }}
-              className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent)/0.3)]"
+              className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-700 bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent)/0.3)]"
             />
           </div>
         </div>
@@ -317,14 +317,14 @@ export default function Auditlog() {
                     <td className="px-4 py-2.5 text-xs text-gray-600 max-w-[180px]">
                       {e.dokument ? (
                         <div className="flex items-center gap-1 truncate">
-                          <FileText size={12} className="text-gray-400 flex-shrink-0" />
+                          <FileText size={12} className="text-gray-400 shrink-0" />
                           <span className="truncate" title={e.dokument.alias ?? e.dokument.titel}>
                             {e.dokument.alias ?? e.dokument.titel}
                           </span>
                         </div>
                       ) : e.sitzung ? (
                         <div className="flex items-center gap-1 truncate">
-                          <CalendarDays size={12} className="text-gray-400 flex-shrink-0" />
+                          <CalendarDays size={12} className="text-gray-400 shrink-0" />
                           <span className="truncate" title={e.sitzung.titel}>{e.sitzung.titel}</span>
                         </div>
                       ) : (

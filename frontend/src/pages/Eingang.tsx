@@ -398,9 +398,9 @@ export default function Eingang() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-0.5">
                     {!dok.inboxGelesen && (
-                      <span className="w-2 h-2 rounded-full bg-[rgb(var(--accent))] flex-shrink-0" />
+                      <span className="w-2 h-2 rounded-full bg-[rgb(var(--accent))] shrink-0" />
                     )}
-                    <span className={`text-xs px-1.5 py-0.5 rounded ${QUELLE_FARBE[dok.inboxQuelle ?? "UPLOAD"] ?? "bg-gray-100 text-gray-600"}`}>
+                    <span className={`text-xs px-1.5 py-0.5 rounded-sm ${QUELLE_FARBE[dok.inboxQuelle ?? "UPLOAD"] ?? "bg-gray-100 text-gray-600"}`}>
                       {QUELLE_LABEL[dok.inboxQuelle ?? "UPLOAD"]}
                     </span>
                     <span className="text-xs text-gray-400">{KATEGORIE_LABEL[dok.kategorie]}</span>
@@ -414,8 +414,8 @@ export default function Eingang() {
                   <p className="text-xs text-gray-400 mt-0.5 truncate">{dok.dateiname}</p>
                 </div>
                 {ausgeklappt === dok.id
-                  ? <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />
-                  : <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />}
+                  ? <ChevronUp className="w-4 h-4 text-gray-400 shrink-0 mt-1" />
+                  : <ChevronDown className="w-4 h-4 text-gray-400 shrink-0 mt-1" />}
               </button>
 
               {/* Ausgeklappter Inhalt */}
@@ -425,7 +425,7 @@ export default function Eingang() {
                   {/* Erfolg-Banner */}
                   {aktionErfolg && (
                     <div className="mt-4 flex items-center gap-2 bg-green-50 text-green-800 border border-green-200 rounded-lg px-3 py-2 text-sm">
-                      <Check className="w-4 h-4 flex-shrink-0" /> {aktionErfolg}
+                      <Check className="w-4 h-4 shrink-0" /> {aktionErfolg}
                     </div>
                   )}
 
@@ -689,7 +689,7 @@ export default function Eingang() {
                         {versionVonId ? (
                           <div className="flex items-center justify-between bg-white border border-purple-300 rounded-lg px-3 py-2 text-sm">
                             <span className="text-purple-800 font-medium truncate">{versionVonTitel}</span>
-                            <button type="button" onClick={() => { setVersionVonId(null); setVersionVonTitel(""); }} className="text-purple-400 hover:text-purple-600 ml-2 flex-shrink-0">
+                            <button type="button" onClick={() => { setVersionVonId(null); setVersionVonTitel(""); }} className="text-purple-400 hover:text-purple-600 ml-2 shrink-0">
                               <X className="w-3.5 h-3.5" />
                             </button>
                           </div>
@@ -698,7 +698,7 @@ export default function Eingang() {
                             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                             <input value={versionSuche} onChange={e => onVersionSucheChange(e.target.value)}
                               placeholder="Titel suchen…"
-                              className="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white" />
+                              className="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-purple-400 bg-white" />
                             {sucheLaden && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-gray-400" />}
                             {versionTreffer.length > 0 && (
                               <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
@@ -718,7 +718,7 @@ export default function Eingang() {
                         <label className="block text-xs font-medium text-gray-700 mb-1">Änderungsnotiz (optional)</label>
                         <input value={aenderungsnotiz} onChange={e => setAenderungsnotiz(e.target.value)}
                           placeholder="Was wurde geändert?"
-                          className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                          className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-hidden focus:ring-2 focus:ring-purple-400" />
                       </div>
                       <button onClick={sendeAktionVersion} disabled={aktionLaden || !versionVonId}
                         className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 disabled:opacity-50">
@@ -844,7 +844,7 @@ function ScanEingangKarte({
             onClick={verwerfen}
             disabled={laden}
             title="Verwerfen"
-            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-sm transition-colors disabled:opacity-50"
           >
             <Trash2 size={14} />
           </button>

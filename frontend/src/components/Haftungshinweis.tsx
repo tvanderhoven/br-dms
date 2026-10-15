@@ -61,7 +61,7 @@ export default function HaftungshinweisModal({ onSchliessen, pflicht = false }: 
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4" onClick={pflicht ? undefined : onSchliessen}>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-60 p-4" onClick={pflicht ? undefined : onSchliessen}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between gap-2 px-6 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2">

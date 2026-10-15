@@ -63,7 +63,7 @@ function EintragKarte({ eintrag, onAktualisieren, onLoeschen }: {
           onBlur={() => { if (notiz !== (eintrag.notiz ?? "")) onAktualisieren(eintrag.id, { notiz: notiz || null }); }}
           rows={2}
           placeholder="z.B. wer sich kümmert, Stand der Klärung…"
-          className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y bg-gray-50"
+          className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y bg-gray-50"
         />
       </div>
     </div>

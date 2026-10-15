@@ -407,7 +407,7 @@ export default function MitarbeiterUebersicht() {
             value={filterSuche}
             onChange={e => setFilterSuche(e.target.value)}
             placeholder="Name oder Personalnummer…"
-            className="border border-gray-300 rounded-lg pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] w-52"
+            className="border border-gray-300 rounded-lg pl-8 pr-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] w-52"
           />
         </div>
 
@@ -417,7 +417,7 @@ export default function MitarbeiterUebersicht() {
           onChange={e => setFilterAbteilung(e.target.value)}
           placeholder="Abteilung enthält… (z.B. E1)"
           list="abteilung-suchoptionen"
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] w-56"
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] w-56"
         />
         <datalist id="abteilung-suchoptionen">
           {abteilungenMitMitarbeitern.map(a => <option key={a.id} value={a.name} />)}
@@ -426,7 +426,7 @@ export default function MitarbeiterUebersicht() {
         <select
           value={filterStandort}
           onChange={e => setFilterStandort(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
         >
           <option value="">Alle Standorte</option>
           <option value="__LEER__">– kein Standort –</option>
@@ -436,7 +436,7 @@ export default function MitarbeiterUebersicht() {
         <select
           value={filterBeschaeftigungsart}
           onChange={e => setFilterBeschaeftigungsart(e.target.value as "" | Beschaeftigungsart)}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
         >
           <option value="">Alle Beschäftigungsarten</option>
           {ALLE_BESCHAEFTIGUNGSARTEN.map(art => <option key={art} value={art}>{BESCHAEFTIGUNGSART_LABEL[art]}</option>)}
@@ -469,7 +469,7 @@ export default function MitarbeiterUebersicht() {
             onChange={e => setStandortEingabe(e.target.value)}
             placeholder="Standort setzen auf…"
             list="standort-batch-optionen"
-            className="border border-accent/40 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent w-52"
+            className="border border-accent/40 rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-accent w-52"
           />
           <datalist id="standort-batch-optionen">
             {standorte.map(s => <option key={s} value={s} />)}
@@ -527,7 +527,7 @@ export default function MitarbeiterUebersicht() {
                   {m.nachname}, {m.vorname}
                   {m.beschaeftigungsart && m.beschaeftigungsart !== "MITARBEITER" && (
                     <span
-                      className={`ml-2 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${BESCHAEFTIGUNGSART_FARBE[m.beschaeftigungsart].badge}`}
+                      className={`ml-2 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-sm ${BESCHAEFTIGUNGSART_FARBE[m.beschaeftigungsart].badge}`}
                       title={BESCHAEFTIGUNGSART_LABEL[m.beschaeftigungsart]}
                     >
                       {BESCHAEFTIGUNGSART_KUERZEL[m.beschaeftigungsart]}

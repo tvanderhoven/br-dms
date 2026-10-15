@@ -158,7 +158,7 @@ export default function OrdnerBaum({
         onKeyDown={tasten}
         maxLength={100}
         placeholder="Ordnername"
-        className="flex-1 min-w-0 text-sm border border-gray-300 rounded px-1.5 py-0.5 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+        className="flex-1 min-w-0 text-sm border border-gray-300 rounded-sm px-1.5 py-0.5 focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
       />
       <button onClick={bearbeitungSpeichern} title="Speichern" className="p-0.5 text-gray-500 hover:text-[rgb(var(--accent))]">
         <Check size={14} />
@@ -200,7 +200,7 @@ export default function OrdnerBaum({
           >
             <button
               onClick={e => { e.stopPropagation(); umschalten(o.id); }}
-              className={`p-0.5 rounded hover:bg-gray-200 ${hatKinder ? "text-gray-400" : "invisible"}`}
+              className={`p-0.5 rounded-sm hover:bg-gray-200 ${hatKinder ? "text-gray-400" : "invisible"}`}
               tabIndex={hatKinder ? 0 : -1}
               aria-label={istOffen ? "Zuklappen" : "Aufklappen"}
             >
@@ -242,11 +242,11 @@ export default function OrdnerBaum({
       <div className="flex items-center justify-between px-1 pb-1">
         <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Ablage</span>
         <span className="flex items-center">
-          <button onClick={() => neuerOrdner(null)} title="Neuen Ordner anlegen" className="p-1 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded">
+          <button onClick={() => neuerOrdner(null)} title="Neuen Ordner anlegen" className="p-1 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm">
             <FolderPlus size={15} />
           </button>
           {onEinklappen && (
-            <button onClick={onEinklappen} title="Ordner ausblenden (mehr Platz für die Liste)" className="p-1 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded">
+            <button onClick={onEinklappen} title="Ordner ausblenden (mehr Platz für die Liste)" className="p-1 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm">
               <ChevronsLeft size={15} />
             </button>
           )}
@@ -272,7 +272,7 @@ export default function OrdnerBaum({
         <span className="text-xs text-gray-400 tabular-nums">{anzahl.OHNE ?? 0}</span>
       </div>
 
-      <div className="pt-1 border-t border-gray-100 mt-1">
+      <div className="pt-1 border-t border-gray-100 first:mt-1">
         {zweig(null, 0)}
         {bearbeitung?.modus === "neu" && bearbeitung.elternId === null && eingabeFeld(0)}
         {ordner.length === 0 && bearbeitung === null && (

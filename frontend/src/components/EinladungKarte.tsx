@@ -184,7 +184,7 @@ export default function EinladungKarte({ sitzungId, meineRolle, aktualisierung }
                   rows={5}
                   autoFocus
                   placeholder={"z. B. Einwahl per GoTo Meeting: https://meet.goto.com/123456789\noder ein Hinweis zur Sitzung"}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
                 />
                 <p className="text-xs text-gray-400 mt-1">Erscheint hervorgehoben unter Termin und Ort; Links werden anklickbar. Wird im Versandnachweis mitgespeichert.</p>
               </div>

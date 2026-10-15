@@ -238,7 +238,7 @@ export default function SitzungsEditor({
       {/* Link-Eingabe-Leiste */}
       {!readonly && linkDialogOffen && (
         <div className="flex items-center gap-2 px-3 py-1.5 border-b border-accent/25 bg-accent/5">
-          <ExternalLink size={13} className="text-accent/80 flex-shrink-0" />
+          <ExternalLink size={13} className="text-accent/80 shrink-0" />
           <input
             autoFocus
             type="url"
@@ -249,10 +249,10 @@ export default function SitzungsEditor({
               if (e.key === "Escape") { setLinkDialogOffen(false); }
             }}
             placeholder="https://..."
-            className="flex-1 text-xs bg-transparent outline-none text-gray-700 placeholder-gray-400"
+            className="flex-1 text-xs bg-transparent outline-hidden text-gray-700 placeholder-gray-400"
           />
           <button type="button" onClick={linkSetzen}
-            className="text-xs font-medium text-accent hover:text-accent-hover px-2 py-0.5 rounded hover:bg-accent/10">
+            className="text-xs font-medium text-accent hover:text-accent-hover px-2 py-0.5 rounded-sm hover:bg-accent/10">
             OK
           </button>
           <button type="button" onClick={() => setLinkDialogOffen(false)} className="text-gray-400 hover:text-gray-600">
@@ -265,13 +265,13 @@ export default function SitzungsEditor({
       <EditorContent
         editor={editor}
         style={{ minHeight }}
-        className="prose prose-sm max-w-none px-4 py-3 focus-within:outline-none
-          [&_.ProseMirror]:outline-none
+        className="prose prose-sm max-w-none px-4 py-3 focus-within:outline-hidden
+          [&_.ProseMirror]:outline-hidden
           [&_.ProseMirror_h2]:text-base [&_.ProseMirror_h2]:font-bold [&_.ProseMirror_h2]:mt-3 [&_.ProseMirror_h2]:mb-1
           [&_.ProseMirror_h3]:text-sm [&_.ProseMirror_h3]:font-semibold [&_.ProseMirror_h3]:mt-2 [&_.ProseMirror_h3]:mb-1
           [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-5 [&_.ProseMirror_ul]:my-1
           [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-5 [&_.ProseMirror_ol]:my-1
-          [&_.ProseMirror_mark]:bg-yellow-200 [&_.ProseMirror_mark]:rounded-sm [&_.ProseMirror_mark]:px-0.5
+          [&_.ProseMirror_mark]:bg-yellow-200 [&_.ProseMirror_mark]:rounded-xs [&_.ProseMirror_mark]:px-0.5
           [&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]
           [&_.ProseMirror_p.is-editor-empty:first-child::before]:text-gray-400
           [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left
@@ -333,7 +333,7 @@ function DokumentPickerModal({
   );
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-60 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h3 className="font-semibold text-gray-900">Dokument einfügen</h3>
@@ -349,7 +349,7 @@ function DokumentPickerModal({
               value={suche}
               onChange={e => setSuche(e.target.value)}
               placeholder="Titel oder Aktenzeichen…"
-              className="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              className="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
             />
           </div>
 

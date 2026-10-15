@@ -238,7 +238,7 @@ export default function Fristenkalender() {
                 {(ausgewaehltTag ? ausgewaehlteFristen : fristen).map(f => (
                   <li key={f.id} className={`px-4 py-3 group relative ${f.status === "ERLEDIGT" ? "opacity-60" : ""}`}>
                     <div className="flex items-start justify-between gap-2">
-                      <div className={`inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded border mb-1 ${tagFarbe(f.faelligAm, f.status)}`}>
+                      <div className={`inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded-sm border mb-1 ${tagFarbe(f.faelligAm, f.status)}`}>
                         {FRIST_TYP_LABEL[f.typ] ?? f.typ}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -345,7 +345,7 @@ function FristModal({ frist, onSchliessen, onGespeichert }: {
     }
   }
 
-  const inputKlasse = "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent";
+  const inputKlasse = "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-accent";
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onSchliessen}>
       <form onSubmit={speichern} onClick={e => e.stopPropagation()} className="bg-white rounded-xl shadow-2xl w-full max-w-md">

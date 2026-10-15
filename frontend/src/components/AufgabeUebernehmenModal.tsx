@@ -119,7 +119,7 @@ export default function AufgabeUebernehmenModal({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Titel *</label>
               <input value={titel} onChange={e => setTitel(e.target.value)} required
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Beschreibung</label>
@@ -138,7 +138,7 @@ export default function AufgabeUebernehmenModal({
                   {istZeitraum ? "Übergeordnetes Vorhaben" : "Vorhaben"}
                 </label>
                 <select value={oberProjektId} onChange={e => setOberProjektId(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
                   <option value="">– ohne Vorhaben –</option>
                   {zeitraeume.map(z => <option key={z.id} value={z.id}>{z.titel}</option>)}
                 </select>
@@ -151,12 +151,12 @@ export default function AufgabeUebernehmenModal({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Von</label>
                   <input type="date" value={startDatum} onChange={e => setStartDatum(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Bis</label>
                   <input type="date" value={endDatum} onChange={e => setEndDatum(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
                 </div>
               </div>
             ) : (
@@ -165,7 +165,7 @@ export default function AufgabeUebernehmenModal({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Priorität</label>
                     <select value={prioritaet} onChange={e => setPrioritaet(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
                       <option value="HOCH">Hoch</option>
                       <option value="MITTEL">Mittel</option>
                       <option value="NIEDRIG">Niedrig</option>
@@ -174,14 +174,14 @@ export default function AufgabeUebernehmenModal({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Fällig am</label>
                     <input type="date" value={faelligAm} onChange={e => setFaelligAm(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
                   </div>
                 </div>
                 {mitglieder.length > 0 && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Zuweisen an</label>
                     <select value={zugewiesenAnId} onChange={e => setZugewiesenAnId(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] bg-white">
                       <option value="">Niemanden zuweisen</option>
                       {mitglieder.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                     </select>

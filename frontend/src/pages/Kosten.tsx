@@ -22,7 +22,7 @@ const MANUELLE_ARTEN = (Object.keys(KOSTEN_ART_LABEL) as KostenArt[]).filter(a =
 const STATUS_LISTE = Object.keys(KOSTEN_STATUS_LABEL) as KostenStatus[];
 
 const eingabeKlasse =
-  "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]";
+  "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]";
 const knopf =
   "flex items-center gap-1.5 border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60";
 
@@ -104,7 +104,7 @@ export default function Kosten() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <select value={jahr} onChange={e => setJahr(Number(e.target.value))}
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
             aria-label="Jahr">
             {(daten?.jahre ?? [jahr]).map(j => <option key={j} value={j}>{j}</option>)}
           </select>
@@ -143,7 +143,7 @@ export default function Kosten() {
               <div className="space-y-2">
                 {(Object.keys(KOSTEN_ART_LABEL) as KostenArt[]).filter(a => s!.nachArt[a] > 0).map(a => (
                   <button key={a} onClick={() => setFilterArt(filterArt === a ? "" : a)}
-                    className={`w-full flex items-center gap-3 text-left rounded px-1 ${filterArt === a ? "bg-accent/5" : "hover:bg-gray-50"}`}
+                    className={`w-full flex items-center gap-3 text-left rounded-sm px-1 ${filterArt === a ? "bg-accent/5" : "hover:bg-gray-50"}`}
                     title="Klicken: nur diese Art in der Liste zeigen">
                     <span className="text-sm text-gray-700 w-56 shrink-0 truncate">{KOSTEN_ART_LABEL[a]}</span>
                     <span className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -217,10 +217,10 @@ export default function Kosten() {
                         <td className="px-4 py-2.5 align-top">
                           <div className="flex justify-end gap-1">
                             <button onClick={() => setBearbeiten(p)} title="Bearbeiten"
-                              className="p-1.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100"><Pencil size={14} /></button>
+                              className="p-1.5 rounded-sm text-gray-400 hover:text-gray-700 hover:bg-gray-100"><Pencil size={14} /></button>
                             {!p.ausSchulung && (
                               <button onClick={() => loeschen(p)} title="Löschen"
-                                className="p-1.5 rounded text-gray-400 hover:text-red-600 hover:bg-red-50"><Trash2 size={14} /></button>
+                                className="p-1.5 rounded-sm text-gray-400 hover:text-red-600 hover:bg-red-50"><Trash2 size={14} /></button>
                             )}
                           </div>
                         </td>
@@ -501,7 +501,7 @@ function BrSchulungenDialog({ liste, onSchliessen, onGespeichert }: {
         <div className="space-y-2 max-h-72 overflow-y-auto">
           {liste.map(q => (
             <label key={q.id} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-              <input type="checkbox" checked={gewaehlt.has(q.id)} className="rounded border-gray-300"
+              <input type="checkbox" checked={gewaehlt.has(q.id)} className="rounded-sm border-gray-300"
                 onChange={() => setGewaehlt(g => { const n = new Set(g); if (n.has(q.id)) n.delete(q.id); else n.add(q.id); return n; })} />
               {q.name}
             </label>

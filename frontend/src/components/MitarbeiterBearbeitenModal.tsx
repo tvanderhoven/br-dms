@@ -75,7 +75,7 @@ export default function MitarbeiterBearbeitenModal({
               <input
                 type="text" required value={vorname} autoFocus
                 onChange={e => setVorname(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
               />
             </div>
             <div>
@@ -83,7 +83,7 @@ export default function MitarbeiterBearbeitenModal({
               <input
                 type="text" required value={nachname}
                 onChange={e => setNachname(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
               />
             </div>
           </div>
@@ -94,7 +94,7 @@ export default function MitarbeiterBearbeitenModal({
               <input
                 type="text" value={pnr} placeholder="optional"
                 onChange={e => setPnr(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
               />
             </div>
             <div>
@@ -102,7 +102,7 @@ export default function MitarbeiterBearbeitenModal({
               <select
                 value={abteilungId}
                 onChange={e => setAbteilungId(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
               >
                 <option value="">– keine –</option>
                 {abteilungen.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -116,7 +116,7 @@ export default function MitarbeiterBearbeitenModal({
               <input
                 type="date" value={eintritt}
                 onChange={e => setEintritt(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
               />
             </div>
             <div>
@@ -124,7 +124,7 @@ export default function MitarbeiterBearbeitenModal({
               <input
                 type="date" value={austritt}
                 onChange={e => setAustritt(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
               />
             </div>
           </div>
@@ -136,7 +136,7 @@ export default function MitarbeiterBearbeitenModal({
                 <input
                   type="date" value={geburtsdatum}
                   onChange={e => setGeburtsdatum(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                 />
               </div>
               <div>
@@ -144,7 +144,7 @@ export default function MitarbeiterBearbeitenModal({
                 <select
                   value={geschlecht}
                   onChange={e => setGeschlecht(e.target.value as Geschlecht | "")}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                 >
                   <option value="">nicht angegeben / divers</option>
                   <option value="WEIBLICH">Weiblich</option>
@@ -161,7 +161,7 @@ export default function MitarbeiterBearbeitenModal({
               <input
                 type="text" value={standort} placeholder="z.B. Werk 1" list="standort-optionen"
                 onChange={e => setStandort(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
               />
               <datalist id="standort-optionen">
                 {standorte.map(s => <option key={s} value={s} />)}
@@ -172,7 +172,7 @@ export default function MitarbeiterBearbeitenModal({
               <select
                 value={beschaeftigungsart}
                 onChange={e => setBeschaeftigungsart(e.target.value as Beschaeftigungsart)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
               >
                 {ALLE_BESCHAEFTIGUNGSARTEN.map(b => <option key={b} value={b}>{BESCHAEFTIGUNGSART_LABEL[b]}</option>)}
               </select>
@@ -184,7 +184,7 @@ export default function MitarbeiterBearbeitenModal({
               type="checkbox"
               checked={gehaltIgnorieren}
               onChange={e => setGehaltIgnorieren(e.target.checked)}
-              className="rounded border-gray-300 text-[rgb(var(--accent))]"
+              className="rounded-sm border-gray-300 text-[rgb(var(--accent))]"
             />
             <span className="text-sm text-gray-700">Nicht gehaltsrelevant (z.B. GF, Ausbildung) — erscheint nicht in "ohne Gehaltseintrag"</span>
           </label>

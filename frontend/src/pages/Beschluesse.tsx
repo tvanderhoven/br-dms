@@ -127,8 +127,8 @@ export default function Beschluesse() {
                   </p>
                 </div>
                 {ausgeklappt === b.id
-                  ? <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />
-                  : <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />
+                  ? <ChevronUp className="w-4 h-4 text-gray-400 shrink-0 mt-1" />
+                  : <ChevronDown className="w-4 h-4 text-gray-400 shrink-0 mt-1" />
                 }
               </button>
 

@@ -141,14 +141,14 @@ export default function Gremien() {
               <div className="absolute bottom-3 right-3 hidden group-hover:flex gap-1">
                 <button
                   onClick={e => { e.stopPropagation(); setBearbeitet(g); setModal(true); }}
-                  className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
+                  className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm transition-colors"
                   title="Bearbeiten"
                 >
                   <Edit3 size={14} />
                 </button>
                 <button
                   onClick={e => { e.stopPropagation(); loeschen(g); }}
-                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-sm transition-colors"
                   title="Löschen"
                 >
                   <Trash2 size={14} />
@@ -231,7 +231,7 @@ function GremiumDetail({
             <button
               onClick={() => setGremiumModal(true)}
               title="Gremium bearbeiten"
-              className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
+              className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm transition-colors"
             >
               <Edit3 size={15} />
             </button>
@@ -300,21 +300,21 @@ function GremiumDetail({
                 <button
                   onClick={() => fremdprotokollHerunterladen(e.protokoll.id, e.protokoll.dateiname)}
                   title="Herunterladen"
-                  className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
+                  className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm transition-colors"
                 >
                   <Download size={14} />
                 </button>
                 <button
                   onClick={() => { setBearbeitetesProtokoll(e.protokoll); setUploadModal(true); }}
                   title="Bearbeiten"
-                  className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded transition-colors"
+                  className="p-1.5 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm transition-colors"
                 >
                   <Edit3 size={14} />
                 </button>
                 <button
                   onClick={() => protokollLoeschen(e.protokoll)}
                   title="Löschen"
-                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-sm transition-colors"
                 >
                   <Trash2 size={14} />
                 </button>
@@ -422,7 +422,7 @@ function MitgliederKarte({ gremiumId }: { gremiumId: string }) {
           )}
           <div className="flex gap-2">
             <select value={neuesId} onChange={e => setNeuesId(e.target.value)}
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]">
+              className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]">
               <option value="">Mitglied hinzufügen…</option>
               {auswahl.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
@@ -490,26 +490,26 @@ function GremiumModal({
             <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
             <input type="text" required value={name} autoFocus onChange={e => setName(e.target.value)}
               placeholder="z.B. Arbeitsschutzausschuss (ASA)"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Rechtsgrundlage</label>
             <input type="text" value={rechtsgrundlage} onChange={e => setRechtsgrundlage(e.target.value)}
               placeholder="z.B. § 28 BetrVG"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Bemerkung</label>
             <textarea rows={2} value={bemerkung} onChange={e => setBemerkung(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
           </div>
 
           {gremium && (
             <label className="flex items-center gap-2 text-sm text-gray-700">
               <input type="checkbox" checked={aktiv} onChange={e => setAktiv(e.target.checked)}
-                className="rounded border-gray-300" />
+                className="rounded-sm border-gray-300" />
               Aktiv (inaktive Gremien werden in der Sitzungsanlage nicht mehr vorgeschlagen)
             </label>
           )}
@@ -594,13 +594,13 @@ function FremdprotokollModal({
             <label className="block text-sm font-medium text-gray-700 mb-1">Titel *</label>
             <input type="text" required value={titel} autoFocus onChange={e => setTitel(e.target.value)}
               placeholder="z.B. Protokoll ASA-Sitzung März 2026"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Datum *</label>
             <input type="date" required value={datum} onChange={e => setDatum(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
           </div>
 
           {!bearbeitet && (
@@ -608,19 +608,19 @@ function FremdprotokollModal({
               <label className="block text-sm font-medium text-gray-700 mb-1">Datei * (PDF, JPG, PNG, DOCX)</label>
               <input type="file" required accept=".pdf,.jpg,.jpeg,.png,.docx,.docm"
                 onChange={e => setDatei(e.target.files?.[0] ?? null)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
             </div>
           )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Bemerkung</label>
             <textarea rows={2} value={bemerkung} onChange={e => setBemerkung(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
           </div>
 
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input type="checkbox" checked={vertraulich} onChange={e => setVertraulich(e.target.checked)}
-              className="rounded border-gray-300" />
+              className="rounded-sm border-gray-300" />
             Vertraulich (nur Vorsitz, Stellvertretung und Mitglieder dieses Gremiums können es sehen und öffnen)
           </label>
 

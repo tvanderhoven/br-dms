@@ -122,7 +122,7 @@ export default function KommentarBlock({
                 </div>
                 <button
                   onClick={() => loeschen(k.id)}
-                  className="text-gray-300 hover:text-red-500 p-0.5 flex-shrink-0"
+                  className="text-gray-300 hover:text-red-500 p-0.5 shrink-0"
                   title="Löschen"
                 >
                   <Trash2 size={12} />

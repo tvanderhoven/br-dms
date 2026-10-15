@@ -33,11 +33,11 @@ export function FristBadge({ dok }: { dok: Dokument }) {
   const naechste = dok.fristen?.[0];
   if (!naechste) return null;
   return dok.zugangBestaetigtAm ? (
-    <span className="text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-700 flex items-center gap-1">
+    <span className="text-xs px-1.5 py-0.5 rounded-sm bg-red-50 text-red-700 flex items-center gap-1">
       <CalendarClock size={12} /> Frist bis {datumMitTag(naechste.faelligAm)}
     </span>
   ) : (
-    <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 flex items-center gap-1">
+    <span className="text-xs px-1.5 py-0.5 rounded-sm bg-amber-100 text-amber-800 flex items-center gap-1">
       <AlertTriangle size={12} /> Frist vorläufig – Zugang bestätigen
     </span>
   );
