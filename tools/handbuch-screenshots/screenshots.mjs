@@ -70,6 +70,16 @@ const waehle = (nr, optionText) => `
     return true;
   })()`;
 
+// Eingang: Eintrag aufklappen und so scrollen, dass sein Kopf (Titel, Fristhinweis) oben steht
+const eintragOeffnen = text => `
+  (() => {
+    const b = [...document.querySelectorAll(".space-y-2 > div > button")].find(e => e.textContent.includes(${JSON.stringify(text)}));
+    if (!b) return false;
+    b.click();
+    setTimeout(() => b.scrollIntoView({ block: "start" }), 800);
+    return true;
+  })()`;
+
 const ersteZeile = `(() => { const tr = document.querySelector("tbody tr"); if (tr) tr.click(); return !!tr; })()`;
 
 // Dokumente: der zuletzt gewählte Ordner wird im Browser gemerkt – immer bei „Alle Dokumente“ beginnen
@@ -136,6 +146,18 @@ const AUFNAHMEN = [
   { datei: "anhoerung-vorgang",   pfad: "/dokumente", js: [alleDokumente, klickZeile("Probezeit"), zeigeText("Vorgang")], warte: 3000 },
   { datei: "dokumente-ordner",    pfad: "/dokumente", js: [klickInnen("Schriftverkehr", "nav[aria-label=Ordner] div[draggable]"), klickZeile("Geschäftsführung")] },
   { datei: "eingang-aktionen",    pfad: "/eingang", js: `(() => { const b = document.querySelector(".space-y-2 > div > button"); if (b) b.click(); return !!b; })()`, warte: 5000 },
+  // Fristsachen (Kapitel 3.1): bestätigter Zugang mit Sondersitzungs-Warnung bzw. noch offener Zugang
+  { datei: "eingang-fristsache",  pfad: "/eingang", js: eintragOeffnen("Außerordentliche Kündigung (Arbeitszeitbetrug)"), warte: 3500 },
+  { datei: "eingang-zugang",      pfad: "/eingang", js: eintragOeffnen("Einstellung Industriemechaniker"), warte: 3500 },
+  // Nur die Fristenliste rechts scrollen (nicht die Seite) – bis zur ersten verschobenen Frist
+  { datei: "fristenkalender-vorlaeufig", pfad: "/fristen", js: `
+    (() => {
+      const p = [...document.querySelectorAll("li p")].find(e => e.textContent.startsWith("verschoben wegen"));
+      const liste = p?.closest(".overflow-y-auto");
+      if (!liste) return false;
+      liste.scrollTop += p.closest("li").getBoundingClientRect().top - liste.getBoundingClientRect().top;
+      return true;
+    })()` },
   { datei: "gremium-detail",      pfad: "/gremien", js: klickInnen("Wirtschaftsausschuss", "div.cursor-pointer") },
   { datei: "sitzung-einladung",   pfad: "/sitzungen", js: [klickText("Tagesordnung fixiert", "tr"), zeigeText("Einladung per E-Mail")], warte: 2500 },
   { datei: "themensammlung",      pfad: "/themen", js: klickText("Themen laden", "button"), warte: 2500 },
@@ -157,6 +179,8 @@ const AUFNAHMEN = [
   { datei: "sichtschutz",         pfad: "/gehaltstabelle", js: [klickText("Liste", "button"), waehle(0, "IT"), `(() => { window.dispatchEvent(new Event("blur")); return true; })()`] },
   { datei: "mitarbeiter-auswahl", pfad: "/mitarbeiter", js: `(() => { const b = [...document.querySelectorAll("tbody tr td:first-child button")].slice(0, 3); b.forEach(x => x.click()); return b.length > 0; })()` },
   { datei: "einstellungen-fristen",    pfad: "/einstellungen" },
+  { datei: "einstellungen-feiertage",  pfad: "/einstellungen", js: [klickText("Feiertage 20", "summary"), zeigeText("Feiertage für die Fristberechnung")] },
+  { datei: "einstellungen-eingang-mails", pfad: "/einstellungen", js: zeigeText("Mails über neue Eingänge") },
   { datei: "einstellungen-protokoll",  pfad: "/einstellungen", js: klickText("Protokoll-Layout", "button") },
   { datei: "einstellungen-system",     pfad: "/einstellungen", js: klickText("System", "button") },
   { datei: "einstellungen-gefahrenzone", pfad: "/einstellungen", js: [klickText("System", "button"), zeigeText("Gefahrenzone")], alsAdmin: true },
@@ -225,6 +249,8 @@ async function main() {
     // Einmal die Origin laden, damit localStorage beschreibbar ist
     await cdp("Page.navigate", { url: `${BASIS}/login` });
     await pause(1500);
+    // Haftungshinweis (components/Haftungshinweis.tsx) als gelesen markieren – sonst liegt er auf jedem Bild
+    await auswerten(`localStorage.setItem("brdms_disclaimer_bestaetigt_v1", "true")`);
 
     // NUR=dashboard,fristenkalender nimmt nur einzelne Bilder neu auf
     const nur = process.env.NUR?.split(",").map(x => x.trim());

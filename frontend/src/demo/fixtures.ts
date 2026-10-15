@@ -238,6 +238,14 @@ export const DEMO_FRISTEN = [
     id: "demo-f4", typ: "BENUTZERDEFINIERT", status: "OFFEN", faelligAm: tag(12),
     bezeichnung: "Angebot Einigungsstelle einholen", erstelltAm: tag(-2), dokument: null,
   },
+  // Fristsache wie im Echtbetrieb: Zugang noch nicht bestätigt, Ende nach § 193 BGB verschoben
+  // (im Fristenkalender „vorläufig“ und „verschoben wegen …“, siehe lib/zugang.ts im Backend)
+  {
+    id: "demo-f5", typ: "ANHOERUNG_102_AUSSERORDENTLICH", status: "OFFEN", faelligAm: tag(3),
+    erstelltAm: tag(0), vorlaeufig: true,
+    verschoben: [{ tag: "", grund: "Samstag" }, { tag: "", grund: "Sonntag" }],
+    dokument: { id: "demo-d6", titel: "Anhörung außerordentliche Kündigung", alias: "§ 102 fristlose Kündigung", kategorie: "ANHOERUNG_102" },
+  },
 ];
 
 // ── Wissensarchiv ────────────────────────────────────────────────────
