@@ -2,12 +2,12 @@ import { useEffect, useState, useRef, FormEvent, useCallback } from "react";
 import { useLocation, Link } from "react-router-dom";
 import {
   Upload, Download, Trash2, FileText, Lock, X, Loader2, Search, Pencil, MessageSquare, Eye, History, ExternalLink, CalendarDays,
-  CheckCircle2, Send, Folder, ChevronRight, Mail, Paperclip, ChevronsRight,
+  CheckCircle2, Send, Folder, ChevronRight, Mail, Paperclip, ChevronsRight, AlertTriangle,
 } from "lucide-react";
 import {
   api, Dokument, DokumentVersion, Kategorie, KATEGORIE_LABEL, KATEGORIE_KURZ, Aufbewahrungsregel, Gremium, Ordner,
   istEmail, istEmailDatei,
-  formatDatum, formatDateigroesse, fristFarbe, FRIST_TYP_LABEL,
+  formatDatum, formatDateigroesse, fristFarbe, FRIST_TYP_LABEL, FRIST_TYP_FOLGE_HINWEIS,
   AnhoerungVorgangAntwort, AnhoerungStatus, AnhoerungArt, ANHOERUNG_STATUS_LABEL, ANHOERUNG_ART_LABEL, gruendeFuerArt, BEGRUENDUNG_MINDESTLAENGE,
   Rolle,
 } from "../lib/api";
@@ -856,21 +856,34 @@ export default function Dokumente() {
 
                   {/* Fristen */}
                   {vorgang.fristen.length > 0 && (
-                    <div className="space-y-1">
-                      {vorgang.fristen.map(f => (
-                        <div key={f.id} className="flex items-center justify-between gap-2 text-xs">
-                          <span className={f.status === "ERLEDIGT" ? "text-gray-400 line-through" : fristFarbe(f.faelligAm)}>
-                            {f.bezeichnung ?? FRIST_TYP_LABEL[f.typ] ?? f.typ} – fällig {formatDatum(f.faelligAm)}
-                          </span>
-                          <button
-                            onClick={() => vorgangFristErledigen(f.id, f.status !== "ERLEDIGT")}
-                            className="p-1 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm shrink-0"
-                            title={f.status === "ERLEDIGT" ? "Als offen markieren" : "Als erledigt markieren"}
-                          >
-                            <CheckCircle2 size={13} className={f.status === "ERLEDIGT" ? "text-green-600" : ""} />
-                          </button>
-                        </div>
-                      ))}
+                    <div className="space-y-1.5">
+                      {vorgang.fristen.map(f => {
+                        const hinweis = FRIST_TYP_FOLGE_HINWEIS[f.typ];
+                        const erledigt = f.status === "ERLEDIGT";
+                        const abgelaufen = !erledigt && new Date(f.faelligAm).getTime() < Date.now();
+                        return (
+                          <div key={f.id} className="space-y-0.5">
+                            <div className="flex items-center justify-between gap-2 text-xs">
+                              <span className={erledigt ? "text-gray-400 line-through" : fristFarbe(f.faelligAm)}>
+                                {f.bezeichnung ?? FRIST_TYP_LABEL[f.typ] ?? f.typ} – fällig {formatDatum(f.faelligAm)}
+                              </span>
+                              <button
+                                onClick={() => vorgangFristErledigen(f.id, f.status !== "ERLEDIGT")}
+                                className="p-1 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm shrink-0"
+                                title={erledigt ? "Als offen markieren" : "Als erledigt markieren"}
+                              >
+                                <CheckCircle2 size={13} className={erledigt ? "text-green-600" : ""} />
+                              </button>
+                            </div>
+                            {hinweis && !erledigt && (
+                              <p className={`flex items-start gap-1 text-[11px] ${abgelaufen ? "text-red-700 font-medium" : "text-gray-400"}`}>
+                                <AlertTriangle size={11} className="shrink-0 mt-0.5" />
+                                {abgelaufen ? `Frist verstrichen – ${hinweis}` : hinweis}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
 

@@ -1124,6 +1124,16 @@ export const FRIST_TYP_LABEL: Record<string, string> = {
   BENUTZERDEFINIERT:              "Individuelle Frist",
 };
 
+/** Rechtsfolge bei Fristablauf ohne fristgerechte Stellungnahme (Schweigefiktion § 99 Abs. 3 / § 102 Abs. 2 BetrVG). */
+export const FRIST_TYP_FOLGE_HINWEIS: Record<string, string> = {
+  ANHOERUNG_99_WOCHE:
+    "Ohne fristgerechte schriftliche Zustimmungsverweigerung gilt die Zustimmung nach § 99 Abs. 3 Satz 2 BetrVG als erteilt.",
+  ANHOERUNG_102_ORDENTLICH:
+    "Ohne fristgerechte schriftliche Mitteilung von Bedenken gilt die Kündigung nach § 102 Abs. 2 Satz 3 BetrVG als nicht beanstandet.",
+  ANHOERUNG_102_AUSSERORDENTLICH:
+    "Ohne fristgerechte schriftliche Mitteilung von Bedenken gilt die Kündigung nach § 102 Abs. 2 Satz 3 BetrVG als nicht beanstandet.",
+};
+
 /** Anzeigename einer Frist: eigene Bezeichnung, sonst Dokumenttitel, sonst Fristtyp. */
 export function fristTitel(f: Pick<FristMitDokument, "typ" | "bezeichnung" | "dokument">): string {
   return f.bezeichnung?.trim()
