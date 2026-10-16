@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   FileText, LayoutDashboard, CalendarDays,
   Mail, CheckSquare, Inbox, Search, X, LayoutTemplate, Settings, UserCircle, BookOpen, Menu, Newspaper, Globe, ClipboardList,
-  Gavel, CalendarRange, Wallet, Scale, GraduationCap, Users, Kanban, ChevronDown, MailPlus, Vote, Landmark, Euro,
+  Gavel, CalendarRange, CalendarOff, Wallet, Scale, GraduationCap, Users, Kanban, ChevronDown, MailPlus, Vote, Landmark, Euro,
 } from "lucide-react";
 import { api, SuchErgebnis, KATEGORIE_LABEL, SITZUNG_STATUS_LABEL, RESSOURCE_KATEGORIE_LABEL, formatDatum, Rolle, ModuleKey, GesetzParagraph } from "../lib/api";
 import GesetzModal from "./GesetzModal";
@@ -647,6 +647,12 @@ export default function Layout() {
               <CalendarRange size={16} />
               Fristenkalender
             </NavLink>
+            {meineRolle !== "ADMIN" && (
+              <NavLink to="/abwesenheiten" className={linkKlasse} onClick={() => setMobileOffen(false)}>
+                <CalendarOff size={16} />
+                Abwesenheiten
+              </NavLink>
+            )}
           </NavGruppe>
 
           <NavGruppe titel="Dokumente & Wissen" gruppenKey="dokumente" zu={!!navGruppenZu.dokumente} onToggle={navGruppeUmschalten}>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { api, Benutzer } from "../lib/api";
-import { CheckCircle, XCircle, HelpCircle, UserCheck, UserPlus } from "lucide-react";
+import { api, Benutzer, Verfuegbarkeit, ABWESENHEITS_GRUND_LABEL } from "../lib/api";
+import { CheckCircle, XCircle, HelpCircle, UserCheck, UserPlus, CalendarOff, AlertTriangle, Wand2 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export type AnwesenheitsStatus = "ANWESEND" | "ABWESEND_ENTSCHULDIGT" | "ABWESEND_UNENTSCHULDIGT" | "ERSATZ_FUER";
 
@@ -68,6 +69,10 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false, vorSitz
   const [pendingErsatz,  setPendingErsatz]  = useState<Record<string, string>>({});
   // abwesenderId (ordentliches Mitglied) → Nachrück-Vorschlag laut Wahlrang
   const [vorschlaege,    setVorschlaege]    = useState<Record<string, ErsatzVorschlagInfo>>({});
+  // Abwesenheitskalender am Sitzungstag (nur vor der Sitzung; JAV/SBV bekommen 403 → ohne)
+  const [kalender,       setKalender]       = useState<Verfuegbarkeit | null>(null);
+  const [uebernimmt,     setUebernimmt]     = useState(false);
+  const [kalenderMeldung, setKalenderMeldung] = useState("");
 
   useEffect(() => { ladeDaten(); }, [sitzungId]);
 
@@ -80,6 +85,28 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false, vorSitz
       console.error("Fehler beim Laden:", err);
     } finally {
       setIsLaden(false);
+    }
+    if (vorSitzung) api.sitzungen.verfuegbarkeit(sitzungId).then(setKalender).catch(() => setKalender(null));
+  }
+
+  async function kalenderUebernehmen() {
+    setUebernimmt(true); setKalenderMeldung("");
+    try {
+      const r = await api.sitzungen.kalenderUebernehmen(sitzungId);
+      const teile = [
+        r.verhindert && `${r.verhindert} verhindert`,
+        r.kommt && `${r.kommt} „Kommt“`,
+        r.ersatz && `${r.ersatz} Ersatz geladen`,
+      ].filter(Boolean);
+      setKalenderMeldung(`Übernommen: ${teile.join(", ") || "nichts zu ändern"}` +
+        (r.ohneErsatz.length ? ` – kein Ersatzmitglied mehr frei für ${r.ohneErsatz.join(", ")}` : ""));
+      setVorschlaege({});
+      ladeDaten();
+      onGeaendert?.();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Fehler beim Übernehmen");
+    } finally {
+      setUebernimmt(false);
     }
   }
 
@@ -195,6 +222,9 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false, vorSitz
   );
   const gesamt   = liste.length;
 
+  const kalenderVon = new Map((kalender?.mitglieder ?? []).filter(m => m.abwesend).map(m => [m.benutzerId, m]));
+  const konfliktIds = new Set((kalender?.konflikte ?? []).map(k => k.id));
+
   // Ordentliche Mitglieder für "Vertritt:"-Dropdown
   const ordentlicheMitglieder = liste.filter(l => ORDENTLICHE_ROLLEN.includes(l.benutzer.rolle));
 
@@ -222,6 +252,16 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false, vorSitz
           </p>
         )}
       </div>
+
+      {vorSitzung && kalender && (
+        <KalenderHinweis
+          kalender={kalender}
+          readonly={readonly}
+          uebernimmt={uebernimmt}
+          meldung={kalenderMeldung}
+          onUebernehmen={kalenderUebernehmen}
+        />
+      )}
 
       <div className="divide-y divide-gray-50">
         {liste.map((item) => {
@@ -253,6 +293,9 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false, vorSitz
                       <span className="ml-1 text-[rgb(var(--accent))]">· Ersatz: {vertretenDurch.get(item.benutzer.id)}</span>
                     )}
                   </p>
+                  {kalenderVon.get(item.benutzer.id) && (
+                    <KalenderMarke eintrag={kalenderVon.get(item.benutzer.id)!} konflikt={konfliktIds.has(item.benutzer.id)} />
+                  )}
                 </div>
 
                 {/* Status-Steuerung */}
@@ -413,6 +456,72 @@ function ErsatzVorschlagBanner({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Abwesenheitskalender: Marke je Person und Zusammenfassung über der Liste ──
+const bisText = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", timeZone: "UTC" }) : "";
+
+function KalenderMarke({ eintrag, konflikt }: { eintrag: Verfuegbarkeit["mitglieder"][number]; konflikt: boolean }) {
+  const grund = eintrag.grund ? ABWESENHEITS_GRUND_LABEL[eintrag.grund] : "abwesend";
+  return (
+    <span className={`mt-0.5 inline-flex items-center gap-1 text-[11px] rounded px-1.5 py-0.5 ${konflikt ? "bg-red-50 text-red-700 border border-red-200" : "bg-amber-50 text-amber-800 border border-amber-200"}`}>
+      {konflikt ? <AlertTriangle size={11} /> : <CalendarOff size={11} />}
+      Laut Kalender {grund}{eintrag.bis && ` bis ${bisText(eintrag.bis)}`}{konflikt && " – trotzdem geladen"}
+    </span>
+  );
+}
+
+function KalenderHinweis({ kalender, readonly, uebernimmt, meldung, onUebernehmen }: {
+  kalender: Verfuegbarkeit; readonly: boolean; uebernimmt: boolean; meldung: string; onUebernehmen: () => void;
+}) {
+  const abwesend = kalender.mitglieder.filter(m => m.abwesend);
+  const p = kalender.prognose;
+  const mitVorschlag = kalender.ersatzPlan.filter(e => e.ersatz);
+  const ohneErsatz = kalender.ersatzPlan.filter(e => !e.ersatz);
+  const tag = new Date(`${kalender.tag}T00:00:00Z`).toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
+
+  return (
+    <div className="px-4 py-3 border-b border-gray-100 bg-white space-y-2 text-xs">
+      <div className="flex items-start gap-2 flex-wrap">
+        <CalendarOff size={14} className="text-gray-500 mt-0.5 shrink-0" />
+        <div className="flex-1 min-w-0 text-gray-700">
+          <span className="font-medium">Abwesenheitskalender {tag}: </span>
+          {abwesend.length === 0
+            ? "niemand eingetragen."
+            : <>{abwesend.length} abwesend – {abwesend.map(m => m.name).join(", ")}.</>}
+          {mitVorschlag.length > 0 && (
+            <span> Ersatz laut Wahlrang: {mitVorschlag.map(e => `${e.ersatz!.name} für ${e.fuer.name}`).join(", ")}.</span>
+          )}
+          {" "}<Link to="/abwesenheiten" className="text-[rgb(var(--accent))] hover:underline">Kalender öffnen</Link>
+        </div>
+        {!readonly && kalender.offeneAenderungen > 0 && (
+          <button onClick={onUebernehmen} disabled={uebernimmt}
+            className="flex items-center gap-1 bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white px-3 py-1 rounded-lg font-medium shrink-0"
+            title="Abwesende auf „Verhindert“, alle anderen auf „Kommt“, Ersatzmitglieder laut Vorschlag laden">
+            <Wand2 size={12} /> Aus Kalender übernehmen ({kalender.offeneAenderungen})
+          </button>
+        )}
+      </div>
+
+      {ohneErsatz.length > 0 && (
+        <p className="text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
+          Kein freies Ersatzmitglied mehr für {ohneErsatz.map(e => e.fuer.name).join(", ")} – alle Ersatzmitglieder sind verplant oder selbst abwesend.
+        </p>
+      )}
+      {kalender.konflikte.length > 0 && (
+        <p className="text-red-700 bg-red-50 border border-red-200 rounded-lg px-2 py-1">
+          Geladen, aber laut Kalender abwesend: {kalender.konflikte.map(k => k.name).join(", ")} – bitte Ladung prüfen.
+        </p>
+      )}
+      <p className={p.beschlussfaehig ? "text-green-700" : "text-red-700 font-medium"}>
+        Beschlussfähigkeit (§ 33 Abs. 2 BetrVG): voraussichtlich {p.mitErsatz} von {p.sollStaerke} Sitzen besetzt
+        {mitVorschlag.length > 0 && ` (mit vorgeschlagenem Ersatz; ohne ${p.ohneNeuenErsatz})`}, nötig sind {p.mindestens}
+        {" "}→ {p.beschlussfaehig ? "beschlussfähig" : "nicht beschlussfähig"}.
+      </p>
+      {meldung && <p className="text-green-700">{meldung}</p>}
     </div>
   );
 }

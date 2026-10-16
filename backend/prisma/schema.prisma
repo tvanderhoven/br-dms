@@ -304,8 +304,39 @@ model Benutzer {
   gremienMitgliedschaften GremiumMitglied[]
   anhoerungenVersendet   AnhoerungsVorgang[] @relation("AnhoerungVersendet")
   zugaengeBestaetigt     Dokument[]          @relation("ZugangBestaetigtVon")
+  abwesenheiten          Abwesenheit[]
 
   @@map("benutzer")
+}
+
+// Abwesenheitskalender: Urlaub, Krankheit usw. der Gremiumsmitglieder, ganztägig
+// von–bis (beide einschließlich). Daraus erkennt die Ladung einer Sitzung, wer
+// verhindert ist (lib/verfuegbarkeit.ts). Der Grund ist sensibel (Krankheit =
+// Gesundheitsdatum, Art. 9 DSGVO): sehen dürfen ihn nur die Person selbst sowie
+// Vorsitz und Stellvertretung, alle anderen nur „abwesend“.
+enum AbwesenheitsGrund {
+  URLAUB
+  KRANKHEIT
+  SCHULUNG
+  DIENSTREISE
+  SONSTIGES
+}
+
+model Abwesenheit {
+  id           String            @id @default(uuid())
+  benutzerId   String            @map("benutzer_id")
+  benutzer     Benutzer          @relation(fields: [benutzerId], references: [id], onDelete: Cascade)
+  von          DateTime          @db.Date
+  bis          DateTime          @db.Date
+  grund        AbwesenheitsGrund
+  erfasstVonId String?           @map("erfasst_von_id")
+
+  erstelltAm     DateTime @default(now()) @map("erstellt_am")
+  aktualisiertAm DateTime @updatedAt @map("aktualisiert_am")
+
+  @@index([von, bis])
+  @@index([benutzerId])
+  @@map("abwesenheiten")
 }
 
 model PasswortReset {

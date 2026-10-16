@@ -10,6 +10,7 @@
 
 import { Role, AnwesenheitsStatus, Geschlecht } from "@prisma/client";
 import prisma from "./prisma.js";
+import { abwesendeAmTag, sitzungsTag } from "./verfuegbarkeit.js";
 
 export interface BenutzerKurz {
   id:   string;
@@ -28,6 +29,10 @@ export async function ermittleErsatzVorschlag(
   sitzungId: string,
   abwesenderId: string
 ): Promise<ErsatzVorschlagErgebnis> {
+  const sitzung = await prisma.sitzung.findUnique({ where: { id: sitzungId }, select: { sitzungsdatum: true } });
+  // Laut Abwesenheitskalender am Sitzungstag verhinderte Ersatzmitglieder überspringen
+  const kalenderAbwesend = sitzung ? await abwesendeAmTag(sitzungsTag(sitzung.sitzungsdatum)) : new Map();
+
   const [alleBenutzer, anwesenheiten, quoteSettings] = await Promise.all([
     prisma.benutzer.findMany({
       where:  { aktiv: true, rolle: { in: [...ORDENTLICHE_ROLLEN, Role.ERSATZMITGLIED] } },
@@ -51,10 +56,11 @@ export async function ermittleErsatzVorschlag(
     anwesenheiten.filter(a => a.status === AnwesenheitsStatus.ERSATZ_FUER).map(a => a.benutzerId)
   );
 
-  // Kandidatenpool: aktive Ersatzmitglieder, die für diese Sitzung noch nicht verplant sind,
-  // sortiert nach Wahlreihenfolge (fehlender Rang landet am Ende).
+  // Kandidatenpool: aktive Ersatzmitglieder, die für diese Sitzung noch nicht verplant und
+  // nicht selbst verhindert sind, sortiert nach Wahlreihenfolge (fehlender Rang landet am Ende).
   const kandidaten = alleBenutzer
-    .filter(b => b.rolle === Role.ERSATZMITGLIED && !bereitsAlsErsatzEingetragen.has(b.id))
+    .filter(b => b.rolle === Role.ERSATZMITGLIED && !bereitsAlsErsatzEingetragen.has(b.id)
+      && !kalenderAbwesend.has(b.id) && !anwesenheitMap.has(b.id))
     .sort((a, b) => (a.wahlReihenfolge ?? Infinity) - (b.wahlReihenfolge ?? Infinity));
 
   const vorschlag = kandidaten[0];

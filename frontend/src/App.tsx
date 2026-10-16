@@ -14,6 +14,7 @@ import Vorlagen from "./pages/Vorlagen";
 import Einstellungen from "./pages/Einstellungen";
 import MeinKonto from "./pages/MeinKonto";
 import Kosten from "./pages/Kosten";
+import Abwesenheiten from "./pages/Abwesenheiten";
 import Wissensarchiv from "./pages/Wissensarchiv";
 import Ressourcen from "./pages/Ressourcen";
 import Auditlog from "./pages/Auditlog";
@@ -88,6 +89,7 @@ export default function App() {
         <Route path="/themen"         element={geschuetzt(<Themensammlung />)} />
         <Route path="/beschluesse"    element={geschuetzt(<Beschluesse />)} />
         <Route path="/fristen"        element={geschuetzt(<Fristenkalender />)} />
+        <Route path="/abwesenheiten"  element={geschuetzt(<Abwesenheiten />)} />
         <Route path="/gehaltstabelle" element={geschuetzt(<Gehaltstabelle />)} />
         <Route path="/mitarbeiter"    element={geschuetzt(<MitarbeiterUebersicht />)} />
         <Route path="/kummerkasten-verwaltung" element={geschuetzt(<KummerkastenVerwaltung />)} />

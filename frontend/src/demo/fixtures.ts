@@ -182,6 +182,15 @@ export const DEMO_ANWESENHEIT: Record<string, Record<string, string>> = {
   "demo-s2": { "demo-u1": "ANWESEND", "demo-u2": "ANWESEND", "demo-u3": "ANWESEND", "demo-u4": "ANWESEND", "demo-u5": "ABWESEND_ENTSCHULDIGT" },
 };
 
+// Abwesenheitskalender: Tom ist zur kommenden Sitzung (demo-s1) im Urlaub → Nina rückt nach
+const kalTag = (n: number) => `${tag(n).slice(0, 10)}T00:00:00.000Z`;
+export const DEMO_ABWESENHEITEN = [
+  { id: "demo-ab1", benutzerId: "demo-u4", grund: "URLAUB",      von: kalTag(3),  bis: kalTag(10) },
+  { id: "demo-ab2", benutzerId: "demo-u2", grund: "DIENSTREISE", von: kalTag(1),  bis: kalTag(2) },
+  { id: "demo-ab3", benutzerId: "demo-u3", grund: "SCHULUNG",    von: kalTag(15), bis: kalTag(17) },
+  { id: "demo-ab4", benutzerId: "demo-u1", grund: "URLAUB",      von: kalTag(28), bis: kalTag(39) },
+];
+
 // ── Aufgaben (inkl. Themen-Backlog-Einträge über kanbanStatus) ──────
 export const DEMO_AUFGABEN = [
   {

@@ -20,6 +20,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { neuesPdf } from "../services/pdf.service.js";
 import {
+  AbwesenheitsGrund,
   Prisma, Role, Geschlecht, Kategorie, FristTyp, SitzungStatus, TopStatus,
   AnwesenheitsStatus, Beschaeftigungsart, BVStatus, SchulungsStatus,
   KummerkastenStatus, AufgabenStatus, KanbanStatus, Prioritaet, AufgabeTyp, AuditAktion,
@@ -1138,6 +1139,30 @@ async function main() {
     await prisma.zeitmodellEintrag.create({ data: { mitarbeiterId: ma.id, zeitmodellId: zeitmodellIds.A, gueltigVon: start, sitzungId: sitzungIds[2] } });
   }
   console.log(`[Demo] ${plan.length} Sitzungen mit TOPs, Anwesenheit, Beschlüssen und Gehalts-Verknüpfungen angelegt`);
+
+  // ── Abwesenheitskalender ─────────────────────────────────────
+  // Rund um die kommende Sitzung (plan[4]): Dirk Meyers Urlaub passt zur Ladung, Julia
+  // Hoffmann hat sich nach der Ladung krank gemeldet (→ Konflikt in der Ladung), und das
+  // nächste Ersatzmitglied Lena Vogt ist auf Schulung – BR-DMS schlägt Peter Krause vor.
+  const kalenderTag = (d: Date) => new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const sitzungsTagKommend = kalenderTag(plan[4].datum);
+  const kommend = (n: number) => kalenderTag(tage(n, sitzungsTagKommend));
+  const abwesenheiten: [string, AbwesenheitsGrund, Date, Date][] = [
+    ["d.meyer",    AbwesenheitsGrund.URLAUB,      kommend(-3), kommend(7)],
+    ["j.hoffmann", AbwesenheitsGrund.KRANKHEIT,   kalenderTag(tage(-1)), kommend(1)],
+    ["l.vogt",     AbwesenheitsGrund.SCHULUNG,    kommend(-1), kommend(1)],
+    ["f.albers",   AbwesenheitsGrund.SONSTIGES,   kommend(-4), kommend(0)],   // Berufsschulblock
+    ["t.brandt",   AbwesenheitsGrund.DIENSTREISE, kalenderTag(tage(2)), kalenderTag(tage(3))],
+    ["a.wiese",    AbwesenheitsGrund.URLAUB,      kalenderTag(tage(14)), kalenderTag(tage(25))],
+    ["s.kroeger",  AbwesenheitsGrund.URLAUB,      kalenderTag(tage(33)), kalenderTag(tage(44))],
+    // vergangene Sitzung plan[3]: Lehmann und Pohl waren entschuldigt
+    ["k.lehmann",  AbwesenheitsGrund.URLAUB,      kalenderTag(tage(-4, plan[3].datum)), kalenderTag(tage(3, plan[3].datum))],
+    ["s.pohl",     AbwesenheitsGrund.KRANKHEIT,   kalenderTag(tage(-1, plan[3].datum)), kalenderTag(plan[3].datum)],
+  ];
+  await prisma.abwesenheit.createMany({
+    data: abwesenheiten.map(([login, grund, von, bis]) => ({ benutzerId: user[login], grund, von, bis, erfasstVonId: user[login] })),
+  });
+  console.log(`[Demo] ${abwesenheiten.length} Abwesenheiten im Kalender`);
 
   // ── Nachrichten ──────────────────────────────────────────────
   const empfaenger = Object.values(user);

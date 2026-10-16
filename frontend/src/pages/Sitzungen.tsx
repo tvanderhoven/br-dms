@@ -996,7 +996,7 @@ function SitzungDetail({
 
       {/* Anwesenheitsliste */}
       {!istBV && (
-        <div className="mt-5">
+        <div className="mt-5 scroll-mt-4" id="ladung">
           <AnwesenheitsListe
             sitzungId={sitzung.id}
             readonly={sitzung.status === "PROTOKOLL_FINAL" || sitzung.status === "ABGESCHLOSSEN"}

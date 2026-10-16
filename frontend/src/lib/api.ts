@@ -61,6 +61,48 @@ export interface Einberufungsantrag {
   fristen: { id: string; faelligAm: string; status: string }[];
 }
 
+// ── Abwesenheitskalender (Backend: routes/abwesenheiten.ts, lib/verfuegbarkeit.ts) ──
+export type AbwesenheitsGrund = "URLAUB" | "KRANKHEIT" | "SCHULUNG" | "DIENSTREISE" | "SONSTIGES";
+
+export const ABWESENHEITS_GRUND_LABEL: Record<AbwesenheitsGrund, string> = {
+  URLAUB: "Urlaub", KRANKHEIT: "Krankheit", SCHULUNG: "Schulung", DIENSTREISE: "Dienstreise", SONSTIGES: "Sonstiges",
+};
+
+export interface AbwesenheitEintrag {
+  id: string;
+  von: string;   // "2026-10-20T00:00:00.000Z"
+  bis: string;
+  grund: AbwesenheitsGrund | null;   // null = Grund nicht sichtbar (nur Person selbst und Vorsitz)
+  benutzer: { id: string; name: string; rolle: Rolle };
+  darfBearbeiten: boolean;
+}
+
+export interface AbwesenheitenStand {
+  eintraege: AbwesenheitEintrag[];
+  sitzungen: { id: string; titel: string; sitzungsdatum: string; status: SitzungStatus }[];
+  darfFuerAndere: boolean;
+}
+
+export interface AbwesenheitEingabe {
+  benutzerId?: string;
+  von: string;
+  bis: string;
+  grund: AbwesenheitsGrund;
+}
+
+export interface Verfuegbarkeit {
+  tag: string;
+  mitglieder: {
+    benutzerId: string; name: string; rolle: Rolle;
+    abwesend: boolean; grund: AbwesenheitsGrund | null; bis: string | null;
+    ladung: "ANWESEND" | "ABWESEND_ENTSCHULDIGT" | "ABWESEND_UNENTSCHULDIGT" | "ERSATZ_FUER" | null;
+  }[];
+  ersatzPlan: { fuer: { id: string; name: string }; ersatz: { id: string; name: string } | null }[];
+  konflikte: { id: string; name: string }[];
+  offeneAenderungen: number;
+  prognose: { sollStaerke: number; mindestens: number; ohneNeuenErsatz: number; mitErsatz: number; beschlussfaehig: boolean };
+}
+
 export interface EinberufungsantragListe {
   antraege: Einberufungsantrag[];
   sollStaerke: number;
@@ -300,6 +342,20 @@ export const api = {
         warnung: string | null;
         alternative: { id: string; name: string } | null;
       }>(`/api/sitzungen/${id}/ersatz-vorschlag?abwesenderId=${encodeURIComponent(abwesenderId)}`),
+    verfuegbarkeit: (id: string) => request<Verfuegbarkeit>(`/api/sitzungen/${id}/verfuegbarkeit`),
+    kalenderUebernehmen: (id: string) =>
+      request<{ verhindert: number; kommt: number; ersatz: number; ohneErsatz: string[] }>(
+        `/api/sitzungen/${id}/verfuegbarkeit/uebernehmen`, { method: "POST" }),
+  },
+
+  abwesenheiten: {
+    zeitraum: (von: string, bis: string) =>
+      request<AbwesenheitenStand>(`/api/abwesenheiten?von=${von}&bis=${bis}`),
+    anlegen: (a: AbwesenheitEingabe) =>
+      request<{ id: string }>("/api/abwesenheiten", { method: "POST", body: JSON.stringify(a) }),
+    aendern: (id: string, a: AbwesenheitEingabe) =>
+      request<{ id: string }>(`/api/abwesenheiten/${id}`, { method: "PUT", body: JSON.stringify(a) }),
+    loeschen: (id: string) => request<{ nachricht: string }>(`/api/abwesenheiten/${id}`, { method: "DELETE" }),
   },
 
   watchfolder: {
