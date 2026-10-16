@@ -2648,6 +2648,52 @@ def build():
         "info",
     )
 
+    pdf.h3("Wahlen (BR und JAV)")
+    pdf.body(
+        "Fristen und Wählerliste des Wahl-Moduls, Stand nach Normalverfahren und vereinfachtem "
+        "Verfahren getrennt, soweit das Gesetz das selbst unterscheidet:"
+    )
+    pdf.tabelle(
+        ["Phase", "Funktion", "Rechtsgrundlage"],
+        [
+            ["Wahlvorstand", "Bestellung vor Amtszeitende", "§ 16 Abs. 1 BetrVG (BR, 10 Wochen) / § 63 Abs. 2 BetrVG (JAV, 8 Wochen)"],
+            ["Wahlvorstand", "Ersatzbestellung durchs Arbeitsgericht", "§ 16 Abs. 2 BetrVG (BR) / § 63 Abs. 3 BetrVG (JAV)"],
+            ["Wahlvorstand", "Bestellung im vereinfachten Verfahren (4 Wochen)", "§ 17a Nr. 1 BetrVG (BR) / § 63 Abs. 4 BetrVG (JAV)"],
+            ["Normales Verfahren", "Wahlausschreiben", "§ 3 Abs. 1 WO"],
+            ["Normales Verfahren", "Einspruch gegen Wählerliste", "§ 4 Abs. 1 WO"],
+            ["Normales Verfahren", "Einreichung Wahlvorschläge", "§ 6 Abs. 1 WO"],
+            ["Normales Verfahren", "Nachfrist bei fehlendem Vorschlag", "§ 9 WO"],
+            ["Normales Verfahren", "Bekanntmachung der Vorschläge", "§ 10 Abs. 2 WO"],
+            ["Vereinfachtes Verfahren", "Wahlausschreiben (einstufig)", "§ 36 WO"],
+            ["Vereinfachtes Verfahren", "Wahlausschreiben-Frist", "§ 30 Abs. 2 i. V. m. § 36 Abs. 1 WO"],
+            ["Vereinfachtes Verfahren", "Bekanntmachung vor Wahlversammlung", "§ 36 Abs. 5 WO"],
+            ["Vereinfachtes Verfahren", "Wahl als Versammlungswahl", "§ 14a Abs. 3 BetrVG (BR) / § 63 Abs. 4 i. V. m. § 14a BetrVG (JAV)"],
+            ["Vereinfachtes Verfahren", "Nachträgliche schriftliche Stimmabgabe", "§ 35 WO"],
+            ["Ergebnis", "Konstituierende Sitzung (binnen 1 Woche)", "§ 29 Abs. 1 BetrVG"],
+            ["Ergebnis", "Anfechtungsfrist (2 Wochen)", "§ 19 Abs. 2 BetrVG (BR) / § 63 Abs. 2 i. V. m. § 19 Abs. 2 (JAV)"],
+        ],
+        (34, 68, 68),
+    )
+    pdf.tabelle(
+        ["Funktion", "Rechtsgrundlage"],
+        [
+            ["BR-Wahlberechtigung (ab 16)", "§ 7 BetrVG"],
+            ["Zeitarbeit erst nach > 3 Monaten wahlberechtigt", "§ 7 Satz 2 BetrVG"],
+            ["BR-Wählbarkeit (ab 18, 6 Monate Betriebszugehörigkeit)", "§ 8 BetrVG; Leiharbeitnehmer nicht wählbar: § 14 Abs. 2 AÜG"],
+            ["JAV-Wahlberechtigung (unter 18 / Azubi unter 25)", "§ 60 Abs. 1 / § 61 Abs. 1 BetrVG"],
+            ["JAV-Wählbarkeit (unter 25)", "§ 61 Abs. 2 BetrVG"],
+            ["Gremiumsgröße BR nach Betriebsgröße", "§ 9 BetrVG"],
+            ["Gremiumsgröße JAV nach Betriebsgröße", "§ 62 Abs. 1 BetrVG"],
+            ["Reduzierte Größe im vereinfachten Verfahren", "§ 14a BetrVG (BR) / § 63 Abs. 4 und 5 BetrVG (JAV)"],
+            ["Mindestsitze Minderheitengeschlecht", "§ 15 Abs. 2 BetrVG i. V. m. § 5 WO (BR) / § 62 Abs. 3 BetrVG (JAV)"],
+            ["Losentscheid bei gleicher Höchstzahl", "§ 5 Abs. 2 WO"],
+            ["Keine Geburtsdaten im Aushang der Wählerliste", "kein BetrVG-Bezug – DSGVO Art. 5 (Datenminimierung)"],
+            ['„Dual Studierende als Azubis zählen"-Schalter', "nicht abschließend geklärt – Auslegung von § 60/61 je Vertragsform strittig, der Schalter macht die Entscheidung nur bewusst, löst sie nicht"],
+            ["Historie der Wahlen", "– (reine Dokumentation)"],
+        ],
+        (78, 92),
+    )
+
     # ── Anhang: Autor, Lizenz & Support ───────────────────────────────
     pdf.add_page()
     pdf.start_section("Autor, Lizenz & Support", level=0)
