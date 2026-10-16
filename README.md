@@ -1,11 +1,11 @@
 # BR-DMS – Betriebsrats-Dokumentenmanagementsystem
 
 ![Self-hosted](https://img.shields.io/badge/Self--hosted-NAS%20%2F%20Docker-blue)
-![DSGVO](https://img.shields.io/badge/DSGVO-konform-green)
+![Datenschutz](https://img.shields.io/badge/Datenschutz-eingebaut-green)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED)
 ![License](https://img.shields.io/badge/Lizenz-AGPL--3.0-blue)
 
-DSGVO-konformes Dokumentenmanagementsystem speziell für Betriebsräte. Läuft vollständig im Intranet auf jedem Docker-Host (NAS wie QNAP/Synology, eigener Server, Cloud-VM) – ohne Cloud-Verbindung, ohne externen Zugriff.
+Dokumentenmanagementsystem speziell für Betriebsräte, mit Datenschutz von Anfang an. Läuft vollständig im Intranet auf jedem Docker-Host (NAS wie QNAP/Synology, eigener Server, Cloud-VM) – ohne Cloud-Verbindung, ohne externen Zugriff.
 
 🇬🇧 **English summary:** [see below](#english)
 
