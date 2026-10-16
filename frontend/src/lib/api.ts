@@ -47,6 +47,12 @@ async function anmeldeSchritt<T>(path: string, body: object): Promise<T> {
   return data as T;
 }
 
+export interface Amtszeit {
+  von:   string | null;
+  bis:   string | null;
+  label: string;
+}
+
 // ── Auth ──────────────────────────────────────────────────────────
 export const api = {
   get: <T>(path: string) => request<T>(path),
@@ -656,6 +662,14 @@ export const api = {
 
   export: {
     amtsuebergabeUrl: () => `${BASE}/api/export/amtsuebergabe`,
+    amtszeiten: () => request<Amtszeit[]>("/api/export/amtszeiten"),
+    protokolleArchivUrl: (von: string | null, bis: string | null) => {
+      const params = new URLSearchParams();
+      if (von) params.set("von", von);
+      if (bis) params.set("bis", bis);
+      const query = params.toString();
+      return `${BASE}/api/export/amtsuebergabe/protokolle${query ? `?${query}` : ""}`;
+    },
   },
 
   nachrichten: {

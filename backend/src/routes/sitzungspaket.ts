@@ -27,7 +27,7 @@ function csvZelle(v: string): string {
   return /[;"\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
 }
 
-function dateinameTeil(titel: string): string {
+export function dateinameTeil(titel: string): string {
   return titel.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, "-");
 }
 

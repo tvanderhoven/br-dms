@@ -1,11 +1,16 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { DokumentStatus, Kategorie, Role } from "@prisma/client";
+import AdmZip from "adm-zip";
+import fs from "node:fs/promises";
+import { DokumentStatus, Kategorie, Role, SitzungStatus } from "@prisma/client";
 import { neuesPdf } from "../services/pdf.service.js";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { FRIST_TYP_LABEL } from "../lib/fristen.js";
 import { KATEGORIE_LABEL } from "../lib/kategorien.js";
+import { amtszeitListe } from "../lib/amtszeit.js";
+import { dateinameTeil } from "./sitzungspaket.js";
+import { istBetriebsversammlung } from "../lib/sitzungstypen.js";
 
 
 
@@ -147,6 +152,69 @@ export async function exportRouten(app: FastifyInstance): Promise<void> {
         .header("Content-Disposition", `attachment; filename="${dateiname}"`)
         .header("Content-Length", pdf.length)
         .send(pdf);
+    }
+  );
+
+  // ── GET /api/export/amtszeiten ───────────────────────────────────
+  app.get(
+    "/amtszeiten",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      return reply.send(await amtszeitListe());
+    }
+  );
+
+  // ── GET /api/export/amtsuebergabe/protokolle ─────────────────────
+  // ZIP mit dem finalen Protokoll-/Niederschrift-PDF jeder abgeschlossenen Sitzung im
+  // gewählten Zeitraum (Amtszeit) – unabhängig von jeder Löschfrist, als Backup zur Übergabe
+  // (die echten Sitzungsprotokolle unterliegen sonst keiner automatischen Löschung).
+  app.get<{ Querystring: { von?: string; bis?: string } }>(
+    "/amtsuebergabe/protokolle",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (request, reply) => {
+      const { von, bis } = request.query;
+
+      const sitzungen = await prisma.sitzung.findMany({
+        where: {
+          status: { in: [SitzungStatus.PROTOKOLL_FINAL, SitzungStatus.ABGESCHLOSSEN] },
+          ...(von || bis ? {
+            sitzungsdatum: {
+              ...(von ? { gte: new Date(von) } : {}),
+              ...(bis ? { lt: new Date(bis) } : {}),
+            },
+          } : {}),
+        },
+        orderBy: { sitzungsdatum: "asc" },
+        select: {
+          titel: true, sitzungsdatum: true, sitzungstyp: true,
+          versionen: {
+            where:  { typ: "PROTOKOLL_FINAL" },
+            select: { pdfPfad: true },
+            take:   1,
+          },
+        },
+      });
+
+      if (sitzungen.length === 0) {
+        return reply.status(404).send({ fehler: "Keine abgeschlossenen Sitzungen im gewählten Zeitraum" });
+      }
+
+      const zip = new AdmZip();
+      for (const s of sitzungen) {
+        const pdfPfad = s.versionen[0]?.pdfPfad;
+        if (!pdfPfad) continue;
+        const buffer = await fs.readFile(pdfPfad).catch(() => null);
+        if (!buffer) continue;
+        const datum = s.sitzungsdatum.toISOString().slice(0, 10);
+        const bezeichnung = istBetriebsversammlung(s.sitzungstyp) ? "Niederschrift" : "Protokoll";
+        zip.addFile(`${datum}_${bezeichnung}_${dateinameTeil(s.titel)}.pdf`, buffer);
+      }
+
+      const dateiname = `BR-DMS_Protokoll-Archiv_${new Date().toISOString().slice(0, 10)}.zip`;
+      return reply
+        .header("Content-Type", "application/zip")
+        .header("Content-Disposition", `attachment; filename="${dateiname}"`)
+        .send(zip.toBuffer());
     }
   );
 

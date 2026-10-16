@@ -83,6 +83,8 @@
   "GET /api/einstellungen/zwei-faktor": "ANGEMELDET",
   "GET /api/entgelt": "MITGLIED",
   "GET /api/export/amtsuebergabe": "VORSITZ",
+  "GET /api/export/amtsuebergabe/protokolle": "VORSITZ",
+  "GET /api/export/amtszeiten": "VORSITZ",
   "GET /api/fremdprotokolle": "ANGEMELDET",
   "GET /api/fremdprotokolle/:id/download": "ANGEMELDET",
   "GET /api/fristen": "ANGEMELDET",
