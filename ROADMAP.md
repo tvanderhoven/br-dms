@@ -1,6 +1,6 @@
 # BR-DMS – Roadmap
 
-Stand: 12. Oktober 2026. Hier steht, was als Nächstes kommt und was dabei schon entschieden ist –
+Stand: 16. Oktober 2026. Hier steht, was als Nächstes kommt und was dabei schon entschieden ist –
 damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 
 ## Erledigt
@@ -31,6 +31,8 @@ damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 | Version mit Commit, Fehler melden | „Über BR-DMS“ zeigt `1.3.2 · <commit>` („+“ = mit nicht committeten Änderungen deployt); die Deploy-Skripte schreiben den Stand nach `frontend/src/buildinfo.json` (ignoriert), `vite.config.ts` liest ihn bzw. lokal git. Darunter Formular „Fehler melden“: vorausgefülltes GitHub-Issue (kein Token auf dem Server, Repo öffentlich → Warnhinweis) oder E-Mail an den Support, Version/Seite (IDs entfernt)/Browser automatisch angehängt | Okt. 2026 |
 | Update-Hinweis (1.3) | Backend fragt täglich `/releases/latest` auf GitHub ab (ohne Token, mit ETag, 24 h Cache in `system_einstellungen`), meldet nur höhere Major-/Minor-Versionen; Banner nur für Vorsitz, Stellvertretung, Admin, je Version ausblendbar; Fehler bleiben still; `UPDATE_CHECK_ENABLED=false` schaltet ab | Okt. 2026 |
 | Anhörung: Gründe nach Gesetz, Entwurf (1.3) | Gründe-Kataloge nach § 99 Abs. 2 (Nr. 1–6) und § 102 Abs. 3 (Nr. 1–5) – die erste Fassung wich ab, alte Codes werden abgebildet; Hinweis je Grund, was konkret in die Begründung gehört; Rückfrage beim Versand ohne Grund oder mit sehr knapper Begründung; „Entwurf als PDF“ mit Wasserzeichen; Satz zu § 102 Abs. 5 mit Kündigungsschutzklage; Handbuch 3.4 | Okt. 2026 |
+| Anhörung: Schweigefiktion, Versandnachweis als PDF (1.7.1) | Hinweis auf die Rechtsfolge einer verstrichenen Frist ohne Stellungnahme (§ 99 Abs. 3 Satz 2 / § 102 Abs. 2 Satz 3) in Erinnerungsmail, Vorgang-Abschnitt und Fristenkalender, rot sobald die Frist tatsächlich verstrichen ist; Versandnachweis der Einladung im Sitzungspaket zusätzlich als PDF (bisher nur CSV) | Okt. 2026 |
+| Beschlussfähigkeit (§ 33 Abs. 2) (1.7.2) | Beim Finalisieren eines Beschlusses wird geprüft, ob mindestens die Hälfte der ordentlichen Mitglieder (Vorsitz/Stellv./Mitglied) teilgenommen hat; kein Blocker, nur Warnung vor dem Finalisieren (mit Bestätigen/Abbrechen) und dauerhafte Kennzeichnung am Beschluss, im Beschlussregister und im Protokoll-PDF, falls unterschritten; Soll-Stärke/Ergebnis werden zum Zeitpunkt der Abstimmung eingefroren | Okt. 2026 |
 
 ## Als Nächstes
 
@@ -172,7 +174,11 @@ Personalabteilung aktuelle Listen; der Import gleicht über die PNR ab und korri
 
 ## Später (unpriorisiert)
 
-- Prüfung der Beschlussfähigkeit (§ 33), verknüpft mit der Geschäftsordnung (das Register selbst ist erledigt)
+- Einberufung auf Antrag (§ 29 Abs. 2): Antrag des Arbeitgebers erfassen (durch ein Mitglied/Vorsitz
+  stellvertretend, da der AG keinen Login hat) löst eine Wochenfrist bis zur Sitzung aus, analog zu den
+  bestehenden Fristtypen. Antragsrecht eines Viertels der Mitglieder (mit Mitunterzeichnen-Funktion,
+  Schwelle aus der Beschlussfähigkeits-Logik wiederverwendbar) bewusst zurückgestellt – bei 9 Mitgliedern
+  vermutlich eher informell über den Vorsitz als über eine formale Unterschriftensammlung im System.
 - Ausschüsse des BR (§ 28) mit eigener Mitgliederliste und Sitzungen
 - Wirtschaftsausschuss (§§ 106–110)
 - Einigungsstelle: eskalierte Fälle (Antrag, Spruch, Kosten)
