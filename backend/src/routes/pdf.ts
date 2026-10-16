@@ -80,6 +80,8 @@ async function sitzungFuerPdf(id: string) {
               anwesend:        true,
               ergebnis:        true,
               finalisiert:     true,
+              sollStaerke:     true,
+              beschlussfaehig: true,
             },
           },
           kommentare: {

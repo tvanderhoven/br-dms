@@ -25,6 +25,8 @@ interface PdfBeschluss {
   nichtTeilgenommen?: number;
   anwesend?:      number;
   ergebnis:       string | null;
+  sollStaerke?:     number | null;
+  beschlussfaehig?: boolean | null;
   finalisiert:    boolean;
 }
 
@@ -689,6 +691,16 @@ function topAbschnitt(
                `Abstimmung:  Ja ${b.jaStimmen}  ·  Nein ${b.neinStimmen}  ·  Enthaltungen ${b.enthaltungen}` +
                (b.nichtTeilgenommen ? `  ·  Nicht teilgenommen ${b.nichtTeilgenommen}` : "") +
                `  ·  Anwesend ${b.anwesend}`,
+               RAND_LINKS + 22, doc.y, { width: BREITE - 30 }
+             );
+        }
+
+        if (b.beschlussfaehig === false) {
+          doc.moveDown(0.15);
+          doc.fontSize(7.5).font("Helvetica-Bold").fillColor(FARBE_FEHLER)
+             .text(
+               `Nicht beschlussfähig – nur ${b.anwesend} von ${b.sollStaerke} Mitgliedern teilgenommen ` +
+               "(§ 33 Abs. 2 BetrVG: mindestens die Hälfte erforderlich).",
                RAND_LINKS + 22, doc.y, { width: BREITE - 30 }
              );
         }

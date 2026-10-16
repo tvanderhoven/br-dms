@@ -1150,6 +1150,8 @@ export interface BeschlussRegisterEintrag {
   enthaltungen: number;
   anwesend: number;
   ergebnis: string | null;
+  sollStaerke?: number | null;
+  beschlussfaehig?: boolean | null;
   finalisiertAm?: string;
   finalisiertVonId?: string | null;
   top: {
@@ -1321,6 +1323,8 @@ export interface Beschluss {
   enthaltungen: number;
   anwesend: number;
   ergebnis: string | null;
+  sollStaerke?: number | null;
+  beschlussfaehig?: boolean | null;
   finalisiert: boolean;
   finalisiertAm?: string;
   erstelltAm: string;
