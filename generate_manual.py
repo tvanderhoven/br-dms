@@ -2451,6 +2451,8 @@ def build():
     pdf.code("./demo/demo.sh start      # bauen, starten, befüllen -> https://localhost:8444\n"
              "./demo/demo.sh stop       # anhalten, Daten bleiben\n"
              "./demo/demo.sh reset      # alles löschen und frisch einspielen\n"
+             "./demo/demo.sh reset tarif      # tarifgebunden (EG 1–17)\n"
+             "./demo/demo.sh reset angelehnt  # eigene Gruppen 1–6 (Standard)\n"
              "./demo/demo.sh logs       # Backend-Log verfolgen\n"
              "./demo/demo.sh entfernen  # Demo komplett löschen (fragt nach)\n\n"
              "# Anmeldung: s.kroeger / Demo2026!  (Vorsitz) – weitere Konten zeigt start")

@@ -41,11 +41,24 @@ import { alleGesetzeAktualisieren } from "../services/gesetze.service.js";
 import { berechneFristende } from "../lib/fristRechner.js";
 import { ladeFeiertagsKalender } from "../lib/fristKalender.js";
 import { FRIST_DAUER_AB_ZUGANG } from "../lib/fristen.js";
+import { vorlageUebernehmen } from "../lib/entgelt.js";
+import { STANDARD_VORLAGE } from "../lib/entgeltVorlagen.js";
 
 const STORAGE     = process.env.STORAGE_PATH ?? "/data/storage";
 const MASTER_KEY  = process.env.ENCRYPTION_KEY!;
 const DEMO_PW     = process.env.DEMO_PASSWORD ?? "Demo2026!";
 const DEMO_DOMAIN = "nordwerk-demo.lokal";
+
+// Entgelt-Variante (./demo/demo.sh reset tarif|angelehnt): tarifgebunden mit
+// Flächentarif EG 1–17 / 3 Stufen oder – Standard – tarifangelehnt mit eigener
+// Gehaltstabelle Gruppe 1–6 / 4 Stufen. "gruppe" bildet die Gruppe 1–6 der
+// Abteilungsdefinitionen auf das jeweilige System ab.
+const TARIFGEBUNDEN = process.env.DEMO_VARIANTE === "tarif";
+const ENTGELT = TARIFGEBUNDEN
+  ? { vorlage: "eg-1-17", maxGruppe: 15, maxStufe: 3, gruppe: (g: number) => 2 * g + 1, kurz: "EG",
+      grundlage: "dem Entgelttarifvertrag (EG 1–17)", name: "tarifgebunden (EG 1–17)" }
+  : { vorlage: STANDARD_VORLAGE, maxGruppe: 6, maxStufe: 4, gruppe: (g: number) => g, kurz: "Gruppe",
+      grundlage: "der betrieblichen Gehaltstabelle (angelehnt an den Flächentarif)", name: "tarifangelehnt (eigene Gruppen 1–6)" };
 
 // ── Hilfsfunktionen ──────────────────────────────────────────────
 
@@ -417,6 +430,9 @@ async function main() {
     zeitmodellIds[bezeichnung] = (await prisma.zeitmodell.create({ data: { bezeichnung, sortierung: i, standard: i === 0 } })).id;
   }
 
+  await vorlageUebernehmen(ENTGELT.vorlage);
+  console.log(`[Demo] Entgeltsystem: ${ENTGELT.name}`);
+
   type MA = { id: string; abteilung: string; name: string; art: Beschaeftigungsart; gruppe: number; stufe: number; at: boolean };
   const alleMA: MA[] = [];
   let pnr = 10001;
@@ -485,7 +501,7 @@ async function main() {
       },
     });
 
-    let gruppe = zahl(def.gruppe[0], def.gruppe[1]);
+    let gruppe = ENTGELT.gruppe(zahl(def.gruppe[0], def.gruppe[1]));
     let stufe  = 1;
     const at   = !tarifIgnoriert && ["Konstruktion", "IT", "Vertrieb"].includes(abteilung) && chance(0.2);
 
@@ -494,7 +510,7 @@ async function main() {
       // Stufenaufstieg alle ~3 Jahre, gelegentlich Höhergruppierung
       let stichtag = eintritt > HISTORIE_AB ? monatsErster(eintritt) : HISTORIE_AB;
       const jahreVorher = Math.max(0, (HISTORIE_AB.getTime() - eintritt.getTime()) / (365.25 * 864e5));
-      stufe = Math.min(4, 1 + Math.floor(jahreVorher / 3));
+      stufe = Math.min(ENTGELT.maxStufe, 1 + Math.floor(jahreVorher / 3));
       const eintraege: Prisma.GehaltsstufenEintragCreateManyInput[] = [];
       let atGehalt = zahl(58, 78) * 100;
 
@@ -510,11 +526,11 @@ async function main() {
         if (at) {
           atGehalt = Math.round(atGehalt * (1 + zahl(25, 45) / 1000) / 10) * 10;
           eintraege.push({ mitarbeiterId: ma.id, gehaltAt: atGehalt, gueltigAb: stichtag, bemerkung: "Gehaltsanpassung" });
-        } else if (gruppe < 6 && chance(0.22)) {
+        } else if (gruppe < ENTGELT.maxGruppe && chance(0.22)) {
           gruppe++;
           stufe = Math.max(1, stufe - 1);
           eintraege.push({ mitarbeiterId: ma.id, gruppe, stufe, gueltigAb: stichtag, bemerkung: "Höhergruppierung (§ 99 BetrVG)" });
-        } else if (stufe < 4) {
+        } else if (stufe < ENTGELT.maxStufe) {
           stufe++;
           eintraege.push({ mitarbeiterId: ma.id, gruppe, stufe, gueltigAb: stichtag, bemerkung: "Stufenaufstieg nach Betriebszugehörigkeit" });
         }
@@ -631,7 +647,7 @@ async function main() {
       abschnitte: [
         ["Unterrichtung des Betriebsrats gemäß § 99 BetrVG", `Wir beabsichtigen folgende personelle Maßnahme: ${titel} in der Abteilung ${abt}.`],
         ["Betroffene Person", `${vn} ${nn}, vorgesehener Beginn: ${fmt(tage(30, erstellt))}.`],
-        ["Eingruppierung", `Vorgesehen ist die Eingruppierung in Gruppe ${zahl(2, 5)}, Stufe 1 nach dem Haustarif.`],
+        ["Eingruppierung", `Vorgesehen ist die Eingruppierung in ${ENTGELT.kurz} ${ENTGELT.gruppe(zahl(2, 5))}, Stufe 1 nach ${ENTGELT.grundlage}.`],
         ["Auswirkungen", "Nachteile für andere Beschäftigte sind nicht zu erwarten. Die Stelle war intern ausgeschrieben; interne Bewerbungen lagen nicht vor."],
         ["Bitte um Zustimmung", "Wir bitten den Betriebsrat, die Zustimmung innerhalb einer Woche zu erteilen."],
       ],
@@ -765,7 +781,7 @@ async function main() {
     abschnitte: [
       ["§ 1 Beginn und Tätigkeit", "Das Arbeitsverhältnis beginnt am [Datum]. Der Arbeitnehmer wird als [Tätigkeit] in der Abteilung [Abteilung] beschäftigt."],
       ["§ 2 Arbeitszeit", "Die regelmäßige wöchentliche Arbeitszeit beträgt 37,5 Stunden. Lage und Verteilung richten sich nach der Betriebsvereinbarung Arbeitszeit."],
-      ["§ 3 Vergütung", "Die Eingruppierung erfolgt nach dem Haustarif. Die Vergütung wird jeweils zum Monatsende gezahlt."],
+      ["§ 3 Vergütung", `Die Eingruppierung erfolgt nach ${ENTGELT.grundlage}. Die Vergütung wird jeweils zum Monatsende gezahlt.`],
     ],
     erstelltAm: tage(-150), vonId: stv, tags: ["Muster", "Arbeitsvertrag"],
   });
@@ -1098,7 +1114,7 @@ async function main() {
   });
 
   // Mit Sitzungen verknüpfte Gehaltsänderungen (Höhergruppierungen aus Sitzung 2 und 4)
-  const kandidaten = tarifMA.filter(m => ["Produktion", "Montage"].includes(m.abteilung) && m.gruppe < 6 && !gremiumMA.has(m.name));
+  const kandidaten = tarifMA.filter(m => ["Produktion", "Montage"].includes(m.abteilung) && m.gruppe < ENTGELT.maxGruppe && !gremiumMA.has(m.name));
   const gueltig2 = monatsErster(tage(35, plan[1].datum));
   const gueltig4 = monatsErster(tage(35, plan[3].datum));
   for (const [i, m] of kandidaten.slice(0, 4).entries()) {
@@ -1118,7 +1134,7 @@ async function main() {
     const ma = await prisma.mitarbeiter.create({
       data: { vorname: vn, nachname: nn, pnr: String(pnr++), eintritt: start, geburtsdatum: datum(zahl(1984, 2001), zahl(1, 12), zahl(1, 28)), geschlecht: VORNAMEN_W.includes(vn) ? Geschlecht.WEIBLICH : Geschlecht.MAENNLICH, standort: abt === "Logistik" ? "Werk 1" : "Verwaltung", abteilungId: abteilungIds[abt] },
     });
-    await prisma.gehaltsstufenEintrag.create({ data: { mitarbeiterId: ma.id, gruppe, stufe: 1, gueltigAb: start, bemerkung: `Einstellung ${titel} – Zustimmung BR`, sitzungId: sitzungIds[2] } });
+    await prisma.gehaltsstufenEintrag.create({ data: { mitarbeiterId: ma.id, gruppe: ENTGELT.gruppe(gruppe), stufe: 1, gueltigAb: start, bemerkung: `Einstellung ${titel} – Zustimmung BR`, sitzungId: sitzungIds[2] } });
     await prisma.zeitmodellEintrag.create({ data: { mitarbeiterId: ma.id, zeitmodellId: zeitmodellIds.A, gueltigVon: start, sitzungId: sitzungIds[2] } });
   }
   console.log(`[Demo] ${plan.length} Sitzungen mit TOPs, Anwesenheit, Beschlüssen und Gehalts-Verknüpfungen angelegt`);

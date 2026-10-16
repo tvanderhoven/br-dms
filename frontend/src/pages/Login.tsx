@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { api, ZweiFaktorEinrichtung } from "../lib/api";
 import BrDmsLogo from "../components/BrDmsLogo";
+import { demoVariante, demoVarianteSetzen, type DemoVariante } from "../demo/variante";
 import { CodeFeld, Fehler, QrEinrichtung, Wiederherstellungscodes } from "../components/ZweiFaktorBausteine";
 
 // Ziel nach dem Login (?next=…) nur auf diesem Server zulassen. Erst vollständig auflösen,
@@ -28,6 +29,11 @@ type Schritt =
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
 
+const DEMO_VARIANTEN: { wert: DemoVariante; titel: string; text: string }[] = [
+  { wert: "angelehnt", titel: "Tarifangelehnt", text: "Eigene Gehaltstabelle, Gruppe 1–6" },
+  { wert: "tarif",     titel: "Tarifgebunden",  text: "Flächentarif, EG 1–17" },
+];
+
 export default function Login() {
   const [email, setEmail]       = useState(DEMO_MODE ? "demo@beispiel.de" : "");
   const [passwort, setPasswort] = useState(DEMO_MODE ? "demo" : "");
@@ -37,6 +43,7 @@ export default function Login() {
   const [schritt, setSchritt]   = useState<Schritt>({ art: "passwort" });
   const [code, setCode]         = useState("");
   const [mitWiederherstellung, setMitWiederherstellung] = useState(false);
+  const [variante, setVariante] = useState<DemoVariante>(() => DEMO_MODE ? demoVariante() : "angelehnt");
 
   function fertig(token: string) {
     localStorage.setItem("brdms_token", token);
@@ -47,6 +54,7 @@ export default function Login() {
     e.preventDefault();
     setFehler("");
     setLaden(true);
+    if (DEMO_MODE) demoVarianteSetzen(variante);
     try {
       const antwort = await api.auth.login(email, passwort, eingeloggtBleiben);
       if (antwort.zweiterFaktor) {
@@ -163,6 +171,24 @@ export default function Login() {
           <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-2 rounded-lg mb-4">
             Online-Demo mit Beispieldaten – einfach auf „Anmelden“ klicken, es wird nichts dauerhaft gespeichert.
           </div>
+        )}
+
+        {DEMO_MODE && (
+          <fieldset className="mb-4">
+            <legend className="block text-sm font-medium text-gray-700 mb-1">Beispielbetrieb</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {DEMO_VARIANTEN.map(v => (
+                <label
+                  key={v.wert}
+                  className={`cursor-pointer rounded-lg border px-3 py-2 text-xs has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-blue-400 ${variante === v.wert ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"}`}
+                >
+                  <input type="radio" name="demo-variante" value={v.wert} checked={variante === v.wert} onChange={() => setVariante(v.wert)} className="sr-only" />
+                  <span className="block font-medium text-gray-900">{v.titel}</span>
+                  <span className="block text-gray-500">{v.text}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
         )}
 
         <form onSubmit={anmelden} className="space-y-4">

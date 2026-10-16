@@ -7,6 +7,8 @@
  * Alle Namen, Personalnummern und Beträge sind frei erfunden.
  */
 
+import { demoVariante } from "./variante";
+
 const TAG_MS = 24 * 60 * 60 * 1000;
 const tag = (n: number) => new Date(Date.now() + n * TAG_MS).toISOString();
 const datum = (iso: string) => iso.slice(0, 10) + "T00:00:00.000Z";
@@ -79,7 +81,15 @@ const kurz = (m: typeof DEMO_MITARBEITER[number]) => ({
   standort: m.standort, abteilung: m.abteilung, beschaeftigungsart: m.beschaeftigungsart,
 });
 
-// Eingruppierung: Gruppe 1–6, Stufe 1–4 mit Stufenaufstiegen bzw. AT-Gehalt mit Anpassungen
+// Entgeltsystem je nach Variante (siehe variante.ts): tarifangelehnt Gruppe 1–6 /
+// Stufe 1–4, tarifgebunden EG 1–17 / Stufe 1–3. "eg" bildet die Gruppen 1–6 der
+// Beispieldaten auf das gewählte System ab (tarifgebunden EG 3–13).
+const TARIF = demoVariante() === "tarif";
+const MAX_GRUPPE = TARIF ? 17 : 6;
+const MAX_STUFE  = TARIF ? 3 : 4;
+const eg = (g: number) => TARIF ? 2 * g + 1 : g;
+
+// Eingruppierung mit Stufenaufstiegen bzw. AT-Gehalt mit Anpassungen
 export const DEMO_GEHALT = DEMO_MITARBEITER.flatMap((m, i) => {
   if (m.gehaltIgnorieren) return [];
   const eintraege: Record<string, unknown>[] = [];
@@ -96,14 +106,14 @@ export const DEMO_GEHALT = DEMO_MITARBEITER.flatMap((m, i) => {
     }
     return eintraege;
   }
-  const gruppe = m.beschaeftigungsart === "AZUBI" || m.beschaeftigungsart === "DUALER_STUDENT" ? 1 : zahl(2, 6);
+  const gruppe = m.beschaeftigungsart === "AZUBI" || m.beschaeftigungsart === "DUALER_STUDENT" ? eg(1) : eg(zahl(2, 6));
   neu({ gruppe, stufe: 1 }, m.eintritt, "Einstellung");
   const jahre = Math.floor((Date.now() - new Date(m.eintritt).getTime()) / (365 * TAG_MS));
-  for (let stufe = 2; stufe <= Math.min(4, 1 + Math.floor(jahre / 3)); stufe++) {
+  for (let stufe = 2; stufe <= Math.min(MAX_STUFE, 1 + Math.floor(jahre / 3)); stufe++) {
     neu({ gruppe, stufe }, datum(new Date(new Date(m.eintritt).getTime() + (stufe - 1) * 3 * 365 * TAG_MS).toISOString()), "Stufenaufstieg");
   }
   // Zwei Höhergruppierungen im laufenden Jahr – mit Zustimmung des Betriebsrats (§ 99)
-  if (i === 5 || i === 12) neu({ gruppe: Math.min(6, gruppe + 1), stufe: 1 }, datum(tag(-zahl(20, 90))), "Höhergruppierung – Zustimmung BR (§ 99)");
+  if (i === 5 || i === 12) neu({ gruppe: Math.min(MAX_GRUPPE, gruppe + 1), stufe: 1 }, datum(tag(-zahl(20, 90))), "Höhergruppierung – Zustimmung BR (§ 99)");
   return eintraege;
 });
 
@@ -171,11 +181,14 @@ export const DEMO_SCHULUNGEN = [
   termin("demo-st7", 2, 40, "GEPLANT", [12, 20, 24]),
 ];
 
-// Entgeltsystem (Stammdaten der Eingruppierung) – wie der Standard im echten
-// Backend: Gruppe 1–6, Stufe 1–4 (siehe backend/src/lib/entgeltVorlagen.ts)
+// Entgeltsystem (Stammdaten der Eingruppierung) – entspricht den Vorlagen
+// "gruppe-1-6" bzw. "eg-1-17" im echten Backend (backend/src/lib/entgeltVorlagen.ts)
+const bis = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
+const belegt = (feld: "gruppe" | "stufe") =>
+  [...new Set(DEMO_GEHALT.map(e => e[feld]).filter((x): x is number => typeof x === "number"))].sort((a, b) => a - b);
 export const DEMO_ENTGELT = {
-  gruppen: [1, 2, 3, 4, 5, 6].map(n => ({ id: `demo-eg-${n}`, nummer: n, bezeichnung: `Gruppe ${n}`, sortierung: n - 1, aktiv: true, stufen: [] as number[] })),
-  stufen:  [1, 2, 3, 4].map(n => ({ id: `demo-es-${n}`, nummer: n, bezeichnung: `Stufe ${n}`, sortierung: n - 1, aktiv: true })),
-  belegt:  { gruppen: [1, 2, 3, 4, 5, 6], stufen: [1, 2, 3, 4] },
+  gruppen: bis(MAX_GRUPPE).map(n => ({ id: `demo-eg-${n}`, nummer: n, bezeichnung: TARIF ? `EG ${n}` : `Gruppe ${n}`, sortierung: n - 1, aktiv: true, stufen: [] as number[] })),
+  stufen:  bis(MAX_STUFE).map(n => ({ id: `demo-es-${n}`, nummer: n, bezeichnung: `Stufe ${n}`, sortierung: n - 1, aktiv: true })),
+  belegt:  { gruppen: belegt("gruppe"), stufen: belegt("stufe") },
   vorlagen: [],
 };
