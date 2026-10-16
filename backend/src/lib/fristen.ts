@@ -12,6 +12,7 @@ export const FRIST_TYP_LABEL: Record<string, string> = {
   ZEITMODELL_87_WOCHE:            "§ 87 Mitbestimmung (1 Woche)",
   BETRIEBSVERSAMMLUNG_43:         "§ 43 Betriebsversammlung im Quartal",
   WAHL:                           "Wahl (BR/JAV)",
+  EINBERUFUNG_29:                 "§ 29 Abs. 2 Einberufung auf Antrag (1 Woche)",
   WIDERSPRUCH:                    "Widerspruch",
   BENUTZERDEFINIERT:              "Individuelle Frist",
 };

@@ -55,6 +55,7 @@ import { fremdprotokolleRouten } from "./routes/fremdprotokolle.js";
 import { geschaeftsordnungRouten } from "./routes/geschaeftsordnung.js";
 import { anhoerungRouten } from "./routes/anhoerung.js";
 import { ordnerRouten } from "./routes/ordner.js";
+import { einberufungsantragRouten } from "./routes/einberufungsantraege.js";
 
 export interface AppOptionen {
   /** Fastify-Logger; die Tests schalten ihn ab */
@@ -156,6 +157,7 @@ export async function baueApp(optionen: AppOptionen = {}): Promise<FastifyInstan
   await app.register(kummerkastenRouten,       { prefix: "/api/kummerkasten" });
   await app.register(ablaufRouten,             { prefix: "/api/ablauf" });
   await app.register(gremienRouten,            { prefix: "/api/gremien" });
+  await app.register(einberufungsantragRouten, { prefix: "/api/einberufungsantraege" });
   await app.register(fremdprotokolleRouten,    { prefix: "/api/fremdprotokolle" });
   await app.register(geschaeftsordnungRouten,  { prefix: "/api/geschaeftsordnung" });
   await app.register(kostenRouten,             { prefix: "/api/kosten" });

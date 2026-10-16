@@ -22,6 +22,7 @@ import EinladungKarte from "../components/EinladungKarte";
 import BeschlussBlock from "../components/BeschlussBlock";
 import KommentarBlock from "../components/KommentarBlock";
 import AufgabeUebernehmenModal from "../components/AufgabeUebernehmenModal";
+import EinberufungsantragKarte from "../components/EinberufungsantragKarte";
 import { tiptapZuText, tiptapZuHtml, textZuTiptap } from "../lib/tiptap";
 import { dokumentInNeuemTabOeffnen } from "../lib/dokumentOeffnen";
 
@@ -255,6 +256,8 @@ export default function Sitzungen() {
           </button>
         </div>
       </div>
+
+      {!laden && <EinberufungsantragKarte liste={liste} meineRolle={meineRolle} />}
 
       {laden ? (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm flex items-center justify-center h-48 text-gray-400">

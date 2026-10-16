@@ -47,6 +47,26 @@ async function anmeldeSchritt<T>(path: string, body: object): Promise<T> {
   return data as T;
 }
 
+export type EinberufungsantragTyp = "ARBEITGEBER" | "MITGLIEDER";
+
+export interface Einberufungsantrag {
+  id: string;
+  antragstellerTyp: EinberufungsantragTyp;
+  grund: string;
+  zugangAm: string | null;
+  erstelltAm: string;
+  erfasstVon: { name: string };
+  sitzung: { id: string; titel: string; sitzungsdatum: string } | null;
+  unterzeichner: { benutzerId: string; unterzeichnetAm: string; benutzer: { name: string } }[];
+  fristen: { id: string; faelligAm: string; status: string }[];
+}
+
+export interface EinberufungsantragListe {
+  antraege: Einberufungsantrag[];
+  sollStaerke: number;
+  mindestUnterzeichner: number;
+}
+
 export interface Amtszeit {
   von:   string | null;
   bis:   string | null;
@@ -629,6 +649,21 @@ export const api = {
     aktualisieren: (id: string, data: { bezeichnung?: string; faelligAm?: string; notiz?: string; erledigt?: boolean }) =>
       request<FristMitDokument>(`/api/fristen/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     loeschen: (id: string) => request<{ ok: boolean }>(`/api/fristen/${id}`, { method: "DELETE" }),
+  },
+
+  einberufungsantraege: {
+    liste: () => request<EinberufungsantragListe>("/api/einberufungsantraege"),
+    arbeitgeber: (data: { grund: string; zugangAm?: string }) =>
+      request<Einberufungsantrag>("/api/einberufungsantraege/arbeitgeber", { method: "POST", body: JSON.stringify(data) }),
+    mitglieder: (data: { grund: string }) =>
+      request<Einberufungsantrag>("/api/einberufungsantraege/mitglieder", { method: "POST", body: JSON.stringify(data) }),
+    unterzeichnen: (id: string) =>
+      request<Einberufungsantrag>(`/api/einberufungsantraege/${id}/unterzeichnen`, { method: "POST" }),
+    unterschriftZurueckziehen: (id: string) =>
+      request<Einberufungsantrag>(`/api/einberufungsantraege/${id}/unterzeichnen`, { method: "DELETE" }),
+    verknuepfen: (id: string, sitzungId: string | null) =>
+      request<Einberufungsantrag>(`/api/einberufungsantraege/${id}`, { method: "PATCH", body: JSON.stringify({ sitzungId }) }),
+    loeschen: (id: string) => request<{ nachricht: string }>(`/api/einberufungsantraege/${id}`, { method: "DELETE" }),
   },
 
   ablauf: {
