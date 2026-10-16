@@ -1,6 +1,6 @@
 import { useState, useEffect, FormEvent } from "react";
-import { Scale, Plus, Trash2, Edit3, X, Loader2, FileText } from "lucide-react";
-import { api, Geschaeftsordnung, Dokument, formatDatum } from "../lib/api";
+import { Scale, Plus, Trash2, Edit3, X, Loader2, FileText, AlertTriangle, Gavel } from "lucide-react";
+import { api, Geschaeftsordnung, Dokument, BeschlussRegisterEintrag, formatDatum } from "../lib/api";
 
 // Dokument-Downloads brauchen den JWT-Header (Bearer-Token, keine Cookie-Session) —
 // ein einfacher <a href> würde daher immer mit "Nicht authentifiziert" scheitern.
@@ -104,6 +104,20 @@ export default function GeschaeftsordnungSeite() {
                         Aktuell gültig
                       </span>
                     )}
+                    {g.goMehrheitErreicht === false && (
+                      <span
+                        className="ml-2 inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border text-red-700 bg-red-50 border-red-200"
+                        title="§ 36 Abs. 1 Satz 2 BetrVG: Beschlüsse über die Geschäftsordnung brauchen die Mehrheit aller Mitglieder, nicht nur der Anwesenden"
+                      >
+                        <AlertTriangle size={11} /> Keine Mehrheit aller Mitglieder
+                      </span>
+                    )}
+                    {g.beschluss && (
+                      <span className="block text-xs text-gray-400 font-normal mt-0.5">
+                        <Gavel size={11} className="inline -mt-0.5 mr-1" />
+                        {g.beschluss.jaStimmen} von {g.beschluss.sollStaerke ?? "?"} Mitgliedern – {g.beschluss.top.sitzung.titel}, TOP {g.beschluss.top.nummer}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-2.5 text-gray-600">{g.bemerkung ?? "–"}</td>
                   <td className="px-4 py-2.5">
@@ -142,6 +156,7 @@ export default function GeschaeftsordnungSeite() {
       {modal && (
         <GeschaeftsordnungModal
           eintrag={bearbeitet}
+          vergebeneBeschlussIds={liste.filter(g => g.id !== bearbeitet?.id).map(g => g.beschlussId).filter((x): x is string => !!x)}
           onSchliessen={() => setModal(false)}
           onErfolg={() => { setModal(false); laden_(); }}
         />
@@ -152,12 +167,16 @@ export default function GeschaeftsordnungSeite() {
 
 // ── Modal: Fassung anlegen / bearbeiten ─────────────────────────────
 function GeschaeftsordnungModal({
-  eintrag, onSchliessen, onErfolg,
+  eintrag, vergebeneBeschlussIds, onSchliessen, onErfolg,
 }: {
   eintrag: Geschaeftsordnung | null;
+  vergebeneBeschlussIds: string[];
   onSchliessen: () => void;
   onErfolg: () => void;
 }) {
+  const [modus, setModus]                 = useState<"beschluss" | "manuell">(eintrag && !eintrag.beschlussId ? "manuell" : "beschluss");
+  const [beschlussId, setBeschlussId]     = useState(eintrag?.beschlussId ?? "");
+  const [beschluesse, setBeschluesse]     = useState<BeschlussRegisterEintrag[]>([]);
   const [beschlossenAm, setBeschlossenAm] = useState(eintrag?.beschlossenAm?.slice(0, 10) ?? new Date().toISOString().slice(0, 10));
   const [bemerkung, setBemerkung]         = useState(eintrag?.bemerkung ?? "");
   const [dokumentId, setDokumentId]       = useState(eintrag?.dokumentId ?? "");
@@ -169,16 +188,25 @@ function GeschaeftsordnungModal({
     api.dokumente.liste()
       .then(alle => setDokumente(alle.filter(d => d.kategorie === "GESCHAEFTSORDNUNG")))
       .catch(() => {});
+    api.beschluesse.register()
+      .then(alle => setBeschluesse(alle.filter(b => !vergebeneBeschlussIds.includes(b.id))))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const gewaehlterBeschluss = beschluesse.find(b => b.id === beschlussId) ?? (eintrag?.beschluss as BeschlussRegisterEintrag | undefined);
+  const mehrheitWarnung = modus === "beschluss" && gewaehlterBeschluss && gewaehlterBeschluss.sollStaerke != null
+    && gewaehlterBeschluss.jaStimmen <= gewaehlterBeschluss.sollStaerke / 2;
 
   async function speichern(e: FormEvent) {
     e.preventDefault();
-    if (!beschlossenAm) { setFehler("Beschlossen am ist Pflicht"); return; }
+    if (modus === "beschluss" && !beschlussId) { setFehler("Bitte einen Beschluss wählen"); return; }
+    if (modus === "manuell" && !beschlossenAm) { setFehler("Beschlossen am ist Pflicht"); return; }
     setFehler("");
     setLaden(true);
     try {
       const daten = {
-        beschlossenAm,
+        ...(modus === "beschluss" ? { beschlussId } : { beschlossenAm, beschlussId: null }),
         bemerkung: bemerkung.trim() || undefined,
         dokumentId: dokumentId || null,
       };
@@ -201,11 +229,50 @@ function GeschaeftsordnungModal({
         </div>
 
         <form onSubmit={speichern} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Beschlossen am *</label>
-            <input type="date" required value={beschlossenAm} autoFocus onChange={e => setBeschlossenAm(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+          <div className="flex gap-4 text-sm">
+            <label className="flex items-center gap-1.5">
+              <input type="radio" checked={modus === "beschluss"} onChange={() => setModus("beschluss")} /> Aus Beschluss
+            </label>
+            <label className="flex items-center gap-1.5">
+              <input type="radio" checked={modus === "manuell"} onChange={() => setModus("manuell")} /> Datum von Hand (historisch/ohne Systembeschluss)
+            </label>
           </div>
+
+          {modus === "beschluss" ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Beschluss *</label>
+              <select required value={beschlussId} onChange={e => setBeschlussId(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]">
+                <option value="">– wählen –</option>
+                {beschluesse.map(b => (
+                  <option key={b.id} value={b.id}>
+                    {b.top.sitzung.titel}, TOP {b.top.nummer} ({formatDatum(b.finalisiertAm ?? b.top.sitzung.sitzungsdatum)}) – {b.antragstext.slice(0, 40)}
+                  </option>
+                ))}
+              </select>
+              {beschluesse.length === 0 && (
+                <p className="text-xs text-gray-400 mt-1">Keine freien finalisierten Beschlüsse gefunden.</p>
+              )}
+              {gewaehlterBeschluss && (
+                <p className="text-xs text-gray-500 mt-1.5">
+                  {gewaehlterBeschluss.jaStimmen} Ja-Stimmen von {gewaehlterBeschluss.sollStaerke ?? "?"} Mitgliedern insgesamt
+                </p>
+              )}
+              {mehrheitWarnung && (
+                <p className="flex items-start gap-1.5 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mt-1.5">
+                  <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+                  Keine Mehrheit aller Mitglieder (§ 36 Abs. 1 Satz 2 BetrVG verlangt mehr als die Hälfte der
+                  Mitglieder, nicht nur der Anwesenden). Trotzdem speicherbar, aber rechtlich angreifbar.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Beschlossen am *</label>
+              <input type="date" required value={beschlossenAm} autoFocus onChange={e => setBeschlossenAm(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Verknüpftes Dokument</label>

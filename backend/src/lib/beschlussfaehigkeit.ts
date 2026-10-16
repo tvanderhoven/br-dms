@@ -21,3 +21,12 @@ export async function sollStaerkeErmitteln(): Promise<number> {
 export function istBeschlussfaehig(anwesend: number, sollStaerke: number): boolean {
   return anwesend >= Math.ceil(sollStaerke / 2);
 }
+
+/**
+ * § 36 Abs. 1 Satz 2 BetrVG: Beschlüsse über die Geschäftsordnung brauchen die Mehrheit ALLER
+ * Mitglieder, nicht nur der Anwesenden – strenger als die normale Beschlussfähigkeit oben
+ * (9 Mitglieder → mind. 5 Ja-Stimmen, unabhängig davon wie viele teilgenommen haben).
+ */
+export function istGeschaeftsordnungsMehrheit(jaStimmen: number, sollStaerke: number): boolean {
+  return jaStimmen > sollStaerke / 2;
+}

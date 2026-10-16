@@ -2694,6 +2694,40 @@ def build():
         (78, 92),
     )
 
+    pdf.h3("Kosten (§ 40 BetrVG)")
+    pdf.tabelle(
+        ["Funktion", "Rechtsgrundlage"],
+        [
+            ["Arbeitgeber trägt die Kosten der BR-Tätigkeit", "§ 40 Abs. 1 BetrVG"],
+            ["Sachmittel, Büropersonal, Räume", "§ 40 Abs. 2 BetrVG"],
+            ["Schulungskosten (automatisch aus der Schulungsverwaltung)", "§ 37 Abs. 6/7 BetrVG"],
+            ["Kosten für hinzugezogene Sachverständige", "§ 80 Abs. 3 BetrVG"],
+            ["Kosten der Einigungsstelle", "§ 76a BetrVG"],
+            ["Rechtsanwaltskosten", "kein eigener Unterpunkt – allgemeine Erforderlichkeit nach § 40 Abs. 1 (Einzelfallprüfung, nicht im Gesetzestext beziffert)"],
+            ["Reisekosten", "kein eigener Unterpunkt – ebenfalls allgemeine Erforderlichkeit nach § 40 Abs. 1"],
+            ["Verknüpfung eines Kostenpostens mit einem Beschluss", "kein Paragraph – interne Dokumentation/Legitimation, § 40 verlangt keinen Beschluss pro Ausgabe"],
+            ["Nur Vorsitz/Stellv. ändern Status (Lesen: alle Mitglieder)", "kein Paragraph – interne Rollenverteilung, Sache der Geschäftsordnung"],
+            ["CSV/PDF-Export mit Formel-Schutz", "– (reine Exportfunktion)"],
+        ],
+        (78, 92),
+    )
+
+    pdf.h3("Geschäftsordnung (§ 36 BetrVG)")
+    pdf.tabelle(
+        ["Funktion", "Rechtsgrundlage"],
+        [
+            ["BR muss sich eine Geschäftsordnung geben (schriftlich)", "§ 36 Abs. 1 Satz 1 BetrVG"],
+            ["Beschluss braucht Mehrheit ALLER Mitglieder, nicht nur der Anwesenden",
+             "§ 36 Abs. 1 Satz 2 BetrVG – geprüft anhand des verknüpften Beschlusses (Ja-Stimmen gegen die zum "
+             "Zeitpunkt der Abstimmung eingefrorene Soll-Stärke), nur Warnung, kein Blocker"],
+            ["„Aktuell gültig\" = neueste Fassung nach Datum", "kein Paragraph – reine Darstellungslogik"],
+            ["Nur Vorsitz/Stellv. pflegen das Register", "kein Paragraph – interne Rollenzuweisung"],
+            ["Verknüpfung mit einem hochgeladenen Dokument", "kein Paragraph – Organisationshilfe"],
+            ["Fassung ohne Systembeschluss (Datum von Hand)", "kein Paragraph – Übergangslösung für Altbestand/Papierfassungen"],
+        ],
+        (78, 92),
+    )
+
     # ── Anhang: Autor, Lizenz & Support ───────────────────────────────
     pdf.add_page()
     pdf.start_section("Autor, Lizenz & Support", level=0)
