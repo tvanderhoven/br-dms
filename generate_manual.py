@@ -2587,7 +2587,68 @@ def build():
         (36, 134),
     )
 
-    # ── Anhang ──────────────────────────────────────────────────────
+    # ── Anhang: Rechtsgrundlagen ──────────────────────────────────────
+    pdf.add_page()
+    pdf.start_section("Rechtsgrundlagen", level=0)
+    pdf.set_font("S", "B", 22)
+    pdf.cell(0, 12, "Rechtsgrundlagen", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.set_fill_color(*C_RED)
+    pdf.rect(pdf.l_margin, pdf.get_y() + 1, 12, 1.4, "F")
+    pdf.ln(9)
+    pdf.body(
+        "Dieser Anhang ordnet den einzelnen Funktionen von BR-DMS ihre gesetzliche Grundlage zu – "
+        "und markiert ebenso ehrlich, wo es keine eigene Vorschrift gibt, sondern BR-DMS aus "
+        "Praktikabilitäts- oder Nachweisgründen über das Gesetz hinausgeht oder eine eigene, "
+        "strengere Regel anwendet. Wird nach und nach um weitere Module ergänzt."
+    )
+    pdf.hinweis(
+        "Diese Übersicht ist keine Rechtsberatung und wurde nicht von einer Rechtsanwältin oder einem "
+        "Rechtsanwalt geprüft – sie gibt die persönliche Auslegung des Entwicklers wieder und kann "
+        "unvollständig, veraltet oder fehlerhaft sein. Im Zweifel rechtlichen Rat einholen (siehe auch "
+        "den Disclaimer unter „Über BR-DMS“).",
+        "achtung", "Kein Ersatz für Rechtsberatung",
+    )
+
+    pdf.h3("Sitzungslebenszyklus (Posteingang bis Abschluss)")
+    pdf.body(
+        "Vom Eingang eines fristauslösenden Dokuments bis zum Abschluss der Sitzung, in der darüber "
+        "entschieden wird:"
+    )
+    pdf.tabelle(
+        ["Phase", "Funktion", "Rechtsgrundlage"],
+        [
+            ["Posteingang", "Fristbeginn ab Zugang", "§ 130 BGB, §§ 187/188/193 BGB"],
+            ["Posteingang", "Hinweis auf Zustimmungsfiktion", "§ 99 Abs. 3 S. 2 / § 102 Abs. 2 S. 3 BetrVG"],
+            ["Posteingang", "Empfangsbestätigung an den Arbeitgeber", "– (Beweis des Fristbeginns)"],
+            ["Entwurf", "Tagesordnung vorbereiten", "§ 29 Abs. 1 BetrVG"],
+            ["Fixierung", "Tagesordnung feststellen und mitteilen", "§ 29 Abs. 4 BetrVG"],
+            ["Einladung", "Einladung mit Tagesordnung", "§ 29 Abs. 2 und 4 BetrVG"],
+            ["Einladung", "Ersatzmitglieder nur bei Vertretung laden", "§ 29 Abs. 3 BetrVG"],
+            ["Einladung", "Einberufung auf Antrag (Arbeitgeber/ein Viertel)", "§ 29 Abs. 2 S. 1, 2. Halbs. BetrVG"],
+            ["Einladung", "Mindestens einmal im Monat tagen", "§ 29 Abs. 2 S. 1, 1. Halbs. BetrVG"],
+            ["Einladung", "Versandnachweis (PDF/CSV)", "– (Nachweis ordnungsgemäßer Ladung)"],
+            ["Sitzung", "Mehrheit der anwesenden Mitglieder", "§ 33 Abs. 1 BetrVG"],
+            ["Sitzung", "Beschlussfähigkeit (mind. die Hälfte)", "§ 33 Abs. 2 BetrVG"],
+            ["Sitzung", "Vertraulichkeit / Nichtöffentlichkeit", "§ 30, § 79 BetrVG"],
+            ["Sitzung", "Nachrücken von Ersatzmitgliedern", "§ 25 BetrVG"],
+            ["Sitzung", "Geschlechterquoten-Warnung", "§ 15 Abs. 2 BetrVG"],
+            ["Finalisierung", "Niederschrift (Mindestinhalt)", "§ 34 Abs. 1 BetrVG"],
+            ["Finalisierung", "Digitaler Zeitstempel (SHA-256)", "– (Revisionssicherheit, über das Gesetz hinaus)"],
+            ["Abschluss", "Unterschrift Vorsitz/Sitzungsleitung", "§ 34 Abs. 1 S. 2 BetrVG"],
+            ["Abschluss", "Pflicht zu zwei Scans vor Abschluss", "– (strengere interne Regel)"],
+            ["Archiv", "Sitzungspaket (ZIP), Protokoll-Archiv zur Amtsübergabe", "– (Organisation/Kontinuität)"],
+        ],
+        (26, 92, 52),
+    )
+    pdf.hinweis(
+        "Ein „–“ bedeutet nicht „unzulässig“, sondern nur: Das Gesetz schreibt diesen konkreten Punkt "
+        "nicht vor. BR-DMS geht an diesen Stellen bewusst über die gesetzlichen Mindestanforderungen "
+        "hinaus, meist um spätere Streitfragen (wurde rechtzeitig geladen? wann ist die Frist "
+        "angekommen?) besser belegen zu können.",
+        "info",
+    )
+
+    # ── Anhang: Autor, Lizenz & Support ───────────────────────────────
     pdf.add_page()
     pdf.start_section("Autor, Lizenz & Support", level=0)
     pdf.set_font("S", "B", 22)
