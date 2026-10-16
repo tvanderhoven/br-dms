@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, FormEvent } from "react";
 import { Settings, Save, Loader2, RotateCcw, Users, Clock, FileText, Upload, Trash2, Palette, Download, FolderOpen, CheckCircle2, XCircle, Puzzle, Scale, RefreshCw, AlertTriangle, Edit3, Plus, Star } from "lucide-react";
-import { api, ROLLE_LABEL, ZweiFaktorRichtlinie, WatchfolderLogEintrag, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen, Rolle, ModuleKey, MODULE_KEYS, MODULE_LABEL, GesetzStatus, Geschlecht, Zeitmodell, FeiertagsEinstellung, EingangMailsEinstellung, EntgeltsystemAntwort } from "../lib/api";
+import { api, ROLLE_LABEL, ZweiFaktorRichtlinie, WatchfolderLogEintrag, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen, Rolle, ModuleKey, MODULE_KEYS, MODULE_LABEL, GesetzStatus, Geschlecht, Zeitmodell, FeiertagsEinstellung, EingangMailsEinstellung, EntgeltsystemAntwort, Amtszeit } from "../lib/api";
 import BenutzerVerwaltung from "./Benutzer";
 
 type Tab = "fristen" | "benutzer" | "protokoll" | "design" | "system" | "module" | "gesetze" | "amtsuebergabe";
@@ -1925,6 +1925,39 @@ export default function Einstellungen() {
 // ── Tab: Amtsübergabe (nur VORSITZ/STELLVERTRETER/ADMIN) ────────────
 function AmtsuebergabeTab() {
   const [laden, setLaden] = useState(false);
+  const [amtszeiten, setAmtszeiten] = useState<Amtszeit[]>([]);
+  const [ausgewaehlt, setAusgewaehlt] = useState(0);
+  const [archivLaden, setArchivLaden] = useState(false);
+  const [archivFehler, setArchivFehler] = useState("");
+
+  useEffect(() => {
+    api.export.amtszeiten().then(setAmtszeiten).catch(() => {});
+  }, []);
+
+  async function archivHerunterladen() {
+    const amtszeit = amtszeiten[ausgewaehlt];
+    if (!amtszeit) return;
+    setArchivLaden(true);
+    setArchivFehler("");
+    try {
+      const token = localStorage.getItem("brdms_token");
+      const res = await fetch(api.export.protokolleArchivUrl(amtszeit.von, amtszeit.bis), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.fehler ?? `HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `BR-DMS_Protokoll-Archiv_${new Date().toISOString().slice(0, 10)}.zip`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      setArchivFehler(err instanceof Error ? err.message : "Archiv konnte nicht erstellt werden");
+    } finally {
+      setArchivLaden(false);
+    }
+  }
 
   // Geschützter Endpoint (Login nötig) – ein einfacher <a href> würde den
   // Auth-Token nicht mitschicken und nur eine 401-Fehlerseite liefern.
@@ -1972,6 +2005,39 @@ function AmtsuebergabeTab() {
         </div>
       </div>
 
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        <div className="flex items-start gap-3">
+          <Download className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <h2 className="font-semibold text-gray-800">Protokoll-Archiv (ZIP)</h2>
+            <p className="text-sm text-gray-500 mt-0.5 mb-3">
+              Alle finalen Sitzungsprotokolle der gewählten Amtszeit als ZIP – unabhängig von
+              Löschfristen, als vollständiges Backup zur Übergabe an den nachfolgenden Betriebsrat.
+            </p>
+            {amtszeiten.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={ausgewaehlt}
+                  onChange={e => setAusgewaehlt(Number(e.target.value))}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+                >
+                  {amtszeiten.map((a, i) => <option key={i} value={i}>{a.label}</option>)}
+                </select>
+                <button
+                  onClick={archivHerunterladen}
+                  disabled={archivLaden}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-700 disabled:opacity-60 transition-colors font-medium"
+                >
+                  {archivLaden ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  ZIP herunterladen
+                </button>
+              </div>
+            )}
+            {archivFehler && <p className="text-sm text-red-600 mt-2">{archivFehler}</p>}
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
           <h3 className="font-semibold text-gray-800 text-sm mb-3">Im PDF enthalten</h3>
@@ -1986,7 +2052,7 @@ function AmtsuebergabeTab() {
           <h3 className="font-semibold text-gray-800 text-sm mb-3">Bleibt im System (nicht im PDF)</h3>
           <ul className="text-sm text-gray-600 space-y-1.5 list-disc list-inside">
             <li>Die Dokument-Dateien selbst (nur Titel/Metadaten werden gelistet)</li>
-            <li>Sitzungsprotokolle im Volltext</li>
+            <li>Sitzungsprotokolle im Volltext (separat als ZIP-Archiv oben)</li>
             <li>Aufgaben, Zeiträume, Themen-Backlog</li>
             <li>Eingruppierung, Schulungsverwaltung/Qualifikationsmatrix</li>
             <li>Betriebsvereinbarungs-Register, Wissensarchiv, Ressourcen</li>
