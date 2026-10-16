@@ -57,6 +57,10 @@ def lies_dateiliste():
             teile = zeile.split()
             if not teile or teile[0].startswith("#"):
                 continue
+            # "-": gibt es nicht mehr – nur auf dem Host loeschen, nichts uebertragen
+            if len(teile) > 1 and teile[1] == "-":
+                ersetzen.append(teile[0])
+                continue
             eintraege.append(teile[0])
             if len(teile) > 1 and teile[1] == "*":
                 ersetzen.append(teile[0])

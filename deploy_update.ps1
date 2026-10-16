@@ -71,6 +71,8 @@ foreach ($zeile in Get-Content $LISTE) {
     $z = $zeile.Trim()
     if (-not $z -or $z.StartsWith("#")) { continue }
     $teile = $z -split "\s+"
+    # "-": gibt es nicht mehr - nur auf dem Host loeschen, nichts uebertragen
+    if ($teile.Count -gt 1 -and $teile[1] -eq "-") { $ersetzen += $teile[0]; continue }
     if (-not (Test-Path (Join-Path $DIR $teile[0]))) {
         Write-Host "Fehler: $($teile[0]) fehlt lokal (siehe deploy_dateien.txt)." -ForegroundColor Red
         exit 1

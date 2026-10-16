@@ -92,7 +92,9 @@ def baue_payload(dateien, ersetzen):
 
     lines += [
         f"for d in {ersetzen!r}:",
-        "    shutil.rmtree(os.path.join(BASE, d), ignore_errors=True)",
+        "    p = os.path.join(BASE, d)",
+        "    if os.path.isdir(p): shutil.rmtree(p, ignore_errors=True)",
+        "    elif os.path.exists(p): os.remove(p)",
         "shutil.copytree(NEU, BASE, dirs_exist_ok=True)",
         "shutil.rmtree(NEU)",
         f"print('  OK  {len(dateien)} Dateien uebertragen')",

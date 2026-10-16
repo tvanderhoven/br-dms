@@ -104,6 +104,8 @@ rollentests() {
 QUELLEN=(); ERSETZEN=()
 while read -r pfad markierung; do
   [[ -z "${pfad}" || "${pfad}" == \#* ]] && continue
+  # "-": gibt es nicht mehr – nur auf dem Host löschen, nichts übertragen
+  [ "${markierung:-}" = "-" ] && { ERSETZEN+=("${pfad}"); continue; }
   [ -e "${DIR}/${pfad}" ] || { echo -e "${RED}Fehler:${NC} ${pfad} fehlt lokal (siehe deploy_dateien.txt)."; exit 1; }
   QUELLEN+=("${pfad}")
   [ "${markierung:-}" = "*" ] && ERSETZEN+=("${pfad}")
