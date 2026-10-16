@@ -976,6 +976,7 @@ model Beschluss {
   stimmen         BeschlussStimme[]
   anhoerungsVorgang AnhoerungsVorgang?
   kostenposten    Kostenposten[]
+  geschaeftsordnung Geschaeftsordnung?
 
   @@index([topId, reihenfolge])
   @@map("beschluesse")
@@ -1544,6 +1545,12 @@ model Geschaeftsordnung {
   id             String   @id @default(uuid())
   beschlossenAm  DateTime @map("beschlossen_am")
   bemerkung      String?
+
+  // § 36 Abs. 1 Satz 2 BetrVG: Beschlüsse über die Geschäftsordnung brauchen die Mehrheit ALLER
+  // Mitglieder, nicht nur der Anwesenden (strenger als die normale Beschlussfähigkeit § 33 Abs. 2).
+  // Optional, damit ältere/papierne Fassungen ohne Systembeschluss weiter erfassbar bleiben.
+  beschlussId    String?    @unique @map("beschluss_id")
+  beschluss      Beschluss? @relation(fields: [beschlussId], references: [id], onDelete: SetNull)
 
   dokumentId     String?   @map("dokument_id")
   dokument       Dokument? @relation(fields: [dokumentId], references: [id], onDelete: SetNull)

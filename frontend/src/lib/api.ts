@@ -1904,14 +1904,22 @@ export interface Geschaeftsordnung {
   bemerkung?: string | null;
   dokumentId?: string | null;
   dokument?: { id: string; titel: string; dateiname: string } | null;
+  beschlussId?: string | null;
+  beschluss?: {
+    id: string; antragstext: string; jaStimmen: number; neinStimmen: number;
+    sollStaerke: number | null; finalisiertAm: string | null;
+    top: { nummer: number; titel: string; sitzung: { titel: string } };
+  } | null;
+  goMehrheitErreicht?: boolean | null;
   erstelltAm: string;
   aktualisiertAm: string;
 }
 
 export interface GeschaeftsordnungErstellen {
-  beschlossenAm: string;
+  beschlossenAm?: string;
   bemerkung?: string;
   dokumentId?: string | null;
+  beschlussId?: string | null;
 }
 
 export interface Gremium {
