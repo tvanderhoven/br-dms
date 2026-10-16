@@ -15,6 +15,7 @@ import {
   AnhoerungVorgangAntwort, AnhoerungArt, ANHOERUNG_ART_LABEL, gruendeFuerArt,
 } from "../lib/api";
 import { useZeitmodelle, zeitmodellVorschlag } from "../lib/useZeitmodelle";
+import { useEntgelt } from "../lib/useEntgelt";
 import SitzungsEditor from "../components/SitzungsEditor";
 import AnwesenheitsListe from "../components/AnwesenheitsListe";
 import EinladungKarte from "../components/EinladungKarte";
@@ -1588,6 +1589,7 @@ function TopGehaltModal({
 
   // Zeitmodell
   const { aktive: aktiveZeitmodelle } = useZeitmodelle();
+  const entgelt = useEntgelt();
   const [zmZeitmodellId, setZmZeitmodellId] = useState("");
   const [zmGueltigVon, setZmGueltigVon] = useState(sitzungsdatum?.slice(0, 10) ?? new Date().toISOString().slice(0, 10));
   const [zmUnbefristet, setZmUnbefristet] = useState(true);
@@ -1669,19 +1671,13 @@ function TopGehaltModal({
           }
           werteFeld = { gehaltAt: gehaltNr };
         } else {
-          const gruppeNr = Number(gruppe);
-          const stufeNr  = Number(stufe);
-          if (!gruppe || !Number.isInteger(gruppeNr) || gruppeNr < 1 || gruppeNr > 6) {
-            setFehler("Bitte eine Gruppe (1-6) auswählen");
+          if (!gruppe || !stufe) {
+            setFehler("Bitte Gruppe und Stufe auswählen");
             setLaden(false);
             return;
           }
-          if (!stufe || !Number.isInteger(stufeNr) || stufeNr < 1 || stufeNr > 4) {
-            setFehler("Bitte eine Stufe (1-4) auswählen");
-            setLaden(false);
-            return;
-          }
-          werteFeld = { gruppe: gruppeNr, stufe: stufeNr };
+          // Ob die Kombination erlaubt ist, prüft das Backend gegen die Stammdaten
+          werteFeld = { gruppe: Number(gruppe), stufe: Number(stufe) };
         }
 
         await api.gehaltstabelle.erstellen({
@@ -1906,11 +1902,14 @@ function TopGehaltModal({
                       <label className="block text-sm font-medium text-gray-700 mb-1">Gruppe *</label>
                       <select
                         required value={gruppe}
-                        onChange={e => setGruppe(e.target.value)}
+                        onChange={e => {
+                          setGruppe(e.target.value);
+                          if (stufe && !entgelt.stufenAuswahl(Number(e.target.value) || null).some(x => String(x.nummer) === stufe)) setStufe("");
+                        }}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                       >
                         <option value="">– wählen –</option>
-                        {[1, 2, 3, 4, 5, 6].map(g => <option key={g} value={g}>{g}</option>)}
+                        {entgelt.gruppenAuswahl().map(g => <option key={g.nummer} value={g.nummer}>{g.bezeichnung}</option>)}
                       </select>
                     </div>
                     <div>
@@ -1921,7 +1920,7 @@ function TopGehaltModal({
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                       >
                         <option value="">– wählen –</option>
-                        {[1, 2, 3, 4].map(s => <option key={s} value={s}>{s}</option>)}
+                        {entgelt.stufenAuswahl(Number(gruppe) || null).map(x => <option key={x.nummer} value={x.nummer}>{x.bezeichnung}</option>)}
                       </select>
                     </div>
                   </div>

@@ -471,6 +471,7 @@ export function handleDemoRequest(method: string, pathname: string, searchParams
   if (pathname === "/api/einstellungen/sicherheit") return json({ inaktivitaetMinuten: 0 });
   if (pathname === "/api/einstellungen/wahlquote") return json({ minderheitengeschlecht: null, mindestsitzeMinderheit: 0 });
   if (pathname === "/api/einstellungen/update") return json({ installiert: null, hinweis: null });
+  if (method === "GET" && pathname === "/api/entgelt") return json(P.DEMO_ENTGELT);
 
   // ── Schnellsuche im Kopfbalken ───────────────────────────────────────
   if (method === "GET" && pathname === "/api/suche") return json(sucheAusfuehren(searchParams.get("q") ?? ""));

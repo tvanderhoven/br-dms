@@ -5,16 +5,16 @@
 
 import { Prisma, ZeitmodellEintrag } from "@prisma/client";
 
-// Zeitmodell-Teil ist ein beliebiges, von der Installation frei vergebenes
-// Label (siehe Model Zeitmodell) statt eines festen Buchstabens – nur ":"
-// ist als Trennzeichen zum Gruppe.Stufe-Teil verboten. Die Auflösung gegen
-// die tatsächlich konfigurierten Bezeichnungen passiert beim Aufrufer
+// Zeitmodell, Gruppe und Stufe sind frei vergebene Bezeichnungen der
+// Installation (Models Zeitmodell, Entgeltgruppe, Entgeltstufe) – z. B.
+// "B:4.1", "B:Gruppe 4.1" oder "38h:EG 7.3". Getrennt wird am ":" und am
+// LETZTEN Punkt; die Auflösung gegen die Stammdaten passiert beim Aufrufer
 // (gehaltstabelle.ts), weil dafür ein DB-Zugriff nötig ist.
-export const GEHALTSSTUFE_REGEX = /^([^:]+):([1-6])\.([1-4])$/;
+export const GEHALTSSTUFE_REGEX = /^([^:]+):(.+)\.([^.]+)$/;
 export const AT_REGEX = /^AT:(.+)$/i;
 
 export type GeparsteGehaltsstufe =
-  | { art: "eingruppierung"; zeitmodellLabel: string; gruppe: number; stufe: number }
+  | { art: "eingruppierung"; zeitmodellLabel: string; gruppeTeil: string; stufeTeil: string }
   | { art: "at"; gehalt: number };
 
 // Erkennt deutsches ("4.200,50") und einfaches ("4200.50" / "4200") Zahlenformat.
@@ -43,8 +43,8 @@ export function parseGehaltsstufe(code: string): GeparsteGehaltsstufe | null {
   return {
     art:             "eingruppierung",
     zeitmodellLabel: treffer[1].trim(),
-    gruppe:          Number(treffer[2]),
-    stufe:           Number(treffer[3]),
+    gruppeTeil:      treffer[2].trim(),
+    stufeTeil:       treffer[3].trim(),
   };
 }
 

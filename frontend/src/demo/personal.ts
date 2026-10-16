@@ -170,3 +170,12 @@ export const DEMO_SCHULUNGEN = [
   termin("demo-st6", 1, 14, "GEPLANT", [1, 4, 8, 13, 27]),
   termin("demo-st7", 2, 40, "GEPLANT", [12, 20, 24]),
 ];
+
+// Entgeltsystem (Stammdaten der Eingruppierung) – wie der Standard im echten
+// Backend: Gruppe 1–6, Stufe 1–4 (siehe backend/src/lib/entgeltVorlagen.ts)
+export const DEMO_ENTGELT = {
+  gruppen: [1, 2, 3, 4, 5, 6].map(n => ({ id: `demo-eg-${n}`, nummer: n, bezeichnung: `Gruppe ${n}`, sortierung: n - 1, aktiv: true, stufen: [] as number[] })),
+  stufen:  [1, 2, 3, 4].map(n => ({ id: `demo-es-${n}`, nummer: n, bezeichnung: `Stufe ${n}`, sortierung: n - 1, aktiv: true })),
+  belegt:  { gruppen: [1, 2, 3, 4, 5, 6], stufen: [1, 2, 3, 4] },
+  vorlagen: [],
+};

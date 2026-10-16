@@ -9,10 +9,11 @@ import {
 import MitarbeiterBearbeitenModal from "../components/MitarbeiterBearbeitenModal";
 import Sichtschutz from "../components/Sichtschutz";
 import { useZeitmodelle, zeitmodellVorschlag } from "../lib/useZeitmodelle";
+import { useEntgelt } from "../lib/useEntgelt";
 
-// Eingruppierung: Gruppe 1-6, Stufe 1-4 (siehe backend/prisma/schema.prisma)
-const GRUPPEN = [1, 2, 3, 4, 5, 6];
-const STUFEN = [1, 2, 3, 4];
+// Eingruppierung: Gruppen und Stufen kommen aus den Stammdaten (Einstellungen → System,
+// lib/useEntgelt.ts); Einträge speichern deren Nummern.
+type GruppenSpalte = { nummer: number; name: string };
 
 function formatGehalt(betrag: string | number): string {
   return Number(betrag).toLocaleString("de-DE", { style: "currency", currency: "EUR" });
@@ -35,6 +36,7 @@ function SitzungLink({ sitzung }: { sitzung?: { id: string; titel: string; sitzu
 }
 
 export default function Gehaltstabelle() {
+  const entgelt = useEntgelt();
   const [liste, setListe]           = useState<GehaltsstufenEintrag[]>([]);
   const [abteilungen, setAbteilungen] = useState<Abteilung[]>([]);
   const [mitarbeiterListe, setMitarbeiterListe] = useState<Mitarbeiter[]>([]);
@@ -450,7 +452,7 @@ export default function Gehaltstabelle() {
                     <td className="px-4 py-2.5 text-gray-600">{e.mitarbeiter.abteilung?.name ?? "–"}</td>
                     <td className="px-4 py-2.5 text-gray-800 font-medium">
                       {e.gruppe != null && e.stufe != null
-                        ? `Gruppe ${e.gruppe}.${e.stufe}`
+                        ? entgelt.text(e.gruppe, e.stufe)
                         : e.gehaltAt != null
                           ? <span className="text-violet-700">AT · {formatGehalt(e.gehaltAt)}</span>
                           : "– nicht zugeordnet –"}
@@ -650,6 +652,7 @@ function EintragModal({
   const [austritt, setAustritt] = useState("");
   const [abteilungId, setAbteilungId] = useState("");
   const [istAt, setIstAt]       = useState(eintrag?.gehaltAt != null);
+  const entgelt = useEntgelt();
   const [gruppe, setGruppe]     = useState(eintrag?.gruppe != null ? String(eintrag.gruppe) : "");
   const [stufe, setStufe]       = useState(eintrag?.stufe != null ? String(eintrag.stufe) : "");
   const [gehaltAt, setGehaltAt] = useState(eintrag?.gehaltAt ?? "");
@@ -697,19 +700,13 @@ function EintragModal({
         }
         werteFeld = { gehaltAt: gehaltNr };
       } else {
-        const gruppeNr = Number(gruppe);
-        const stufeNr  = Number(stufe);
-        if (!gruppe || !Number.isInteger(gruppeNr) || gruppeNr < 1 || gruppeNr > 6) {
-          setFehler("Bitte eine Gruppe (1-6) auswählen");
+        if (!gruppe || !stufe) {
+          setFehler("Bitte Gruppe und Stufe auswählen");
           setLaden(false);
           return;
         }
-        if (!stufe || !Number.isInteger(stufeNr) || stufeNr < 1 || stufeNr > 4) {
-          setFehler("Bitte eine Stufe (1-4) auswählen");
-          setLaden(false);
-          return;
-        }
-        werteFeld = { gruppe: gruppeNr, stufe: stufeNr };
+        // Ob die Kombination erlaubt ist, prüft das Backend gegen die Stammdaten
+        werteFeld = { gruppe: Number(gruppe), stufe: Number(stufe) };
       }
 
       if (eintrag) {
@@ -854,11 +851,15 @@ function EintragModal({
                   <label className="block text-sm font-medium text-gray-700 mb-1">Gruppe *</label>
                   <select
                     required value={gruppe}
-                    onChange={e => setGruppe(e.target.value)}
+                    onChange={e => {
+                      setGruppe(e.target.value);
+                      // Stufe zurücksetzen, wenn es sie in der neuen Gruppe nicht gibt (z. B. TVöD E 1 ohne Stufe 1)
+                      if (stufe && !entgelt.stufenAuswahl(Number(e.target.value) || null).some(x => String(x.nummer) === stufe)) setStufe("");
+                    }}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                   >
                     <option value="">– wählen –</option>
-                    {[1, 2, 3, 4, 5, 6].map(g => <option key={g} value={g}>{g}</option>)}
+                    {entgelt.gruppenAuswahl(eintrag?.gruppe).map(g => <option key={g.nummer} value={g.nummer}>{g.bezeichnung}{g.aktiv ? "" : " (inaktiv)"}</option>)}
                   </select>
                 </div>
                 <div>
@@ -869,7 +870,7 @@ function EintragModal({
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
                   >
                     <option value="">– wählen –</option>
-                    {[1, 2, 3, 4].map(s => <option key={s} value={s}>{s}</option>)}
+                    {entgelt.stufenAuswahl(Number(gruppe) || null, eintrag?.stufe).map(x => <option key={x.nummer} value={x.nummer}>{x.bezeichnung}{x.aktiv ? "" : " (inaktiv)"}</option>)}
                   </select>
                 </div>
               </div>
@@ -2054,20 +2055,21 @@ interface GruppenZeile {
 function gruppiereNachMerkmal(
   eintraege: GehaltsstufenEintrag[],
   merkmal: (m: EintragMitarbeiter) => string,
+  gruppen: GruppenSpalte[],
 ): GruppenZeile[] {
   const map = new Map<string, Record<number, number>>();
   for (const e of eintraege) {
     const key = merkmal(e.mitarbeiter) || "– keine –";
-    if (!map.has(key)) map.set(key, Object.fromEntries(GRUPPEN.map(g => [g, 0])));
-    map.get(key)![e.gruppe!]++;
+    if (!map.has(key)) map.set(key, Object.fromEntries(gruppen.map(g => [g.nummer, 0])));
+    map.get(key)![e.gruppe!] = (map.get(key)![e.gruppe!] ?? 0) + 1;
   }
   return [...map.entries()]
-    .map(([name, proGruppe]) => ({ name, proGruppe, gesamt: GRUPPEN.reduce((summe, g) => summe + proGruppe[g], 0) }))
+    .map(([name, proGruppe]) => ({ name, proGruppe, gesamt: gruppen.reduce((summe, g) => summe + (proGruppe[g.nummer] ?? 0), 0) }))
     .filter(z => z.gesamt > 0)
     .sort((a, b) => b.gesamt - a.gesamt);
 }
 
-function GruppenTabelle({ titel, spaltenTitel, zeilen }: { titel: string; spaltenTitel: string; zeilen: GruppenZeile[] }) {
+function GruppenTabelle({ titel, spaltenTitel, zeilen, gruppen }: { titel: string; spaltenTitel: string; zeilen: GruppenZeile[]; gruppen: GruppenSpalte[] }) {
   if (zeilen.length === 0) return null;
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 overflow-x-auto">
@@ -2076,7 +2078,7 @@ function GruppenTabelle({ titel, spaltenTitel, zeilen }: { titel: string; spalte
         <thead>
           <tr className="text-xs text-gray-500">
             <th className="px-3 py-1.5 text-left">{spaltenTitel}</th>
-            {GRUPPEN.map(g => <th key={g} className="px-2 py-1.5 text-center">{g}</th>)}
+            {gruppen.map(g => <th key={g.nummer} className="px-2 py-1.5 text-center whitespace-nowrap">{g.name}</th>)}
             <th className="px-3 py-1.5 text-center">Gesamt</th>
           </tr>
         </thead>
@@ -2084,8 +2086,8 @@ function GruppenTabelle({ titel, spaltenTitel, zeilen }: { titel: string; spalte
           {zeilen.map(z => (
             <tr key={z.name} className="border-t border-gray-100">
               <td className="px-3 py-1.5 text-gray-700 truncate max-w-48" title={z.name}>{z.name}</td>
-              {GRUPPEN.map(g => (
-                <td key={g} className="px-2 py-1.5 text-center text-gray-600">{z.proGruppe[g] || "–"}</td>
+              {gruppen.map(g => (
+                <td key={g.nummer} className="px-2 py-1.5 text-center text-gray-600">{z.proGruppe[g.nummer] || "–"}</td>
               ))}
               <td className="px-3 py-1.5 text-center font-semibold text-gray-800">{z.gesamt}</td>
             </tr>
@@ -2096,25 +2098,30 @@ function GruppenTabelle({ titel, spaltenTitel, zeilen }: { titel: string; spalte
   );
 }
 
-// Zählt eine Liste von (Gruppe, Spaltenwert)-Paaren als Gruppe(1-6) × Spalte-Matrix
-// (Spalte = Zeitmodell-Buchstabe oder Stufen-Zahl, je nach Aufrufer)
+// Zählt eine Liste von (Gruppe, Spaltenwert)-Paaren als Gruppe × Spalte-Matrix
+// (Spalte = Zeitmodell- oder Stufen-Bezeichnung, je nach Aufrufer)
 function gruppeXSpalteMatrix(
   paare: { gruppe: number; wert: string }[],
   spalten: string[],
+  gruppen: GruppenSpalte[],
 ): Record<number, Record<string, number>> {
   const matrix: Record<number, Record<string, number>> = {};
-  for (const g of GRUPPEN) matrix[g] = Object.fromEntries(spalten.map(s => [s, 0]));
-  for (const { gruppe, wert } of paare) matrix[gruppe][wert]++;
+  for (const g of gruppen) matrix[g.nummer] = Object.fromEntries(spalten.map(s => [s, 0]));
+  for (const { gruppe, wert } of paare) {
+    matrix[gruppe] ??= Object.fromEntries(spalten.map(s => [s, 0]));
+    matrix[gruppe][wert] = (matrix[gruppe][wert] ?? 0) + 1;
+  }
   return matrix;
 }
 
 function GruppeMatrixTabelle({
-  titel, unterschrift, spalten, matrix,
+  titel, unterschrift, spalten, matrix, gruppen,
 }: {
   titel: string;
   unterschrift?: string;
   spalten: string[];
   matrix: Record<number, Record<string, number>>;
+  gruppen: GruppenSpalte[];
 }) {
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 overflow-x-auto">
@@ -2129,12 +2136,12 @@ function GruppeMatrixTabelle({
           </tr>
         </thead>
         <tbody>
-          {GRUPPEN.map(g => {
-            const zeile = matrix[g];
-            const summe = spalten.reduce((s, sp) => s + zeile[sp], 0);
+          {gruppen.map(g => {
+            const zeile = matrix[g.nummer] ?? {};
+            const summe = spalten.reduce((s, sp) => s + (zeile[sp] ?? 0), 0);
             return (
-              <tr key={g} className="border-t border-gray-100">
-                <td className="px-3 py-1.5 font-medium text-gray-700">Gruppe {g}</td>
+              <tr key={g.nummer} className="border-t border-gray-100">
+                <td className="px-3 py-1.5 font-medium text-gray-700 whitespace-nowrap">{g.name}</td>
                 {spalten.map(sp => <td key={sp} className="px-3 py-1.5 text-center text-gray-600">{zeile[sp] || "–"}</td>)}
                 <td className="px-3 py-1.5 text-center font-semibold text-gray-800">{summe || "–"}</td>
               </tr>
@@ -2156,6 +2163,7 @@ function StatistikTab({
   aufMitarbeiterSpringen: (mitarbeiterId: string) => void;
 }) {
   const istAktiv = (m: EintragMitarbeiter) => !m.austritt || new Date(m.austritt) >= new Date();
+  const entgelt = useEntgelt();
 
   // Zeitmodell hat eine eigene Historie (siehe ZeitmodellTab) – für die
   // Statistik brauchen wir nur, welches Zeitmodell HEUTE je Mitarbeiter aktiv ist.
@@ -2214,19 +2222,34 @@ function StatistikTab({
     [neuesteProMitarbeiter],
   );
 
+  // Zeilen/Spalten der Auswertungen: Gruppen und Stufen aus den Stammdaten, ergänzt um
+  // Nummern, die in Einträgen vorkommen, aber (nicht mehr) angelegt sind
+  const gruppenSpalten = useMemo<GruppenSpalte[]>(() => {
+    const nummern = [...entgelt.gruppen.map(g => g.nummer), ...mitGruppeStufe.map(e => e.gruppe).filter(n => !entgelt.gruppen.some(g => g.nummer === n))];
+    return [...new Set(nummern)].map(n => ({ nummer: n, name: entgelt.gruppeName(n) }));
+  }, [entgelt, mitGruppeStufe]);
+  const stufenNummern = useMemo(() => {
+    const nummern = [...entgelt.stufen.map(x => x.nummer), ...mitGruppeStufe.map(e => e.stufe).filter(n => !entgelt.stufen.some(x => x.nummer === n))];
+    return [...new Set(nummern)];
+  }, [entgelt, mitGruppeStufe]);
+
   const gruppeXZeitmodell = useMemo(() => {
     const paare = mitGruppeStufe
       .map(e => ({ gruppe: e.gruppe, wert: zeitmodellAktuellProMitarbeiter.get(e.mitarbeiterId) }))
       .filter((p): p is { gruppe: number; wert: string } => p.wert !== undefined);
-    return gruppeXSpalteMatrix(paare, zeitmodelle.map(z => z.bezeichnung));
-  }, [mitGruppeStufe, zeitmodellAktuellProMitarbeiter, zeitmodelle]);
+    return gruppeXSpalteMatrix(paare, zeitmodelle.map(z => z.bezeichnung), gruppenSpalten);
+  }, [mitGruppeStufe, zeitmodellAktuellProMitarbeiter, zeitmodelle, gruppenSpalten]);
 
   const gruppeXStufe = useMemo(
-    () => gruppeXSpalteMatrix(mitGruppeStufe.map(e => ({ gruppe: e.gruppe, wert: String(e.stufe) })), STUFEN.map(String)),
-    [mitGruppeStufe],
+    () => gruppeXSpalteMatrix(
+      mitGruppeStufe.map(e => ({ gruppe: e.gruppe, wert: entgelt.stufeName(e.stufe) })),
+      stufenNummern.map(entgelt.stufeName),
+      gruppenSpalten,
+    ),
+    [mitGruppeStufe, stufenNummern, gruppenSpalten, entgelt],
   );
 
-  const standortXGruppe = useMemo(() => gruppiereNachMerkmal(mitGruppeStufe, m => m.standort ?? ""), [mitGruppeStufe]);
+  const standortXGruppe = useMemo(() => gruppiereNachMerkmal(mitGruppeStufe, m => m.standort ?? "", gruppenSpalten), [mitGruppeStufe, gruppenSpalten]);
 
   // Abteilung × Gruppe × Stufe – je Abteilung eine eigene Matrix, damit man per
   // Dropdown gezielt eine Abteilung anschauen kann statt eine riesige Tabelle
@@ -2236,19 +2259,16 @@ function StatistikTab({
     for (const e of mitGruppeStufe) {
       const key = e.mitarbeiter.abteilung?.name;
       if (!key) continue;
-      if (!map.has(key)) {
-        map.set(key, Object.fromEntries(GRUPPEN.map(g => [g, Object.fromEntries(STUFEN.map(s => [String(s), 0]))])));
-      }
-      map.get(key)![e.gruppe][String(e.stufe)]++;
+      if (!map.has(key)) map.set(key, {});
+      const proGruppe = map.get(key)!;
+      proGruppe[e.gruppe] ??= {};
+      proGruppe[e.gruppe][String(e.stufe)] = (proGruppe[e.gruppe][String(e.stufe)] ?? 0) + 1;
     }
     return map;
   }, [mitGruppeStufe]);
   const abteilungenMitDaten = useMemo(() => [...abteilungGruppeStufe.keys()].sort((a, b) => a.localeCompare(b)), [abteilungGruppeStufe]);
   const [statistikAbteilung, setStatistikAbteilung] = useState("");
-  const leereGruppeStufeMatrix = useMemo(
-    () => Object.fromEntries(GRUPPEN.map(g => [g, Object.fromEntries(STUFEN.map(s => [String(s), 0]))])) as Record<number, Record<string, number>>,
-    [],
-  );
+  const leereGruppeStufeMatrix: Record<number, Record<string, number>> = {};
 
   // AT ("außer Tarif") – reales Gehalt statt Gruppe/Stufe, kein Datenproblem,
   // taucht deshalb bewusst nicht in den Gruppe/Stufe-Auswertungen oben auf.
@@ -2324,15 +2344,17 @@ function StatistikTab({
         unterschrift="Aktuelle Eingruppierung × aktuell gültiges Zeitmodell je Mitarbeiter"
         spalten={zeitmodelle.map(z => z.bezeichnung)}
         matrix={gruppeXZeitmodell}
+        gruppen={gruppenSpalten}
       />
       <GruppeMatrixTabelle
         titel="Gruppe × Stufe"
         unterschrift="Stufenverteilung innerhalb jeder Gruppe"
-        spalten={STUFEN.map(String)}
+        spalten={stufenNummern.map(entgelt.stufeName)}
         matrix={gruppeXStufe}
+        gruppen={gruppenSpalten}
       />
 
-      <GruppenTabelle titel="Standort × Gruppe" spaltenTitel="Standort" zeilen={standortXGruppe} />
+      <GruppenTabelle titel="Standort × Gruppe" spaltenTitel="Standort" zeilen={standortXGruppe} gruppen={gruppenSpalten} />
 
       {abteilungenMitDaten.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 overflow-x-auto">
@@ -2352,18 +2374,18 @@ function StatistikTab({
               <thead>
                 <tr className="text-xs text-gray-500">
                   <th className="px-3 py-1.5 text-left"></th>
-                  {STUFEN.map(s => <th key={s} className="px-3 py-1.5 text-center">Stufe {s}</th>)}
+                  {stufenNummern.map(s => <th key={s} className="px-3 py-1.5 text-center whitespace-nowrap">{entgelt.stufeName(s)}</th>)}
                   <th className="px-3 py-1.5 text-center">Gesamt</th>
                 </tr>
               </thead>
               <tbody>
-                {GRUPPEN.map(g => {
-                  const zeile = (abteilungGruppeStufe.get(statistikAbteilung) ?? leereGruppeStufeMatrix)[g];
-                  const summe = STUFEN.reduce((s, stufe) => s + zeile[String(stufe)], 0);
+                {gruppenSpalten.map(({ nummer: g, name }) => {
+                  const zeile = (abteilungGruppeStufe.get(statistikAbteilung) ?? leereGruppeStufeMatrix)[g] ?? {};
+                  const summe = stufenNummern.reduce((s, stufe) => s + (zeile[String(stufe)] ?? 0), 0);
                   return (
                     <tr key={g} className="border-t border-gray-100">
-                      <td className="px-3 py-1.5 font-medium text-gray-700">Gruppe {g}</td>
-                      {STUFEN.map(s => <td key={s} className="px-3 py-1.5 text-center text-gray-600">{zeile[String(s)] || "–"}</td>)}
+                      <td className="px-3 py-1.5 font-medium text-gray-700 whitespace-nowrap">{name}</td>
+                      {stufenNummern.map(s => <td key={s} className="px-3 py-1.5 text-center text-gray-600">{zeile[String(s)] || "–"}</td>)}
                       <td className="px-3 py-1.5 text-center font-semibold text-gray-800">{summe || "–"}</td>
                     </tr>
                   );
