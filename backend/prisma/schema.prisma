@@ -1305,6 +1305,7 @@ model GehaltsstufenEintrag {
   mitarbeiterId  String      @map("mitarbeiter_id")
   mitarbeiter    Mitarbeiter @relation(fields: [mitarbeiterId], references: [id], onDelete: Cascade)
 
+  // gruppe/stufe = Entgeltgruppe.nummer / Entgeltstufe.nummer (Bezeichnung aus den Stammdaten).
   // Gruppe/Stufe ODER gehaltAt ist gesetzt, nie beides: AT ("außer Tarif")
   // hat kein Gruppen-System, sondern ein individuell vereinbartes reales
   // Gehalt (Quelle: CSV-Wert "AT:<Betrag>" statt "Zeitmodell:Gruppe.Stufe").
@@ -1324,6 +1325,39 @@ model GehaltsstufenEintrag {
 
   @@index([mitarbeiterId, gueltigAb])
   @@map("gehaltsstufen_eintraege")
+}
+
+// Entgeltgruppen und -stufen der Eingruppierung – je Installation frei
+// konfigurierbar (z. B. "Gruppe 1–6 / Stufe 1–4" oder "EG 1–17 / Stufe 1–3"),
+// siehe lib/entgelt.ts und die Vorlagen in lib/entgeltVorlagen.ts.
+// GehaltsstufenEintrag.gruppe/.stufe speichern die "nummer" – ein stabiler
+// Schlüssel, der sich beim Umbenennen oder Umsortieren nicht ändert.
+model Entgeltgruppe {
+  id             String   @id @default(uuid())
+  nummer         Int      @unique
+  bezeichnung    String   @unique
+  sortierung     Int      @default(0)
+  aktiv          Boolean  @default(true)
+  // Erlaubte Stufen-Nummern in dieser Gruppe (z. B. TVöD E 1: nur 2–6); leer = alle Stufen
+  stufen         Int[]    @default([])
+
+  erstelltAm     DateTime @default(now()) @map("erstellt_am")
+  aktualisiertAm DateTime @updatedAt @map("aktualisiert_am")
+
+  @@map("entgeltgruppen")
+}
+
+model Entgeltstufe {
+  id             String   @id @default(uuid())
+  nummer         Int      @unique
+  bezeichnung    String   @unique
+  sortierung     Int      @default(0)
+  aktiv          Boolean  @default(true)
+
+  erstelltAm     DateTime @default(now()) @map("erstellt_am")
+  aktualisiertAm DateTime @updatedAt @map("aktualisiert_am")
+
+  @@map("entgeltstufen")
 }
 
 // Zeitmodell-Stammdaten – je Installation frei konfigurierbar (z.B. eigene

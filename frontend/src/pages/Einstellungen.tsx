@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, FormEvent } from "react";
 import { Settings, Save, Loader2, RotateCcw, Users, Clock, FileText, Upload, Trash2, Palette, Download, FolderOpen, CheckCircle2, XCircle, Puzzle, Scale, RefreshCw, AlertTriangle, Edit3, Plus, Star } from "lucide-react";
-import { api, ROLLE_LABEL, ZweiFaktorRichtlinie, WatchfolderLogEintrag, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen, Rolle, ModuleKey, MODULE_KEYS, MODULE_LABEL, GesetzStatus, Geschlecht, Zeitmodell, FeiertagsEinstellung, EingangMailsEinstellung } from "../lib/api";
+import { api, ROLLE_LABEL, ZweiFaktorRichtlinie, WatchfolderLogEintrag, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen, Rolle, ModuleKey, MODULE_KEYS, MODULE_LABEL, GesetzStatus, Geschlecht, Zeitmodell, FeiertagsEinstellung, EingangMailsEinstellung, EntgeltsystemAntwort } from "../lib/api";
 import BenutzerVerwaltung from "./Benutzer";
 
 type Tab = "fristen" | "benutzer" | "protokoll" | "design" | "system" | "module" | "gesetze" | "amtsuebergabe";
@@ -1123,6 +1123,187 @@ function MailAbsenderEinstellung() {
 // ── Zeitmodelle: je Installation frei konfigurierbare Bezeichnungen (z.B.
 // eigene Kürzel oder reale Stundenmodelle wie "38h") statt eines festen
 // Satzes von Buchstaben – werden in der Gehaltstabelle zur Auswahl angeboten.
+// ── Eingruppierung: Entgeltgruppen und Stufen (Backend: routes/entgelt.ts) ──
+// Einträge speichern die Nummer; Umbenennen wirkt deshalb auf alle bestehenden
+// Eingruppierungen. Benutzte Gruppen/Stufen lassen sich nur deaktivieren.
+function EntgeltVerwaltung() {
+  const [daten, setDaten]     = useState<EntgeltsystemAntwort | null>(null);
+  const [fehler, setFehler]   = useState("");
+  const [vorlage, setVorlage] = useState("");
+  const [neueGruppe, setNeueGruppe] = useState("");
+  const [neueStufe, setNeueStufe]   = useState("");
+  const [bearbeitet, setBearbeitet] = useState<{ art: "gruppe" | "stufe"; id: string; bezeichnung: string; stufen: number[] } | null>(null);
+
+  const laden = () => api.entgelt.liste().then(setDaten).catch(err => setFehler(err instanceof Error ? err.message : "Laden fehlgeschlagen"));
+  useEffect(() => { laden(); }, []);
+
+  async function ausfuehren(aktion: () => Promise<unknown>) {
+    setFehler("");
+    try { await aktion(); await laden(); }
+    catch (err) { setFehler(err instanceof Error ? err.message : "Fehler beim Speichern"); }
+  }
+
+  if (!daten) {
+    return fehler ? <div className="bg-red-50 border border-red-100 text-red-700 text-sm rounded-xl px-6 py-3">{fehler}</div> : null;
+  }
+
+  const belegt = daten.belegt.gruppen.length > 0;
+  const gewaehlteVorlage = daten.vorlagen.find(v => v.schluessel === vorlage);
+  const stufeName = (n: number) => daten.stufen.find(x => x.nummer === n)?.bezeichnung ?? `Stufe ${n}`;
+  const stufenText = (liste: number[]) => liste.length === 0 ? "alle Stufen" : liste.map(stufeName).join(", ");
+
+  // Reihenfolge: mit dem Nachbarn die Sortierung tauschen
+  function verschieben(art: "gruppe" | "stufe", index: number, richtung: -1 | 1) {
+    const liste = art === "gruppe" ? daten!.gruppen : daten!.stufen;
+    const a = liste[index], b = liste[index + richtung];
+    if (!b) return;
+    const aendern = art === "gruppe" ? api.entgelt.gruppeAendern : api.entgelt.stufeAendern;
+    // Sortierwerte neu durchzählen, falls sie gleich sind (z. B. alles 0)
+    ausfuehren(async () => {
+      for (const [i, x] of liste.entries()) if (x.sortierung !== i) await aendern(x.id, { sortierung: i });
+      await aendern(a.id, { sortierung: index + richtung });
+      await aendern(b.id, { sortierung: index });
+    });
+  }
+
+  async function speichern() {
+    if (!bearbeitet) return;
+    await ausfuehren(() => bearbeitet.art === "gruppe"
+      ? api.entgelt.gruppeAendern(bearbeitet.id, { bezeichnung: bearbeitet.bezeichnung, stufen: bearbeitet.stufen })
+      : api.entgelt.stufeAendern(bearbeitet.id, { bezeichnung: bearbeitet.bezeichnung }));
+    setBearbeitet(null);
+  }
+
+  const knopf = "text-xs text-gray-400 hover:text-gray-700 disabled:opacity-30";
+  const eingabe = "border border-gray-300 rounded-sm px-2 py-1 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]";
+
+  function Zeile({ art, index, eintrag, unterzeile }: {
+    art: "gruppe" | "stufe"; index: number; eintrag: { id: string; nummer: number; bezeichnung: string; aktiv: boolean }; unterzeile?: string;
+  }) {
+    const liste = art === "gruppe" ? daten!.gruppen : daten!.stufen;
+    const benutzt = (art === "gruppe" ? daten!.belegt.gruppen : daten!.belegt.stufen).includes(eintrag.nummer);
+    const aendern = art === "gruppe" ? api.entgelt.gruppeAendern : api.entgelt.stufeAendern;
+    const loeschen = art === "gruppe" ? api.entgelt.gruppeLoeschen : api.entgelt.stufeLoeschen;
+    return (
+      <li className={`py-1.5 flex items-start justify-between gap-2 ${eintrag.aktiv ? "" : "opacity-50"}`}>
+        <div className="min-w-0">
+          <span className="font-medium text-gray-800">{eintrag.bezeichnung}</span>
+          {!eintrag.aktiv && <span className="ml-1.5 text-xs text-gray-500">(inaktiv)</span>}
+          {unterzeile && <span className="block text-xs text-gray-500">{unterzeile}</span>}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button className={knopf} title="Nach oben" disabled={index === 0} onClick={() => verschieben(art, index, -1)}>▲</button>
+          <button className={knopf} title="Nach unten" disabled={index === liste.length - 1} onClick={() => verschieben(art, index, 1)}>▼</button>
+          <button className={knopf} onClick={() => setBearbeitet({
+            art, id: eintrag.id, bezeichnung: eintrag.bezeichnung,
+            stufen: art === "gruppe" ? daten!.gruppen.find(g => g.id === eintrag.id)!.stufen : [],
+          })}>Bearbeiten</button>
+          <button className={knopf} onClick={() => ausfuehren(() => aendern(eintrag.id, { aktiv: !eintrag.aktiv }))}>
+            {eintrag.aktiv ? "Deaktivieren" : "Aktivieren"}
+          </button>
+          {!benutzt && (
+            <button className="text-xs text-red-400 hover:text-red-600" onClick={() => {
+              if (confirm(`„${eintrag.bezeichnung}" löschen?`)) ausfuehren(() => loeschen(eintrag.id));
+            }}>Löschen</button>
+          )}
+        </div>
+      </li>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-100">
+        <h2 className="font-semibold text-gray-800">Eingruppierung: Entgeltgruppen und Stufen</h2>
+        <p className="text-sm text-gray-500 mt-0.5">
+          Welche Gruppen und Stufen es im Betrieb gibt – z. B. eine eigene Tabelle mit Gruppe 1–6 und Stufe 1–4 oder ein
+          Tarifvertrag mit EG 1–17 und drei Stufen. Angezeigt wird „Gruppe 4 Stufe 1" bzw. „EG 7 Stufe 3". Umbenennen
+          wirkt auf alle bestehenden Eingruppierungen; benutzte Gruppen und Stufen lassen sich nur deaktivieren.
+          Außertarifliche Gehälter (AT) laufen unabhängig davon mit Eurobetrag.
+        </p>
+      </div>
+
+      <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 space-y-2">
+        <label className="block text-sm font-medium text-gray-700">Vorlage übernehmen</label>
+        <div className="flex flex-wrap items-center gap-2">
+          <select value={vorlage} onChange={e => setVorlage(e.target.value)} disabled={belegt}
+            className="w-full max-w-md border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white disabled:opacity-60">
+            <option value="">– Vorlage wählen –</option>
+            {daten.vorlagen.map(v => <option key={v.schluessel} value={v.schluessel}>{v.name}</option>)}
+          </select>
+          <button
+            disabled={belegt || !vorlage}
+            onClick={() => {
+              if (confirm(`Alle Gruppen und Stufen durch „${gewaehlteVorlage?.name}" ersetzen?`)) ausfuehren(() => api.entgelt.vorlageUebernehmen(vorlage));
+            }}
+            className="bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white text-sm font-medium px-3 py-2 rounded-lg"
+          >
+            Übernehmen
+          </button>
+        </div>
+        {gewaehlteVorlage && (
+          <p className="text-xs text-gray-600">{gewaehlteVorlage.beschreibung}{gewaehlteVorlage.hinweis && <> <span className="text-amber-700">{gewaehlteVorlage.hinweis}</span></>}</p>
+        )}
+        {belegt && (
+          <p className="text-xs text-gray-500">
+            Es gibt schon Eingruppierungen – eine Vorlage würde deren Bedeutung ändern. Gruppen und Stufen lassen sich unten einzeln anpassen.
+          </p>
+        )}
+      </div>
+
+      {bearbeitet && (
+        <div className="px-6 py-4 border-b border-gray-100 bg-amber-50 space-y-2">
+          <p className="text-sm font-medium text-gray-800">{bearbeitet.art === "gruppe" ? "Gruppe" : "Stufe"} bearbeiten</p>
+          <input value={bearbeitet.bezeichnung} onChange={e => setBearbeitet({ ...bearbeitet, bezeichnung: e.target.value })} className={`${eingabe} w-full max-w-xs`} />
+          {bearbeitet.art === "gruppe" && (
+            <div>
+              <p className="text-xs text-gray-600 mb-1">Stufen in dieser Gruppe (keine angekreuzt = alle):</p>
+              <div className="flex flex-wrap gap-3">
+                {daten.stufen.map(x => (
+                  <label key={x.nummer} className="flex items-center gap-1.5 text-sm text-gray-700">
+                    <input type="checkbox" checked={bearbeitet.stufen.includes(x.nummer)}
+                      onChange={e => setBearbeitet({ ...bearbeitet, stufen: e.target.checked ? [...bearbeitet.stufen, x.nummer] : bearbeitet.stufen.filter(n => n !== x.nummer) })} />
+                    {x.bezeichnung}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="flex gap-3">
+            <button onClick={speichern} className="text-sm text-[rgb(var(--accent))] font-medium">Speichern</button>
+            <button onClick={() => setBearbeitet(null)} className="text-sm text-gray-500">Abbrechen</button>
+          </div>
+        </div>
+      )}
+
+      <div className="px-6 py-4 grid gap-6 md:grid-cols-2">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700 mb-1">Entgeltgruppen ({daten.gruppen.length})</h3>
+          <ul className="text-sm divide-y divide-gray-50">
+            {daten.gruppen.map((g, i) => <Zeile key={g.id} art="gruppe" index={i} eintrag={g} unterzeile={stufenText(g.stufen)} />)}
+          </ul>
+          <form className="flex gap-2 mt-2" onSubmit={e => { e.preventDefault(); if (neueGruppe.trim()) ausfuehren(() => api.entgelt.gruppeAnlegen({ bezeichnung: neueGruppe.trim() })).then(() => setNeueGruppe("")); }}>
+            <input value={neueGruppe} onChange={e => setNeueGruppe(e.target.value)} placeholder="z. B. EG 18 oder E 9a" className={`${eingabe} flex-1`} />
+            <button type="submit" className="text-sm text-[rgb(var(--accent))] font-medium">Hinzufügen</button>
+          </form>
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700 mb-1">Stufen ({daten.stufen.length})</h3>
+          <ul className="text-sm divide-y divide-gray-50">
+            {daten.stufen.map((x, i) => <Zeile key={x.id} art="stufe" index={i} eintrag={x} />)}
+          </ul>
+          <form className="flex gap-2 mt-2" onSubmit={e => { e.preventDefault(); if (neueStufe.trim()) ausfuehren(() => api.entgelt.stufeAnlegen({ bezeichnung: neueStufe.trim() })).then(() => setNeueStufe("")); }}>
+            <input value={neueStufe} onChange={e => setNeueStufe(e.target.value)} placeholder="z. B. Stufe 5" className={`${eingabe} flex-1`} />
+            <button type="submit" className="text-sm text-[rgb(var(--accent))] font-medium">Hinzufügen</button>
+          </form>
+        </div>
+      </div>
+
+      {fehler && <div className="px-6 py-3 bg-red-50 border-t border-red-100 text-red-700 text-sm">{fehler}</div>}
+    </div>
+  );
+}
+
 function ZeitmodelleVerwaltung() {
   const [zeitmodelle, setZeitmodelle] = useState<Zeitmodell[]>([]);
   const [laden, setLaden]             = useState(true);
@@ -1222,9 +1403,9 @@ function ZeitmodelleVerwaltung() {
         <p className="text-sm text-gray-500 mt-0.5">
           Bezeichnungen für Arbeitszeitmodelle (z.B. eigene Kürzel oder reale Stundenmodelle wie „38h") – werden in
           der Gehaltstabelle (Tab „Zeitmodell") zur Auswahl angeboten. Inaktive Zeitmodelle bleiben in bestehender
-          Historie sichtbar, stehen aber bei neuen Einträgen nicht mehr zur Wahl. Das mit Stern markierte Standard-
-          Zeitmodell wird nur vorausgewählt, wenn ein Mitarbeiter noch keine eigene Zeitmodell-Historie hat – hat
-          er schon ein aktuelles Zeitmodell, wird das als Vorschlag übernommen (deckt Ausnahmen automatisch ab).
+          Historie sichtbar, stehen aber bei neuen Einträgen nicht mehr zur Wahl. Vorausgewählt wird bei einem neuen
+          Zeitraum das „Zeitmodell laut Vertrag" aus den Stammdaten des Mitarbeiters, sonst sein aktuelles
+          unbefristetes Zeitmodell, sonst das mit Stern markierte Standard-Zeitmodell.
         </p>
       </div>
       {laden ? (
@@ -1372,6 +1553,7 @@ function SystemTab() {
     <div className="space-y-4">
       {meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && <MailAbsenderEinstellung />}
       {meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && <ZeitmodelleVerwaltung />}
+      {meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && <EntgeltVerwaltung />}
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100">

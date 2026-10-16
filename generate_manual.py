@@ -1322,10 +1322,30 @@ def build():
         "Liste wird nach Abteilung, Mitarbeiter, Zeitraum und Beschäftigungsart gefiltert; „Neuer Eintrag“ "
         "erfasst eine Gehaltsstufe mit „gültig ab“. Das Personen-Symbol neben einem Namen öffnet dessen Stammdaten."
     )
+    pdf.h3("Gruppen und Stufen")
+    pdf.body(
+        "Welche Entgeltgruppen und Stufen es gibt, legen Vorsitz und Stellvertretung unter Einstellungen → "
+        "System fest – passend zum eigenen Betrieb, z. B. eine eigene Gehaltstabelle mit Gruppe 1–6 und "
+        "Stufe 1–4 oder ein Tarifvertrag mit EG 1–17 und drei Stufen. Angezeigt wird dann „Gruppe 4 Stufe 1“ "
+        "bzw. „EG 7 Stufe 3“. Ohne eigene Einstellung gilt Gruppe 1–6 mit Stufe 1–4."
+    )
+    pdf.bullets([
+        "Vorlagen – fertige Systeme per Klick: eigene Gehaltstabelle (Gruppe 1–6, Stufe 1–4), EG 1–17 mit 3 Stufen, TVöD (E 1–E 15, Stufe 1–6). Nur möglich, solange noch keine Eingruppierung eingetragen ist",
+        "Anpassen – Gruppen und Stufen umbenennen, ergänzen (z. B. „E 9a“), sortieren und deaktivieren. Umbenennen wirkt auf alle bestehenden Einträge; benutzte Gruppen und Stufen lassen sich nur deaktivieren, nicht löschen",
+        "Stufen je Gruppe – gibt es in einer Gruppe nicht alle Stufen (TVöD: E 1 beginnt mit Stufe 2), werden die vorhandenen an der Gruppe angekreuzt; die Auswahl bietet dann nur diese an",
+        "AT – Außertarifliche Gehälter laufen unabhängig davon mit Eurobetrag",
+    ])
+    pdf.body(
+        "Tarifliche Geldbeträge je Gruppe und Stufe hinterlegt BR-DMS (noch) nicht – es geht um die "
+        "Eingruppierung selbst. Die Vorlagen sind nach bestem Wissen zusammengestellt; Gruppen und Stufen "
+        "bitte mit dem eigenen Tarifvertrag abgleichen."
+    )
     pdf.h3("CSV-Import")
     pdf.body(
         "„Vorlage (CSV)“ lädt eine leere Datei mit den richtigen Spalten herunter: PNR, Nachname, Vorname, "
-        "Abteilung, Eintritt, Austritt, Gehaltsstufe, Gültig ab, Bemerkung. Ausgefüllt wird sie über "
+        "Abteilung, Eintritt, Austritt, Gehaltsstufe, Gültig ab, Bemerkung. Die Gehaltsstufe steht als "
+        "„Zeitmodell:Gruppe.Stufe“ in der Spalte, z. B. „B:4.1“, „B:Gruppe 4.1“ oder „38h:EG 7.3“, ein "
+        "AT-Gehalt als „AT:4200“. Ausgefüllt wird sie über "
         "„Import (CSV)“ eingelesen; eine Vorschau zeigt neue Mitarbeiter, neue Abteilungen und alle Einträge, "
         "bevor gespeichert wird. Einen Export der Gehaltsdaten gibt es bewusst nicht."
     )
@@ -1635,6 +1655,8 @@ def build():
     pdf.bild("einstellungen-system", "E-Mail-Absender und Watch-Folder", hoehe_anteil=0.6)
     pdf.bullets([
         "E-Mail-Absender – Name und Adresse für alle Mails (ohne Eintrag gilt SMTP_FROM) und die Signatur unter Einladungen. Ein Hinweis erscheint, solange kein Mailserver eingerichtet ist",
+        "Zeitmodelle – Bezeichnungen, Wochenstunden und Standard der Arbeitszeitmodelle (Kapitel 7.3)",
+        "Eingruppierung – Entgeltgruppen und Stufen, Vorlagen für Tarifverträge (Kapitel 7.2)",
         "Watch-Folder – Ob die Ordnerüberwachung läuft, der Basispfad, welcher Unterordner zu welcher Kategorie gehört (Kapitel 12.6) und die letzten Importe mit Fehlermeldung",
         "Backup & Restore – Anzahl, Alter, Größe und Vollständigkeit der Backups; dazu die Hinweise zum Schlüssel und zur Wiederherstellung (Kapitel 13.2)",
         "Sicherheit – Automatisches Abmelden nach 0 bis 480 Minuten Inaktivität (0 = aus)",

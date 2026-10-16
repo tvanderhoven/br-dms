@@ -367,6 +367,23 @@ export const api = {
       request<Zeitmodell>(`/api/zeitmodelle/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   },
 
+  // Entgeltsystem der Eingruppierung (Backend: routes/entgelt.ts)
+  entgelt: {
+    liste: () => request<EntgeltsystemAntwort>("/api/entgelt"),
+    gruppeAnlegen: (data: { bezeichnung: string; stufen?: number[] }) =>
+      request<Entgeltgruppe>("/api/entgelt/gruppen", { method: "POST", body: JSON.stringify(data) }),
+    gruppeAendern: (id: string, data: Partial<{ bezeichnung: string; sortierung: number; aktiv: boolean; stufen: number[] }>) =>
+      request<Entgeltgruppe>(`/api/entgelt/gruppen/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    gruppeLoeschen: (id: string) => request<{ ok: boolean }>(`/api/entgelt/gruppen/${id}`, { method: "DELETE" }),
+    stufeAnlegen: (data: { bezeichnung: string }) =>
+      request<Entgeltstufe>("/api/entgelt/stufen", { method: "POST", body: JSON.stringify(data) }),
+    stufeAendern: (id: string, data: Partial<{ bezeichnung: string; sortierung: number; aktiv: boolean }>) =>
+      request<Entgeltstufe>(`/api/entgelt/stufen/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    stufeLoeschen: (id: string) => request<{ ok: boolean }>(`/api/entgelt/stufen/${id}`, { method: "DELETE" }),
+    vorlageUebernehmen: (schluessel: string) =>
+      request<{ gruppen: Entgeltgruppe[]; stufen: Entgeltstufe[] }>("/api/entgelt/vorlage", { method: "POST", body: JSON.stringify({ schluessel }) }),
+  },
+
   zeitmodell: {
     liste: (params: { mitarbeiterId?: string; abteilungId?: string } = {}) => {
       const q = new URLSearchParams();
@@ -1702,6 +1719,21 @@ export interface GehaltsstufenEintragErstellen {
 
 // Stammdaten-Zeile (siehe api.zeitmodelle) – pro Installation frei konfigurierbar,
 // statt eines festen Satzes von Buchstaben.
+/** Entgeltgruppe der Eingruppierung – "nummer" ist der Schlüssel in GehaltsstufenEintrag.gruppe */
+export interface Entgeltgruppe {
+  id: string; nummer: number; bezeichnung: string; sortierung: number; aktiv: boolean;
+  stufen: number[];   // erlaubte Stufen-Nummern, leer = alle
+}
+export interface Entgeltstufe {
+  id: string; nummer: number; bezeichnung: string; sortierung: number; aktiv: boolean;
+}
+export interface EntgeltsystemAntwort {
+  gruppen: Entgeltgruppe[];
+  stufen: Entgeltstufe[];
+  belegt: { gruppen: number[]; stufen: number[] };   // von Eingruppierungen benutzt – nicht löschbar
+  vorlagen: { schluessel: string; name: string; beschreibung: string; hinweis: string | null }[];
+}
+
 export interface Zeitmodell {
   id: string;
   bezeichnung: string;

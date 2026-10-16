@@ -26,6 +26,7 @@ import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { decodeCsvBuffer, parseCsv, parseImportDatum } from "../lib/csv.js";
 import { parseGehaltsstufe, zeitmodellPeriodeAnlegen } from "../lib/zeitmodell.js";
+import { eingruppierungAufloesen, eingruppierungPruefen, ladeEntgeltsystem } from "../lib/entgelt.js";
 
 // ── CSV-Import: Typen ───────────────────────────────────────────────
 interface ImportFehler         { zeile: number; grund: string; }
@@ -120,6 +121,9 @@ async function verarbeiteImport(
     mitarbeiterProName.set(`${m.nachname.toLowerCase()}|${m.vorname.toLowerCase()}`, m);
   });
 
+  // Entgeltgruppen/-stufen der Installation (Einstellungen → System)
+  const entgelt = await ladeEntgeltsystem(client);
+
   const vorhandeneEintragsSchluessel = new Set(
     (await client.gehaltsstufenEintrag.findMany({ select: { mitarbeiterId: true, gruppe: true, stufe: true, gueltigAb: true } }))
       .map(e => `${e.mitarbeiterId}|${e.gruppe}.${e.stufe}|${e.gueltigAb.getTime()}`)
@@ -163,13 +167,22 @@ async function verarbeiteImport(
     if (!geparsteStufe) {
       zusammenfassung.fehler.push({
         zeile: zeileNr,
-        grund: `Gehaltsstufe "${gehaltsstufeRoh}" passt weder ins Format "Zeitmodell:Gruppe.Stufe" (z.B. B:3.2) noch ins AT-Format "AT:Betrag" (z.B. AT:4200)`,
+        grund: `Gehaltsstufe "${gehaltsstufeRoh}" passt weder ins Format "Zeitmodell:Gruppe.Stufe" (z.B. B:3.2 oder B:EG 7.3) noch ins AT-Format "AT:Betrag" (z.B. AT:4200)`,
       });
       continue;
     }
 
     let zeitmodellId: string | null = null;
+    let eingruppierung: { gruppe: number; stufe: number } | null = null;
     if (geparsteStufe.art === "eingruppierung") {
+      eingruppierung = eingruppierungAufloesen(entgelt, geparsteStufe.gruppeTeil, geparsteStufe.stufeTeil);
+      const ungueltig = eingruppierung
+        ? eingruppierungPruefen(entgelt, eingruppierung.gruppe, eingruppierung.stufe)
+        : `Gruppe "${geparsteStufe.gruppeTeil}" bzw. Stufe "${geparsteStufe.stufeTeil}" ist in den Einstellungen nicht angelegt`;
+      if (ungueltig) {
+        zusammenfassung.fehler.push({ zeile: zeileNr, grund: ungueltig });
+        continue;
+      }
       zeitmodellId = zeitmodellIdProLabel.get(geparsteStufe.zeitmodellLabel.toLowerCase()) ?? null;
       if (!zeitmodellId) {
         zusammenfassung.fehler.push({
@@ -309,7 +322,7 @@ async function verarbeiteImport(
     // ── Gehaltsstufen-Eintrag (Eingruppierung ODER AT) anlegen (Duplikate überspringen) ──
     const wertSchluessel = geparsteStufe.art === "at"
       ? `AT:${geparsteStufe.gehalt}`
-      : `${geparsteStufe.gruppe}.${geparsteStufe.stufe}`;
+      : `${eingruppierung!.gruppe}.${eingruppierung!.stufe}`;
     const eintragsSchluessel = `${mitarbeiter.id}|${wertSchluessel}|${gueltigAb.getTime()}`;
     if (vorhandeneEintragsSchluessel.has(eintragsSchluessel)) {
       zusammenfassung.uebersprungen.push({ zeile: zeileNr, grund: "Identischer Eintrag (Mitarbeiter, Gehaltsstufe, Gültig ab) existiert bereits" });
@@ -321,7 +334,7 @@ async function verarbeiteImport(
       await client.gehaltsstufenEintrag.create({
         data: geparsteStufe.art === "at"
           ? { mitarbeiterId: mitarbeiter.id, gehaltAt: geparsteStufe.gehalt, gueltigAb, bemerkung }
-          : { mitarbeiterId: mitarbeiter.id, gruppe: geparsteStufe.gruppe, stufe: geparsteStufe.stufe, gueltigAb, bemerkung },
+          : { mitarbeiterId: mitarbeiter.id, gruppe: eingruppierung!.gruppe, stufe: eingruppierung!.stufe, gueltigAb, bemerkung },
       });
 
       // Zeitmodell separat fortschreiben (eigene Historie, eigener Zeitraum) –
@@ -381,12 +394,7 @@ interface EintragUpdate {
   bemerkung?:  string | null;
 }
 
-function gueltigeGruppe(gruppe: unknown): gruppe is number {
-  return typeof gruppe === "number" && Number.isInteger(gruppe) && gruppe >= 1 && gruppe <= 6;
-}
-function gueltigeStufe(stufe: unknown): stufe is number {
-  return typeof stufe === "number" && Number.isInteger(stufe) && stufe >= 1 && stufe <= 4;
-}
+
 function gueltigerGehaltAt(gehalt: unknown): gehalt is number {
   return typeof gehalt === "number" && Number.isFinite(gehalt) && gehalt > 0;
 }
@@ -495,8 +503,8 @@ export async function gehaltstabelleRouten(app: FastifyInstance): Promise<void> 
       if (gehaltAt !== undefined) {
         if (!gueltigerGehaltAt(gehaltAt)) return reply.status(400).send({ fehler: "gehaltAt muss eine positive Zahl sein" });
       } else {
-        if (!gueltigeGruppe(gruppe)) return reply.status(400).send({ fehler: "gruppe muss zwischen 1 und 6 liegen" });
-        if (!gueltigeStufe(stufe))   return reply.status(400).send({ fehler: "stufe muss zwischen 1 und 4 liegen" });
+        const ungueltig = eingruppierungPruefen(await ladeEntgeltsystem(), gruppe, stufe);
+        if (ungueltig) return reply.status(400).send({ fehler: ungueltig });
       }
 
       const mitarbeiter = await prisma.mitarbeiter.findUnique({ where: { id: mitarbeiterId } });
@@ -535,15 +543,17 @@ export async function gehaltstabelleRouten(app: FastifyInstance): Promise<void> 
       if (gehaltAt !== undefined && !gueltigerGehaltAt(gehaltAt)) {
         return reply.status(400).send({ fehler: "gehaltAt muss eine positive Zahl sein" });
       }
-      if (gruppe !== undefined && !gueltigeGruppe(gruppe)) {
-        return reply.status(400).send({ fehler: "gruppe muss zwischen 1 und 6 liegen" });
-      }
-      if (stufe !== undefined && !gueltigeStufe(stufe)) {
-        return reply.status(400).send({ fehler: "stufe muss zwischen 1 und 4 liegen" });
-      }
-
       const vorhandener = await prisma.gehaltsstufenEintrag.findUnique({ where: { id } });
       if (!vorhandener) return reply.status(404).send({ fehler: "Eintrag nicht gefunden" });
+
+      if (gehaltAt === undefined && (gruppe !== undefined || stufe !== undefined)) {
+        const neueGruppe = gruppe ?? vorhandener.gruppe;
+        const neueStufe  = stufe ?? vorhandener.stufe;
+        // Unveränderte Werte bleiben gültig, auch wenn Gruppe/Stufe inzwischen deaktiviert ist
+        const geaendert = neueGruppe !== vorhandener.gruppe || neueStufe !== vorhandener.stufe;
+        const ungueltig = eingruppierungPruefen(await ladeEntgeltsystem(), neueGruppe, neueStufe, geaendert);
+        if (ungueltig) return reply.status(400).send({ fehler: ungueltig });
+      }
 
       // Gruppe/Stufe und gehaltAt schließen sich aus – wechselt das Formular
       // den Modus, wird die jeweils andere Seite mit geleert (nie beides gesetzt).
