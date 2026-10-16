@@ -4,6 +4,8 @@
 #
 # Die mit * markierten Ordner werden auf dem Host vorher ersetzt (nicht nur
 # überschrieben), damit gelöschte oder umbenannte Dateien dort nicht liegen bleiben.
+# Mit - markierte Einträge gibt es nicht mehr: sie werden auf dem Host gelöscht
+# (z. B. alte Konfigurationsdateien, die der Build sonst noch einlesen würde).
 
 backend/src *
 backend/prisma *
@@ -20,8 +22,9 @@ frontend/index.html
 frontend/nginx.conf
 frontend/package.json
 frontend/package-lock.json
-frontend/postcss.config.js
-frontend/tailwind.config.js
+frontend/public *
+frontend/postcss.config.js -
+frontend/tailwind.config.js -
 frontend/tsconfig.json
 frontend/vite.config.ts
 
