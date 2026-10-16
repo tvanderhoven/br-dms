@@ -16,14 +16,15 @@
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { SchulungsStatus, Prisma } from "@prisma/client";
+import { SchulungsStatus, Prisma, Role } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
+import { erfordert } from "../middleware/rbac.js";
 
 // ── Qualifikationen (Katalog) ───────────────────────────────────────
 export async function qualifikationenRouten(app: FastifyInstance): Promise<void> {
 
-  app.get("/", { preHandler: [authenticate] },
+  app.get("/", { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (_request: FastifyRequest, reply: FastifyReply) => {
       const qualifikationen = await prisma.qualifikation.findMany({ orderBy: { name: "asc" } });
       return reply.send(qualifikationen);
@@ -32,7 +33,7 @@ export async function qualifikationenRouten(app: FastifyInstance): Promise<void>
 
   app.post<{ Body: { name: string; beschreibung?: string; gueltigkeitsdauerMonate?: number | null } }>(
     "/",
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request, reply) => {
       const { name, beschreibung, gueltigkeitsdauerMonate } = request.body;
       if (!name?.trim()) return reply.status(400).send({ fehler: "name ist ein Pflichtfeld" });
@@ -110,7 +111,7 @@ export async function schulungenRouten(app: FastifyInstance): Promise<void> {
   // ── GET /matrix – abgeleitete Qualifikationsmatrix ────────────────
   // Muss vor "/:id"-artigen Routen registriert werden (find-my-way bevorzugt zwar
   // statische Routen automatisch, aber so bleibt's auch beim Lesen eindeutig).
-  app.get("/matrix", { preHandler: [authenticate] },
+  app.get("/matrix", { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (_request: FastifyRequest, reply: FastifyReply) => {
       const [mitarbeiterListe, qualifikationen, teilnahmen] = await Promise.all([
         prisma.mitarbeiter.findMany({ orderBy: [{ nachname: "asc" }, { vorname: "asc" }] }),
@@ -160,7 +161,7 @@ export async function schulungenRouten(app: FastifyInstance): Promise<void> {
   // ── GET / – Schulungstermine auflisten ────────────────────────────
   app.get<{ Querystring: ListenFilter }>(
     "/",
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request: FastifyRequest<{ Querystring: ListenFilter }>, reply: FastifyReply) => {
       const termine = await prisma.schulungstermin.findMany({
         where:   baueWhere(request.query),
@@ -174,7 +175,7 @@ export async function schulungenRouten(app: FastifyInstance): Promise<void> {
   // ── POST / – neuen Termin anlegen ─────────────────────────────────
   app.post<{ Body: NeuerTermin }>(
     "/",
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request: FastifyRequest<{ Body: NeuerTermin }>, reply: FastifyReply) => {
       const { qualifikationId, titel, datum, ort, anbieter, kosten, status, bemerkung, teilnehmerIds } = request.body;
 
@@ -209,7 +210,7 @@ export async function schulungenRouten(app: FastifyInstance): Promise<void> {
   // ── PUT /:id – Termin bearbeiten ──────────────────────────────────
   app.put<{ Params: { id: string }; Body: TerminUpdate }>(
     "/:id",
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request: FastifyRequest<{ Params: { id: string }; Body: TerminUpdate }>, reply: FastifyReply) => {
       const { id } = request.params;
       const { qualifikationId, titel, datum, ort, anbieter, kosten, status, bemerkung } = request.body;
@@ -244,7 +245,7 @@ export async function schulungenRouten(app: FastifyInstance): Promise<void> {
   // ── DELETE /:id – Termin löschen ──────────────────────────────────
   app.delete<{ Params: { id: string } }>(
     "/:id",
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
       const { id } = request.params;
       const vorhandener = await prisma.schulungstermin.findUnique({ where: { id } });
@@ -258,7 +259,7 @@ export async function schulungenRouten(app: FastifyInstance): Promise<void> {
   // ── POST /:id/teilnehmer – Teilnehmer hinzufügen ──────────────────
   app.post<{ Params: { id: string }; Body: { mitarbeiterId: string; teilgenommen?: boolean } }>(
     "/:id/teilnehmer",
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request, reply) => {
       const { id } = request.params;
       const { mitarbeiterId, teilgenommen } = request.body;
@@ -288,7 +289,7 @@ export async function schulungenRouten(app: FastifyInstance): Promise<void> {
   // ── PATCH /:id/teilnehmer/:mitarbeiterId – Teilnahme-Status ändern ─
   app.patch<{ Params: { id: string; mitarbeiterId: string }; Body: { teilgenommen: boolean } }>(
     "/:id/teilnehmer/:mitarbeiterId",
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request, reply) => {
       const { id, mitarbeiterId } = request.params;
       const { teilgenommen } = request.body;
@@ -311,7 +312,7 @@ export async function schulungenRouten(app: FastifyInstance): Promise<void> {
   // ── DELETE /:id/teilnehmer/:mitarbeiterId – Teilnehmer entfernen ──
   app.delete<{ Params: { id: string; mitarbeiterId: string } }>(
     "/:id/teilnehmer/:mitarbeiterId",
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request, reply) => {
       const { id, mitarbeiterId } = request.params;
 
