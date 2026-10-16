@@ -35,8 +35,9 @@ const db: Record<string, Eintrag[]> = {
   themen: klon(F.DEMO_THEMEN),
   nachrichten: klon(F.DEMO_NACHRICHTEN),
   nachrichtenGesendet: [],
-  kummerkasten: [],
-  gremien: [],
+  kummerkasten: klon(F.DEMO_KUMMERKASTEN),
+  gremien: klon(F.DEMO_GREMIEN),
+  kosten: klon(F.DEMO_KOSTEN),
   qualifikationen: klon(P.DEMO_QUALIFIKATIONEN),
   schulungen: klon(P.DEMO_SCHULUNGEN),
   mitarbeiter: klon(P.DEMO_MITARBEITER),
@@ -47,7 +48,7 @@ const db: Record<string, Eintrag[]> = {
   ueberstunden: klon(P.DEMO_UEBERSTUNDEN),
   wahlen: [],
   abwesenheiten: klon(F.DEMO_ABWESENHEITEN),
-  fremdprotokolle: [],
+  fremdprotokolle: klon(F.DEMO_FREMDPROTOKOLLE),
   ordner: [],
 };
 
@@ -187,6 +188,102 @@ function verfuegbarkeit(s: Eintrag) {
     offeneAenderungen: offen,
     prognose: { sollStaerke: soll, mindestens: Math.ceil(soll / 2), ohneNeuenErsatz: ohne, mitErsatz: mit, beschlussfaehig: mit >= Math.ceil(soll / 2) },
   };
+}
+
+// ── Gremien: Mitglieder je Gremium, Zähler wie im Backend (_count) ──────
+const gremiumMitglieder: Record<string, string[]> = klon(F.DEMO_GREMIUM_MITGLIEDER);
+
+function gremiumAnfrage(method: string, id: string | undefined, sub: string | undefined, subId: string | undefined, q: URLSearchParams, body: Eintrag): Response {
+  const mitZaehler = (g: Eintrag) => ({ ...g, _count: { sitzungen: 0, fremdprotokolle: db.fremdprotokolle.filter(p => p.gremiumId === g.id).length } });
+  if (id && sub === "mitglieder") {
+    const ids = (gremiumMitglieder[id] ??= []);
+    if (method === "POST" && body.benutzerId && !ids.includes(body.benutzerId)) ids.push(body.benutzerId);
+    if (method === "DELETE" && subId) gremiumMitglieder[id] = ids.filter(b => b !== subId);
+    if (method !== "GET") return json({ ok: true });
+    return json(db.benutzer.filter(b => ids.includes(b.id)).map(b => ({ id: b.id, name: b.name, rolle: b.rolle })));
+  }
+  if (!id && method === "GET") {
+    const aktiv = q.get("aktiv");
+    return json(db.gremien.filter(g => aktiv === null || String(g.aktiv) === aktiv).map(mitZaehler));
+  }
+  const antwort = genericCrud(db.gremien, method, id, body, "demo-gr");
+  return antwort;
+}
+
+function fremdprotokollAnfrage(method: string, id: string | undefined, sub: string | undefined, q: URLSearchParams, body: Eintrag): Response {
+  if (id && sub === "download") return text("Demo-Modus: Dies ist keine echte Datei, sondern nur ein Platzhalter.");
+  if (!id && method === "GET") {
+    const gremiumId = q.get("gremiumId");
+    return json(db.fremdprotokolle.filter(p => !gremiumId || p.gremiumId === gremiumId).sort((a, b) => b.datum.localeCompare(a.datum)));
+  }
+  if (!id && method === "POST") {
+    const g = db.gremien.find(x => x.id === body.gremiumId);
+    const neu = {
+      id: zufallsId("demo-fp"), gremiumId: body.gremiumId, gremium: g ? { id: g.id, name: g.name } : null,
+      datum: body.datum ? new Date(body.datum).toISOString() : jetzt(), titel: body.titel || "Protokoll (Demo)",
+      bemerkung: body.bemerkung || null, vertraulich: body.vertraulich === "true" || body.vertraulich === true,
+      dateiname: body.dateiname ?? "protokoll.pdf", dateigroesse: 120_000, mimeTyp: "application/pdf",
+      erstelltAm: jetzt(), aktualisiertAm: jetzt(),
+    };
+    db.fremdprotokolle.push(neu);
+    return json(neu);
+  }
+  return genericCrud(db.fremdprotokolle, method, id, body, "demo-fp");
+}
+
+// ── Kosten (§ 40): Jahresübersicht mit Summen wie im Backend ─────────────
+const KOSTEN_ARTEN = ["SCHULUNG", "SACHVERSTAENDIGER", "RECHTSANWALT", "EINIGUNGSSTELLE", "SACHMITTEL", "REISEKOSTEN", "SONSTIGES"];
+const KOSTEN_STATI = ["BEANTRAGT", "ZUGESAGT", "BEZAHLT", "ABGELEHNT"];
+let brSchulungen: Eintrag[] = [
+  { id: "demo-q-br1", name: "BetrVG Teil 1 – Grundlagen", brSchulung: true },
+  { id: "demo-q-br2", name: "BetrVG Teil 2 – Mitbestimmung", brSchulung: true },
+  ...P.DEMO_QUALIFIKATIONEN.map(q => ({ id: q.id, name: q.name, brSchulung: false })),
+];
+
+function kostenAnfrage(method: string, id: string | undefined, q: URLSearchParams, body: Eintrag): Response {
+  const jahrVon = (p: Eintrag) => new Date(p.datum).getFullYear();
+  const jahr = Number(q.get("jahr")) || new Date().getFullYear();
+  if (id === "br-schulungen" && method === "PATCH") {
+    const ids: string[] = body.qualifikationIds ?? [];
+    brSchulungen = brSchulungen.map(s => ({ ...s, brSchulung: ids.includes(s.id) }));
+    return json({ ok: true });
+  }
+  if (id === "export.csv") {
+    const zeilen = db.kosten.filter(p => jahrVon(p) === jahr).map(p =>
+      [p.datum.slice(0, 10), p.art, p.bezeichnung, p.empfaenger ?? "", (p.betragCent / 100).toFixed(2).replace(".", ","), p.status].join(";"));
+    return text(["Datum;Art;Bezeichnung;Empfänger;Betrag (EUR);Status", ...zeilen].join("\n"));
+  }
+  if (id === "export.pdf") return text("Demo-Modus: Der PDF-Export ist in der Online-Demo nicht verfügbar.");
+  if (!id && method === "GET") {
+    const posten = db.kosten.filter(p => jahrVon(p) === jahr).sort((a, b) => b.datum.localeCompare(a.datum));
+    const summe = (f: (p: Eintrag) => boolean) => posten.filter(f).reduce((s, p) => s + p.betragCent, 0);
+    return json({
+      jahr,
+      jahre: [...new Set([new Date().getFullYear(), ...db.kosten.map(jahrVon)])].sort((a, b) => b - a),
+      posten,
+      summen: {
+        gesamt: summe(p => p.status !== "ABGELEHNT"),
+        nachArt: Object.fromEntries(KOSTEN_ARTEN.map(a => [a, summe(p => p.art === a && p.status !== "ABGELEHNT")])),
+        nachStatus: Object.fromEntries(KOSTEN_STATI.map(st => [st, summe(p => p.status === st)])),
+      },
+      brSchulungen,
+    });
+  }
+  if (method === "POST" || method === "PUT") {
+    const b = F.DEMO_BESCHLUESSE.find(x => x.id === body.beschlussId);
+    const beschluss = b ? { id: b.id, antragstext: b.antragstext, topNummer: b.top.nummer, sitzungTitel: b.top.sitzung.titel, sitzungsdatum: b.top.sitzung.sitzungsdatum } : null;
+    const felder: Eintrag = { ...body, datum: body.datum ? new Date(body.datum).toISOString() : jetzt(), beschluss, dokument: null };
+    delete felder.beschlussId; delete felder.dokumentId;
+    if (method === "POST") {
+      const neu = { id: zufallsId("demo-ko"), ausSchulung: false, schulungsterminId: null, ...felder };
+      db.kosten.push(neu);
+      return json(neu);
+    }
+    const p = db.kosten.find(x => x.id === id);
+    if (p) Object.assign(p, felder);
+    return json(p ?? { ok: true });
+  }
+  return genericCrud(db.kosten, method, id, body, "demo-ko");
 }
 
 function abwesenheitAnfrage(method: string, id: string | undefined, searchParams: URLSearchParams, body: Eintrag): Response {
@@ -544,7 +641,7 @@ export function handleDemoRequest(method: string, pathname: string, searchParams
   if (pathname === "/api/einstellungen/module") {
     return json({
       personalverwaltung: true, betriebsvereinbarungen: true, wissensarchiv: true,
-      ressourcen: true, themensammlung: true, gremien: false, kosten: false,
+      ressourcen: true, themensammlung: true, gremien: true, kosten: true,
     });
   }
   if (pathname === "/api/einstellungen/sicherheit") return json({ inaktivitaetMinuten: 0 });
@@ -571,6 +668,10 @@ export function handleDemoRequest(method: string, pathname: string, searchParams
     const antwort = personalAnfrage(method, resource, id, sub, subId, searchParams, body);
     if (antwort) return antwort;
   }
+
+  if (resource === "gremien") return gremiumAnfrage(method, id, sub, subId, searchParams, body);
+  if (resource === "fremdprotokolle") return fremdprotokollAnfrage(method, id, sub, searchParams, body);
+  if (resource === "kosten") return kostenAnfrage(method, id, searchParams, body);
 
   if (resource === "abwesenheiten") return abwesenheitAnfrage(method, id, searchParams, body);
 

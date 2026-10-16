@@ -19,7 +19,11 @@ export function installDemoMode(): void {
     }
 
     const method = (init && init.method ? init.method : "GET").toUpperCase();
-    const bodyText = init && typeof init.body === "string" ? init.body : undefined;
+    // Uploads (FormData) als einfaches Objekt weiterreichen – Dateien nur mit ihrem Namen
+    const bodyText = init && typeof init.body === "string" ? init.body
+      : init?.body instanceof FormData
+        ? JSON.stringify(Object.fromEntries([...init.body.entries()].map(([k, v]) => [typeof v === "string" ? k : "dateiname", typeof v === "string" ? v : v.name])))
+        : undefined;
 
     await new Promise(resolve => setTimeout(resolve, KUNSTLICHE_LATENZ_MS + Math.random() * 150));
     return handleDemoRequest(method, url.pathname, url.searchParams, bodyText);

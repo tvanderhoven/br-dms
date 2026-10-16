@@ -178,7 +178,7 @@ export default function Ressourcen() {
 
       {/* Zähler */}
       <p className="text-xs text-gray-500 mb-3">
-        {laden ? "Lade…" : `${gefiltert.length} Eintrag${gefiltert.length !== 1 ? "ige" : ""} gefunden`}
+        {laden ? "Lade…" : `${gefiltert.length} ${gefiltert.length !== 1 ? "Einträge" : "Eintrag"} gefunden`}
       </p>
 
       {/* Liste */}
