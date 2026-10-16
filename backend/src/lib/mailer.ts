@@ -1,4 +1,4 @@
-import { FRIST_TYP_LABEL } from "./fristen.js";
+import { FRIST_TYP_LABEL, FRIST_TYP_FOLGE_HINWEIS } from "./fristen.js";
 import nodemailer from "nodemailer";
 import prisma from "./prisma.js";
 
@@ -218,12 +218,15 @@ export async function sendeFristenZusammenfassung(
 
   const zeilen = fristen.map(f => {
     const farbe = f.tageVerbleibend <= 3 ? "#dc2626" : "#d97706";
+    const hinweis = FRIST_TYP_FOLGE_HINWEIS[f.typ];
     return `<tr>
       <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">${f.titel}</td>
       <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">${FRIST_TYP_LABEL[f.typ] ?? f.typ}</td>
       <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:${farbe};font-weight:bold">${f.tageVerbleibend} Tag(e)</td>
       <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">${new Date(f.faelligAm).toLocaleDateString("de-DE")}</td>
-    </tr>`;
+    </tr>${hinweis ? `<tr>
+      <td colspan="4" style="padding:2px 12px 8px;border-bottom:1px solid #e5e7eb;color:#991b1b;font-size:12px">⚠ ${hinweis}</td>
+    </tr>` : ""}`;
   }).join("");
 
   await transporter.sendMail({
@@ -232,6 +235,7 @@ export async function sendeFristenZusammenfassung(
     subject: `BR-DMS – ${fristen.length} Frist(en) laufen in 7 Tagen ab`,
     text:    fristen.map(f =>
       `${f.titel} – ${FRIST_TYP_LABEL[f.typ] ?? f.typ} – fällig in ${f.tageVerbleibend} Tag(en) (${new Date(f.faelligAm).toLocaleDateString("de-DE")})`
+      + (FRIST_TYP_FOLGE_HINWEIS[f.typ] ? `\n  ⚠ ${FRIST_TYP_FOLGE_HINWEIS[f.typ]}` : "")
     ).join("\n"),
     html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
       <div style="background:#1e3a8a;color:white;padding:16px 20px;border-radius:8px 8px 0 0">

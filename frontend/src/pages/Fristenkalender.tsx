@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { CalendarRange, ChevronLeft, ChevronRight, AlertTriangle, Clock, CheckCircle2, Trash2, Plus, X, Loader2, RotateCcw, FileText, Pencil } from "lucide-react";
-import { api, FristMitDokument, KATEGORIE_LABEL, FRIST_TYP_LABEL, fristTitel, formatDatum } from "../lib/api";
+import { api, FristMitDokument, KATEGORIE_LABEL, FRIST_TYP_LABEL, FRIST_TYP_FOLGE_HINWEIS, fristTitel, formatDatum } from "../lib/api";
 
 const istUeberfaellig = (f: FristMitDokument) =>
   f.status === "OFFEN" && new Date(f.faelligAm).getTime() < new Date().setHours(0, 0, 0, 0);
@@ -294,6 +294,12 @@ export default function Fristenkalender() {
                     {f.verschoben && f.verschoben.length > 0 && (
                       <p className="text-xs text-gray-500 mt-0.5">
                         verschoben wegen {f.verschoben.map(v => v.grund).join(", ")} (§ 193 BGB)
+                      </p>
+                    )}
+                    {f.status === "OFFEN" && FRIST_TYP_FOLGE_HINWEIS[f.typ] && (
+                      <p className={`flex items-start gap-1 text-xs mt-0.5 ${istUeberfaellig(f) ? "text-red-700 font-medium" : "text-gray-400"}`}>
+                        <AlertTriangle size={11} className="shrink-0 mt-0.5" />
+                        {istUeberfaellig(f) ? `Frist verstrichen – ${FRIST_TYP_FOLGE_HINWEIS[f.typ]}` : FRIST_TYP_FOLGE_HINWEIS[f.typ]}
                       </p>
                     )}
                     {f.status === "ERLEDIGT" && f.erledigtVon && (

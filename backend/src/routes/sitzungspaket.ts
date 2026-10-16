@@ -16,6 +16,7 @@ import { authenticate } from "../middleware/auth.js";
 import { decryptFile } from "../lib/encryption.js";
 import { STORAGE_SITZUNG_SCANS as STORAGE, MASTER_KEY } from "../lib/sitzungScan.js";
 import { istBetriebsversammlung } from "../lib/sitzungstypen.js";
+import { versandnachweisPdfGenerieren } from "../services/pdf.service.js";
 
 const ROLLE_LABEL: Record<string, string> = {
   VORSITZ: "Vorsitz", STELLVERTRETER: "Stellv. Vorsitz", MITGLIED: "Mitglied",
@@ -49,7 +50,7 @@ export async function sitzungspaketRouten(app: FastifyInstance): Promise<void> {
 
       const sitzung = await prisma.sitzung.findUnique({
         where:  { id },
-        select: { titel: true, sitzungstyp: true, status: true },
+        select: { titel: true, sitzungsdatum: true, sitzungstyp: true, status: true },
       });
       if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
 
@@ -73,6 +74,16 @@ export async function sitzungspaketRouten(app: FastifyInstance): Promise<void> {
       }
 
       if (versandnachweis.length > 0) {
+        const pdf = await versandnachweisPdfGenerieren(
+          { titel: sitzung.titel, sitzungsdatum: sitzung.sitzungsdatum },
+          versandnachweis.map(v => ({
+            name: v.name, adresse: v.adresse, rolle: ROLLE_LABEL[v.rolle] ?? v.rolle,
+            vertretungFuer: v.vertretungFuer, versendetAm: v.versendetAm,
+            erfolgreich: v.erfolgreich, fehler: v.fehler,
+          })),
+        ).catch(() => null);
+        if (pdf) zip.addFile("02_Versandnachweis.pdf", pdf);
+
         const zeilen = [
           ["Name", "Adresse", "Rolle", "Vertretung für", "Versendet am", "Erfolgreich", "Fehler"],
           ...versandnachweis.map(v => [
@@ -82,12 +93,12 @@ export async function sitzungspaketRouten(app: FastifyInstance): Promise<void> {
           ]),
         ];
         const csv = "\uFEFF" + zeilen.map(z => z.map(csvZelle).join(";")).join("\r\n");
-        zip.addFile("02_Versandnachweis.csv", Buffer.from(csv, "utf-8"));
+        zip.addFile("03_Versandnachweis.csv", Buffer.from(csv, "utf-8"));
       }
 
       if (protokoll?.pdfPfad) {
         const buffer = await fs.readFile(protokoll.pdfPfad).catch(() => null);
-        if (buffer) zip.addFile(istBV ? "03_Niederschrift.pdf" : "03_Protokoll.pdf", buffer);
+        if (buffer) zip.addFile(istBV ? "04_Niederschrift.pdf" : "04_Protokoll.pdf", buffer);
       }
 
       const alScan = scans.find(s => s.typ === SitzungScanTyp.ANWESENHEITSLISTE);
@@ -97,7 +108,7 @@ export async function sitzungspaketRouten(app: FastifyInstance): Promise<void> {
           masterKey:  MASTER_KEY,
           documentId: alScan.id,
         }).catch(() => null);
-        if (klartext) zip.addFile(`04_Anwesenheitsliste-Scan${erweiterungVon(alScan.dateiname, alScan.mimeTyp)}`, klartext);
+        if (klartext) zip.addFile(`05_Anwesenheitsliste-Scan${erweiterungVon(alScan.dateiname, alScan.mimeTyp)}`, klartext);
       }
 
       const protokollScan = scans.find(s => s.typ === SitzungScanTyp.PROTOKOLL_UNTERSCHRIFTEN);
@@ -107,7 +118,7 @@ export async function sitzungspaketRouten(app: FastifyInstance): Promise<void> {
           masterKey:  MASTER_KEY,
           documentId: protokollScan.id,
         }).catch(() => null);
-        if (klartext) zip.addFile(`05_Protokoll-Unterschriften-Scan${erweiterungVon(protokollScan.dateiname, protokollScan.mimeTyp)}`, klartext);
+        if (klartext) zip.addFile(`06_Protokoll-Unterschriften-Scan${erweiterungVon(protokollScan.dateiname, protokollScan.mimeTyp)}`, klartext);
       }
 
       await prisma.auditLog.create({

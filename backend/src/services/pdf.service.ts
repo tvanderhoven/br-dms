@@ -1649,3 +1649,104 @@ export async function kostenuebersichtPdfGenerieren(
     doc.end();
   });
 }
+
+// ── Versandnachweis der Einladung (§ 29 Abs. 2 BetrVG) ──────────────
+// Ergänzt die CSV im Sitzungspaket (routes/sitzungspaket.ts) um eine lesbare
+// PDF-Fassung mit demselben Inhalt.
+
+export interface VersandnachweisPdfZeile {
+  name:           string;
+  adresse:        string;
+  rolle:          string;           // bereits aufgelöstes Label, nicht der Enum-Wert
+  vertretungFuer: string | null;
+  versendetAm:    Date;
+  erfolgreich:    boolean;
+  fehler:         string | null;
+}
+
+export async function versandnachweisPdfGenerieren(
+  sitzung: { titel: string; sitzungsdatum: Date },
+  zeilen:  VersandnachweisPdfZeile[],
+): Promise<Buffer> {
+  const layout     = await layoutLaden();
+  const logoBuffer = layout.logo_pfad ? await fs.readFile(layout.logo_pfad).catch(() => null) : null;
+
+  return new Promise((resolve, reject) => {
+    const doc = neuesPdf({ size: "A4", margin: 60, bufferPages: true });
+    const chunks: Buffer[] = [];
+    doc.on("data",  c => chunks.push(c));
+    doc.on("error", reject);
+    doc.on("end",   () => resolve(Buffer.concat(chunks)));
+
+    const y0 = doc.y;
+    const textBreite = logoBuffer ? 350 : BREITE;
+    doc.fontSize(14).font("Helvetica-Bold").fillColor("#111827")
+       .text(`Versandnachweis – ${pdfText(sitzung.titel)}`, RAND_LINKS, y0, { width: textBreite });
+    doc.fontSize(9).font("Helvetica").fillColor(FARBE_GRAU)
+       .text(`§ 29 Abs. 2 BetrVG  ·  Sitzung am ${formatDatum(sitzung.sitzungsdatum)}`, RAND_LINKS, y0 + 18, { width: textBreite });
+    if (logoBuffer) doc.image(logoBuffer, 463, y0, { height: 38, fit: [72, 38] });
+    doc.y = y0 + 44;
+    doc.moveTo(RAND_LINKS, doc.y).lineTo(RAND_RECHTS, doc.y).strokeColor(layout.farbe).lineWidth(1.5).stroke();
+    doc.moveDown(0.8);
+
+    const erfolgreich = zeilen.filter(z => z.erfolgreich).length;
+    const fehlgeschlagen = zeilen.length - erfolgreich;
+    doc.fontSize(9).font("Helvetica").fillColor("#374151").text(
+      `${zeilen.length} Versand(e), davon ${erfolgreich} erfolgreich` +
+      (fehlgeschlagen > 0 ? `, ${fehlgeschlagen} fehlgeschlagen` : "") + ".",
+      RAND_LINKS, doc.y, { width: BREITE },
+    );
+    doc.moveDown(0.8);
+
+    const C_NAME = RAND_LINKS, C_ADRESSE = RAND_LINKS + 155, C_VERSAND = RAND_LINKS + 320, C_STATUS = RAND_LINKS + 410;
+    const kopf = () => {
+      const y = doc.y;
+      doc.fontSize(8).font("Helvetica-Bold").fillColor(FARBE_GRAU);
+      doc.text("Name / Rolle", C_NAME, y);
+      doc.text("Adresse", C_ADRESSE, y, { width: C_VERSAND - C_ADRESSE - 8 });
+      doc.text("Versendet am", C_VERSAND, y);
+      doc.text("Status", C_STATUS, y, { width: RAND_RECHTS - C_STATUS });
+      doc.y = y + 13;
+    };
+    kopf();
+    if (zeilen.length === 0) {
+      doc.fontSize(9).font("Helvetica").fillColor(FARBE_GRAU).text("Keine Einladungen versendet.", RAND_LINKS, doc.y);
+    }
+    for (const z of zeilen) {
+      if (doc.y > 700) { doc.addPage(); kopf(); }
+      const y = doc.y;
+
+      doc.fontSize(9).font("Helvetica-Bold").fillColor("#111827")
+         .text(pdfText(z.name), C_NAME, y, { width: C_ADRESSE - C_NAME - 8 });
+      doc.fontSize(7.5).font("Helvetica").fillColor(FARBE_GRAU)
+         .text(pdfText(z.vertretungFuer ? `als Ersatz für ${z.vertretungFuer}` : z.rolle), C_NAME, doc.y, { width: C_ADRESSE - C_NAME - 8 });
+      const nameUnten = doc.y;
+
+      doc.fontSize(9).font("Helvetica").fillColor("#111827")
+         .text(pdfText(z.adresse), C_ADRESSE, y, { width: C_VERSAND - C_ADRESSE - 8 });
+
+      doc.text(`${kurzDatum(z.versendetAm)} ${formatZeit(z.versendetAm)}`, C_VERSAND, y, { width: C_STATUS - C_VERSAND - 8 });
+
+      const statusFarbe = z.erfolgreich ? FARBE_ERFOLG : FARBE_FEHLER;
+      doc.font("Helvetica-Bold").fillColor(statusFarbe)
+         .text(z.erfolgreich ? "erfolgreich" : "fehlgeschlagen", C_STATUS, y, { width: RAND_RECHTS - C_STATUS });
+      if (!z.erfolgreich && z.fehler) {
+        doc.fontSize(7.5).font("Helvetica").fillColor(FARBE_FEHLER)
+           .text(pdfText(z.fehler), C_STATUS, doc.y, { width: RAND_RECHTS - C_STATUS });
+      }
+
+      doc.y = Math.max(nameUnten, doc.y, y + 13) + 4;
+      doc.moveTo(RAND_LINKS, doc.y - 2).lineTo(RAND_RECHTS, doc.y - 2).strokeColor(FARBE_HELL).lineWidth(0.5).stroke();
+    }
+
+    const seiten = (doc as any).bufferedPageRange().count;
+    for (let i = 0; i < seiten; i++) {
+      doc.switchToPage(i);
+      const y = 760;
+      doc.moveTo(RAND_LINKS, y).lineTo(RAND_RECHTS, y).strokeColor("#e5e7eb").lineWidth(0.5).stroke();
+      doc.fontSize(7.5).font("Helvetica").fillColor(FARBE_GRAU)
+         .text(`Versandnachweis – ${pdfText(sitzung.titel)}  ·  Seite ${i + 1} von ${seiten}`, RAND_LINKS, y + 5, { width: BREITE, lineBreak: false });
+    }
+    doc.end();
+  });
+}
