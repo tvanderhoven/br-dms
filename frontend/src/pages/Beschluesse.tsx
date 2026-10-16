@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Gavel, ChevronDown, ChevronUp, ExternalLink, Filter } from "lucide-react";
+import { Gavel, ChevronDown, ChevronUp, ExternalLink, Filter, AlertTriangle } from "lucide-react";
 import { api, BeschlussRegisterEintrag, SitzungListItem, formatDatum } from "../lib/api";
 
 const ERGEBNIS_STYLE: Record<string, string> = {
@@ -119,10 +119,19 @@ export default function Beschluesse() {
                         {b.ergebnis}
                       </span>
                     )}
+                    {b.beschlussfaehig === false && (
+                      <span
+                        className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-800"
+                        title="§ 33 Abs. 2 BetrVG: mindestens die Hälfte der Mitglieder muss an der Abstimmung teilnehmen"
+                      >
+                        <AlertTriangle size={11} /> Nicht beschlussfähig
+                      </span>
+                    )}
                   </div>
                   <p className="font-semibold text-gray-900 mt-0.5 truncate">{b.antragstext}</p>
                   <p className="text-xs text-gray-400 mt-0.5">
                     Ja: {b.jaStimmen} · Nein: {b.neinStimmen} · Enthaltungen: {b.enthaltungen} · Anwesend: {b.anwesend}
+                    {b.sollStaerke != null && ` von ${b.sollStaerke}`}
                     {b.finalisiertAm && ` · Finalisiert: ${formatDatum(b.finalisiertAm)}`}
                   </p>
                 </div>

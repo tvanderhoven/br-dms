@@ -11,6 +11,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { SitzungStatus, AuditAktion, Role } from "@prisma/client";
 import { istBetriebsversammlung } from "../lib/sitzungstypen.js";
 import prisma from "../lib/prisma.js";
+import { sollStaerkeErmitteln, istBeschlussfaehig } from "../lib/beschlussfaehigkeit.js";
 import { topZugriffPruefen } from "../lib/vertraulich.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
@@ -27,6 +28,8 @@ const BESCHLUSS_SELECT = {
   nichtTeilgenommen: true,
   anwesend:        true,
   ergebnis:        true,
+  sollStaerke:     true,
+  beschlussfaehig: true,
   finalisiert:     true,
   finalisiertAm:   true,
   erstelltAm:      true,
@@ -160,8 +163,11 @@ export async function beschlussRouten(app: FastifyInstance): Promise<void> {
       const enthal    = Math.max(0, enthaltungen       ?? 0);
       const nichtTeilg = Math.max(0, nichtTeilgenommen  ?? 0);
       const ergebnis = berechneErgebnis(ja, nein);
+      // "anwesend" = stimmberechtigt anwesend (ohne Nicht-Teilgenommen, z.B. JAV)
+      const anwesend = ja + nein + enthal;
 
       const hatStimmen = jaStimmen !== undefined || neinStimmen !== undefined || enthaltungen !== undefined || nichtTeilgenommen !== undefined;
+      const sollStaerke = hatStimmen ? await sollStaerkeErmitteln() : undefined;
 
       const aktualisiert = await prisma.beschluss.update({
         where: { id: beschluss.id },
@@ -173,9 +179,10 @@ export async function beschlussRouten(app: FastifyInstance): Promise<void> {
             neinStimmen:  nein,
             enthaltungen: enthal,
             nichtTeilgenommen: nichtTeilg,
-            // "anwesend" = stimmberechtigt anwesend (ohne Nicht-Teilgenommen, z.B. JAV)
-            anwesend:     ja + nein + enthal,
+            anwesend,
             ergebnis,
+            sollStaerke,
+            beschlussfaehig: istBeschlussfaehig(anwesend, sollStaerke!),
           }),
           finalisiert:      finalisieren ?? false,
           finalisiertAm:    finalisieren ? new Date() : null,
@@ -201,7 +208,10 @@ export async function beschlussRouten(app: FastifyInstance): Promise<void> {
             aktion:     AuditAktion.ABSTIMMUNG_FINALISIERT,
             ip:         request.ip,
             userAgent:  request.headers["user-agent"] ?? null,
-            details:    JSON.parse(JSON.stringify({ topId, beschlussId, ergebnis, ja, nein, enthal, nichtTeilg })),
+            details:    JSON.parse(JSON.stringify({
+              topId, beschlussId, ergebnis, ja, nein, enthal, nichtTeilg,
+              sollStaerke: aktualisiert.sollStaerke, beschlussfaehig: aktualisiert.beschlussfaehig,
+            })),
           },
         }).catch(() => {});
       }

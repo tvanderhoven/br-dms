@@ -900,6 +900,12 @@ model Beschluss {
   anwesend        Int       @default(0)
   ergebnis        String?
 
+  // Beschlussfähigkeit § 33 Abs. 2 BetrVG: zum Zeitpunkt der Abstimmung eingefroren
+  // (wie anwesend/ergebnis), damit spätere Austritte den historischen Stand nicht verändern.
+  // null = altes Dokument vor Einführung dieser Prüfung, nicht nachträglich berechnet.
+  sollStaerke     Int?      @map("soll_staerke")
+  beschlussfaehig Boolean?  @map("beschlussfaehig")
+
   finalisiert      Boolean   @default(false)
   finalisiertAm    DateTime? @map("finalisiert_am")
   finalisiertVonId String?   @map("finalisiert_von_id")

@@ -14,6 +14,8 @@ interface Beschluss {
   nichtTeilgenommen: number;
   anwesend: number;
   ergebnis: string | null;
+  sollStaerke?: number | null;
+  beschlussfaehig?: boolean | null;
   finalisiert: boolean;
   finalisiertAm?: string;
   erstelltAm: string;
@@ -155,10 +157,26 @@ function EinzelBeschluss({
     setFehler("");
     setSpeichern(true);
     try {
-      await api.patch(
-        `/api/sitzungen/${sitzungId}/tops/${topId}/beschluesse/${beschluss.id}`,
-        { antragstext: antragstext.trim(), rechtsgrundlage, jaStimmen: ja, neinStimmen: nein, enthaltungen: enthal, nichtTeilgenommen: nichtTeilg, finalisieren }
-      );
+      const url = `/api/sitzungen/${sitzungId}/tops/${topId}/beschluesse/${beschluss.id}`;
+      const basis = { antragstext: antragstext.trim(), rechtsgrundlage, jaStimmen: ja, neinStimmen: nein, enthaltungen: enthal, nichtTeilgenommen: nichtTeilg };
+
+      if (!finalisieren) {
+        await api.patch(url, basis);
+        onAktualisieren();
+        return;
+      }
+
+      // Vor dem Finalisieren erst speichern, damit Soll-Stärke/Beschlussfähigkeit aktuell sind
+      // (§ 33 Abs. 2 BetrVG) – bei Unterschreitung nur warnen, nicht blockieren.
+      const vorschau = await api.patch<Beschluss>(url, basis);
+      if (vorschau.beschlussfaehig === false) {
+        const weiter = confirm(
+          `Nur ${vorschau.anwesend} von ${vorschau.sollStaerke} Mitgliedern haben teilgenommen – der Betriebsrat ist nach ` +
+          `§ 33 Abs. 2 BetrVG nicht beschlussfähig. Trotzdem finalisieren?`
+        );
+        if (!weiter) { onAktualisieren(); return; }
+      }
+      await api.patch(url, { finalisieren: true });
       onAktualisieren();
     } catch (err) {
       setFehler(err instanceof Error ? err.message : "Fehler");
@@ -311,6 +329,17 @@ function EinzelBeschluss({
                   : "Unentschieden"}
               </span>
             </div>
+          </div>
+        )}
+
+        {/* Beschlussfähigkeit § 33 Abs. 2 BetrVG – dauerhafter Hinweis, kein Blocker */}
+        {istFinalisiert && beschluss.beschlussfaehig === false && (
+          <div className="flex items-start gap-1.5 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+            <span>
+              Nicht beschlussfähig – nur {beschluss.anwesend} von {beschluss.sollStaerke} Mitgliedern haben
+              teilgenommen (§ 33 Abs. 2 BetrVG: mindestens die Hälfte erforderlich).
+            </span>
           </div>
         )}
 
