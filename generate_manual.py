@@ -877,7 +877,36 @@ def build():
     pdf.schritt(3, "Ladung und Verhinderung",
                 "Vor der Sitzung heißt die Anwesenheit „Ladung & Verhinderung“. Meldet sich ein Mitglied ab, wird es auf "
                 "„Verhindert“ gestellt; BR-DMS schlägt das nächste Ersatzmitglied laut Wahlrang vor. Auf der "
-                "Anwesenheitsliste steht der Ersatz dann mit „für …“ in einem eigenen Abschnitt.")
+                "Anwesenheitsliste steht der Ersatz dann mit „für …“ in einem eigenen Abschnitt. Wer im "
+                "Abwesenheitskalender eingetragen ist, wird dabei automatisch erkannt (siehe unten).")
+    pdf.h3("Abwesenheitskalender: wer ist da, wer nicht?")
+    pdf.body(
+        "Unter Sitzungen → Abwesenheiten trägt jede:r eigene Abwesenheiten ein – Urlaub, Krankheit, Schulung, "
+        "Dienstreise oder Sonstiges, jeweils ganztägig von–bis. Vorsitz und Stellvertretung können auch für andere "
+        "eintragen, etwa für JAV und SBV, die diese Seite nicht sehen. Der Kalender zeigt den Monat mit allen "
+        "Abwesenden und den Sitzungsterminen; ein Doppelklick auf einen Tag öffnet das Eintragen mit diesem Datum."
+    )
+    pdf.bild("abwesenheiten", "Abwesenheitskalender mit Sitzungsterminen", hoehe_anteil=0.62)
+    pdf.body(
+        "In „Ladung & Verhinderung“ prüft BR-DMS den Sitzungstag gegen den Kalender: Abwesende tragen den "
+        "Hinweis „Laut Kalender …“, ist jemand trotzdem geladen, wird das rot markiert. Für jedes verhinderte "
+        "ordentliche Mitglied schlägt BR-DMS das nächste Ersatzmitglied laut Wahlrang vor (§ 25 Abs. 1 BetrVG) – "
+        "Ersatzmitglieder, die selbst abwesend sind, werden übersprungen. Darunter steht, ob die Sitzung "
+        "voraussichtlich beschlussfähig ist (§ 33 Abs. 2 BetrVG: mindestens die Hälfte der Sitze besetzt). "
+        "„Aus Kalender übernehmen“ stellt mit einem Klick alle Abwesenden auf „Verhindert“, alle übrigen auf "
+        "„Kommt“ und lädt die vorgeschlagenen Ersatzmitglieder. Bereits gesetzte Einträge verfügbarer Personen "
+        "bleiben, wie sie sind; danach lässt sich alles einzeln nachjustieren."
+    )
+    pdf.bild("sitzung-ladung-kalender", "Ladung mit Kalenderabgleich, Ersatzvorschlag und Beschlussfähigkeit", hoehe_anteil=0.62)
+    pdf.hinweis(
+        "Der Grund einer Abwesenheit ist sensibel – Krankheit ist ein Gesundheitsdatum (Art. 9 DSGVO). Ihn sehen "
+        "nur die Person selbst sowie Vorsitz und Stellvertretung; alle anderen sehen nur „abwesend“. "
+        "Ersatzmitglieder ohne aktive Vertretung sehen nur ihre eigenen Einträge. Ändern und löschen darf "
+        "jede:r die eigenen Einträge, Vorsitz und Stellvertretung alle.", "info", "Datenschutz")
+    pdf.body(
+        "Auch die Karte „Einladung per E-Mail“ warnt, solange die Ladung nicht zum Kalender passt oder die Sitzung "
+        "voraussichtlich nicht beschlussfähig wäre – so fällt es vor dem Versand auf."
+    )
     pdf.schritt(4, "Tagesordnung fixieren",
                 "Vorsitz oder Stellvertretung fixieren die Tagesordnung: Version 1.1 und ihr PDF entstehen, alle Mitglieder "
                 "erhalten eine Nachricht. Danach sind nur noch Spontan-TOPs möglich.")

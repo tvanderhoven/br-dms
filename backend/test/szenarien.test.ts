@@ -581,3 +581,91 @@ describe("Kostenübersicht (§ 40)", () => {
     assert.equal(pdf.headers["content-type"], "application/pdf");
   });
 });
+
+describe("Abwesenheitskalender und Verfügbarkeit zur Ladung", () => {
+  const TAG = "2027-03-10";
+  let sitzungId: string;
+  let eintragMitglied: string;
+
+  before(async () => {
+    sitzungId = (await prisma.sitzung.create({
+      data: { titel: "Kalender-Testsitzung", sitzungsdatum: new Date(`${TAG}T09:00:00Z`), erstelltVonId: env.ids.VORSITZ },
+    })).id;
+  });
+
+  test("eigene Abwesenheit eintragen; für andere nur Vorsitz/Stellvertretung", async () => {
+    const res = await anfrage(env, "MITGLIED", "POST", "/api/abwesenheiten", { von: "2027-03-08", bis: "2027-03-12", grund: "KRANKHEIT" });
+    assert.equal(res.statusCode, 201, res.body);
+    eintragMitglied = res.json().id;
+    assert.equal(await status("MITGLIED", "POST", "/api/abwesenheiten", { benutzerId: env.ids.VORSITZ, von: TAG, grund: "URLAUB" }), 403);
+    assert.equal(await status("STELLVERTRETER", "POST", "/api/abwesenheiten", { benutzerId: env.ids.JAV, von: TAG, bis: TAG, grund: "SCHULUNG" }), 201);
+    assert.equal(await status("ERSATZMITGLIED", "POST", "/api/abwesenheiten", { von: TAG, bis: TAG, grund: "URLAUB" }), 201);
+    assert.equal(await status("MITGLIED", "POST", "/api/abwesenheiten", { von: "2027-03-12", bis: "2027-03-01", grund: "URLAUB" }), 400);
+    assert.equal(await status("MITGLIED", "POST", "/api/abwesenheiten", { von: TAG, bis: TAG, grund: "QUATSCH" }), 400);
+    assert.equal(await status("JAV", "GET", `/api/abwesenheiten?von=${TAG}&bis=${TAG}`), 403);
+  });
+
+  test("Grund sehen nur Betroffene und Vorsitz; Ersatzmitglied ohne Vertretung nur Eigenes", async () => {
+    const liste = async (k: Konto) => (await anfrage(env, k, "GET", `/api/abwesenheiten?von=2027-03-01&bis=2027-03-31`)).json();
+    const grundVon = (l: { eintraege: { id: string; grund: string | null }[] }) => l.eintraege.find(e => e.id === eintragMitglied)?.grund;
+    assert.equal(grundVon(await liste("MITGLIED")), "KRANKHEIT");
+    assert.equal(grundVon(await liste("VORSITZ")), "KRANKHEIT");
+    assert.equal(grundVon(await liste("STELLVERTRETER")), "KRANKHEIT");
+    assert.equal(grundVon(await liste("ERSATZ_VERTRETUNG")), null, "Vertretung sieht abwesend, aber keinen Grund");
+    assert.doesNotMatch(JSON.stringify(await liste("ERSATZ_VERTRETUNG")), /KRANKHEIT/);
+    const ersatz = await liste("ERSATZMITGLIED");
+    assert.equal(ersatz.eintraege.length, 1);
+    assert.equal(ersatz.eintraege[0].benutzer.id, env.ids.ERSATZMITGLIED);
+    assert.equal(ersatz.sitzungen.length, 1);
+  });
+
+  test("fremde Einträge ändern/löschen nur Vorsitz", async () => {
+    assert.equal(await status("ERSATZ_VERTRETUNG", "DELETE", `/api/abwesenheiten/${eintragMitglied}`), 403);
+    assert.equal(await status("ERSATZ_VERTRETUNG", "PUT", `/api/abwesenheiten/${eintragMitglied}`, { von: TAG, bis: TAG, grund: "URLAUB" }), 403);
+    assert.equal(await status("MITGLIED", "PUT", `/api/abwesenheiten/${eintragMitglied}`, { von: "2027-03-08", bis: "2027-03-12", grund: "KRANKHEIT" }), 200);
+  });
+
+  test("Verfügbarkeit: abwesend erkannt, verfügbares Ersatzmitglied vorgeschlagen, Grund geschützt", async () => {
+    assert.equal(await status("JAV", "GET", `/api/sitzungen/${sitzungId}/verfuegbarkeit`), 403);
+    assert.equal(await status("ERSATZMITGLIED", "GET", `/api/sitzungen/${sitzungId}/verfuegbarkeit`), 403);
+    const v = (await anfrage(env, "ERSATZ_VERTRETUNG", "GET", `/api/sitzungen/${sitzungId}/verfuegbarkeit`)).json();
+    const m = v.mitglieder.find((x: { benutzerId: string }) => x.benutzerId === env.ids.MITGLIED);
+    assert.equal(m.abwesend, true);
+    assert.equal(m.grund, null);
+    assert.deepEqual(v.ersatzPlan.map((p: { fuer: { id: string } }) => p.fuer.id), [env.ids.MITGLIED]);
+    // Das andere Ersatzmitglied ist selbst im Urlaub → nie vorgeschlagen
+    assert.ok(v.ersatzPlan[0].ersatz);
+    assert.notEqual(v.ersatzPlan[0].ersatz.id, env.ids.ERSATZMITGLIED);
+    const soll = v.prognose.sollStaerke;
+    assert.equal(v.prognose.ohneNeuenErsatz, soll - 1);
+    assert.equal(v.prognose.mitErsatz, soll);
+    assert.equal(v.prognose.mindestens, Math.ceil(soll / 2));
+
+    const vorsitz = (await anfrage(env, "VORSITZ", "GET", `/api/sitzungen/${sitzungId}/verfuegbarkeit`)).json();
+    assert.equal(vorsitz.mitglieder.find((x: { benutzerId: string }) => x.benutzerId === env.ids.MITGLIED).grund, "KRANKHEIT");
+  });
+
+  test("Übernehmen setzt Verhindert, Kommt und lädt Ersatz – danach nichts mehr offen", async () => {
+    const res = await anfrage(env, "VORSITZ", "POST", `/api/sitzungen/${sitzungId}/verfuegbarkeit/uebernehmen`);
+    assert.equal(res.statusCode, 200, res.body);
+    const ergebnis = res.json();
+    assert.equal(ergebnis.verhindert, 2);  // Mitglied + JAV
+    assert.equal(ergebnis.ersatz, 1);
+    const ladung = await prisma.anwesenheit.findMany({ where: { sitzungId } });
+    const von = (k: Konto) => ladung.find(a => a.benutzerId === env.ids[k]);
+    assert.equal(von("MITGLIED")?.status, "ABWESEND_ENTSCHULDIGT");
+    assert.equal(von("JAV")?.status, "ABWESEND_ENTSCHULDIGT");
+    assert.equal(von("VORSITZ")?.status, "ANWESEND");
+    assert.equal(von("SBV")?.status, "ANWESEND");
+    const geladenerErsatz = ladung.filter(a => a.status === "ERSATZ_FUER");
+    assert.equal(geladenerErsatz.length, 1);
+    assert.equal(geladenerErsatz[0].vertretungFuerId, env.ids.MITGLIED);
+    assert.equal(von("ERSATZMITGLIED"), undefined, "abwesendes Ersatzmitglied nicht geladen");
+    assert.equal(von("ADMIN"), undefined);
+
+    const v = (await anfrage(env, "VORSITZ", "GET", `/api/sitzungen/${sitzungId}/verfuegbarkeit`)).json();
+    assert.equal(v.offeneAenderungen, 0);
+    assert.equal(v.ersatzPlan.length, 0);
+    assert.equal(v.prognose.beschlussfaehig, true);
+  });
+});

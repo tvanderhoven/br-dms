@@ -160,6 +160,8 @@ const AUFNAHMEN = [
     })()` },
   { datei: "gremium-detail",      pfad: "/gremien", js: klickInnen("Wirtschaftsausschuss", "div.cursor-pointer") },
   { datei: "sitzung-einladung",   pfad: "/sitzungen", js: [klickText("Tagesordnung fixiert", "tr"), zeigeText("Einladung per E-Mail")], warte: 2500 },
+  { datei: "sitzung-ladung-kalender", pfad: "/sitzungen", js: [klickText("Tagesordnung fixiert", "tr"), zeigeText("Ladung & Verhinderung")], warte: 3000 },
+  { datei: "abwesenheiten",       pfad: "/abwesenheiten", warte: 2500 },
   { datei: "themensammlung",      pfad: "/themen", js: klickText("Themen laden", "button"), warte: 2500 },
   { datei: "gesetz-popup",        pfad: "/suche?q=Pausen", warte: 2500, js: `
     (() => {

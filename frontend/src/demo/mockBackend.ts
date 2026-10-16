@@ -46,6 +46,7 @@ const db: Record<string, Eintrag[]> = {
   zeitmodell: klon(P.DEMO_ZEITMODELL),
   ueberstunden: klon(P.DEMO_UEBERSTUNDEN),
   wahlen: [],
+  abwesenheiten: klon(F.DEMO_ABWESENHEITEN),
   fremdprotokolle: [],
   ordner: [],
 };
@@ -147,6 +148,67 @@ function nestedCrud(liste: Eintrag[], method: string, subId: string | undefined,
     return json({ ok: true });
   }
   return json({ ok: true });
+}
+
+// ── Abwesenheitskalender ─────────────────────────────────────────────────
+const ORDENTLICH = ["VORSITZ", "STELLVERTRETER", "MITGLIED"];
+
+function abwesendAm(tagIso: string): Map<string, Eintrag> {
+  const t = `${tagIso.slice(0, 10)}T00:00:00.000Z`;
+  return new Map(db.abwesenheiten.filter(a => a.von <= t && a.bis >= t).map(a => [a.benutzerId, a]));
+}
+
+function verfuegbarkeit(s: Eintrag) {
+  const stand = anwesenheit[s.id] ?? {};
+  const abw = abwesendAm(s.sitzungsdatum);
+  const benutzer = db.benutzer.filter(b => b.aktiv);
+  const verhindert = (id: string) => abw.has(id) || String(stand[id] ?? "").startsWith("ABWESEND");
+  const ordentliche = benutzer.filter(b => ORDENTLICH.includes(b.rolle));
+  const pool = benutzer.filter(b => b.rolle === "ERSATZMITGLIED" && !stand[b.id] && !abw.has(b.id));
+  const geladenerErsatz = benutzer.filter(b => stand[b.id] === "ERSATZ_FUER").length;
+  // Im Mock ohne Vertretungsbezug: so viele Abwesende sind schon versorgt, wie Ersatz geladen ist
+  const ersatzPlan = ordentliche.filter(b => verhindert(b.id)).slice(geladenerErsatz).map(b => {
+    const e = pool.shift();
+    return { fuer: { id: b.id, name: b.name }, ersatz: e ? { id: e.id, name: e.name } : null };
+  });
+  const soll = ordentliche.length;
+  const ohne = ordentliche.filter(b => !verhindert(b.id)).length + geladenerErsatz;
+  const mit = ohne + ersatzPlan.filter(p => p.ersatz).length;
+  const offen = benutzer.filter(b => b.rolle !== "ERSATZMITGLIED" &&
+    (abw.has(b.id) ? !String(stand[b.id] ?? "").startsWith("ABWESEND") : !stand[b.id])).length + ersatzPlan.filter(p => p.ersatz).length;
+  return {
+    tag: s.sitzungsdatum.slice(0, 10),
+    mitglieder: benutzer.map(b => ({
+      benutzerId: b.id, name: b.name, rolle: b.rolle, abwesend: abw.has(b.id),
+      grund: abw.get(b.id)?.grund ?? null, bis: abw.get(b.id)?.bis ?? null, ladung: stand[b.id] ?? null,
+    })),
+    ersatzPlan,
+    konflikte: benutzer.filter(b => abw.has(b.id) && (stand[b.id] === "ANWESEND" || stand[b.id] === "ERSATZ_FUER")).map(b => ({ id: b.id, name: b.name })),
+    offeneAenderungen: offen,
+    prognose: { sollStaerke: soll, mindestens: Math.ceil(soll / 2), ohneNeuenErsatz: ohne, mitErsatz: mit, beschlussfaehig: mit >= Math.ceil(soll / 2) },
+  };
+}
+
+function abwesenheitAnfrage(method: string, id: string | undefined, searchParams: URLSearchParams, body: Eintrag): Response {
+  if (method === "GET") {
+    const von = `${searchParams.get("von")}T00:00:00.000Z`, bis = `${searchParams.get("bis")}T00:00:00.000Z`;
+    const bisEnde = new Date(new Date(bis).getTime() + 86_400_000).toISOString();
+    return json({
+      eintraege: db.abwesenheiten.filter(a => a.von <= bis && a.bis >= von).map(a => {
+        const b = db.benutzer.find(x => x.id === a.benutzerId);
+        return { ...a, benutzer: { id: b?.id, name: b?.name, rolle: b?.rolle }, darfBearbeiten: true };
+      }),
+      sitzungen: db.sitzungen.filter(x => x.sitzungsdatum >= von && x.sitzungsdatum < bisEnde && x.status !== "ABGESAGT")
+        .map(x => ({ id: x.id, titel: x.titel, sitzungsdatum: x.sitzungsdatum, status: x.status })),
+      darfFuerAndere: true,
+    });
+  }
+  const werte = { benutzerId: body.benutzerId || F.DEMO_ME.id, grund: body.grund, von: `${body.von}T00:00:00.000Z`, bis: `${body.bis || body.von}T00:00:00.000Z` };
+  if (method === "POST") { const neu = { id: zufallsId("demo-ab"), ...werte }; db.abwesenheiten.push(neu); return json(neu, 201); }
+  const a = db.abwesenheiten.find(x => x.id === id);
+  if (method === "PUT" && a) { Object.assign(a, { grund: werte.grund, von: werte.von, bis: werte.bis }); return json(a); }
+  if (method === "DELETE") { db.abwesenheiten = db.abwesenheiten.filter(x => x.id !== id); return json({ nachricht: "Abwesenheit gelöscht" }); }
+  return json({ fehler: "Eintrag nicht gefunden" }, 404);
 }
 
 // ── Sitzungen ──────────────────────────────────────────────────────────
@@ -273,6 +335,23 @@ function sitzungAnfrage(method: string, id: string | undefined, sub: string | un
     })));
   }
   if (sub === "ersatz-vorschlag") return json({ vorschlag: null, warnung: null, alternative: null });
+
+  // Verfügbarkeit laut Abwesenheitskalender (vereinfacht nach lib/verfuegbarkeit.ts)
+  if (sub === "verfuegbarkeit") {
+    const stand = (anwesenheit[s.id] ??= {});
+    const v = verfuegbarkeit(s);
+    if (method === "POST" && subId === "uebernehmen") {
+      let verhindert = 0, kommt = 0, ersatz = 0;
+      for (const m of v.mitglieder) {
+        if (m.rolle === "ERSATZMITGLIED") continue;
+        if (m.abwesend && !String(m.ladung ?? "").startsWith("ABWESEND")) { stand[m.benutzerId] = "ABWESEND_ENTSCHULDIGT"; verhindert++; }
+        else if (!m.abwesend && !m.ladung) { stand[m.benutzerId] = "ANWESEND"; kommt++; }
+      }
+      for (const p of v.ersatzPlan) if (p.ersatz) { stand[p.ersatz.id] = "ERSATZ_FUER"; ersatz++; }
+      return json({ verhindert, kommt, ersatz, ohneErsatz: v.ersatzPlan.filter(p => !p.ersatz).map(p => p.fuer.name) });
+    }
+    return json(v);
+  }
 
   // Einladung: Versand wird nur nachgestellt – es geht keine echte E-Mail raus
   if (sub === "einladung") {
@@ -492,6 +571,8 @@ export function handleDemoRequest(method: string, pathname: string, searchParams
     const antwort = personalAnfrage(method, resource, id, sub, subId, searchParams, body);
     if (antwort) return antwort;
   }
+
+  if (resource === "abwesenheiten") return abwesenheitAnfrage(method, id, searchParams, body);
 
   // ── Sitzungen samt TOPs, Beschlüssen, Anwesenheit und Einladung ───────
   if (resource === "sitzungen") {

@@ -4,7 +4,7 @@
  */
 import { useEffect, useState } from "react";
 import { Mail, Send, Loader2, CheckCircle, XCircle, Clock, ChevronDown, ChevronRight, X } from "lucide-react";
-import { api, Rolle, EinladungStand } from "../lib/api";
+import { api, Rolle, EinladungStand, Verfuegbarkeit } from "../lib/api";
 
 const ROLLE_LABEL: Record<string, string> = {
   VORSITZ: "Vorsitz", STELLVERTRETER: "Stellv. Vorsitz", MITGLIED: "Mitglied",
@@ -31,8 +31,11 @@ export default function EinladungKarte({ sitzungId, meineRolle, aktualisierung }
 
   const darfSenden = !!meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle);
 
+  const [kalender, setKalender] = useState<Verfuegbarkeit | null>(null);
+
   function laden() {
     api.sitzungen.einladung(sitzungId).then(setStand).catch(e => setFehler(e instanceof Error ? e.message : "Fehler"));
+    api.sitzungen.verfuegbarkeit(sitzungId).then(setKalender).catch(() => setKalender(null));
   }
   useEffect(laden, [sitzungId, aktualisierung]);
 
@@ -92,6 +95,19 @@ export default function EinladungKarte({ sitzungId, meineRolle, aktualisierung }
       )}
       {!stand.kannVersenden && eingeladen === 0 && (
         <p className="mx-4 mt-3 text-xs text-gray-500">Einladungen gehen raus, sobald die Tagesordnung fixiert ist.</p>
+      )}
+      {kalender && (kalender.offeneAenderungen > 0 || kalender.konflikte.length > 0) && (
+        <p className="mx-4 mt-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          Laut Abwesenheitskalender stimmt die Ladung noch nicht:
+          {kalender.konflikte.length > 0 && <> {kalender.konflikte.map(k => k.name).join(", ")} {kalender.konflikte.length === 1 ? "ist" : "sind"} geladen, aber abwesend.</>}
+          {kalender.offeneAenderungen > 0 && <> {kalender.offeneAenderungen} Änderung{kalender.offeneAenderungen === 1 ? "" : "en"} offen (Verhinderung, „Kommt“, Ersatz).</>}
+          {" "}<a href="#ladung" className="font-medium underline">Unter „Ladung &amp; Verhinderung“ übernehmen</a>
+        </p>
+      )}
+      {kalender && !kalender.prognose.beschlussfaehig && (
+        <p className="mx-4 mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          Voraussichtlich nicht beschlussfähig: {kalender.prognose.mitErsatz} von {kalender.prognose.sollStaerke} Sitzen besetzt, nötig sind {kalender.prognose.mindestens} (§ 33 Abs. 2 BetrVG).
+        </p>
       )}
       {meldung && <p className="mx-4 mt-3 text-xs text-green-700">{meldung}</p>}
       {fehler && <p className="mx-4 mt-3 text-xs text-red-700">{fehler}</p>}
