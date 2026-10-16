@@ -2728,6 +2728,69 @@ def build():
         (78, 92),
     )
 
+    pdf.h3("Betriebsvereinbarungs-Register (§ 77 BetrVG)")
+    pdf.tabelle(
+        ["Funktion", "Rechtsgrundlage"],
+        [
+            ["Schriftform + gemeinsamer Beschluss von Arbeitgeber und BR", "§ 77 Abs. 2 Satz 1 BetrVG"],
+            ["Bekanntmachungspflicht im Betrieb", "§ 77 Abs. 2 Satz 3 BetrVG – außerhalb von BR-DMS über das Intranet gelöst, nicht Teil dieses Registers"],
+            ["Unmittelbare, zwingende Wirkung", "§ 77 Abs. 4 Satz 1 BetrVG"],
+            ["Kündigung mit 3 Monaten Frist (Status „gekündigt\")", "§ 77 Abs. 5 BetrVG – Frist selbst wird nicht automatisch berechnet/überwacht"],
+            ["Nachwirkung bei erzwingbarer Mitbestimmung", "§ 77 Abs. 6 BetrVG – bewusst nicht abgebildet: keine Unterscheidung erzwingbar (§ 87) / freiwillig (§ 88), daher keine automatische Aussage zur Nachwirkung"],
+            ["Sozialplan als besondere BV-Form", "§ 112 BetrVG (nur im Beschlussregister als Rechtsgrundlage wählbar)"],
+            ["Warnung 90 Tage vor Laufzeitende (Dashboard)", "kein Paragraph – reine Erinnerungsfunktion"],
+            ["Status „abgelöst\"", "kein Paragraph – organisatorische Nachverfolgung"],
+            ["Verknüpfung mit einem hochgeladenen Dokument", "kein Paragraph – Organisationshilfe"],
+        ],
+        (78, 92),
+    )
+
+    pdf.h3("Gremien & Fremdprotokolle")
+    pdf.body(
+        "Die Rechtsgrundlage ist hier ein Freitextfeld je Gremium (z. B. „§ 28 BetrVG\") – BR-DMS "
+        "zitiert nichts fest, die Verantwortung liegt beim Betriebsrat selbst. Zur Orientierung, was "
+        "typischerweise zutrifft:"
+    )
+    pdf.tabelle(
+        ["Gremium / Funktion", "Rechtsgrundlage"],
+        [
+            ["Betriebsausschuss", "§ 27 BetrVG (ab 9 Mitgliedern Pflicht)"],
+            ["Weitere Ausschüsse des BR", "§ 28 BetrVG (Aufgabenübertragung)"],
+            ["Wirtschaftsausschuss", "§§ 106–110 BetrVG (i. d. R. > 100 ständig Beschäftigte)"],
+            ["Jugend- und Auszubildendenvertretung (JAV)", "§§ 60–73 BetrVG"],
+            ["Schwerbehindertenvertretung (SBV)", "§§ 176–179 SGB IX"],
+            ["Gesamtbetriebsrat", "§§ 47–53 BetrVG"],
+            ["Konzernbetriebsrat", "§§ 54–59 BetrVG"],
+            ["Arbeitsschutzausschuss (ASA)", "§ 11 ArbSichG – kein BetrVG, anderes Gesetz; meist ein BR-Mitglied im ASA, deshalb trotzdem hier sinnvoll verwaltet"],
+            ["Freitext-Rechtsgrundlage je Gremium", "kein fest hinterlegter Paragraph – vom BR selbst eingetragen, nicht validiert"],
+            ["Vertraulichkeits-Flag bei Fremdprotokollen", "§ 79 BetrVG (Geheimhaltungspflicht) bzw. § 106 Abs. 2 BetrVG bei Wirtschaftsausschuss-Angaben"],
+            ["Zugriff nur für Gremium-Mitglieder + Vorsitz/Stellv./Admin", "kein Paragraph – technische Umsetzung, nicht selbst vorgeschrieben"],
+            ["BR selbst erscheint nicht als Gremium", "kein Paragraph – reine Design-Entscheidung"],
+        ],
+        (78, 92),
+    )
+
+    pdf.h3("Schulungsverwaltung / BR-Schulungsmatrix")
+    pdf.body(
+        "In erster Linie als BR-Schulungsmatrix gedacht (Teilnahme der BR-Mitglieder an "
+        "Schulungen). Die allgemeine Nutzung für die Qualifikationen der gesamten Belegschaft "
+        "ist ein optionaler Nebeneffekt, weil das Mitarbeiter-Modell schon aus der Gehaltstabelle "
+        "existiert – keine eigene BetrVG-Pflicht dafür."
+    )
+    pdf.tabelle(
+        ["Funktion", "Rechtsgrundlage"],
+        [
+            ["BR-Mitglieder: Teilnahme an erforderlichen Schulungen", "§ 37 Abs. 6 BetrVG"],
+            ["BR-Mitglieder: weitere Schulungen (3 zusätzliche Wochen je Amtszeit)", "§ 37 Abs. 7 BetrVG"],
+            ["Allgemeine Qualifikationsmatrix der gesamten Belegschaft", "kein eigener BetrVG-Anspruch – optionale Nutzung, grundsätzlich Aufgabe des Arbeitgebers/HR"],
+            ["BR-Mitbestimmung bei betrieblichen Berufsbildungsmaßnahmen", "§§ 96–98 BetrVG – die Matrix kann als Informationsgrundlage dienen, ist aber selbst keine Umsetzung dieses Mitbestimmungsrechts"],
+            ["Automatische Übernahme von BR-Schulungskosten in die Kostenübersicht", "kein eigener Paragraph – technische Verknüpfung, inhaltlich über § 37 Abs. 6/7 i. V. m. § 40"],
+            ["Qualifikationsmatrix wird live berechnet (kein gespeicherter Stand)", "kein Paragraph – technische Entscheidung"],
+            ["Lesen nur Mitglieder, Ändern nur Vorsitz/Stellv.", "kein Paragraph – interne Rollenverteilung, analog zur Kostenübersicht"],
+        ],
+        (78, 92),
+    )
+
     # ── Anhang: Autor, Lizenz & Support ───────────────────────────────
     pdf.add_page()
     pdf.start_section("Autor, Lizenz & Support", level=0)
