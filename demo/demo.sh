@@ -4,7 +4,11 @@
 #
 #  ./demo/demo.sh start   – bauen, starten, beim ersten Mal Demodaten einspielen
 #  ./demo/demo.sh stop    – anhalten (Daten bleiben erhalten)
-#  ./demo/demo.sh reset   – alles löschen und mit frischen Demodaten neu starten
+#  ./demo/demo.sh reset [tarif|angelehnt]
+#                         – alles löschen und mit frischen Demodaten neu starten;
+#                           tarif = tarifgebunden (EG 1–17), angelehnt = eigene
+#                           Gehaltstabelle (Gruppe 1–6, Standard). Ohne Angabe
+#                           bleibt die zuletzt gewählte Variante.
 #  ./demo/demo.sh logs    – Backend-Log verfolgen
 #  ./demo/demo.sh entfernen – Demo komplett löschen (Container, Daten, Images,
 #                             Schlüssel und Zertifikat der Demo)
@@ -14,6 +18,7 @@ set -e
 DEMO_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(dirname "$DEMO_DIR")"
 ENV_DATEI="$DEMO_DIR/.env.demo"
+VARIANTE_DATEI="$DEMO_DIR/.variante"
 
 compose() {
   docker compose -p brdms-demo \
@@ -75,7 +80,9 @@ warte_auf_backend() {
 
 demodaten_einspielen() {
   # Das Skript prüft selbst, ob die Datenbank leer ist, und bricht sonst ab
-  docker exec -u "$(id -u):$(id -g)" brdms_demo_backend node dist/demo/demo-daten.js \
+  local variante
+  variante="$(cat "$VARIANTE_DATEI" 2>/dev/null || echo angelehnt)"
+  docker exec -u "$(id -u):$(id -g)" -e DEMO_VARIANTE="$variante" brdms_demo_backend node dist/demo/demo-daten.js \
     || echo "[Demo] Keine Demodaten eingespielt (Datenbank war schon befüllt)."
 }
 
@@ -97,6 +104,12 @@ case "${1:-start}" in
     compose stop
     ;;
   reset)
+    case "${2:-}" in
+      "") ;;
+      tarif|angelehnt) echo "$2" > "$VARIANTE_DATEI" ;;
+      *) echo "Variante: tarif (tarifgebunden, EG 1–17) oder angelehnt (eigene Gruppen 1–6)"; exit 1 ;;
+    esac
+    echo "[Demo] Entgelt-Variante: $(cat "$VARIANTE_DATEI" 2>/dev/null || echo angelehnt)"
     env_anlegen
     compose down -v
     "$0" start
@@ -113,11 +126,11 @@ case "${1:-start}" in
     case "$antwort" in j|J|ja|Ja) ;; *) echo "[Demo] Abgebrochen."; exit 0 ;; esac
     # Nur das Compose-Projekt "brdms-demo" – eine echte Installation bleibt unberührt
     compose down -v --rmi local --remove-orphans
-    rm -rf "$DEMO_DIR/certs" "$ENV_DATEI"
+    rm -rf "$DEMO_DIR/certs" "$ENV_DATEI" "$VARIANTE_DATEI"
     echo "[Demo] Demo-Instanz entfernt. Neu anlegen jederzeit mit: ./demo/demo.sh start"
     ;;
   *)
-    echo "Aufruf: $0 {start|stop|reset|logs|entfernen}"
+    echo "Aufruf: $0 {start|stop|reset [tarif|angelehnt]|logs|entfernen}"
     exit 1
     ;;
 esac

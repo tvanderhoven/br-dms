@@ -376,6 +376,8 @@ Gehaltshistorie usw.):
 ```bash
 ./demo/demo.sh start   # bauen, starten, Demodaten einspielen → https://localhost:8444
 ./demo/demo.sh reset   # alles löschen und frisch einspielen
+./demo/demo.sh reset tarif      # … tarifgebunden: Flächentarif EG 1–17, 3 Stufen
+./demo/demo.sh reset angelehnt  # … tarifangelehnt: eigene Gehaltstabelle Gruppe 1–6 (Standard)
 ./demo/demo.sh stop    # anhalten, Daten bleiben
 ./demo/demo.sh logs    # Backend-Log verfolgen
 ./demo/demo.sh entfernen  # Demo komplett löschen: Container, Volumes, Images, Schlüssel (fragt nach)
