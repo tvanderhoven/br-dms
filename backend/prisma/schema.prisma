@@ -102,6 +102,7 @@ enum FristTyp {
   ZEITMODELL_87_WOCHE
   BETRIEBSVERSAMMLUNG_43
   WAHL
+  EINBERUFUNG_29
   BENUTZERDEFINIERT
 }
 
@@ -235,6 +236,11 @@ enum AuditAktion {
   ORDNER_ERSTELLT
   ORDNER_GEAENDERT
   ORDNER_GELOESCHT
+  EINBERUFUNGSANTRAG_ERSTELLT
+  EINBERUFUNGSANTRAG_UNTERZEICHNET
+  EINBERUFUNGSANTRAG_AKTIV
+  EINBERUFUNGSANTRAG_ERLEDIGT
+  EINBERUFUNGSANTRAG_GELOESCHT
 }
 
 // ================================================================
@@ -277,6 +283,8 @@ model Benutzer {
   auditLogs             AuditLog[]
   erledigtefristen      Frist[]               @relation("ErlegigtVon")
   sitzungen             Sitzung[]             @relation("SitzungenErstellt")
+  einberufungsantraegeErfasst Einberufungsantrag[] @relation("EinberufungsantragErfasst")
+  einberufungsantragUnterzeichnungen EinberufungsantragUnterzeichner[]
   abstimmungsStimmen    AbstimmungsStimme[]   @relation("StimmeAbgegeben")
   gesendeteNachrichten  Nachricht[]           @relation("NachrichtAbsender")
   empfangeneNachrichten Nachricht[]           @relation("NachrichtEmpfaenger")
@@ -509,6 +517,9 @@ model Frist {
   wahl           Wahl?       @relation(fields: [wahlId], references: [id], onDelete: Cascade)
   wahlSchritt    String?     @map("wahl_schritt")
 
+  einberufungsantragId String? @map("einberufungsantrag_id")
+  einberufungsantrag    Einberufungsantrag? @relation(fields: [einberufungsantragId], references: [id], onDelete: Cascade)
+
   erstelltAm     DateTime    @default(now()) @map("erstellt_am")
 
   @@index([faelligAm, status])
@@ -566,6 +577,53 @@ model Wahl {
 }
 
 // ================================================================
+//  EINBERUFUNG AUF ANTRAG (§ 29 Abs. 2 BetrVG)
+// ================================================================
+//  Der Vorsitz muss eine Sitzung einberufen, wenn mindestens ein Viertel der
+//  Mitglieder oder der Arbeitgeber dies unter Angabe von Gründen beantragt;
+//  die Sitzung muss dann binnen einer Woche nach Zugang des Antrags stattfinden.
+//  Arbeitgeber-Anträge haben keinen eigenen Login – ein Mitglied trägt sie
+//  stellvertretend ein, analog zum Dokument-Zugang (lib/zugang.ts).
+
+model Einberufungsantrag {
+  id               String   @id @default(uuid())
+  // "ARBEITGEBER" | "MITGLIEDER" (lib/einberufungsfrist.ts)
+  antragstellerTyp String   @map("antragsteller_typ")
+  grund            String
+
+  erfasstVonId     String   @map("erfasst_von_id")
+  erfasstVon       Benutzer @relation("EinberufungsantragErfasst", fields: [erfasstVonId], references: [id])
+
+  // Beginn der Wochenfrist: bei Arbeitgeber-Anträgen das eingetragene Zugangsdatum, bei
+  // Mitglieder-Anträgen automatisch beim Erreichen des Quorums (ein Viertel) gesetzt.
+  // null = Mitglieder-Antrag sammelt noch Unterzeichner, Frist läuft noch nicht.
+  zugangAm         DateTime? @map("zugang_am")
+
+  sitzungId        String?  @map("sitzung_id")
+  sitzung          Sitzung? @relation(fields: [sitzungId], references: [id], onDelete: SetNull)
+
+  erstelltAm       DateTime @default(now()) @map("erstellt_am")
+  aktualisiertAm   DateTime @updatedAt @map("aktualisiert_am")
+
+  unterzeichner    EinberufungsantragUnterzeichner[]
+  fristen          Frist[]
+
+  @@map("einberufungsantraege")
+}
+
+model EinberufungsantragUnterzeichner {
+  id              String             @id @default(uuid())
+  antragId        String             @map("antrag_id")
+  antrag          Einberufungsantrag @relation(fields: [antragId], references: [id], onDelete: Cascade)
+  benutzerId      String             @map("benutzer_id")
+  benutzer        Benutzer           @relation(fields: [benutzerId], references: [id], onDelete: Cascade)
+  unterzeichnetAm DateTime           @default(now()) @map("unterzeichnet_am")
+
+  @@unique([antragId, benutzerId])
+  @@map("einberufungsantrag_unterzeichner")
+}
+
+// ================================================================
 //  SITZUNGSMANAGEMENT
 // ================================================================
 
@@ -605,6 +663,7 @@ model Sitzung {
   gehaltsstufenEintraege GehaltsstufenEintrag[]
   zeitmodellEintraege    ZeitmodellEintrag[]
   ueberstundenEintraege  UeberstundenEintrag[]
+  einberufungsantraege   Einberufungsantrag[]
 
   @@index([sitzungsdatum, status])
   @@map("sitzungen")
