@@ -11,6 +11,17 @@ function tag(n: number): string {
   return new Date(Date.now() + n * TAG_MS).toISOString();
 }
 
+/** Sitzungstermin n Tage ab heute, immer 09:00 Uhr */
+function sitzungstag(n: number): string {
+  const d = new Date(Date.now() + n * TAG_MS);
+  d.setHours(9, 0, 0, 0);
+  return d.toISOString();
+}
+
+const MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+/** Monatsname zum Datum n Tage ab heute – damit "Sitzung Juni" zum angezeigten Datum passt */
+const monat = (n: number) => MONATE[new Date(Date.now() + n * TAG_MS).getMonth()];
+
 export const DEMO_FIRMA = "Beispiel Industrietechnik GmbH";
 
 // ── Benutzer (Betriebsratsgremium) ─────────────────────────────────
@@ -43,8 +54,8 @@ export const DEMO_DOKUMENTE = [
     inboxGelesen: true, erstelltAm: tag(-9),
   },
   {
-    id: "demo-d3", titel: "Protokoll Sitzung Oktober", alias: "Protokoll Oktober", tags: ["protokoll"],
-    kategorie: "PROTOKOLL", status: "AKTIV", dateiname: "protokoll-oktober.pdf",
+    id: "demo-d3", titel: `Protokoll Sitzung ${monat(-30)}`, alias: `Protokoll ${monat(-30)}`, tags: ["protokoll"],
+    kategorie: "PROTOKOLL", status: "AKTIV", dateiname: `protokoll-${monat(-30).toLowerCase()}.pdf`,
     dateigroesse: 143_000, mimeTyp: "application/pdf", vertraulich: false,
     inboxGelesen: true, erstelltAm: tag(-30),
   },
@@ -76,7 +87,7 @@ export const DEMO_SITZUNGEN = [
   {
     id: "demo-s1",
     titel: "Betriebsratssitzung – Personelles und Befragung",
-    sitzungsdatum: tag(6),
+    sitzungsdatum: sitzungstag(6),
     ort: "Besprechungsraum 2",
     sitzungstyp: "ORDENTLICH",
     status: "TAGESORDNUNG_FIXIERT",
@@ -103,7 +114,7 @@ export const DEMO_SITZUNGEN = [
   {
     id: "demo-s2",
     titel: "Betriebsratssitzung – Gleitzeit und Mehrarbeit",
-    sitzungsdatum: tag(-21),
+    sitzungsdatum: sitzungstag(-21),
     ort: "Besprechungsraum 2",
     sitzungstyp: "ORDENTLICH",
     status: "PROTOKOLL_FINAL",
@@ -140,7 +151,7 @@ export const DEMO_SITZUNGEN = [
   {
     id: "demo-s3",
     titel: "Betriebsratssitzung – Jahresplanung",
-    sitzungsdatum: tag(34),
+    sitzungsdatum: sitzungstag(34),
     ort: "Besprechungsraum 2",
     sitzungstyp: "ORDENTLICH",
     status: "ENTWURF",
@@ -205,14 +216,22 @@ export const DEMO_AUFGABEN = [
     faelligAm: tag(9), erledigt: false, sichtbarkeit: "OEFFENTLICH",
     erstelltVon: { id: "demo-u2", name: "Jonas Mustermann", email: "jonas.mustermann@demo.invalid" },
     zugewiesenAn: { id: "demo-u3", name: "Lea Fiktiv", email: "lea.fiktiv@demo.invalid" },
-    kanbanStatus: null, erstelltAm: tag(-4), aktualisiertAm: tag(-4),
+    kanbanStatus: null, aufgabenStatus: "IN_BEARBEITUNG", erstelltAm: tag(-4), aktualisiertAm: tag(-2),
   },
   {
     id: "demo-a3", titel: "Unterlagen Einigungsstelle Arbeitszeit sichten", typ: "AUFGABE", prioritaet: "NIEDRIG",
     erledigt: false, sichtbarkeit: "OEFFENTLICH",
     erstelltVon: { id: "demo-u1", name: "Anna Beispiel", email: "anna.beispiel@demo.invalid" },
     zugewiesenAn: { id: "demo-u4", name: "Tom Platzhalter", email: "tom.platzhalter@demo.invalid" },
-    kanbanStatus: null, erstelltAm: tag(-1), aktualisiertAm: tag(-1),
+    kanbanStatus: null, aufgabenStatus: "AUF_HOLD", erstelltAm: tag(-1), aktualisiertAm: tag(-1),
+    beschreibung: "Wartet auf die Unterlagen der Geschäftsführung.",
+  },
+  {
+    id: "demo-a6", titel: "Aushang Betriebsversammlung erstellen", typ: "AUFGABE", prioritaet: "MITTEL",
+    faelligAm: tag(-3), erledigt: true, erledigtAm: tag(-4), sichtbarkeit: "OEFFENTLICH",
+    erstelltVon: { id: "demo-u1", name: "Anna Beispiel", email: "anna.beispiel@demo.invalid" },
+    zugewiesenAn: { id: "demo-u2", name: "Jonas Mustermann", email: "jonas.mustermann@demo.invalid" },
+    kanbanStatus: null, aufgabenStatus: "ERLEDIGT", erstelltAm: tag(-12), aktualisiertAm: tag(-4),
   },
   {
     id: "demo-a4", titel: "Idee: Jobrad-Leasing ansprechen", typ: "AUFGABE", prioritaet: "NIEDRIG",
@@ -356,19 +375,19 @@ export const DEMO_BESCHLUESSE = [
     id: "demo-b1", antragstext: "Der Betriebsrat stimmt der Gleitzeitregelung 2025 zu.",
     rechtsgrundlage: "§ 87 Abs. 1 Nr. 2 BetrVG", jaStimmen: 5, neinStimmen: 0, enthaltungen: 0, anwesend: 5,
     ergebnis: "ANGENOMMEN", finalisiertAm: tag(-120),
-    top: { nummer: 2, titel: "Gleitzeitregelung 2025", sitzung: { id: "demo-s0", titel: "Sitzung September", sitzungsdatum: tag(-125) } },
+    top: { nummer: 2, titel: "Gleitzeitregelung 2025", sitzung: { id: "demo-s0", titel: `Sitzung ${monat(-125)}`, sitzungsdatum: sitzungstag(-125) } },
   },
   {
     id: "demo-b2", antragstext: "Der Betriebsrat verweigert die Zustimmung zur Neueinstellung im Lager mangels vollständiger Unterlagen.",
     rechtsgrundlage: "§ 99 Abs. 2 Nr. 1 BetrVG", jaStimmen: 4, neinStimmen: 1, enthaltungen: 0, anwesend: 5,
     ergebnis: "ANGENOMMEN", finalisiertAm: tag(-9),
-    top: { nummer: 2, titel: "Neueinstellung Lager (§ 99)", sitzung: { id: "demo-s0", titel: "Sitzung Oktober", sitzungsdatum: tag(-30) } },
+    top: { nummer: 2, titel: "Neueinstellung Lager (§ 99)", sitzung: { id: "demo-s0", titel: `Sitzung ${monat(-30)}`, sitzungsdatum: sitzungstag(-30) } },
   },
   {
     id: "demo-b3", antragstext: "Der Betriebsrat beauftragt keinen externen Sachverständigen für die Arbeitszeitfrage.",
     rechtsgrundlage: "§ 80 Abs. 3 BetrVG", jaStimmen: 2, neinStimmen: 3, enthaltungen: 0, anwesend: 5,
     ergebnis: "ABGELEHNT", finalisiertAm: tag(-30),
-    top: { nummer: 3, titel: "Verschiedenes", sitzung: { id: "demo-s0", titel: "Sitzung Oktober", sitzungsdatum: tag(-30) } },
+    top: { nummer: 3, titel: "Verschiedenes", sitzung: { id: "demo-s0", titel: `Sitzung ${monat(-30)}`, sitzungsdatum: sitzungstag(-30) } },
   },
 ];
 
@@ -377,19 +396,19 @@ export const DEMO_THEMEN = [
   {
     id: "demo-th1", nummer: 1, titel: "Gleitzeitregelung 2025 beschlossen",
     ergebnis: "Der Betriebsrat hat einer neuen Gleitzeitregelung zugestimmt, die ab nächstem Quartal gilt.",
-    sitzung: { id: "demo-s0", titel: "Sitzung September", sitzungsdatum: tag(-125) },
+    sitzung: { id: "demo-s0", titel: `Sitzung ${monat(-125)}`, sitzungsdatum: sitzungstag(-125) },
   },
   {
     id: "demo-th2", nummer: 2, titel: "Rückmeldungen zur Pausenraum-Umgestaltung erwünscht",
     ergebnis: "Der Betriebsrat sammelt Ideen für die Umgestaltung des Pausenraums – Vorschläge gerne an ein Mitglied des Gremiums.",
-    sitzung: { id: "demo-s0", titel: "Sitzung Oktober", sitzungsdatum: tag(-30) },
+    sitzung: { id: "demo-s0", titel: `Sitzung ${monat(-30)}`, sitzungsdatum: sitzungstag(-30) },
   },
 ];
 
 // ── Nachrichten (interne BR-Postbox) ─────────────────────────────────
 export const DEMO_NACHRICHTEN = [
   {
-    id: "demo-n1", betreff: "Tagesordnung November steht", inhalt: "Die Tagesordnung für die Novembersitzung ist fertig, bitte bis Freitag durchsehen.",
+    id: "demo-n1", betreff: `Tagesordnung ${monat(34)} steht`, inhalt: `Die Tagesordnung für die ${monat(34)}sitzung ist fertig, bitte bis Freitag durchsehen.`,
     typ: "TAGESORDNUNG", absender: { id: "demo-u2", name: "Jonas Mustermann", email: "jonas.mustermann@demo.invalid" },
     gelesen: false, erstelltAm: tag(-1),
   },
@@ -398,4 +417,76 @@ export const DEMO_NACHRICHTEN = [
     typ: "PROTOKOLL", absender: { id: "demo-u2", name: "Jonas Mustermann", email: "jonas.mustermann@demo.invalid" },
     gelesen: true, erstelltAm: tag(-25),
   },
+];
+
+// ── Gremien (Ausschüsse) mit Fremdprotokollen ─────────────────────────
+export const DEMO_GREMIEN = [
+  { id: "demo-gr1", name: "Wirtschaftsausschuss", rechtsgrundlage: "§ 106 BetrVG",
+    bemerkung: "Tagt quartalsweise mit der Geschäftsführung; Bericht an den Betriebsrat in der folgenden Sitzung.", aktiv: true },
+  { id: "demo-gr2", name: "Arbeitsschutzausschuss", rechtsgrundlage: "§ 11 ASiG",
+    bemerkung: "Kein BetrVG-Gremium: Arbeitgeber, Fachkraft für Arbeitssicherheit, Betriebsarzt und zwei BR-Mitglieder.", aktiv: true },
+  { id: "demo-gr3", name: "Projektgruppe Mitarbeiterbefragung", rechtsgrundlage: "§ 28a BetrVG",
+    bemerkung: "Vorbereitung der Befragung 2025 – abgeschlossen.", aktiv: false },
+].map(g => ({ ...g, erstelltAm: tag(-500), aktualisiertAm: tag(-60) }));
+
+export const DEMO_GREMIUM_MITGLIEDER: Record<string, string[]> = {
+  "demo-gr1": ["demo-u1", "demo-u2", "demo-u3"],
+  "demo-gr2": ["demo-u2", "demo-u4"],
+  "demo-gr3": ["demo-u3", "demo-u5"],
+};
+
+function fremdprotokoll(id: string, gremiumNr: number, tageAb: number, titel: string, bemerkung: string | null, vertraulich = false) {
+  const g = DEMO_GREMIEN[gremiumNr - 1];
+  const datum = tag(tageAb);
+  return {
+    id, gremiumId: g.id, gremium: { id: g.id, name: g.name }, datum, titel, bemerkung, vertraulich,
+    dateiname: `${titel.replace(/[^A-Za-z0-9ÄÖÜäöüß]+/g, "_")}.pdf`, dateigroesse: 180_000 + tageAb * -150, mimeTyp: "application/pdf",
+    erstelltAm: tag(tageAb + 3), aktualisiertAm: tag(tageAb + 3),
+  };
+}
+
+export const DEMO_FREMDPROTOKOLLE = [
+  fremdprotokoll("demo-fp1", 1, -200, "WA-Sitzung Q1 – Jahresabschluss", "Umsatz +4 %, Investitionsplan Werk 2 vorgestellt.", true),
+  fremdprotokoll("demo-fp2", 1, -110, "WA-Sitzung Q2 – Auftragslage", "Kurzarbeit vorerst nicht geplant.", true),
+  fremdprotokoll("demo-fp3", 1, -20, "WA-Sitzung Q3 – Standortplanung", "Verlagerung Lager wird geprüft – Bericht an den BR in der nächsten Sitzung.", true),
+  fremdprotokoll("demo-fp4", 2, -150, "ASA-Sitzung 2/2026", "Begehung Lager: Regalprüfung überfällig."),
+  fremdprotokoll("demo-fp5", 2, -45, "ASA-Sitzung 3/2026", "Gefährdungsbeurteilung psychische Belastung beauftragt."),
+  fremdprotokoll("demo-fp6", 3, -400, "Abschlussbericht Mitarbeiterbefragung", null),
+];
+
+// ── Kosten des Betriebsrats (§ 40 BetrVG) ──────────────────────────────
+function posten(id: string, tageAb: number, art: string, bezeichnung: string, empfaenger: string | null, euro: number, status: string,
+  felder: { bemerkung?: string; ausSchulung?: boolean; beschlussNr?: number } = {}) {
+  const b = felder.beschlussNr ? DEMO_BESCHLUESSE[felder.beschlussNr - 1] : null;
+  return {
+    id, datum: tag(tageAb), art, bezeichnung, empfaenger, betragCent: Math.round(euro * 100), status,
+    bemerkung: felder.bemerkung ?? null, ausSchulung: !!felder.ausSchulung, schulungsterminId: null,
+    beschluss: b ? { id: b.id, antragstext: b.antragstext, topNummer: b.top.nummer, sitzungTitel: b.top.sitzung.titel, sitzungsdatum: b.top.sitzung.sitzungsdatum } : null,
+    dokument: null,
+  };
+}
+
+export const DEMO_KOSTEN = [
+  posten("demo-ko1", -250, "SCHULUNG", "BetrVG Teil 1 – Grundlagen (2 Teilnehmende)", "Fiktiv Akademie GmbH", 2380, "BEZAHLT", { ausSchulung: true }),
+  posten("demo-ko2", -90, "SCHULUNG", "Arbeitszeitrecht kompakt", "Fiktiv Akademie GmbH", 1190, "BEZAHLT", { ausSchulung: true }),
+  posten("demo-ko3", 40, "SCHULUNG", "BetrVG Teil 2 – Mitbestimmung (1 Teilnehmende)", "Fiktiv Akademie GmbH", 1290, "ZUGESAGT", { ausSchulung: true }),
+  posten("demo-ko4", -120, "RECHTSANWALT", "Beratung Zustimmungsersetzungsverfahren § 99 Abs. 4", "Kanzlei Beispiel & Partner", 1547, "ZUGESAGT", { beschlussNr: 2 }),
+  posten("demo-ko5", -60, "SACHMITTEL", "Kommentar BetrVG (aktuelle Auflage)", "Fachbuchhandlung Muster", 189, "BEZAHLT"),
+  posten("demo-ko6", -30, "REISEKOSTEN", "Fahrt zur Schulung Arbeitszeitrecht", null, 86.4, "BEZAHLT"),
+  posten("demo-ko7", -10, "SACHVERSTAENDIGER", "Gutachten Schichtmodell Montage", "Ingenieurbüro Fiktiv", 4800, "ABGELEHNT",
+    { bemerkung: "Arbeitgeber verweist auf internen Sachverständigen – BR prüft weiteres Vorgehen.", beschlussNr: 3 }),
+  posten("demo-ko8", -400, "EINIGUNGSSTELLE", "Einigungsstelle Gleitzeit – Honorar Vorsitz", "Richter a. D. Fiktiv", 3600, "BEZAHLT"),
+  posten("demo-ko9", -380, "SACHMITTEL", "Laptop und Drucker für das BR-Büro", "Bürohaus Muster", 1420, "BEZAHLT"),
+];
+
+// ── Kummerkasten (über die öffentliche Formularseite eingereicht) ────────
+export const DEMO_KUMMERKASTEN = [
+  { id: "demo-kk1", nachricht: "In der Halle 2 zieht es seit dem Umbau stark – im Winter kaum auszuhalten. Kann der BR das beim Arbeitsschutz ansprechen?",
+    absenderName: null, status: "NEU", notiz: null, bearbeitetVon: null, bearbeitetAm: null, erstelltAm: tag(-2) },
+  { id: "demo-kk2", nachricht: "Die Schichtpläne kommen oft erst am Freitag für die nächste Woche. Gibt es dazu eine Regel?",
+    absenderName: "Kolleg:in aus der Montage", status: "IN_BEARBEITUNG", notiz: "Thema für die nächste Sitzung (§ 87 Abs. 1 Nr. 2) vorgemerkt.",
+    bearbeitetVon: { id: "demo-u2", name: "Jonas Mustermann" }, bearbeitetAm: tag(-5), erstelltAm: tag(-9) },
+  { id: "demo-kk3", nachricht: "Danke für die neue Gleitzeitregelung – klappt super!",
+    absenderName: null, status: "ERLEDIGT", notiz: "Im Team geteilt.", bearbeitetVon: { id: "demo-u1", name: "Anna Beispiel" },
+    bearbeitetAm: tag(-40), erstelltAm: tag(-42) },
 ];

@@ -89,7 +89,7 @@ export default function Beschluesse() {
 
       {/* Zähler */}
       <p className="text-xs text-gray-500 mb-3">
-        {laden ? "Laden…" : `${beschluesse.length} Beschluss${beschluesse.length !== 1 ? "e" : ""} gefunden`}
+        {laden ? "Laden…" : `${beschluesse.length} ${beschluesse.length !== 1 ? "Beschlüsse" : "Beschluss"} gefunden`}
       </p>
 
       {/* Liste */}
