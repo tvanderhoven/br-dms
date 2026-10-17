@@ -1,8 +1,8 @@
 /**
  * Einberufung auf Antrag (§ 29 Abs. 3 BetrVG): ein Viertel der Mitglieder oder der
- * Arbeitgeber können eine Sitzung verlangen ("unter Angabe der Gründe"); sie muss dann
- * binnen einer Woche nach Zugang des Antrags stattfinden. Nutzt denselben Fristrechner
- * wie die Anhörungsfristen (§§ 187, 188, 193 BGB).
+ * Arbeitgeber können eine Sitzung verlangen. § 29 Abs. 3 nennt dafür keine Frist; die Woche
+ * nach Zugang des Antrags ist eine INTERNE Bearbeitungsfrist von BR-DMS, keine gesetzliche.
+ * Nutzt denselben Fristrechner wie die Anhörungsfristen (§§ 187, 188, 193 BGB).
  *
  * Nicht juristisch geprüft.
  */
