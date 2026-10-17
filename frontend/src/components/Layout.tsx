@@ -518,7 +518,7 @@ export default function Layout() {
     <div className="min-h-screen flex">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-56 flex flex-col shrink-0 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 shadow-2xl ${mobileOffen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`fixed inset-y-0 left-0 z-40 w-60 flex flex-col shrink-0 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 shadow-2xl ${mobileOffen ? "translate-x-0" : "-translate-x-full"}`}
         style={{ background: "linear-gradient(170deg, rgb(var(--sidebar-bg)) 0%, rgb(var(--sidebar-active)) 100%)", boxShadow: "inset -1px 0 0 rgba(255,255,255,0.06), 6px 0 30px rgba(0,0,0,0.18)" }}
       >
 

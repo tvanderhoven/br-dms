@@ -1,12 +1,13 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
   Inbox, FileText, Clock, Tag, CheckSquare, Eye, X, ChevronRight, ChevronDown, ChevronUp,
-  Loader2, Check, CheckCheck, History, Search, RotateCcw, ScanLine, Trash2,
+  Loader2, Check, CheckCheck, History, Search, RotateCcw, ScanLine, Trash2, Upload,
 } from "lucide-react";
 import {
   api, Dokument, SitzungListItem, Benutzer, TOP, KATEGORIE_LABEL, formatDatum, formatDateigroesse,
-  ScanEingangEintrag, SitzungScanTyp, istEmail } from "../lib/api";
+  ScanEingangEintrag, SitzungScanTyp, istEmail, Ordner } from "../lib/api";
 import EmailVorschau from "../components/EmailVorschau";
+import UploadModal from "../components/UploadModal";
 import { FristBadge, SitzungsVorschlagKarte, ZugangKarte } from "../components/Fristsache";
 import { dokumentInNeuemTabOeffnen } from "../lib/dokumentOeffnen";
 
@@ -51,6 +52,8 @@ export default function Eingang() {
   const [vorschauUrl, setVorschauUrl]         = useState<string | null>(null);
   const [aktiveAktion, setAktiveAktion]       = useState<Aktion>(null);
   const [aktionErfolg, setAktionErfolg]       = useState<string | null>(null);
+  const [uploadOffen, setUploadOffen]         = useState(false);
+  const [ordner, setOrdner]                   = useState<Ordner[]>([]);
 
   // Wartende Scans aus dem Watch-Folder (protokoll_scan)
   const [scanEingang, setScanEingang]         = useState<ScanEingangEintrag[]>([]);
@@ -105,6 +108,7 @@ export default function Eingang() {
   }, []);
 
   useEffect(() => { ladeInbox(); }, [ladeInbox]);
+  useEffect(() => { api.ordner.liste().then(setOrdner).catch(console.error); }, []);
 
   const ladeScanEingang = useCallback(() => {
     api.scanEingang.liste().then(setScanEingang).catch(console.error);
@@ -343,12 +347,21 @@ export default function Eingang() {
             <p className="text-sm text-gray-500">Neu eingegangene Dokumente</p>
           </div>
         </div>
-        <button
-          onClick={() => { ladeInbox(); ladeScanEingang(); }}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-gray-600"
-        >
-          <RotateCcw size={15} /> Aktualisieren
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { ladeInbox(); ladeScanEingang(); }}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-gray-600"
+          >
+            <RotateCcw size={15} /> Aktualisieren
+          </button>
+          <button
+            onClick={() => setUploadOffen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white hover:brightness-90 transition"
+            style={{ backgroundColor: "rgb(var(--accent))" }}
+          >
+            <Upload size={15} /> Hochladen
+          </button>
+        </div>
       </div>
 
       {/* Wartende Scans aus dem Watch-Folder (protokoll_scan) */}
@@ -766,6 +779,14 @@ export default function Eingang() {
             </div>
           ))}
         </div>
+      )}
+      {uploadOffen && (
+        <UploadModal
+          ordner={ordner}
+          startOrdnerId={null}
+          onSchliessen={() => setUploadOffen(false)}
+          onErfolg={() => { setUploadOffen(false); ladeInbox(); }}
+        />
       )}
     </div>
   );

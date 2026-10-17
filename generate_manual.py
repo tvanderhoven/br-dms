@@ -580,7 +580,8 @@ def build():
     pdf.h2("3.1  Dokumenteneingang")
     pdf.body(
         "Neu eingegangene Dokumente landen zuerst im Dokumenteneingang – egal ob per Upload oder automatisch "
-        "über den Watch-Folder (Scanner- oder Netzwerkordner). Hier entscheidet der Vorsitz, was mit "
+        "über den Watch-Folder (Scanner- oder Netzwerkordner). Mit „Hochladen“ oben rechts lässt sich hier auch "
+        "direkt etwas ablegen; das geht ebenso unter Dokumente. Hier entscheidet der Vorsitz, was mit "
         "jedem Dokument passiert. Ungelesene Einträge sind hervorgehoben."
     )
     pdf.bild("eingang", "Dokumenteneingang mit ungelesenen Anhörungen und Quelle (Watch-Folder / Upload)", hoehe_anteil=0.55)
