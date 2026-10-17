@@ -1,5 +1,5 @@
 /**
- * Einberufung auf Antrag (§ 29 Abs. 2 BetrVG) – ein Viertel der Mitglieder oder der
+ * Einberufung auf Antrag (§ 29 Abs. 3 BetrVG) – ein Viertel der Mitglieder oder der
  * Arbeitgeber können eine Sitzung verlangen; sie muss binnen einer Woche nach Zugang
  * des Antrags stattfinden (Frist über lib/einberufungsfrist.ts).
  *

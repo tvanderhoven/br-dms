@@ -6,7 +6,7 @@
  * PUT    /api/geschaeftsordnung/:id    – Fassung bearbeiten (nur VORSITZ)
  * DELETE /api/geschaeftsordnung/:id    – Fassung löschen (nur VORSITZ)
  *
- * § 36 Abs. 1 Satz 2 BetrVG verlangt für die Geschäftsordnung die Mehrheit ALLER Mitglieder,
+ * § 36 BetrVG verlangt für die Geschäftsordnung die Mehrheit ALLER Mitglieder,
  * nicht nur der Anwesenden (strenger als die normale Beschlussfähigkeit § 33 Abs. 2) – daher
  * optional mit einem finalisierten Beschluss verknüpfbar, dessen Ja-Stimmen gegen die zum
  * Zeitpunkt der Abstimmung eingefrorene Soll-Stärke geprüft werden (nur Warnung, kein Blocker,
