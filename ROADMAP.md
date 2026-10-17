@@ -152,11 +152,12 @@ Studierende bei der JAV als Auszubildende zählen.
 nennt keine Frist; heute als interne Bearbeitungsfrist gekennzeichnet), Monatserinnerung „keine Sitzung seit
 35 Tagen“ (kein Gesetzesgebot), die Voraussetzungen des Spontan-TOPs (siehe oben) sowie die Fristen des Wahl-Moduls.
 
-**Rechtsgrundlagen-Tabelle überarbeiten (Notiz 18.10.2026):** Auf der Webseite wurde der Abschnitt entfernt (zu viele
-Fehler bei Absatz-/Satznummern). Im Handbuch-Anhang vermutlich **nur noch Paragraphen nennen, keine Absatz- und
-Satznummern** – die Tabelle ist wahrscheinlich zu genau und damit fehleranfällig. Vor einem Wiedereinbau auf der
-Webseite: jede Angabe gegen den Gesetzestext auf gesetze-im-internet.de prüfen (mit Link je Zeile) und anwaltlich
-gegenlesen lassen. Auch die Fließtexte der Funktionskarten gehören dazu, nicht nur die Zitate.
+**Handbuch, Anhang „Rechtsgrundlagen“: nur Paragraphen nennen (Notiz 18.10.2026):** In der Tabelle **keine Absatz-
+und Satznummern**, nur die Paragraphen (z. B. „§ 29 BetrVG“, „§ 102 BetrVG“). Die Tabelle ist wahrscheinlich zu genau
+und damit fehleranfällig: Bei der Prüfung am 18.10.2026 waren rund ein Dutzend Absatz-/Satzangaben falsch. Betrifft
+`generate_manual.py` (Abschnitt Rechtsgrundlagen) und danach das neu erzeugte PDF, auch die Kopie auf der Webseite.
+Von der Webseite ist der Abschnitt entfernt; Wiedereinbau erst, wenn jede Angabe gegen den Gesetzestext geprüft
+(Link je Zeile) und anwaltlich gegengelesen ist. Auch die Fließtexte der Funktionskarten prüfen, nicht nur die Zitate.
 
 ## Wahl-Modul (BR und JAV) – Entscheidungen
 
