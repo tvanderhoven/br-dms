@@ -333,7 +333,7 @@ export default function Eingang() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              Eingang
+              Dokumenteneingang
               {ungelesen > 0 && (
                 <span className="bg-[rgb(var(--accent))] text-white text-xs font-bold px-2 py-0.5 rounded-full">
                   {ungelesen}
@@ -372,7 +372,7 @@ export default function Eingang() {
 
       {/* Zähler */}
       <p className="text-xs text-gray-500 mb-3">
-        {laden ? "Lade…" : `${dokumente.length} Dokument${dokumente.length !== 1 ? "e" : ""} im Eingang`}
+        {laden ? "Lade…" : `${dokumente.length} Dokument${dokumente.length !== 1 ? "e" : ""} im Dokumenteneingang`}
       </p>
 
       {/* Liste */}
@@ -383,7 +383,7 @@ export default function Eingang() {
       ) : dokumente.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <CheckSquare size={40} className="mx-auto mb-3 opacity-20" />
-          <p className="font-medium">Eingang ist leer</p>
+          <p className="font-medium">Dokumenteneingang ist leer</p>
           <p className="text-sm mt-1">Alle Dokumente wurden bearbeitet.</p>
         </div>
       ) : (
@@ -578,7 +578,7 @@ export default function Eingang() {
                         <h3 className="font-medium text-accent text-sm">Wiedervorlage</h3>
                         <button onClick={() => setAktiveAktion(null)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
                       </div>
-                      <p className="text-xs text-accent">Das Dokument erscheint am gewählten Datum erneut im Eingang.</p>
+                      <p className="text-xs text-accent">Das Dokument erscheint am gewählten Datum erneut im Dokumenteneingang.</p>
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Wiedervorlage am</label>
                         <input type="date" value={wiedervorlageDatum}

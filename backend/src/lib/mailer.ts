@@ -290,11 +290,11 @@ export function fristsacheMailInhalt(name: string, m: FristsacheMail): { subject
     text: [
       `Hallo ${name},`,
       "",
-      `im Eingang liegt eine neue Fristsache: ${m.titel} (${m.kategorie}, ${m.quelle}).`,
+      `im Dokumenteneingang liegt eine neue Fristsache: ${m.titel} (${m.kategorie}, ${m.quelle}).`,
       "",
       ...fristText,
       "",
-      `Die Frist ist vorläufig ab ${berlin(m.zugangVorschlag, true)} Uhr berechnet. Bitte den Zugang beim Betriebsrat im Eingang bestätigen oder korrigieren:`,
+      `Die Frist ist vorläufig ab ${berlin(m.zugangVorschlag, true)} Uhr berechnet. Bitte den Zugang beim Betriebsrat im Dokumenteneingang bestätigen oder korrigieren:`,
       m.url,
     ].join("\n"),
     html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
@@ -303,14 +303,14 @@ export function fristsacheMailInhalt(name: string, m: FristsacheMail): { subject
       </div>
       <div style="padding:20px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
         <p>Hallo <strong>${h(name)}</strong>,</p>
-        <p>im Eingang liegt eine neue Fristsache:</p>
+        <p>im Dokumenteneingang liegt eine neue Fristsache:</p>
         <p style="font-size:16px;margin:12px 0"><strong>${h(m.titel)}</strong><br>
           <span style="color:#6b7280;font-size:13px">${h(m.kategorie)} · ${h(m.quelle)}</span></p>
         <ul style="padding-left:20px">${fristText.map(t => `<li>${h(t)}</li>`).join("")}</ul>
         <p>Die Frist ist <strong>vorläufig</strong> ab ${h(berlin(m.zugangVorschlag, true))} Uhr berechnet.
-          Maßgeblich ist der Zugang beim Betriebsrat – bitte im Eingang bestätigen oder korrigieren.</p>
+          Maßgeblich ist der Zugang beim Betriebsrat – bitte im Dokumenteneingang bestätigen oder korrigieren.</p>
         <p style="margin-top:20px">
-          <a href="${h(m.url)}" style="background:#b45309;color:white;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block">→ Zum Eingang</a>
+          <a href="${h(m.url)}" style="background:#b45309;color:white;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block">→ Zum Dokumenteneingang</a>
         </p>
         <p style="color:#9ca3af;font-size:11px;margin-top:20px">Automatische Nachricht von BR-DMS an Vorsitz und Stellvertretung · abschaltbar unter Einstellungen → Löschfristen</p>
       </div>
@@ -337,11 +337,11 @@ export function eingangSammelmailInhalt(name: string, eintraege: EingangEintrag[
   const anzahl = eintraege.length === 1 ? "1 neues Dokument" : `${eintraege.length} neue Dokumente`;
 
   return {
-    subject: `BR-DMS – ${anzahl} im Eingang`,
+    subject: `BR-DMS – ${anzahl} im Dokumenteneingang`,
     text: [
       `Hallo ${name},`,
       "",
-      `seit der letzten Meldung sind ${anzahl} im Eingang:`,
+      `seit der letzten Meldung sind ${anzahl} im Dokumenteneingang:`,
       "",
       ...eintraege.map(e => `- ${zeit(e.eingangAm)} · ${e.titel} (${e.kategorie}, ${e.quelle})`),
       "",
@@ -349,11 +349,11 @@ export function eingangSammelmailInhalt(name: string, eintraege: EingangEintrag[
     ].join("\n"),
     html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
       <div style="background:#1e3a8a;color:white;padding:16px 20px;border-radius:8px 8px 0 0">
-        <h2 style="margin:0;font-size:18px">BR-DMS – ${h(anzahl)} im Eingang</h2>
+        <h2 style="margin:0;font-size:18px">BR-DMS – ${h(anzahl)} im Dokumenteneingang</h2>
       </div>
       <div style="padding:20px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
         <p>Hallo <strong>${h(name)}</strong>,</p>
-        <p>seit der letzten Meldung sind ${h(anzahl)} im Eingang:</p>
+        <p>seit der letzten Meldung sind ${h(anzahl)} im Dokumenteneingang:</p>
         <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;font-size:14px">
           <tbody>${eintraege.map(e => `<tr>
             <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#6b7280;white-space:nowrap;vertical-align:top">${h(zeit(e.eingangAm))}</td>
@@ -362,7 +362,7 @@ export function eingangSammelmailInhalt(name: string, eintraege: EingangEintrag[
           </tr>`).join("")}</tbody>
         </table>
         <p style="margin-top:20px">
-          <a href="${h(url)}" style="background:#1e40af;color:white;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block">→ Zum Eingang</a>
+          <a href="${h(url)}" style="background:#1e40af;color:white;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block">→ Zum Dokumenteneingang</a>
         </p>
         <p style="color:#9ca3af;font-size:11px;margin-top:20px">Automatische Nachricht von BR-DMS · höchstens einmal pro Stunde, nur bei neuen Eingängen · abschaltbar unter Einstellungen → Löschfristen</p>
       </div>

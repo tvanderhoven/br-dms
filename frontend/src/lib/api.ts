@@ -1658,7 +1658,7 @@ export const AUDIT_AKTION_LABEL: Record<AuditAktion, string> = {
   DOKUMENT_ALIAS_GEAENDERT:    "Alias geändert",
   DOKUMENT_TOP_GEAENDERT:      "TOP-Zuweisung geändert",
   DOKUMENT_AUFGABE_ERSTELLT:   "Aufgabe aus Dokument erstellt",
-  INBOX_DOKUMENT_GELESEN:      "Eingang gelesen",
+  INBOX_DOKUMENT_GELESEN:      "Dokumenteneingang gelesen",
   ZUGANG_BESTAETIGT:           "Zugang bestätigt",
   EMPFANGSBESTAETIGUNG_VERSENDET: "Empfangsbestätigung versendet",
   WATCHFOLDER_DATEI_EMPFANGEN: "WatchFolder – Datei importiert",

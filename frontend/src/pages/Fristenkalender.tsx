@@ -287,7 +287,7 @@ export default function Fristenkalender() {
                       {istUeberfaellig(f) && <span className="text-red-600 font-medium"> · überfällig</span>}
                     </p>
                     {f.status === "OFFEN" && f.vorlaeufig && (
-                      <p className="text-xs text-amber-700 mt-0.5" title="Ab Eingang im System berechnet – der Zugang beim Betriebsrat ist noch nicht bestätigt (Eingang bzw. Dokumentansicht)">
+                      <p className="text-xs text-amber-700 mt-0.5" title="Ab Eingang im System berechnet – der Zugang beim Betriebsrat ist noch nicht bestätigt (Dokumenteneingang bzw. Dokumentansicht)">
                         vorläufig – Zugang noch nicht bestätigt
                       </p>
                     )}
