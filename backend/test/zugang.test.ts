@@ -257,7 +257,7 @@ describe("Stündliche Sammelmail", () => {
       { titel: "Info <Werk 2>", kategorie: "Arbeitgeber-Info", quelle: "Watch-Folder", eingangAm: new Date("2026-10-14T08:15:00Z") },
       { titel: "Protokoll ASA", kategorie: "Arbeitsschutz", quelle: "hochgeladen von Sabine", eingangAm: new Date("2026-10-14T08:40:00Z") },
     ], "http://br-dms.lokal/eingang");
-    assert.equal(m.subject, "BR-DMS – 2 neue Dokumente im Eingang");
+    assert.equal(m.subject, "BR-DMS – 2 neue Dokumente im Dokumenteneingang");
     assert.match(m.text, /14\.10\., 10:15 · Info <Werk 2>/);
     assert.match(m.html, /Info &lt;Werk 2&gt;/);
   });
