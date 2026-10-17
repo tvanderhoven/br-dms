@@ -107,7 +107,7 @@ export default function GeschaeftsordnungSeite() {
                     {g.goMehrheitErreicht === false && (
                       <span
                         className="ml-2 inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border text-red-700 bg-red-50 border-red-200"
-                        title="§ 36 Abs. 1 Satz 2 BetrVG: Beschlüsse über die Geschäftsordnung brauchen die Mehrheit aller Mitglieder, nicht nur der Anwesenden"
+                        title="§ 36 BetrVG: Beschlüsse über die Geschäftsordnung brauchen die Mehrheit aller Mitglieder, nicht nur der Anwesenden"
                       >
                         <AlertTriangle size={11} /> Keine Mehrheit aller Mitglieder
                       </span>
@@ -261,7 +261,7 @@ function GeschaeftsordnungModal({
               {mehrheitWarnung && (
                 <p className="flex items-start gap-1.5 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mt-1.5">
                   <AlertTriangle size={13} className="shrink-0 mt-0.5" />
-                  Keine Mehrheit aller Mitglieder (§ 36 Abs. 1 Satz 2 BetrVG verlangt mehr als die Hälfte der
+                  Keine Mehrheit aller Mitglieder (§ 36 BetrVG verlangt mehr als die Hälfte der
                   Mitglieder, nicht nur der Anwesenden). Trotzdem speicherbar, aber rechtlich angreifbar.
                 </p>
               )}

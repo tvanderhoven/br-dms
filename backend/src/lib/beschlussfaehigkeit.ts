@@ -23,7 +23,7 @@ export function istBeschlussfaehig(anwesend: number, sollStaerke: number): boole
 }
 
 /**
- * § 36 Abs. 1 Satz 2 BetrVG: Beschlüsse über die Geschäftsordnung brauchen die Mehrheit ALLER
+ * § 36 BetrVG: Beschlüsse über die Geschäftsordnung brauchen die Mehrheit ALLER
  * Mitglieder, nicht nur der Anwesenden – strenger als die normale Beschlussfähigkeit oben
  * (9 Mitglieder → mind. 5 Ja-Stimmen, unabhängig davon wie viele teilgenommen haben).
  */

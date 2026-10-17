@@ -1,5 +1,5 @@
 /**
- * Einberufung auf Antrag (§ 29 Abs. 2 BetrVG): ein Viertel der Mitglieder oder der
+ * Einberufung auf Antrag (§ 29 Abs. 3 BetrVG): ein Viertel der Mitglieder oder der
  * Arbeitgeber können eine Sitzung verlangen ("unter Angabe der Gründe"); sie muss dann
  * binnen einer Woche nach Zugang des Antrags stattfinden. Nutzt denselben Fristrechner
  * wie die Anhörungsfristen (§§ 187, 188, 193 BGB).
@@ -25,7 +25,7 @@ export async function einberufungsfristAnlegen(antragId: string, zugangAm: Date)
     data: {
       typ: FristTyp.EINBERUFUNG_29,
       faelligAm: ende.ende,
-      bezeichnung: "Einberufung auf Antrag (§ 29 Abs. 2 BetrVG)",
+      bezeichnung: "Einberufung auf Antrag (§ 29 Abs. 3 BetrVG)",
       einberufungsantragId: antragId,
     },
   });

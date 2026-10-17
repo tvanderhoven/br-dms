@@ -1,5 +1,5 @@
 /**
- * Einberufung auf Antrag (§ 29 Abs. 2 BetrVG): ein Viertel der Mitglieder oder der
+ * Einberufung auf Antrag (§ 29 Abs. 3 BetrVG): ein Viertel der Mitglieder oder der
  * Arbeitgeber können eine Sitzung verlangen; sie muss binnen einer Woche nach Zugang
  * des Antrags stattfinden. Mitglieder-Anträge sammeln erst Unterschriften bis zum
  * Quorum, Arbeitgeber-Anträge (kein eigener Login) trägt ein Mitglied stellvertretend
@@ -116,7 +116,7 @@ export default function EinberufungsantragKarte({ liste, meineRolle }: { liste: 
         onClick={() => setFormOffen(istVorsitz ? "ARBEITGEBER" : "MITGLIEDER")}
         className="mb-4 flex items-center gap-1.5 text-xs text-gray-500 hover:text-[rgb(var(--accent))]"
       >
-        <Plus size={13} /> Einberufung auf Antrag (§ 29 Abs. 2)
+        <Plus size={13} /> Einberufung auf Antrag (§ 29 Abs. 3)
       </button>
     ) : null;
   }
@@ -126,7 +126,7 @@ export default function EinberufungsantragKarte({ liste, meineRolle }: { liste: 
       {ueberfaellig && (
         <p className="flex items-start gap-1.5 text-sm text-red-800">
           <AlertTriangle size={15} className="shrink-0 mt-0.5" />
-          Seit {tageSeit} Tagen keine Sitzung – nach § 29 Abs. 2 Satz 1 BetrVG mindestens einmal im Monat fällig.
+          Seit {tageSeit} Tagen keine Sitzung – interne Erinnerung: mindestens einmal im Monat tagen.
         </p>
       )}
 
@@ -211,7 +211,7 @@ export default function EinberufungsantragKarte({ liste, meineRolle }: { liste: 
           <textarea
             value={grund}
             onChange={e => setGrund(e.target.value)}
-            placeholder="Grund (Pflichtangabe nach § 29 Abs. 2 BetrVG)…"
+            placeholder="Grund bzw. Gegenstand der Beratung (§ 29 Abs. 3 BetrVG)…"
             rows={2}
             className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2"
           />
