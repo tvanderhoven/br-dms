@@ -1600,14 +1600,14 @@ function SystemTab() {
               Erlaubte Dateitypen: .pdf · .docx · .docm · .xlsx — Fehlerhafte Dateien landen in <code className="font-mono">fehler/</code>
             </p>
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Scan-Eingang (kein Dokument, Zuordnung im Eingang)</p>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Scan-Eingang (kein Dokument, Zuordnung im Dokumenteneingang)</p>
               <div className="flex items-center gap-1.5 text-xs text-gray-600 bg-gray-50 rounded-sm px-2 py-1.5 w-fit">
                 <FolderOpen size={12} className="text-gray-400 shrink-0" />
                 <code className="font-mono">protokoll_scan</code>
               </div>
               <p className="text-xs text-gray-400 mt-1.5">
                 Für Scans der Anwesenheitsliste/Protokoll-Unterschriften (Paket 4, Stufe 4) – landen nicht als
-                Dokument, sondern tauchen im Eingang als "wartender Scan" auf und werden dort per Klick einer
+                Dokument, sondern tauchen im Dokumenteneingang als "wartender Scan" auf und werden dort per Klick einer
                 Sitzung zugeordnet. Erlaubte Dateitypen: .pdf · .jpg · .jpeg · .png
               </p>
             </div>
@@ -1879,7 +1879,7 @@ export default function Einstellungen() {
         <FeiertageBox />
       )}
 
-      {/* Mails über neue Eingänge: Sofortmail (Fristsachen) + stündliche Sammelmail (Issue #25/#26) */}
+      {/* Mails über den Dokumenteneingang: Sofortmail (Fristsachen) + stündliche Sammelmail (Issue #25/#26) */}
       {tab === "fristen" && meineRolle && ["ADMIN", "VORSITZ", "STELLVERTRETER"].includes(meineRolle) && (
         <EingangMailsBox />
       )}
@@ -2158,7 +2158,7 @@ function ModuleTab() {
   );
 }
 
-// ── Mails über neue Eingänge ──────────────────────────────────────────
+// ── Mails über den Dokumenteneingang ──────────────────────────────────────────
 // Sofortmail: Anhörung (§ 99/§ 102) oder § 87-Sache eingegangen – nicht erst mit
 // der Fristen-Erinnerung um 07:00 Uhr. Sammelmail: stündlich alle übrigen neuen
 // Eingänge, nur wenn etwas da ist (Backend: lib/eingangMeldung.ts).
@@ -2168,12 +2168,12 @@ const EINGANG_MAILS: { art: EingangMailArt; titel: string; text: string }[] = [
   {
     art:   "sofortmail",
     titel: "Sofortmail bei Fristsachen",
-    text:  "Geht eine Anhörung (§ 99, § 102) oder eine § 87-Sache ein, kommt sofort eine Mail mit der vorläufigen Frist und der Bitte, den Zugang im Eingang zu bestätigen.",
+    text:  "Geht eine Anhörung (§ 99, § 102) oder eine § 87-Sache ein, kommt sofort eine Mail mit der vorläufigen Frist und der Bitte, den Zugang im Dokumenteneingang zu bestätigen.",
   },
   {
     art:   "sammelmail",
     titel: "Stündliche Sammelmail",
-    text:  "Alle übrigen neuen Dokumente im Eingang, gesammelt zur vollen Stunde – nur wenn etwas Neues da ist. Bereits gelesene Dokumente fehlen darin.",
+    text:  "Alle übrigen neuen Dokumente im Dokumenteneingang, gesammelt zur vollen Stunde – nur wenn etwas Neues da ist. Bereits gelesene Dokumente fehlen darin.",
   },
 ];
 
@@ -2219,7 +2219,7 @@ function EingangMailsBox() {
   return (
     <div className="mt-6 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-100">
-        <h2 className="font-semibold text-gray-800">Mails über neue Eingänge</h2>
+        <h2 className="font-semibold text-gray-800">Mails über den Dokumenteneingang</h2>
         <p className="text-sm text-gray-500 mt-0.5">
           An Vorsitz und Stellvertretung. Wer ein Dokument selbst hochgeladen hat, bekommt dazu keine Mail.
         </p>
@@ -2255,7 +2255,7 @@ function EingangMailsBox() {
         <label className="block">
           <span className="text-sm font-medium text-gray-800">Empfangsbestätigung an</span>
           <span className="block text-xs text-gray-500 mt-0.5">
-            Adresse der Personalabteilung. Nach bestätigtem Zugang lässt sich im Eingang per Knopfdruck eine
+            Adresse der Personalabteilung. Nach bestätigtem Zugang lässt sich im Dokumenteneingang per Knopfdruck eine
             Empfangsbestätigung mit dem Zugangszeitpunkt dorthin schicken – vor dem Senden änderbar.
           </span>
           <div className="mt-2 flex flex-wrap items-center gap-2">

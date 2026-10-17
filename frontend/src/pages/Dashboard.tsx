@@ -227,7 +227,7 @@ export default function Dashboard() {
         <Link to="/eingang" className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 transition-colors rounded-lg px-3 py-1.5 text-sm">
           <Inbox size={14} className="text-gray-500" />
           <span className="font-semibold text-gray-800">{ungelesen}</span>
-          <span className="text-gray-500 text-xs">im Eingang</span>
+          <span className="text-gray-500 text-xs">im Dokumenteneingang</span>
         </Link>
       </div>
 

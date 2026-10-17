@@ -94,7 +94,7 @@ export default function Posteingang() {
           onClick={() => { setAnsicht("eingang"); setAusgeklappt(null); }}
           className={`px-5 py-2 text-sm font-medium rounded-lg transition-colors ${ansicht === "eingang" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
         >
-          Eingang {ungelesen > 0 && <span className="ml-1.5 text-xs bg-[rgb(var(--accent))] text-white px-1.5 py-0.5 rounded-full">{ungelesen}</span>}
+          Erhalten {ungelesen > 0 && <span className="ml-1.5 text-xs bg-[rgb(var(--accent))] text-white px-1.5 py-0.5 rounded-full">{ungelesen}</span>}
         </button>
         <button
           onClick={() => { setAnsicht("gesendet"); setAusgeklappt(null); }}

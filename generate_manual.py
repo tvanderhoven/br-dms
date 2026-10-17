@@ -471,7 +471,7 @@ def build():
     )
     pdf.body(
         "Das System begleitet ein Betriebsratsdokument über seinen ganzen Lebenszyklus: "
-        "vom Eingang über Kategorisierung und Fristüberwachung, die Behandlung in der Sitzung "
+        "vom Dokumenteneingang über Kategorisierung und Fristüberwachung, die Behandlung in der Sitzung "
         "bis zum rechtssicheren Protokoll – und am Ende die geregelte Löschung nach Ablauf "
         "der Aufbewahrungsfrist."
     )
@@ -558,7 +558,7 @@ def build():
     )
     pdf.bild("dashboard", "Dashboard: Auf einen Blick, Aufgaben und Fristen", ausschnitt="voll")
     pdf.bullets([
-        "Kopfzeile – Begrüßung und die Zahl ungelesener Dokumente im Eingang",
+        "Kopfzeile – Begrüßung und die Zahl ungelesener Dokumente im Dokumenteneingang",
         "Auf einen Blick – Vier Karten mit farbigem Rand (grün = in Ordnung, gelb = Handlungsbedarf): nächste "
         "Sitzung mit Uhrzeit, Ort und Zahl der TOPs; Betriebsvereinbarungen, die in den nächsten 90 Tagen "
         "auslaufen oder gekündigt sind; Qualifikationen, die abgelaufen sind oder in 90 Tagen ablaufen, samt "
@@ -577,30 +577,30 @@ def build():
 
     # 3 ─────────────────────────────────────────────────────────────
     pdf.h1("3  Dokumente & Fristen")
-    pdf.h2("3.1  Eingang")
+    pdf.h2("3.1  Dokumenteneingang")
     pdf.body(
-        "Neu eingegangene Dokumente landen zuerst im Eingang – egal ob per Upload oder automatisch "
+        "Neu eingegangene Dokumente landen zuerst im Dokumenteneingang – egal ob per Upload oder automatisch "
         "über den Watch-Folder (Scanner- oder Netzwerkordner). Hier entscheidet der Vorsitz, was mit "
         "jedem Dokument passiert. Ungelesene Einträge sind hervorgehoben."
     )
-    pdf.bild("eingang", "Eingang mit ungelesenen Anhörungen und Quelle (Watch-Folder / Upload)", hoehe_anteil=0.55)
-    pdf.h3("Aktionen im Eingang")
+    pdf.bild("eingang", "Dokumenteneingang mit ungelesenen Anhörungen und Quelle (Watch-Folder / Upload)", hoehe_anteil=0.55)
+    pdf.h3("Aktionen im Dokumenteneingang")
     pdf.bullets([
         "Mit Sitzung verknüpfen – Einem bestehenden TOP zuordnen oder direkt einen neuen TOP anlegen, auf Wunsch mit Frist",
         "Aufgabe erstellen – Bearbeitung an ein Mitglied übergeben, das Dokument bleibt verknüpft",
         "Ins Wissensarchiv – Inhalt als Wissenseintrag übernehmen",
         "Neue Version – Als neue Fassung eines vorhandenen Dokuments speichern",
-        "Wiedervorlage – Datum setzen, an dem das Dokument erneut im Eingang auftaucht",
+        "Wiedervorlage – Datum setzen, an dem das Dokument erneut im Dokumenteneingang auftaucht",
         "Anhörungen – Stellungnahme, Widerspruch oder Zustimmungsverweigerung entstehen im Vorgang am Dokument (Kapitel 3.4)",
         "Download – Die Originaldatei herunterladen",
-        "Erledigt – Das Dokument verlässt den Eingang und liegt nur noch im Dokumentenarchiv",
+        "Erledigt – Das Dokument verlässt den Dokumenteneingang und liegt nur noch im Dokumentenarchiv",
     ])
     pdf.body(
         "Ein Klick auf einen Eintrag klappt ihn auf: oben die Aktionen als Knopfleiste, darunter die "
         "PDF-Vorschau. Jede Aktion öffnet ein kleines Formular direkt unter der Leiste."
     )
     pdf.bild("eingang-aktionen", "Aufgeklappter Eintrag mit Aktionsleiste und Vorschau", hoehe_anteil=0.55)
-    pdf.body("Der Eingang ist Vorsitz, Stellvertretung und Admin vorbehalten.")
+    pdf.body("Der Dokumenteneingang ist Vorsitz, Stellvertretung und Admin vorbehalten.")
 
     pdf.h3("Fristsachen: Zugang bestätigen")
     pdf.body(
@@ -639,10 +639,10 @@ def build():
         "achtung", "Zugang prüfen")
     pdf.body(
         "Dieselben Karten stehen auch in der Vorschau des Dokuments im Dokumentenarchiv (Kapitel 3.2) – so "
-        "lässt sich der Zugang auch dann noch bestätigen oder korrigieren, wenn das Dokument den Eingang "
+        "lässt sich der Zugang auch dann noch bestätigen oder korrigieren, wenn das Dokument den Dokumenteneingang "
         "schon verlassen hat."
     )
-    pdf.h3("Mails über neue Eingänge")
+    pdf.h3("Mails über den Dokumenteneingang")
     pdf.bullets([
         "Sofortmail – Geht eine Fristsache ein, bekommen Vorsitz und Stellvertretung sofort eine Mail mit der vorläufigen Frist und der Bitte, den Zugang zu bestätigen",
         "Stündliche Sammelmail – Alle übrigen neuen, noch ungelesenen Dokumente gesammelt zur vollen Stunde, nur wenn etwas Neues da ist",
@@ -733,7 +733,7 @@ def build():
                         "gesetzt) oder später einzeln in der Vorschau"],
             ["Abgelegte Anhänge", "Übernehmen Kategorie, Ordner, Vertraulichkeit und Aktenzeichen der E-Mail und "
                                   "zeigen „Anhang aus: …“ mit Link zur E-Mail. Sie bekommen keine eigenen Fristen "
-                                  "und erscheinen nicht einzeln im Eingang – das gilt für die E-Mail selbst"],
+                                  "und erscheinen nicht einzeln im Dokumenteneingang – das gilt für die E-Mail selbst"],
             ["Original", "„Herunterladen“ liefert die unveränderte .eml bzw. .msg, die sich wieder im "
                          "Mailprogramm öffnen lässt"],
         ],
@@ -1001,7 +1001,7 @@ def build():
     pdf.bullets([
         "Direkt hochladen – PDF, JPG oder PNG über die Sitzungsseite auswählen",
         "Über den Watch-Folder – Scan in den Unterordner protokoll_scan legen (z. B. Scanner-Ablage); die "
-        "Datei erscheint im Eingang als „wartender Scan“ und wird dort per Klick der richtigen Sitzung "
+        "Datei erscheint im Dokumenteneingang als „wartender Scan“ und wird dort per Klick der richtigen Sitzung "
         "zugeordnet (Kapitel 12.6)",
     ])
 
@@ -1466,7 +1466,7 @@ def build():
     pdf.body("Der typische Weg einer Anhörung nach § 99 durch das System:")
     pdf.schritt(1, "Dokument geht ein",
                 "Per Upload oder automatisch über den Watch-Folder. Das System liest den Text aus, "
-                "verschlüsselt die Datei, legt die Frist vorläufig an, zeigt das Dokument im Eingang und "
+                "verschlüsselt die Datei, legt die Frist vorläufig an, zeigt das Dokument im Dokumenteneingang und "
                 "schickt Vorsitz und Stellvertretung sofort eine Mail.")
     pdf.schritt(2, "Zugang bestätigen und zuordnen",
                 "Der Vorsitz prüft den Zugangszeitpunkt und bestätigt ihn – erst dann ist die Frist "
@@ -1490,7 +1490,7 @@ def build():
     pdf.tabelle(
         ["Aufgabe", "Wer", "Wo im System"],
         [
-            ["Eingang sichten", "Vorsitz / Stellvertretung", "Eingang"],
+            ["Dokumenteneingang sichten", "Vorsitz / Stellvertretung", "Dokumenteneingang"],
             ["Fristen im Blick behalten", "Vorsitz / Stellvertretung", "Dashboard, Fristenkalender"],
             ["Eigene Aufgaben bearbeiten", "Alle", "Aufgaben"],
             ["Nachrichten lesen", "Alle", "Nachrichten"],
@@ -1654,13 +1654,13 @@ def build():
         "Ohne Bundesland zählt BR-DMS nur die bundesweiten Feiertage. Eine Frist endet dann im Zweifel einen "
         "Tag früher als nötig – nie später.",
         "info", "Noch kein Bundesland gewählt")
-    pdf.h3("Mails über neue Eingänge")
+    pdf.h3("Mails über den Dokumenteneingang")
     pdf.bullets([
         "Sofortmail bei Fristsachen – An Vorsitz und Stellvertretung, sobald eine Anhörung oder § 87-Sache eingeht",
         "Stündliche Sammelmail – Alle übrigen neuen Eingänge zur vollen Stunde, nur wenn etwas Neues da ist; beim Wiedereinschalten kommen keine alten Eingänge nach",
         "Empfangsbestätigung an – Adresse der Personalabteilung als Voreinstellung für die Empfangsbestätigung (Kapitel 3.1); im Dialog vor dem Senden änderbar",
     ])
-    pdf.bild("einstellungen-eingang-mails", "Mails über neue Eingänge und Empfänger der Empfangsbestätigung", hoehe_anteil=0.63)
+    pdf.bild("einstellungen-eingang-mails", "Mails über den Dokumenteneingang und Empfänger der Empfangsbestätigung", hoehe_anteil=0.63)
     pdf.body(
         "Ohne Mailserver (SMTP_HOST in der .env, Kapitel 12.5) weist der Kasten darauf hin; dann werden "
         "keine Mails verschickt."
@@ -1764,7 +1764,7 @@ def build():
             ["Dokumente lesen", j, j, j, j, n, n, j],
             ["Dokumente hochladen und bearbeiten", j, j, j, v, n, n, j],
             ["Vertrauliche Dokumente anderer", j, j, n, n, n, n, j],
-            ["Eingang bearbeiten", j, j, n, n, n, n, j],
+            ["Dokumenteneingang bearbeiten", j, j, n, n, n, n, j],
             ["Sitzungen und Protokolle lesen", j, j, j, j, j, j, j],
             ["Vertrauliche TOPs sehen", j, j, j, j, n, n, j],
             ["TOPs bearbeiten", j, j, j, v, n, n, j],
@@ -1827,7 +1827,7 @@ def build():
         (26, 62, 82),
     )
     pdf.body(
-        "Hintergrundjobs im Backend erinnern an Fristen, legen Wiedervorlagen zurück in den Eingang, "
+        "Hintergrundjobs im Backend erinnern an Fristen, legen Wiedervorlagen zurück in den Dokumenteneingang, "
         "warnen vor ablaufenden Regelungen, aktualisieren monatlich die Gesetzestexte und löschen "
         "Dokumente nach Ablauf der Aufbewahrungsfrist."
     )
@@ -2227,7 +2227,7 @@ def build():
     pdf.body(
         "Mit WATCH_FOLDER_ENABLED=true überwacht das Backend einen Ordner – etwa die Ablage eines "
         "Scanners – und importiert neue PDF-, DOCX-, DOCM- und XLSX-Dateien sowie E-Mails (EML, MSG) automatisch "
-        "in den Eingang; PDF- und Office-Anhänge von E-Mails werden dabei gleich als eigene Dokumente abgelegt. "
+        "in den Dokumenteneingang; PDF- und Office-Anhänge von E-Mails werden dabei gleich als eigene Dokumente abgelegt. "
         "Der Unterordner bestimmt die Kategorie: anhoerung_99, anhoerung_102 (ordentliche Kündigung), "
         "anhoerung_102_ausserordentlich, abmahnung, bewerbung, bewerbung_alternativ, zeitmodell_87, "
         "betriebsvereinbarung, arbeitgeber_info, arbeitsschutz, schriftverkehr, protokoll, sonstiges. "
@@ -2243,7 +2243,7 @@ def build():
     pdf.body(
         "Ein Unterordner fällt aus diesem Schema heraus: protokoll_scan ist für Scans der Anwesenheitsliste "
         "und der Unterschriftenseite (Kapitel 4.4) gedacht, nicht für normale Dokumente. Erlaubt sind PDF, "
-        "JPG und PNG. Dateien landen dort nicht im Eingang als Dokument, sondern als „wartender Scan“, der "
+        "JPG und PNG. Dateien landen dort nicht im Dokumenteneingang als Dokument, sondern als „wartender Scan“, der "
         "sich per Klick einer Sitzung und einem oder beiden Nachweisen zuordnen lässt."
     )
 
@@ -2640,7 +2640,7 @@ def build():
         "achtung", "Kein Ersatz für Rechtsberatung",
     )
 
-    pdf.h3("Sitzungslebenszyklus (Posteingang bis Abschluss)")
+    pdf.h3("Sitzungslebenszyklus (Dokumenteneingang bis Abschluss)")
     pdf.body(
         "Vom Eingang eines fristauslösenden Dokuments bis zum Abschluss der Sitzung, in der darüber "
         "entschieden wird:"
@@ -2648,9 +2648,9 @@ def build():
     pdf.tabelle(
         ["Phase", "Funktion", "Rechtsgrundlage"],
         [
-            ["Posteingang", "Fristbeginn ab Zugang", "§ 130 BGB, §§ 187/188/193 BGB"],
-            ["Posteingang", "Hinweis auf Zustimmungsfiktion", "§ 99 Abs. 3 S. 2 / § 102 Abs. 2 S. 3 BetrVG"],
-            ["Posteingang", "Empfangsbestätigung an den Arbeitgeber", "– (Beweis des Fristbeginns)"],
+            ["Dokumenteneingang", "Fristbeginn ab Zugang", "§ 130 BGB, §§ 187/188/193 BGB"],
+            ["Dokumenteneingang", "Hinweis auf Zustimmungsfiktion", "§ 99 Abs. 3 S. 2 / § 102 Abs. 2 S. 3 BetrVG"],
+            ["Dokumenteneingang", "Empfangsbestätigung an den Arbeitgeber", "– (Beweis des Fristbeginns)"],
             ["Entwurf", "Tagesordnung vorbereiten", "§ 29 Abs. 1 BetrVG"],
             ["Fixierung", "Tagesordnung feststellen und mitteilen", "§ 29 Abs. 4 BetrVG"],
             ["Einladung", "Einladung mit Tagesordnung", "§ 29 Abs. 2 und 4 BetrVG"],

@@ -360,9 +360,9 @@ export default function Layout() {
         const n = docs.filter(d => !d.inboxGelesen).length;
         if (!ersterLauf.current && n > prevCounts.current.inbox) {
           const neu = n - prevCounts.current.inbox;
-          const msg = `${neu} neues Dokument${neu > 1 ? "e" : ""} im Eingang`;
+          const msg = `${neu} neues Dokument${neu > 1 ? "e" : ""} im Dokumenteneingang`;
           setToast(msg);
-          browserNotification("BR-DMS · Eingang", msg);
+          browserNotification("BR-DMS · Dokumenteneingang", msg);
         }
         prevCounts.current.inbox = n;
         setInboxCount(n);
@@ -593,7 +593,7 @@ export default function Layout() {
                 {({ isActive }) => (
                   <>
                     <Inbox size={16} />
-                    <span className="flex-1">Eingang</span>
+                    <span className="flex-1">Dokumenteneingang</span>
                     {inboxCount > 0 && (
                       <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${isActive ? "bg-[rgb(var(--sidebar-text))] text-[rgb(var(--sidebar-bg))]" : "bg-[rgb(var(--accent))] text-white"}`}>
                         {inboxCount}

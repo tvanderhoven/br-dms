@@ -36,11 +36,11 @@ nicht ausschließen lassen, bleiben unberührt.
 
 ## Features
 
-### Dokumente & Eingang
+### Dokumenteneingang & Dokumente
 - **Vollverschlüsselte Dokumentenablage** – AES-256, Dokumente nur on-demand entschlüsselt, Prüfsumme, Volltextsuche im PDF-Inhalt
 - **Kategorien, Vertraulich-Kennzeichnung, Alias, Tags, Aktenzeichen** – inkl. Inline-PDF-Vorschau und Filter
 - **Dokumentenversionen** – Beliebig viele Versionen mit Änderungsnotiz
-- **Eingang (Inbox)** – Triage neu eingegangener Dokumente: mit TOP verknüpfen (neu oder bestehend, inkl. automatischer Frist), ins Wissensarchiv übernehmen, Aufgabe erstellen, als neue Dokumentversion speichern, Wiedervorlage-Datum setzen
+- **Dokumenteneingang (Inbox)** – Triage neu eingegangener Dokumente: mit TOP verknüpfen (neu oder bestehend, inkl. automatischer Frist), ins Wissensarchiv übernehmen, Aufgabe erstellen, als neue Dokumentversion speichern, Wiedervorlage-Datum setzen
 - **Watch Folder** – Automatischer Import aus freigegebenem Netzwerkordner (Pfad unabhängig vom Docker-Verzeichnis konfigurierbar)
 - **Konfigurierbare Aufbewahrungsfristen** – Je Kategorie, mit automatischer Löschvormerkung (DSGVO)
 

@@ -1,6 +1,6 @@
 /**
  * Fristsachen (Anhörung § 99/§ 102, § 87): Zugang beim Betriebsrat bestätigen,
- * Empfangsbestätigung an den Arbeitgeber, Sitzung vor Fristende – im Eingang und
+ * Empfangsbestätigung an den Arbeitgeber, Sitzung vor Fristende – im Dokumenteneingang und
  * in der Dokumentansicht (Backend: lib/zugang.ts, lib/empfangsbestaetigung.ts,
  * lib/sitzungsvorschlag.ts). Nur für Vorsitz/Stellvertretung.
  */
@@ -410,7 +410,7 @@ export function SitzungsVorschlagKarte({ dok, onTopAngelegt }: { dok: Dokument; 
             ))}
           </ul>
           {v.sitzungen.some(s => s.topMoeglich) && (
-            <p className="text-xs text-gray-500">Das Dokument wird mit dem TOP verknüpft und aus dem Eingang genommen.</p>
+            <p className="text-xs text-gray-500">Das Dokument wird mit dem TOP verknüpft und aus dem Dokumenteneingang genommen.</p>
           )}
         </>
       )}
