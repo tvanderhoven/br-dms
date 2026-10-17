@@ -148,6 +148,10 @@ Studierende bei der JAV als Auszubildende zählen.
   und kein Ersatzmitglied ohne Ladung) und im Dialog warnen, wenn sie nicht erfüllt ist.
 - Offen: Einstimmigkeit beim Aufnahme-Beschluss **technisch erzwingen oder deutlich anzeigen**, statt nur im Hinweistext.
 
+**Juristisch gegenlesen lassen (Notiz 18.10.2026):** interne Wochenfrist bei „Einberufung auf Antrag“ (§ 29 Abs. 3
+nennt keine Frist; heute als interne Bearbeitungsfrist gekennzeichnet), Monatserinnerung „keine Sitzung seit
+35 Tagen“ (kein Gesetzesgebot), die Voraussetzungen des Spontan-TOPs (siehe oben) sowie die Fristen des Wahl-Moduls.
+
 ## Wahl-Modul (BR und JAV) – Entscheidungen
 
 Werkzeug des **Betriebsrats**, nicht des Wahlvorstands: Wahlvorstand bestellen, Fristen überwachen,
