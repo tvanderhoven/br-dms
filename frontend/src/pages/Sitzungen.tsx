@@ -2572,7 +2572,7 @@ function SpontanTopModal({
 
         <form onSubmit={beantragen} className="p-5 space-y-4">
           <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-800">
-            Der BR muss die Aufnahme <strong>einstimmig</strong> beschließen (§ 29 Abs. 2 BetrVG).
+            Der BR muss die Aufnahme <strong>einstimmig</strong> beschließen (Rechtsprechung zu § 29 Abs. 2 S. 3 BetrVG).
             Nach dem Anlegen erscheint automatisch ein Aufnahme-Beschluss.
           </div>
 

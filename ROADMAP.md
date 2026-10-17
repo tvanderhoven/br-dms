@@ -137,6 +137,17 @@ Beschlüsse finalisiert“.
 Weiter offen beim Wahl-Modul: Fristen und Paragrafen juristisch gegenlesen lassen; klären, ob dual
 Studierende bei der JAV als Auszubildende zählen.
 
+**Spontan-TOP rechtlich absichern (Notiz 18.10.2026):**
+
+- Ein Spontan-TOP (neuer TOP während der Sitzung) heilt den Ladungsmangel nach § 29 Abs. 2 S. 3 BetrVG nur, wenn
+  alle Mitglieder einschließlich Ersatzmitglieder rechtzeitig geladen waren und die beschlussfähig Anwesenden die
+  Ergänzung der Tagesordnung einstimmig beschließen (Rechtsprechung, BAG 7 ABR 6/13 vom 22.01.2014 – Fundstelle
+  vor Verwendung im Volltext prüfen, nicht aus dem Gesetz). Heute legt BR-DMS beim Spontan-TOP nur einen
+  Aufnahme-Beschluss an und weist im Dialog auf die Einstimmigkeit hin.
+- Offen: **Bedingung „alle rechtzeitig geladen“ prüfen** (Versandnachweis der Einladung vorhanden, kein Mitglied
+  und kein Ersatzmitglied ohne Ladung) und im Dialog warnen, wenn sie nicht erfüllt ist.
+- Offen: Einstimmigkeit beim Aufnahme-Beschluss **technisch erzwingen oder deutlich anzeigen**, statt nur im Hinweistext.
+
 ## Wahl-Modul (BR und JAV) – Entscheidungen
 
 Werkzeug des **Betriebsrats**, nicht des Wahlvorstands: Wahlvorstand bestellen, Fristen überwachen,
