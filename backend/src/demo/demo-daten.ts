@@ -156,6 +156,7 @@ async function dokumentAnlegen(opts: {
   aktenzeichen?: string;
   tags?: string[];
   vertraulich?: boolean;
+  vertraulichFuerMitglieder?: boolean;
   ungelesen?: boolean;
   quelle?: string;
 }) {
@@ -191,6 +192,7 @@ async function dokumentAnlegen(opts: {
       aktenzeichen:   opts.aktenzeichen ?? null,
       tags:           opts.tags ?? [],
       vertraulich:    opts.vertraulich ?? false,
+      vertraulichFuerMitglieder: (opts.vertraulich ?? false) && (opts.vertraulichFuerMitglieder ?? false),
       textinhalt:     [opts.titel, ...opts.abschnitte.map(([u, t]) => `${u}\n${t}`)].join("\n\n"),
       inboxQuelle:    opts.quelle ?? "UPLOAD",
       inboxGelesen:   !opts.ungelesen,
@@ -707,7 +709,7 @@ async function main() {
       ["Kündigungsgründe", "Manipulation der Zeiterfassung an drei Tagen im laufenden Monat (Ausstempeln durch einen Kollegen); Anhörung des Beschäftigten ist erfolgt."],
       ["Frist", "Wir bitten um Stellungnahme innerhalb von drei Tagen (§ 102 Abs. 2 Satz 3 BetrVG)."],
     ],
-    erstelltAm: eingang102a, vonId: personal, vertraulich: true, tags: ["Zeiterfassung"],
+    erstelltAm: eingang102a, vonId: personal, vertraulich: true, vertraulichFuerMitglieder: true, tags: ["Zeiterfassung"],
     ungelesen: true, quelle: "WATCHFOLDER",
   });
   await zugangSetzen(dok102a.id, new Date(eingang102a.getTime() - 15 * 60_000), { bestaetigtVon: vorsitz });

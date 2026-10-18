@@ -169,6 +169,7 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
           mimeTyp:       true,
           aktenzeichen:  true,
           vertraulich:   true,
+          vertraulichFuerMitglieder: true,
           ordnerId:      true,
           emailKopf:     true,
           quelleDokument: { select: { id: true, titel: true, alias: true } },
@@ -232,6 +233,7 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
       const kategorieStr   = fields.kategorie?.value as Kategorie;
       const aktenzeichen   = fields.aktenzeichen?.value?.trim() ?? undefined;
       const vertraulich    = fields.vertraulich?.value === "true";
+      const vertraulichFuerMitglieder = vertraulich && fields.vertraulichFuerMitglieder?.value === "true";
       const ordnerId       = fields.ordnerId?.value || undefined;
       const kuendigungsArtStr = fields.kuendigungsArt?.value;
       const kuendigungsArt = kuendigungsArtStr === "ORDENTLICH" || kuendigungsArtStr === "AUSSERORDENTLICH"
@@ -254,7 +256,7 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
           userId:            request.benutzer.sub,
           ip:                request.ip,
           userAgent:         request.headers["user-agent"],
-          metadata:          { titel, kategorie: kategorieStr, aktenzeichen, vertraulich, inboxQuelle: "UPLOAD", kuendigungsArt, ordnerId, anhaengeAblegen },
+          metadata:          { titel, kategorie: kategorieStr, aktenzeichen, vertraulich, vertraulichFuerMitglieder, inboxQuelle: "UPLOAD", kuendigungsArt, ordnerId, anhaengeAblegen },
         });
         return reply.status(201).send(dokument);
       } catch (err) {
@@ -352,11 +354,17 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
       }
 
       const body = request.body;
-      const erlaubteFelder = ["alias", "tags", "kategorie", "aktenzeichen", "beschreibung", "vertraulich"] as const;
+      const erlaubteFelder = ["alias", "tags", "kategorie", "aktenzeichen", "beschreibung", "vertraulich", "vertraulichFuerMitglieder"] as const;
       const aenderungen: Record<string, unknown> = {};
 
       for (const feld of erlaubteFelder) {
         if (feld in body) aenderungen[feld] = body[feld];
+      }
+
+      // "Auch für Mitglieder" gilt nur bei vertraulichen Dokumenten
+      if (aenderungen["vertraulich"] === false) aenderungen["vertraulichFuerMitglieder"] = false;
+      else if (aenderungen["vertraulichFuerMitglieder"] === true && !("vertraulich" in aenderungen) && !dokument.vertraulich) {
+        aenderungen["vertraulichFuerMitglieder"] = false;
       }
 
       if ("ordnerId" in body) {

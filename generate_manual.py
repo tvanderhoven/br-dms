@@ -539,7 +539,7 @@ def build():
         [
             ["Vorsitz", "Vorsitzende/r", "Alles – inkl. Sitzungen fixieren und finalisieren, Benutzer verwalten"],
             ["Stellvertretung", "Stellv. Vorsitzende/r", "Wie Vorsitz im Tagesgeschäft"],
-            ["Mitglied", "Ordentliche Mitglieder", "Dokumente, TOPs, Aufgaben, Personal; keine vertraulichen Dokumente anderer"],
+            ["Mitglied", "Ordentliche Mitglieder", "Dokumente, TOPs, Aufgaben, Personal; vertrauliche Dokumente nur mit Stufe „Betriebsrat“"],
             ["Ersatzmitglied", "Nachrückende", "Lesend; bei aktiver Vertretung wie ein Mitglied"],
             ["JAV", "Jugend- und Auszubildendenvertretung", "Nur Lesezugriff auf Sitzungen, vertrauliche TOPs ausgeblendet"],
             ["SBV", "Schwerbehindertenvertretung (§ 178 SGB IX)", "Wie JAV: nur Sitzungen und Protokolle lesen, ohne vertrauliche TOPs"],
@@ -667,7 +667,7 @@ def build():
             ["Kategorien", "Anhörung § 99, Kündigung § 102, Abmahnung, Bewerbung, Bewerbung (Alternativ), "
                            "Zeitmodell § 87, Betriebsvereinbarung, Information des Arbeitgebers, Arbeits- und "
                            "Gesundheitsschutz, Schriftverkehr, Protokoll, Sonstiges"],
-            ["Metadaten", "Titel, Alias, Tags, Aktenzeichen, Beschreibung, Kennzeichen „vertraulich“"],
+            ["Metadaten", "Titel, Alias, Tags, Aktenzeichen, Beschreibung, Vertraulichkeit (offen, Betriebsrat, nur Vorsitz)"],
             ["Versionen", "Beliebig viele Fassungen mit Änderungsnotiz"],
             ["Kommentare", "Diskussion direkt am Dokument"],
             ["Löschung", "Nach Ablauf der Aufbewahrungsfrist Löschvormerkung, danach endgültige, sichere Löschung"],
@@ -756,8 +756,11 @@ def build():
     )
     pdf.bild("dokument-bearbeiten", "Bearbeiten-Dialog mit Kommentaren und „Aufgabe“-Knopf")
     pdf.hinweis(
-        "Vertrauliche Dokumente sehen Mitglieder und Ersatzmitglieder nur, wenn sie sie selbst "
-        "hochgeladen haben. Vorsitz, Stellvertretung und Admin sehen alle.", "info", "Vertraulichkeit")
+        "Jedes Dokument hat eine von drei Stufen. „Offen“: alle mit Zugriff auf Dokumente. „Vertraulich: "
+        "Betriebsrat“: Vorsitz, Stellvertretung, Admin und die ordentlichen Mitglieder, nicht die "
+        "Ersatzmitglieder – gedacht für Kündigungen und Anhörungen, über die das Gremium beschließt. "
+        "„Vertraulich: nur Vorsitz“: Vorsitz, Stellvertretung und Admin. Wer ein Dokument hochlädt, sieht es "
+        "immer. JAV und SBV haben auf Dokumente ohnehin keinen Zugriff.", "info", "Vertraulichkeit")
 
     pdf.h2("3.3  Fristen & Fristenkalender")
     pdf.body(
@@ -1765,7 +1768,8 @@ def build():
         [
             ["Dokumente lesen", j, j, j, j, n, n, j],
             ["Dokumente hochladen und bearbeiten", j, j, j, v, n, n, j],
-            ["Vertrauliche Dokumente anderer", j, j, n, n, n, n, j],
+            ["Vertrauliche Dokumente „nur Vorsitz“", j, j, n, n, n, n, j],
+            ["Vertrauliche Dokumente „Betriebsrat“", j, j, j, n, n, n, j],
             ["Dokumenteneingang bearbeiten", j, j, n, n, n, n, j],
             ["Sitzungen und Protokolle lesen", j, j, j, j, j, j, j],
             ["Vertrauliche TOPs sehen", j, j, j, j, n, n, j],

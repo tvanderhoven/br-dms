@@ -194,7 +194,7 @@ export const api = {
     einzel: (id: string) => request<Dokument>(`/api/dokumente/${id}`),
     upload: (formData: FormData) =>
       request<Dokument>("/api/dokumente", { method: "POST", body: formData }),
-    aktualisieren: (id: string, data: Partial<Pick<Dokument, "alias" | "tags" | "kategorie" | "aktenzeichen" | "beschreibung" | "vertraulich" | "deleteAt" | "wiedervorlageAm" | "ordnerId">>) =>
+    aktualisieren: (id: string, data: Partial<Pick<Dokument, "alias" | "tags" | "kategorie" | "aktenzeichen" | "beschreibung" | "vertraulich" | "vertraulichFuerMitglieder" | "deleteAt" | "wiedervorlageAm" | "ordnerId">>) =>
       request<Dokument>(`/api/dokumente/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     loeschen: (id: string) =>
       request<{ nachricht: string }>(`/api/dokumente/${id}`, { method: "DELETE" }),
@@ -939,7 +939,7 @@ export interface Dokument {
   id: string; titel: string; alias?: string; tags: string[];
   kategorie: Kategorie; status: DokumentStatus;
   dateiname: string; dateigroesse: number; mimeTyp: string;
-  aktenzeichen?: string; beschreibung?: string; vertraulich: boolean;
+  aktenzeichen?: string; beschreibung?: string; vertraulich: boolean; vertraulichFuerMitglieder?: boolean;
   ordnerId?: string | null;
   // Nur bei E-Mails; quelleDokument = E-Mail, aus der dieser Anhang stammt
   emailKopf?: EmailKopf | null;

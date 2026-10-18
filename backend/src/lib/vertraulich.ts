@@ -5,6 +5,11 @@
  * (sofern er nicht über lib/adminZugriff.ts auf die Technik beschränkt ist). Alle anderen sehen
  * ein vertrauliches Dokument nur, wenn sie es selbst hochgeladen haben, und ein vertrauliches
  * Fremdprotokoll nur, wenn sie Mitglied des jeweiligen Gremiums sind.
+ *
+ * Dokumente haben drei Stufen (JAV und SBV erreichen Dokumente ohnehin nie, siehe middleware/auth.ts):
+ *   offen                                      alle mit Dokumentzugriff
+ *   vertraulich + vertraulichFuerMitglieder    zusätzlich die ordentlichen Mitglieder, nicht Ersatzmitglieder
+ *   vertraulich                                nur Vorsitz, Stellvertretung, Admin und wer es hochgeladen hat
  */
 
 import { DokumentStatus, Role } from "@prisma/client";
@@ -20,15 +25,20 @@ export function siehtAllesVertrauliche(rolle: Role): boolean {
 // Prisma-where-Teil für Dokument-Abfragen
 export function dokumentVertraulichFilter(rolle: Role, benutzerId: string) {
   if (siehtAllesVertrauliche(rolle)) return {};
-  return { OR: [{ vertraulich: false }, { hochgeladenVonId: benutzerId }] };
+  const sichtbar: object[] = [{ vertraulich: false }, { hochgeladenVonId: benutzerId }];
+  if (rolle === Role.MITGLIED) sichtbar.push({ vertraulichFuerMitglieder: true });
+  return { OR: sichtbar };
 }
 
 export function darfDokumentSehen(
-  dokument: { vertraulich: boolean; hochgeladenVonId: string },
+  dokument: { vertraulich: boolean; vertraulichFuerMitglieder: boolean; hochgeladenVonId: string },
   rolle: Role,
   benutzerId: string,
 ): boolean {
-  return !dokument.vertraulich || siehtAllesVertrauliche(rolle) || dokument.hochgeladenVonId === benutzerId;
+  return !dokument.vertraulich
+    || siehtAllesVertrauliche(rolle)
+    || dokument.hochgeladenVonId === benutzerId
+    || (dokument.vertraulichFuerMitglieder && rolle === Role.MITGLIED);
 }
 
 /**
@@ -43,7 +53,7 @@ export async function dokumentZugriffPruefen(
 ): Promise<boolean> {
   const dokument = await prisma.dokument.findUnique({
     where:  { id: dokumentId },
-    select: { vertraulich: true, hochgeladenVonId: true, status: true },
+    select: { vertraulich: true, vertraulichFuerMitglieder: true, hochgeladenVonId: true, status: true },
   });
   if (!dokument || dokument.status === DokumentStatus.GELOESCHT) {
     reply.status(404).send({ fehler: "Dokument nicht gefunden" });

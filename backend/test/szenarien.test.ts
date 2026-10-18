@@ -22,10 +22,10 @@ after(async () => {
 const status = async (konto: Konto | null, methode: string, url: string, body?: unknown) =>
   (await anfrage(env, konto, methode, url, body)).statusCode;
 
-function dokumentAnlegen(titel: string, vonKonto: Konto, vertraulich: boolean) {
+function dokumentAnlegen(titel: string, vonKonto: Konto, vertraulich: boolean, vertraulichFuerMitglieder = false) {
   return prisma.dokument.create({
     data: {
-      titel, vertraulich, kategorie: Kategorie.SONSTIGES,
+      titel, vertraulich, vertraulichFuerMitglieder, kategorie: Kategorie.SONSTIGES,
       dateiname: "test.txt", speicherpfad: "nicht/vorhanden", verschlPfad: "nicht/vorhanden",
       dateigroesse: 1, mimeTyp: "text/plain", pruefsumme: "x",
       hochgeladenVonId: env.ids[vonKonto],
@@ -88,6 +88,53 @@ describe("Vertrauliche Dokumente", () => {
     assert.equal(await status("MITGLIED", "GET", `/api/dokumente/${eigenes}`), 200);
     assert.equal(await status("MITGLIED", "GET", `/api/dokumente/${offen}`), 200);
     assert.equal(await status("STELLVERTRETER", "GET", `/api/dokumente/${geheim}`), 200);
+  });
+});
+
+describe("Vertrauliche Dokumente: Stufe „Betriebsrat“", () => {
+  let gremium: string;
+
+  before(async () => {
+    gremium = (await dokumentAnlegen("BR-DOK", "VORSITZ", true, true)).id;
+  });
+
+  test("Liste und Suche: Mitglieder, Vorsitz, Stellvertretung und Admin sehen es, Ersatzmitglieder nicht", async () => {
+    for (const konto of ["MITGLIED", "VORSITZ", "STELLVERTRETER", "ADMIN"] as const) {
+      const res = await anfrage(env, konto, "GET", "/api/dokumente");
+      assert.match(res.body, /BR-DOK/, konto);
+    }
+    const ersatz = await anfrage(env, "ERSATZMITGLIED", "GET", "/api/dokumente");
+    assert.doesNotMatch(ersatz.body, /BR-DOK/);
+    assert.doesNotMatch((await anfrage(env, "ERSATZMITGLIED", "GET", "/api/dokumente/suche?q=BR-DOK")).body, /BR-DOK/);
+    assert.doesNotMatch((await anfrage(env, "ERSATZMITGLIED", "GET", "/api/suche?q=BR-DOK")).body, /BR-DOK/);
+  });
+
+  test("Detail: Mitglied darf lesen, Ersatzmitglied nicht", async () => {
+    assert.equal(await status("MITGLIED", "GET", `/api/dokumente/${gremium}`), 200);
+    const code = await status("ERSATZMITGLIED", "GET", `/api/dokumente/${gremium}`);
+    assert.ok(code === 403 || code === 404, String(code));
+  });
+
+  test("jede Route an dem Dokument weist ein Ersatzmitglied ab", async () => {
+    const routen = env.routen.filter(r =>
+      /^\/api\/dokumente\/:(id|dokumentId)(\/|$)/.test(r.pfad)
+      && (r.mindestRolle === null || r.mindestRolle === "ERSATZMITGLIED"));
+    const offenGelassen: string[] = [];
+    for (const r of routen) {
+      const url = pfadFuellen(r.pfad.replace(/:(id|dokumentId)/, gremium));
+      const body = ["POST", "PUT", "PATCH"].includes(r.methode) ? { inhalt: "x", titel: "x" } : undefined;
+      const res = await anfrage(env, "ERSATZMITGLIED", r.methode, url, body);
+      if (res.statusCode !== 403 && res.statusCode !== 404) offenGelassen.push(`${r.methode} ${r.pfad} → ${res.statusCode}`);
+      if (res.body.includes("BR-DOK")) offenGelassen.push(`${r.methode} ${r.pfad} verrät den Titel`);
+    }
+    assert.deepEqual(offenGelassen, []);
+  });
+
+  test("Zurück auf offen setzt „für Mitglieder“ mit zurück", async () => {
+    const d = await dokumentAnlegen("BR-DOK-2", "VORSITZ", true, true);
+    assert.equal(await status("VORSITZ", "PATCH", `/api/dokumente/${d.id}`, { vertraulich: false }), 200);
+    const danach = await prisma.dokument.findUniqueOrThrow({ where: { id: d.id } });
+    assert.equal(danach.vertraulichFuerMitglieder, false);
   });
 });
 

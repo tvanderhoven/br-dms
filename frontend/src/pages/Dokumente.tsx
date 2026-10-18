@@ -1,3 +1,4 @@
+import VertraulichkeitAuswahl, { felderVon, stufeVon, VERTRAULICHKEIT_TEXT, type Vertraulichkeit } from "../components/VertraulichkeitAuswahl";
 import { useEffect, useState, useRef, FormEvent, useCallback } from "react";
 import { useLocation, Link } from "react-router-dom";
 import {
@@ -555,7 +556,7 @@ export default function Dokumente() {
                       case "titel": return (
                         <td key={id} className="px-3 py-3 wrap-break-word">
                           <div className="flex items-center gap-2">
-                          {d.vertraulich && <Lock size={12} className="text-amber-500 shrink-0" />}
+                          {d.vertraulich && <span title={VERTRAULICHKEIT_TEXT[stufeVon(d)].label}><Lock size={12} className={`${d.vertraulichFuerMitglieder ? "text-amber-400" : "text-red-500"} shrink-0`} /></span>}
                           <div>
                             <p className="font-medium text-gray-900 flex items-start gap-1.5">
                               {istEmail(d.mimeTyp) && <Mail size={14} className="text-[rgb(var(--accent))] shrink-0 mt-0.5" aria-label="E-Mail" />}
@@ -1103,7 +1104,7 @@ function BearbeitenModal({ dokument, ordner, onSchliessen, onErfolg }: {
   const [kategorie, setKategorie]       = useState<Kategorie>(dokument.kategorie);
   const [aktenzeichen, setAktenzeichen] = useState(dokument.aktenzeichen ?? "");
   const [beschreibung, setBeschreibung] = useState(dokument.beschreibung ?? "");
-  const [vertraulich, setVertraulich]   = useState(dokument.vertraulich);
+  const [vertraulichkeit, setVertraulichkeit] = useState<Vertraulichkeit>(stufeVon(dokument));
   const [ordnerId, setOrdnerId]         = useState(dokument.ordnerId ?? "");
   const deleteAtVorher = dokument.deleteAt ? dokument.deleteAt.slice(0, 10) : "";
   const [deleteAt, setDeleteAt]         = useState(deleteAtVorher);
@@ -1141,7 +1142,7 @@ function BearbeitenModal({ dokument, ordner, onSchliessen, onErfolg }: {
         kategorie,
         aktenzeichen: aktenzeichen || undefined,
         beschreibung: beschreibung || undefined,
-        vertraulich,
+        ...felderVon(vertraulichkeit),
         ordnerId: ordnerId || null,
         // nur bei Änderung senden – sonst scheitert z. B. eine Alias-Änderung an
         // einem Dokument, dessen Löschdatum schon erreicht ist
@@ -1248,15 +1249,7 @@ function BearbeitenModal({ dokument, ordner, onSchliessen, onErfolg }: {
             )}
           </div>
 
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={vertraulich}
-              onChange={e => setVertraulich(e.target.checked)}
-              className="rounded-sm border-gray-300 text-[rgb(var(--accent))]"
-            />
-            <span className="text-sm text-gray-700">Vertraulich (nur Vorsitz und Stellvertretung)</span>
-          </label>
+          <VertraulichkeitAuswahl wert={vertraulichkeit} onChange={setVertraulichkeit} />
 
           {/* Volltext-Indikator */}
           <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${
