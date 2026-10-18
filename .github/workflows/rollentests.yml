@@ -1,6 +1,6 @@
 # Rollentests: prüft bei jedem Push und Pull Request, welche Rolle welche
 # API-Route aufrufen darf (backend/test/). Läuft gegen eine leere Wegwerf-
-# Datenbank im Actions-Container – echte Daten gibt es hier nicht.
+# Datenbank auf dem Actions-Runner – echte Daten gibt es hier nicht.
 name: Rollentests
 
 on:
@@ -15,23 +15,20 @@ permissions:
 jobs:
   rollentests:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        # Offizielles Image aus dem AWS-Spiegel statt Docker Hub – Docker Hub
-        # drosselt anonyme Downloads von den geteilten GitHub-Runnern (toomanyrequests)
-        image: public.ecr.aws/docker/library/postgres:16-alpine
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: brdms_test
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U test -d brdms_test"
-          --health-interval 5s --health-timeout 5s --health-retries 10
     defaults:
       run:
         working-directory: backend
     steps:
+      # Das auf dem Runner vorinstallierte PostgreSQL wird nur gestartet. Ein
+      # Docker-Image zu laden scheiterte regelmäßig an Download-Limits
+      # (toomanyrequests), dann liefen die Tests gar nicht erst an.
+      - name: Test-Datenbank starten
+        working-directory: .
+        run: |
+          sudo systemctl start postgresql.service
+          until sudo -u postgres pg_isready; do sleep 1; done
+          sudo -u postgres psql -c "CREATE USER test WITH SUPERUSER PASSWORD 'test';"
+          sudo -u postgres createdb -O test brdms_test
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
