@@ -1,3 +1,4 @@
+import VertraulichkeitAuswahl, { felderVon, type Vertraulichkeit } from "./VertraulichkeitAuswahl";
 import { useState, useRef, FormEvent } from "react";
 import { X, Loader2, Search, Upload, Mail } from "lucide-react";
 import { api, Dokument, Kategorie, KATEGORIE_LABEL, Ordner, istEmailDatei } from "../lib/api";
@@ -17,7 +18,7 @@ export default function UploadModal({ ordner, startOrdnerId, onSchliessen, onErf
   const [kategorie, setKategorie]         = useState<Kategorie>("SONSTIGES");
   const [kuendigungsArt, setKuendigungsArt] = useState<"ORDENTLICH" | "AUSSERORDENTLICH">("ORDENTLICH");
   const [aktenzeichen, setAktenzeichen]   = useState("");
-  const [vertraulich, setVertraulich]     = useState(false);
+  const [vertraulichkeit, setVertraulichkeit] = useState<Vertraulichkeit>("OFFEN");
   const [ordnerId, setOrdnerId]           = useState(startOrdnerId ?? "");
   const [anhaengeAblegen, setAnhaengeAblegen] = useState(true);
   const [ziehen, setZiehen]               = useState(false);
@@ -82,7 +83,9 @@ export default function UploadModal({ ordner, startOrdnerId, onSchliessen, onErf
         form.append("kategorie", kategorie);
         if (kategorie === "ANHOERUNG_102") form.append("kuendigungsArt", kuendigungsArt);
         if (aktenzeichen) form.append("aktenzeichen", aktenzeichen);
-        form.append("vertraulich", String(vertraulich));
+        const stufe = felderVon(vertraulichkeit);
+        form.append("vertraulich", String(stufe.vertraulich));
+        form.append("vertraulichFuerMitglieder", String(stufe.vertraulichFuerMitglieder));
         if (ordnerId) form.append("ordnerId", ordnerId);
         if (istMail) form.append("anhaengeAblegen", String(anhaengeAblegen));
         await api.dokumente.upload(form);
@@ -275,15 +278,7 @@ export default function UploadModal({ ordner, startOrdnerId, onSchliessen, onErf
                 />
               </div>
 
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={vertraulich}
-                  onChange={e => setVertraulich(e.target.checked)}
-                  className="rounded-sm border-gray-300 text-[rgb(var(--accent))]"
-                />
-                <span className="text-sm text-gray-700">Vertraulich (nur Vorsitz und Stellvertretung)</span>
-              </label>
+              <VertraulichkeitAuswahl wert={vertraulichkeit} onChange={setVertraulichkeit} />
             </>
           )}
 

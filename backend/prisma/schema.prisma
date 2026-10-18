@@ -427,7 +427,11 @@ model Dokument {
 
   aktenzeichen   String?       @map("aktenzeichen")
   beschreibung   String?
+  // Vertraulich = nicht offen. Ohne vertraulichFuerMitglieder sehen es nur Vorsitz, Stellvertretung,
+  // Admin und wer es hochgeladen hat ("streng"); mit dem Zusatz auch die ordentlichen Mitglieder
+  // (nicht Ersatzmitglieder). Zwei Felder statt Enum, damit "prisma db push" bestehende Daten behält.
   vertraulich    Boolean       @default(false)
+  vertraulichFuerMitglieder Boolean @default(false) @map("vertraulich_fuer_mitglieder")
 
   // Ablage im Ordnerbaum (zusätzlich zur Kategorie); null = ohne Ordner
   ordnerId       String?       @map("ordner_id")

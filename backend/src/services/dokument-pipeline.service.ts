@@ -39,6 +39,7 @@ export interface PipelineOptionen {
     kategorie?: Kategorie;
     aktenzeichen?: string;
     vertraulich?: boolean;
+    vertraulichFuerMitglieder?: boolean;
     inboxQuelle?: string;
     ordnerId?: string;
     // Anhang einer E-Mail, der als eigenes Dokument abgelegt wird: keine eigenen
@@ -149,6 +150,7 @@ export async function verarbeiteDokument(opts: PipelineOptionen) {
       pruefsumme:      checksum,
       aktenzeichen:    metadata.aktenzeichen ?? null,
       vertraulich:     metadata.vertraulich ?? false,
+      vertraulichFuerMitglieder: (metadata.vertraulich ?? false) && (metadata.vertraulichFuerMitglieder ?? false),
       ordnerId:        metadata.ordnerId ?? null,
       emailKopf:       email ? (emailKopf(email) as any) : undefined,
       quelleDokumentId: metadata.quelleDokumentId ?? null,
@@ -220,7 +222,7 @@ export async function verarbeiteDokument(opts: PipelineOptionen) {
  * Vertraulichkeit, Ordner und Aktenzeichen der E-Mail.
  */
 export async function anhangAblegen(
-  mail: { id: string; kategorie: Kategorie; vertraulich: boolean; ordnerId: string | null; aktenzeichen: string | null; inboxQuelle: string | null },
+  mail: { id: string; kategorie: Kategorie; vertraulich: boolean; vertraulichFuerMitglieder: boolean; ordnerId: string | null; aktenzeichen: string | null; inboxQuelle: string | null },
   anhang: { name: string; mimeTyp: string; inhalt: Buffer },
   userId: string,
   kontext: { ip?: string; userAgent?: string } = {},
@@ -235,6 +237,7 @@ export async function anhangAblegen(
     metadata: {
       kategorie:        mail.kategorie,
       vertraulich:      mail.vertraulich,
+      vertraulichFuerMitglieder: mail.vertraulichFuerMitglieder,
       ordnerId:         mail.ordnerId ?? undefined,
       aktenzeichen:     mail.aktenzeichen ?? undefined,
       inboxQuelle:      mail.inboxQuelle ?? "UPLOAD",

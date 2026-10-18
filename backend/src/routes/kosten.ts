@@ -28,7 +28,7 @@ const POSTEN_INCLUDE = {
       top: { select: { nummer: true, sitzung: { select: { titel: true, sitzungsdatum: true } } } },
     },
   },
-  dokument: { select: { id: true, titel: true, vertraulich: true, hochgeladenVonId: true } },
+  dokument: { select: { id: true, titel: true, vertraulich: true, vertraulichFuerMitglieder: true, hochgeladenVonId: true } },
 } satisfies Prisma.KostenpostenInclude;
 
 type PostenRoh = Prisma.KostenpostenGetPayload<{ include: typeof POSTEN_INCLUDE }>;
@@ -119,7 +119,7 @@ export async function kostenRouten(app: FastifyInstance): Promise<void> {
       if (!b?.finalisiert) return "Beschluss nicht gefunden oder noch nicht finalisiert";
     }
     if (e.dokumentId) {
-      const d = await prisma.dokument.findUnique({ where: { id: e.dokumentId }, select: { vertraulich: true, hochgeladenVonId: true } });
+      const d = await prisma.dokument.findUnique({ where: { id: e.dokumentId }, select: { vertraulich: true, vertraulichFuerMitglieder: true, hochgeladenVonId: true } });
       if (!d || !darfDokumentSehen(d, request.benutzer.rolle, request.benutzer.sub)) return "Dokument nicht gefunden";
     }
     return null;
