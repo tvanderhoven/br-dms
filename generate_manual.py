@@ -606,7 +606,7 @@ def build():
     pdf.h3("Fristsachen: Zugang bestätigen")
     pdf.body(
         "Bei Anhörungen (§ 99, § 102) und § 87-Sachen läuft die Frist ab dem Zugang beim Betriebsrat – nicht "
-        "ab dem Scan. BR-DMS schlägt deshalb beim Eingang einen Zugangszeitpunkt vor (bei E-Mails die "
+        "ab dem Scan. BR-DMS schlägt deshalb beim Dokumenteneingang einen Zugangszeitpunkt vor (bei E-Mails die "
         "Sendezeit, sonst den Eingang im System) und berechnet die Frist zunächst vorläufig. Solange der "
         "Zugang nicht bestätigt ist, steht am Eintrag „Frist vorläufig – Zugang bestätigen“. Klappt man ihn "
         "auf, erscheinen über der Aktionsleiste bis zu drei Karten:"
@@ -806,7 +806,7 @@ def build():
     pdf.h2("3.4  Anhörung als Vorgang (§ 99 / § 102)")
     pdf.body(
         "Jedes Dokument der Kategorie „Anhörung § 99“ oder „Anhörung § 102“ ist zugleich ein Vorgang: vom "
-        "Eingang über Beratung und Beschluss bis zur Antwort an den Arbeitgeber. In der Vorschau des Dokuments "
+        "Dokumenteneingang über Beratung und Beschluss bis zur Antwort an den Arbeitgeber. In der Vorschau des Dokuments "
         "(Kapitel 3.2) steht dafür der Bereich „Vorgang“. Bearbeiten und versenden können Vorsitz, "
         "Stellvertretung und Admin."
     )

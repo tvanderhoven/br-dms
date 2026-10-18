@@ -97,7 +97,7 @@ nicht ausschließen lassen, bleiben unberührt.
 
 ### Export
 - **Amtsübergabe-PDF** – Ein Dokument mit aktiver Mitgliederliste, allen aktiven Dokumenten (nach Kategorie gruppiert, mit offenen Fristen) und dem vollständigen Beschlussregister
-- **Anhörung als Vorgang (§99/§102)** – Status von Eingang bis Antwort, Stellungnahme (Zustimmung, Zustimmungsverweigerung, Widerspruch) mit Gründe-Katalog, aus dem Beschluss vorbefüllbar; Brief als Entwurf mit Wasserzeichen gegenlesen, beim Versand verschlüsselt archivieren, Fristen erledigen sich
+- **Anhörung als Vorgang (§99/§102)** – Status vom Dokumenteneingang bis zur Antwort, Stellungnahme (Zustimmung, Zustimmungsverweigerung, Widerspruch) mit Gründe-Katalog, aus dem Beschluss vorbefüllbar; Brief als Entwurf mit Wasserzeichen gegenlesen, beim Versand verschlüsselt archivieren, Fristen erledigen sich
 
 ### Editor & Verknüpfungen
 - **Einheitlicher Rich-Text-Editor** (Sitzungen, Aufgaben, Themen-Backlog, Wissensarchiv) – Formatierung (Fett/Kursiv/Unterstrichen, Überschriften, Listen, Markieren), Lesemodus für finalisierte Versionen
