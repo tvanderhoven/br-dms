@@ -1,11 +1,11 @@
 # BR-DMS – Betriebsrats-Dokumentenmanagementsystem
 
 ![Self-hosted](https://img.shields.io/badge/Self--hosted-NAS%20%2F%20Docker-blue)
-![Datenschutz](https://img.shields.io/badge/Datenschutz-eingebaut-green)
+![Intranet](https://img.shields.io/badge/Betrieb-100%25%20Intranet-green)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED)
 ![License](https://img.shields.io/badge/Lizenz-AGPL--3.0-blue)
 
-Dokumentenmanagementsystem speziell für Betriebsräte, mit Datenschutz von Anfang an. Läuft vollständig im Intranet auf jedem Docker-Host (NAS wie QNAP/Synology, eigener Server, Cloud-VM) – ohne Cloud-Verbindung, ohne externen Zugriff.
+Dokumentenmanagementsystem speziell für Betriebsräte, aus der Praxis und als Open Source entwickelt. Läuft vollständig im Intranet auf jedem Docker-Host (NAS wie QNAP/Synology, eigener Server, Cloud-VM) – ohne Cloud-Verbindung, ohne externen Zugriff.
 
 🇬🇧 **English summary:** [see below](#english)
 
@@ -42,14 +42,14 @@ nicht ausschließen lassen, bleiben unberührt.
 - **Dokumentenversionen** – Beliebig viele Versionen mit Änderungsnotiz
 - **Dokumenteneingang (Inbox)** – Triage neu eingegangener Dokumente: mit TOP verknüpfen (neu oder bestehend, inkl. automatischer Frist), ins Wissensarchiv übernehmen, Aufgabe erstellen, als neue Dokumentversion speichern, Wiedervorlage-Datum setzen
 - **Watch Folder** – Automatischer Import aus freigegebenem Netzwerkordner (Pfad unabhängig vom Docker-Verzeichnis konfigurierbar)
-- **Konfigurierbare Aufbewahrungsfristen** – Je Kategorie, mit automatischer Löschvormerkung (DSGVO)
+- **Konfigurierbare Aufbewahrungsfristen** – Je Kategorie, mit automatischer Löschvormerkung
 
 ### Sitzungen & Protokoll
 - **Vollständiger Lifecycle** – Entwurf → Tagesordnung fixiert → Protokoll-Entwurf → Finalisiert (mit digitalem Zeitstempel), inkl. Absage; jeder Übergang ist unumkehrbar und rollengebunden (VORSITZ)
 - **TOPs** – Rich-Text-Inhalt/Ergebnis, Status, Spontan-TOPs, vertrauliche TOPs (vor den Rollen JAV und SBV ausgeblendet)
 - **Anwesenheitsliste** – Mit Vertretungslogik, automatisch vorbefüllt, eigener PDF-Export
-- **Beschlussregister** – Mehrere Beschlüsse pro TOP mit Rechtsgrundlage und Stimmergebnis, zentrales, sitzungsübergreifendes Register
-- **Abstimmungen** – Einfache Ja/Nein/Enthaltung-Abstimmung je TOP mit Rechtsgrundlage und automatischer Ergebnisberechnung
+- **Beschlussregister** – Mehrere Beschlüsse pro TOP mit Rechtsgrundlage (nicht juristisch geprüft) und Stimmergebnis, zentrales, sitzungsübergreifendes Register
+- **Abstimmungen** – Einfache Ja/Nein/Enthaltung-Abstimmung je TOP mit Rechtsgrundlage (nicht juristisch geprüft) und automatischer Ergebnisberechnung
 - **PDF-Generierung** – Automatisch bei Fixierung/Finalisierung, anpassbarer Briefkopf (Logo, Farben, Unterschriftszeilen mit Ort & Datum), TOP-Einzelauszug als PDF
 - **Sitzungsvorlagen** – Wiederverwendbare TOP-Sets für neue Sitzungen
 - **Sitzungsarten** – Ordentlich, außerordentlich, konstituierend (Standard-Tagesordnung nach § 29) und Betriebsversammlung (§§ 42–46: Standard-Tagesordnung nach § 43, Teilnehmerzahl statt Anwesenheitsliste, keine Beschlüsse, Anträge ins Themen-Backlog, Fragen aus dem Kummerkasten, PDF als Einladung zum Aushang und Niederschrift, Quartals-Frist nach § 43 Abs. 1)
