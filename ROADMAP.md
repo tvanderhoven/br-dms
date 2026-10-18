@@ -152,11 +152,13 @@ Studierende bei der JAV als Auszubildende zählen.
 nennt keine Frist; heute als interne Bearbeitungsfrist gekennzeichnet), Monatserinnerung „keine Sitzung seit
 35 Tagen“ (kein Gesetzesgebot), die Voraussetzungen des Spontan-TOPs (siehe oben) sowie die Fristen des Wahl-Moduls.
 
-**Handbuch, Anhang „Rechtsgrundlagen“ (18.10.2026):** Die Tabelle nennt jetzt nur noch die Paragraphen, keine Absatz- und
-Satznummern (zu genau und fehleranfällig: bei der Prüfung waren rund ein Dutzend Angaben falsch). Erledigt in
-`generate_manual.py`, PDF neu erzeugt, Kopie auf der Webseite aktualisiert.
-Offen: Von der Webseite ist der Abschnitt entfernt; Wiedereinbau erst, wenn jede Angabe gegen den Gesetzestext
-geprüft (Link je Zeile) und anwaltlich gegengelesen ist. Auch die Fließtexte der Funktionskarten prüfen, nicht nur die Zitate.
+**Rechtsgrundlagen-Übersicht aus dem Handbuch genommen (18.10.2026):** Die Zuordnung Funktion → Paragraph war
+ungeprüft (bei der Prüfung waren rund ein Dutzend Angaben falsch) und wirkte im Handbuch verbindlich. Der Anhang ist
+aus `generate_manual.py` entfernt; die Tabellen liegen jetzt als **ungeprüfte Arbeitsnotiz** in `RECHTSGRUNDLAGEN.md`,
+jede Zeile mit Status `ungeprüft` / `geprüft TT.MM.JJJJ`. Auch von der Webseite ist der Abschnitt entfernt.
+Offen: Zeile für Zeile gegen den Gesetzestext prüfen (Link je Zeile) und den Status nachtragen. Wiedereinbau in
+Handbuch oder Webseite erst, wenn alles geprüft und anwaltlich gegengelesen ist. Auch die Fließtexte der
+Funktionskarten prüfen, nicht nur die Zitate.
 
 ## Wahl-Modul (BR und JAV) – Entscheidungen
 
