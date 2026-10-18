@@ -2291,13 +2291,10 @@ def build():
                 "Beim ersten Klick auf einen Link fragt der Browser, ob er „BR-DMS Datei-Link“ öffnen "
                 "darf – bestätigen.")
     pdf.hinweis(
-        "Wurde brdmsfile:// auf einem PC schon vor dieser .exe-Variante eingerichtet, ruft die Registry "
-        "dort noch die ältere, rein skriptbasierte Lösung auf: powershell.exe -WindowStyle Hidden "
-        "-ExecutionPolicy Bypass -File OpenBrdmsFile.ps1 \"<Link>\". Genau diese Kombination "
-        "(Hidden + Bypass, aus dem Browser heraus gestartet) schlägt bei praktisch jedem Virenscanner "
-        "oder EDR an – unabhängig vom Inhalt des Skripts. Abhilfe: Installieren.ps1 auf diesem PC "
-        "erneut ausführen; das überschreibt die Registry-Verknüpfung und zeigt danach direkt auf die "
-        "kompilierte .exe, ganz ohne PowerShell-Aufruf.",
+        "Wurde brdmsfile:// auf einem PC mit einer früheren Version eingerichtet, startet die Verknüpfung "
+        "dort noch ein verstecktes PowerShell-Skript. Das schlägt bei vielen Virenscannern und EDR-Lösungen "
+        "an. Abhilfe: Installieren.ps1 auf diesem PC erneut ausführen; das ersetzt die Verknüpfung und zeigt "
+        "danach direkt auf die kompilierte .exe, ganz ohne PowerShell-Aufruf.",
         "achtung", "Virenscanner-Meldung bei einer älteren Einrichtung")
     pdf.hinweis(
         "Auch die .exe-Variante kann vereinzelt auffallen, weil sie lokal frisch kompiliert, unsigniert "
