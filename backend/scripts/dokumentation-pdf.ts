@@ -535,7 +535,7 @@ tabelle(
     ["/volume1/docker/br-dms/storage/pdfs/", "Generierte PDFs"],
     ["/volume1/docker/br-dms/postgres/",     "PostgreSQL-Daten"],
     ["/volume1/docker/br-dms/logs/",         "Backend-Logs"],
-    ["/volume1/docker/br-dms/watch_inbox/",  "Watch-Folder Eingang"],
+    ["/volume1/docker/br-dms/watch_inbox/",  "Watch-Folder Dokumenteneingang"],
   ],
   [270, 205],
 );
