@@ -8,6 +8,9 @@
 > **Status:** `ungeprüft` = noch nicht kontrolliert · `geprüft TT.MM.JJJJ` = gegen den Gesetzestext abgeglichen
 > (bei Bedarf mit Notiz, was korrigiert wurde).
 >
+> **Stand 18.10.2026:** Die Zeilen mit „geprüft 18.10.2026“ wurden gegen den Gesetzestext auf gesetze-im-internet.de
+> abgeglichen, jetzt mit Absatz und Satz (Quelle: Commit `9f499a8` im Repo br-dms-website). Alle übrigen Zeilen sind weiter ungeprüft.
+>
 > Ein „–“ bedeutet nicht „unzulässig“, sondern nur: Das Gesetz schreibt diesen konkreten Punkt nicht vor,
 > BR-DMS geht hier bewusst darüber hinaus (meist, um Ladung oder Fristbeginn später belegen zu können).
 
@@ -16,14 +19,14 @@
 | Phase | Funktion | Rechtsgrundlage (vermutet) | Status |
 |---|---|---|---|
 | Dokumenteneingang | Fristbeginn ab Zugang | § 130 BGB, §§ 187/188/193 BGB | ungeprüft |
-| Dokumenteneingang | Hinweis auf Zustimmungsfiktion | § 99 / § 102 BetrVG | ungeprüft |
+| Dokumenteneingang | Hinweis auf Zustimmungsfiktion | § 99 Abs. 3 S. 2 / § 102 Abs. 2 S. 2 BetrVG | geprüft 18.10.2026 (nur § 102 Abs. 2 S. 2, vorher S. 3; § 99 Abs. 3 S. 2 nicht neu geprüft) |
 | Dokumenteneingang | Empfangsbestätigung an den Arbeitgeber | – (Beweis des Fristbeginns) | ungeprüft |
-| Entwurf | Tagesordnung vorbereiten | § 29 BetrVG | ungeprüft |
-| Fixierung | Tagesordnung feststellen und mitteilen | § 29 BetrVG | ungeprüft |
-| Einladung | Einladung mit Tagesordnung | § 29 BetrVG | ungeprüft |
-| Einladung | Ersatzmitglieder nur bei Vertretung laden | § 29 BetrVG | ungeprüft |
-| Einladung | Einberufung auf Antrag (Arbeitgeber/ein Viertel) | § 29 BetrVG – Wochenfrist ist interne Bearbeitungsfrist, § 29 nennt keine Frist | ungeprüft |
-| Einladung | Mindestens einmal im Monat tagen | kein Gesetzesgebot – interne Erinnerung | ungeprüft |
+| Entwurf | Tagesordnung vorbereiten | § 29 Abs. 2 S. 2 BetrVG | geprüft 18.10.2026 |
+| Fixierung | Tagesordnung feststellen und mitteilen | § 29 Abs. 2 S. 2 und 3 BetrVG | geprüft 18.10.2026 |
+| Einladung | Einladung mit Tagesordnung | § 29 Abs. 2 S. 3 und 4 BetrVG | geprüft 18.10.2026 |
+| Einladung | Ersatzmitglieder nur bei Vertretung laden | § 29 Abs. 2 S. 6 BetrVG | geprüft 18.10.2026 |
+| Einladung | Einberufung auf Antrag (Arbeitgeber/ein Viertel) | § 29 Abs. 3 BetrVG – Wochenfrist ist interne Bearbeitungsfrist, § 29 nennt keine Frist | geprüft 18.10.2026 |
+| Einladung | Mindestens einmal im Monat tagen | kein Gesetzesgebot – interne Erinnerung | geprüft 18.10.2026 |
 | Einladung | Versandnachweis (PDF/CSV) | – (Nachweis ordnungsgemäßer Ladung) | ungeprüft |
 | Sitzung | Spontan-TOP nur einstimmig | Rechtsprechung, kein Gesetzestext | ungeprüft |
 | Sitzung | Mehrheit der anwesenden Mitglieder | § 33 BetrVG | ungeprüft |
@@ -33,7 +36,7 @@
 | Sitzung | Geschlechterquoten-Warnung | § 15 BetrVG | ungeprüft |
 | Finalisierung | Niederschrift (Mindestinhalt) | § 34 BetrVG | ungeprüft |
 | Finalisierung | Digitaler Zeitstempel (SHA-256) | – (Revisionssicherheit, über das Gesetz hinaus) | ungeprüft |
-| Abschluss | Unterschrift Vorsitz und ein weiteres Mitglied | § 34 BetrVG | ungeprüft |
+| Abschluss | Unterschrift Vorsitz und ein weiteres Mitglied | § 34 Abs. 1 S. 2 BetrVG (Abschluss mit Scans: S. 2 und 3) | geprüft 18.10.2026 |
 | Abschluss | Pflicht zu zwei Scans vor Abschluss | – (strengere interne Regel) | ungeprüft |
 | Archiv | Sitzungspaket (ZIP), Protokoll-Archiv zur Amtsübergabe | – (Organisation/Kontinuität) | ungeprüft |
 
@@ -94,7 +97,7 @@ Die Fristen selbst stehen im Code in `backend/src/lib/wahlFristen.ts` (dort mit 
 
 | Funktion | Rechtsgrundlage (vermutet) | Status |
 |---|---|---|
-| BR muss sich eine Geschäftsordnung geben (schriftlich) | § 36 BetrVG | ungeprüft |
+| BR muss sich eine Geschäftsordnung geben (schriftlich) | § 36 BetrVG (der Paragraph besteht nur aus einem Satz, keine Absatz-/Satzangabe) | geprüft 18.10.2026 |
 | Beschluss braucht Mehrheit ALLER Mitglieder, nicht nur der Anwesenden | § 36 BetrVG – geprüft gegen die bei der Abstimmung eingefrorene Soll-Stärke, nur Warnung, kein Blocker | ungeprüft |
 | „Aktuell gültig“ = neueste Fassung nach Datum | kein Paragraph – reine Darstellungslogik | ungeprüft |
 | Nur Vorsitz/Stellv. pflegen das Register | kein Paragraph – interne Rollenzuweisung | ungeprüft |
@@ -106,7 +109,7 @@ Die Fristen selbst stehen im Code in `backend/src/lib/wahlFristen.ts` (dort mit 
 | Funktion | Rechtsgrundlage (vermutet) | Status |
 |---|---|---|
 | Schriftform + gemeinsamer Beschluss von Arbeitgeber und BR | § 77 BetrVG | ungeprüft |
-| Bekanntmachungspflicht im Betrieb | § 77 BetrVG – außerhalb von BR-DMS über das Intranet gelöst | ungeprüft |
+| Bekanntmachungspflicht im Betrieb | § 77 Abs. 2 S. 4 BetrVG – außerhalb von BR-DMS über das Intranet gelöst | geprüft 18.10.2026 (vorher fälschlich S. 3) |
 | Unmittelbare, zwingende Wirkung | § 77 BetrVG | ungeprüft |
 | Kündigung mit 3 Monaten Frist (Status „gekündigt“) | § 77 BetrVG – Frist wird nicht automatisch berechnet/überwacht | ungeprüft |
 | Nachwirkung bei erzwingbarer Mitbestimmung | § 77 BetrVG – bewusst nicht abgebildet (keine Unterscheidung § 87 / § 88) | ungeprüft |
@@ -126,12 +129,12 @@ Zur Orientierung, was typischerweise zutrifft:
 | Weitere Ausschüsse des BR | § 28 BetrVG (Aufgabenübertragung) | ungeprüft |
 | Wirtschaftsausschuss | §§ 106–110 BetrVG (i. d. R. > 100 ständig Beschäftigte) | ungeprüft |
 | Jugend- und Auszubildendenvertretung (JAV) | §§ 60–73 BetrVG | ungeprüft |
-| Schwerbehindertenvertretung (SBV) | §§ 177–179 SGB IX | ungeprüft |
+| Schwerbehindertenvertretung (SBV) | §§ 177–179 SGB IX | geprüft 18.10.2026 (vorher fälschlich ab § 176) |
 | Gesamtbetriebsrat | §§ 47–53 BetrVG | ungeprüft |
 | Konzernbetriebsrat | §§ 54–59 BetrVG | ungeprüft |
-| Arbeitsschutzausschuss (ASA) | § 11 ASiG – kein BetrVG | ungeprüft |
+| Arbeitsschutzausschuss (ASA) | § 11 ASiG – kein BetrVG | geprüft 18.10.2026 (Kürzel ASiG, nicht ArbSichG) |
 | Freitext-Rechtsgrundlage je Gremium | kein fest hinterlegter Paragraph – vom BR selbst eingetragen, nicht validiert | ungeprüft |
-| Vertraulichkeits-Flag bei Fremdprotokollen | § 79 BetrVG (gilt sinngemäß auch für den Wirtschaftsausschuss) | ungeprüft |
+| Vertraulichkeits-Flag bei Fremdprotokollen | § 79 BetrVG (Abs. 2: auch für den Wirtschaftsausschuss, nicht § 106) | geprüft 18.10.2026 |
 | Zugriff nur für Gremium-Mitglieder + Vorsitz/Stellv./Admin | kein Paragraph – technische Umsetzung | ungeprüft |
 | BR selbst erscheint nicht als Gremium | kein Paragraph – reine Design-Entscheidung | ungeprüft |
 
