@@ -85,7 +85,13 @@ class Manual(FPDF):
         self.add_font("SM", "",  FONT_PATH + FONT_FILES["mono"])
         self.set_auto_page_break(True, margin=22)
         self.set_margins(20, 24, 20)
-        self.set_title("BR-DMS – Handbuch")
+        self.set_title("BR-DMS – Handbuch: Betriebsratssoftware und Dokumentenmanagement")
+        self.set_subject("Betriebsratssoftware für das eigene Intranet: Sitzungsmanagement, Protokolle, "
+                         "Beschlüsse, Fristen und Dokumente – Bedienung, Administration und Technik")
+        self.set_keywords("Betriebsratssoftware, Software für Betriebsräte, Betriebsrat digital, "
+                          "Betriebsratsarbeit digitalisieren, papierloses Betriebsratsbüro, Sitzungsmanagement, "
+                          "Protokoll, Beschlussregister, Fristen BetrVG, Anhörung § 99, Anhörung § 102, "
+                          "Dokumentenmanagement, Open Source, self-hosted, ohne Cloud, NAS")
         self.set_author(AUTOR)
         self.abb_nr = 0
         self.ohne_kopf = True  # Titelseite + Inhaltsverzeichnis
@@ -464,7 +470,8 @@ def build():
     pdf.h1("1  Einführung")
     pdf.h2("1.1  Was ist BR-DMS?")
     pdf.body(
-        "BR-DMS ist ein Dokumentenmanagementsystem speziell für Betriebsräte. Es bündelt "
+        "BR-DMS ist eine Betriebsratssoftware mit Dokumentenmanagement, gebaut für die digitale "
+        "Betriebsratsarbeit ohne Cloud. Es bündelt "
         "Sitzungen, Protokolle, Beschlüsse, Fristen und vertrauliche Dokumente in einem "
         "System, das vollständig im eigenen Intranet läuft – auf einer NAS, einem eigenen "
         "Server oder einer virtuellen Maschine. Eine Cloud-Verbindung ist nicht nötig."
@@ -472,16 +479,21 @@ def build():
     pdf.body(
         "Das System begleitet ein Betriebsratsdokument über seinen ganzen Lebenszyklus: "
         "vom Dokumenteneingang über Kategorisierung und Fristüberwachung, die Behandlung in der Sitzung "
-        "bis zum rechtssicheren Protokoll – und am Ende die geregelte Löschung nach Ablauf "
+        "bis zum unveränderlichen Protokoll – und am Ende die geregelte Löschung nach Ablauf "
         "der Aufbewahrungsfrist."
     )
     pdf.bullets([
         "Sicher – Alle Dokumente AES-256-verschlüsselt, Zugriff nach Rollen, lückenloser Audit-Trail",
-        "Rechtssicher – Fristen nach § 87, § 99 und § 102 BetrVG, unveränderliche Protokolle mit Zeitstempel",
+        "Nachvollziehbar – Fristen nach § 87, § 99 und § 102 BetrVG im Blick, unveränderliche Protokolle mit Zeitstempel",
         "Vollständig – Sitzungen, Beschlussregister, Aufgaben, Wissensarchiv, Personal- und Schulungsverwaltung",
         "Anpassbar – Optionale Module ein- und ausschaltbar, eigenes Logo im Protokoll-Kopf, eigene Farben",
         "Unabhängig – 100 % self-hosted, keine externen Dienste, Open Source",
     ])
+    pdf.hinweis(
+        "BR-DMS ist kein Rechtsberater und erhebt keinen Anspruch auf Rechtssicherheit. Fristen und "
+        "Gesetzesverweise sind Orientierung aus der Praxis, keine rechtliche Prüfung – ob ein Vorgehen "
+        "im Einzelfall trägt, klärt das Gremium selbst, im Zweifel mit rechtlicher Beratung.",
+        "info", "Keine Rechtsberatung")
 
     pdf.h2("1.2  Anmelden")
     pdf.body(
@@ -986,7 +998,7 @@ def build():
     pdf.hinweis(
         "Nach der Finalisierung lässt sich das Protokoll nicht mehr ändern. Der Zeitstempel "
         "(SHA-256 über Inhalt und Zeitpunkt) belegt, dass es seitdem unverändert ist.",
-        "tipp", "Rechtssicherheit")
+        "tipp", "Unveränderlich")
     pdf.body(
         "In der Versionsliste der Sitzung steht neben jedem PDF ein Knopf „PDF neu generieren“ (Vorsitz, "
         "Stellvertretung, Admin). Er erzeugt "
