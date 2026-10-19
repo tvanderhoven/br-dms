@@ -302,16 +302,17 @@ function Rahmen({ children }: { children: React.ReactNode }) {
   );
 }
 
+// \u00AD = Trennstelle nur an der Wortfuge, sonst wird nicht getrennt.
 // Sprüche der Spruch-Sticker und Ansteck-Buttons von der Website (br-dms-website/tools/spruchsticker.py)
 const SPRUECHE = [
-  "Nein, das ist mitbestimmungspflichtig.",
+  "Nein, das ist mitbestimmungs\u00ADpflichtig.",
   "Ich berufe mich auf Paragraph 87.",
   "Betriebsrat: Mitbestimmung ist keine Bitte.",
   "Ohne uns geht es nicht.",
-  "§ 87 Absatz 1 – unser Lieblingsparagraph.",
+  "§ 87 Absatz 1 – unser Lieblings\u00ADparagraph.",
   "Erst fragen, dann handeln. Mitbestimmung eben.",
   "Ich lese das Kleingedruckte – beruflich.",
-  "Zustimmungsvorbehalt – unser Lebensmotto.",
+  "Zustimmungs\u00ADvorbehalt – unser Lebensmotto.",
   "Mitbestimmung ist kein Kann, sondern ein Muss.",
   "Betriebsrat: offiziell lästig, gesetzlich notwendig.",
   "Wir vertreten euch, auch wenn ihr's nicht merkt.",
@@ -345,7 +346,7 @@ function WechselnderSpruch() {
       <blockquote
         lang="de"
         aria-live="off"
-        className={`min-h-[7.5rem] text-3xl lg:text-4xl font-semibold leading-tight hyphens-auto transition-opacity duration-400 ${sichtbar ? "opacity-100" : "opacity-0"}`}
+        className={`min-h-[7.5rem] text-3xl lg:text-4xl font-semibold leading-tight text-balance transition-opacity duration-400 ${sichtbar ? "opacity-100" : "opacity-0"}`}
       >
         „{SPRUECHE[index]}“
       </blockquote>

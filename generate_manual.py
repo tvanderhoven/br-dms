@@ -502,7 +502,7 @@ def build():
         "„Eingeloggt bleiben“ hält die Anmeldung 24 Stunden, ohne Haken eine Stunde. Nach "
         "längerer Inaktivität meldet das System automatisch ab (einstellbar)."
     )
-    pdf.bild("login", "Anmeldeseite", ausschnitt="mitte", vertikal=(0.27, 0.68))
+    pdf.bild("login", "Anmeldeseite", ausschnitt="voll")
     pdf.hinweis(
         "Wer sein Passwort vergessen hat, kann über „Passwort vergessen?“ einen Link per E-Mail "
         "anfordern. Alternativ setzen Vorsitz oder Admin das Passwort in der Benutzerverwaltung zurück.",
@@ -1170,7 +1170,7 @@ def build():
         "Einträge mit Status und einer nur für den Betriebsrat sichtbaren Notiz bearbeitet. Für die "
         "Betriebsversammlung lassen sich Einträge als Fragen in die Tagesordnung übernehmen (Kapitel 4.6)."
     )
-    pdf.bild("kummerkasten-oeffentlich", "Öffentliches Formular (ohne Login erreichbar)", ausschnitt="mitte")
+    pdf.bild("kummerkasten-oeffentlich", "Öffentliches Formular (ohne Login erreichbar)", ausschnitt="voll")
     pdf.bild("kummerkasten-verwaltung", "Interne Bearbeitung der Kummerkasten-Einträge", hoehe_anteil=0.55)
     pdf.hinweis(
         "Das Formular speichert keine IP-Adresse und keinen Benutzerbezug. Gegen automatisierte "
