@@ -1,6 +1,6 @@
 import { useState, FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, Lock } from "lucide-react";
 import { api } from "../lib/api";
 import BrDmsLogo from "../components/BrDmsLogo";
 
@@ -36,17 +36,43 @@ export default function KummerkastenOeffentlich() {
   }
 
   return (
-    <div className="min-h-screen bg-[rgb(var(--bg-primary))] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl border border-gray-200 shadow w-full max-w-xl p-8">
-        <div className="flex flex-col items-center mb-6 text-center">
-          <div className="mb-3">
-            <BrDmsLogo height={40} className="text-xl text-gray-900" />
-          </div>
-          <h1 className="text-xl font-bold text-gray-900">Kummerkasten</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Anliegen, Kritik oder Ideen an den Betriebsrat — anonym möglich, Name ist freiwillig.
-          </p>
+    <div className="min-h-screen grid md:grid-cols-2 bg-white">
+      {/* Linke, helle Fläche – Gegenstück zur dunklen Login-Seite */}
+      <aside className="hidden md:flex relative overflow-hidden flex-col justify-between bg-[rgb(var(--bg-primary))] border-r border-gray-200 p-10 lg:p-14">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 opacity-60 bg-[radial-gradient(var(--color-gray-300)_1px,transparent_1px)] bg-[length:18px_18px] [mask-image:linear-gradient(120deg,transparent_30%,#000_100%)]"
+        />
+        <BrDmsLogo height={36} className="relative self-start text-gray-900" />
+        <div className="relative max-w-md">
+          <div className="w-14 h-1 rounded-full bg-brand-red mb-4" />
+          <h2 className="text-3xl font-semibold leading-tight text-gray-900 mb-3">Sag dem Betriebsrat, was dich beschäftigt.</h2>
+          <p className="text-gray-500 leading-relaxed">Kritik, Sorgen, Ideen – alles ist willkommen. Kein Konto nötig.</p>
+          <ol className="mt-6 space-y-3 text-sm text-gray-700">
+            {[
+              "Schreib auf, was dich beschäftigt.",
+              "Absenden – ohne Namen bleibst du anonym.",
+              "Der Betriebsrat liest dein Anliegen und kümmert sich darum.",
+            ].map((schritt, i) => (
+              <li key={i} className="flex items-start gap-3">
+                <span className="grid place-items-center w-6 h-6 rounded-full bg-white border border-gray-300 text-xs font-medium shrink-0">{i + 1}</span>
+                <span className="pt-0.5">{schritt}</span>
+              </li>
+            ))}
+          </ol>
         </div>
+        <p className="relative text-xs text-gray-500">BR-DMS · Open Source (AGPL-3.0)</p>
+      </aside>
+
+      <main className="flex items-center justify-center p-6 sm:p-10">
+        <div className="w-full max-w-md">
+          <div className="md:hidden mb-8">
+            <BrDmsLogo height={32} className="text-gray-900" />
+          </div>
+          <h1 className="text-2xl font-semibold text-gray-900">Kummerkasten</h1>
+          <p className="text-gray-500 text-sm mt-1 mb-6">
+            Deine Nachricht geht direkt an den Betriebsrat – anonym möglich, Name ist freiwillig.
+          </p>
 
         {gesendet ? (
           <div className="text-center py-6">
@@ -64,12 +90,12 @@ export default function KummerkastenOeffentlich() {
                 id="nachricht"
                 required
                 autoFocus
-                rows={11}
+                rows={8}
                 maxLength={5000}
                 value={nachricht}
                 onChange={e => setNachricht(e.target.value)}
                 placeholder="Was möchtest du dem Betriebsrat mitteilen?"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-accent resize-y min-h-[220px]"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-accent resize-y min-h-[180px]"
               />
             </div>
 
@@ -110,19 +136,25 @@ export default function KummerkastenOeffentlich() {
             <button
               type="submit"
               disabled={senden || !nachricht.trim()}
-              className="w-full bg-accent hover:bg-accent-hover disabled:opacity-60 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="w-full bg-brand-red hover:brightness-90 disabled:opacity-60 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
             >
               {senden && <Loader2 size={16} className="animate-spin" />}
               Absenden
             </button>
+
+            <div className="flex items-center gap-2.5 rounded-lg bg-gray-100 px-3 py-2.5 text-sm text-gray-500">
+              <Lock size={16} className="text-brand-red shrink-0" />
+              Ohne Namen wird nicht gespeichert, von wem die Nachricht kommt.
+            </div>
           </form>
         )}
 
-        <p className="text-center text-xs text-gray-300 mt-6">
-          <Link to="/login" className="hover:text-gray-400 hover:underline">Für BR-Mitglieder: Anmelden</Link>
-          {" · "}BR-DMS · Open Source (AGPL-3.0)
+        <p className="text-center text-sm text-gray-500 mt-6">
+          Für BR-Mitglieder:{" "}
+          <Link to="/login" className="font-medium text-gray-900 hover:underline">Anmelden</Link>
         </p>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

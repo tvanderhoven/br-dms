@@ -158,14 +158,9 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-[rgb(var(--bg-primary))] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl border border-gray-200 shadow w-full max-w-sm p-8">
-        <div className="flex flex-col items-center mb-8">
-          <div className="mb-3">
-            <BrDmsLogo height={40} className="text-2xl text-gray-900" />
-          </div>
-          <p className="text-gray-500 text-sm">Dokumentenmanagement für Betriebsräte</p>
-        </div>
+    <Rahmen>
+        <h1 className="text-2xl font-semibold text-gray-900">Willkommen zurück</h1>
+        <p className="text-sm text-gray-500 mt-1 mb-6">Melde dich mit deinem BR-DMS-Konto an.</p>
 
         {DEMO_MODE && (
           <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-2 rounded-lg mb-4">
@@ -258,8 +253,9 @@ export default function Login() {
           </div>
         </form>
 
-        <p className="text-center text-xs text-gray-400 mt-6">
-          Nur für autorisierte BR-Mitglieder
+        <p className="text-center text-sm text-gray-500 mt-6">
+          Kein BR-Mitglied?{" "}
+          <Link to="/kummerkasten" className="font-medium text-gray-900 hover:underline">Zum Kummerkasten</Link>
         </p>
         {DEMO_MODE && (
           <p className="text-center text-xs text-gray-400 mt-2 space-x-3">
@@ -267,20 +263,52 @@ export default function Login() {
             <a href="https://br-dms.de/datenschutz.html" target="_blank" rel="noopener" className="hover:underline">Datenschutz</a>
           </p>
         )}
-      </div>
-    </div>
+    </Rahmen>
   );
 }
 
+// Zweigeteilte Seite: links die dunkle Markenfläche (ab mittlerer Breite),
+// rechts der jeweilige Schritt. Auf dem Handy bleibt nur das Logo über dem Formular.
 function Rahmen({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-[rgb(var(--bg-primary))] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl border border-gray-200 shadow w-full max-w-sm p-8">
-        <div className="flex justify-center mb-6">
-          <BrDmsLogo height={32} className="text-xl text-gray-900" />
+    <div className="min-h-screen grid md:grid-cols-2 bg-white">
+      <aside className="hidden md:flex relative overflow-hidden flex-col justify-between bg-[rgb(var(--sidebar-bg))] text-[rgb(var(--sidebar-text))] p-10 lg:p-14">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-32 -bottom-32 w-[26rem] h-[26rem] rounded-full border-[56px] border-white/[.04]" />
+        <BrDmsLogo height={36} className="self-start text-white" />
+        <div className="relative max-w-md">
+          <h2 className="text-3xl font-semibold leading-tight mb-3">Die Akten des Betriebsrats. Sicher an einem Ort.</h2>
+          <p className="text-[rgb(var(--sidebar-text-muted))] leading-relaxed">
+            Beschlüsse, Sitzungen, Vereinbarungen und Anliegen der Belegschaft – nachvollziehbar
+            und nur für die, die es sehen dürfen.
+          </p>
+          <ul className="mt-6 space-y-2.5 text-sm">
+            {["Läuft auf eurem eigenen Server", "Vertraulichkeit in drei Stufen"].map(punkt => (
+              <li key={punkt} className="flex items-center gap-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-brand-red shrink-0" />{punkt}
+              </li>
+            ))}
+          </ul>
+          <div className="mt-6 flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
+            <span className="grid place-items-center w-8 h-8 rounded-lg bg-brand-red/20 text-[#ff8a9b] shrink-0">
+              <ShieldCheck size={16} />
+            </span>
+            <span>
+              <span className="block font-medium text-white">Zwei-Faktor-Schutz</span>
+              <span className="text-[rgb(var(--sidebar-text-muted))]">Für Vorsitz und Stellvertretung Pflicht.</span>
+            </span>
+          </div>
         </div>
-        {children}
-      </div>
+        <p className="relative text-xs text-[rgb(var(--sidebar-text-muted))]">Open Source · AGPL-3.0</p>
+      </aside>
+
+      <main className="flex items-center justify-center p-6 sm:p-10">
+        <div className="w-full max-w-sm">
+          <div className="md:hidden mb-8">
+            <BrDmsLogo height={32} className="text-gray-900" />
+          </div>
+          {children}
+        </div>
+      </main>
     </div>
   );
 }
