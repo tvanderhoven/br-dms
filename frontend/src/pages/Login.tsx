@@ -1,4 +1,4 @@
-import { useState, FormEvent } from "react";
+import { useEffect, useState, FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { api, ZweiFaktorEinrichtung } from "../lib/api";
@@ -276,19 +276,8 @@ function Rahmen({ children }: { children: React.ReactNode }) {
         <div aria-hidden="true" className="pointer-events-none absolute -right-32 -bottom-32 w-[26rem] h-[26rem] rounded-full border-[56px] border-white/[.04]" />
         <BrDmsLogo height={36} className="self-start text-white" />
         <div className="relative max-w-md">
-          <h2 className="text-3xl font-semibold leading-tight mb-3">Die Akten des Betriebsrats. Sicher an einem Ort.</h2>
-          <p className="text-[rgb(var(--sidebar-text-muted))] leading-relaxed">
-            Beschlüsse, Sitzungen, Vereinbarungen und Anliegen der Belegschaft – nachvollziehbar
-            und nur für die, die es sehen dürfen.
-          </p>
-          <ul className="mt-6 space-y-2.5 text-sm">
-            {["Läuft auf eurem eigenen Server", "Vertraulichkeit in drei Stufen"].map(punkt => (
-              <li key={punkt} className="flex items-center gap-3">
-                <span className="w-1.5 h-1.5 rounded-full bg-brand-red shrink-0" />{punkt}
-              </li>
-            ))}
-          </ul>
-          <div className="mt-6 flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
+          <WechselnderSpruch />
+          <div className="mt-10 flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
             <span className="grid place-items-center w-8 h-8 rounded-lg bg-brand-red/20 text-[#ff8a9b] shrink-0">
               <ShieldCheck size={16} />
             </span>
@@ -310,6 +299,57 @@ function Rahmen({ children }: { children: React.ReactNode }) {
         </div>
       </main>
     </div>
+  );
+}
+
+// Sprüche der Spruch-Sticker und Ansteck-Buttons von der Website (br-dms-website/tools/spruchsticker.py)
+const SPRUECHE = [
+  "Nein, das ist mitbestimmungspflichtig.",
+  "Ich berufe mich auf Paragraph 87.",
+  "Betriebsrat: Mitbestimmung ist keine Bitte.",
+  "Ohne uns geht es nicht.",
+  "§ 87 Absatz 1 – unser Lieblingsparagraph.",
+  "Erst fragen, dann handeln. Mitbestimmung eben.",
+  "Ich lese das Kleingedruckte – beruflich.",
+  "Zustimmungsvorbehalt – unser Lebensmotto.",
+  "Mitbestimmung ist kein Kann, sondern ein Muss.",
+  "Betriebsrat: offiziell lästig, gesetzlich notwendig.",
+  "Wir vertreten euch, auch wenn ihr's nicht merkt.",
+  "Unser Veto, euer Problem.",
+  "Fragen kostet nichts, nicht fragen schon.",
+  "Keine Überstunde ohne unsere Unterschrift.",
+];
+
+// Zeigt einen zufälligen Spruch und blendet alle paar Sekunden zum nächsten über.
+// Wer reduzierte Bewegung eingestellt hat, bekommt einen festen Spruch.
+function WechselnderSpruch() {
+  const [index, setIndex] = useState(() => Math.floor(Math.random() * SPRUECHE.length));
+  const [sichtbar, setSichtbar] = useState(true);
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let ausblenden: number | undefined;
+    const takt = window.setInterval(() => {
+      setSichtbar(false);
+      ausblenden = window.setTimeout(() => {
+        setIndex(i => (i + 1 + Math.floor(Math.random() * (SPRUECHE.length - 1))) % SPRUECHE.length);
+        setSichtbar(true);
+      }, 400);
+    }, 7000);
+    return () => { window.clearInterval(takt); window.clearTimeout(ausblenden); };
+  }, []);
+
+  return (
+    <figure>
+      <div className="w-14 h-1 rounded-full bg-brand-red mb-6" />
+      <blockquote
+        lang="de"
+        aria-live="off"
+        className={`min-h-[7.5rem] text-3xl lg:text-4xl font-semibold leading-tight hyphens-auto transition-opacity duration-400 ${sichtbar ? "opacity-100" : "opacity-0"}`}
+      >
+        „{SPRUECHE[index]}“
+      </blockquote>
+    </figure>
   );
 }
 
