@@ -1,6 +1,6 @@
 {
   "name": "brdms-frontend",
-  "version": "1.8.3",
+  "version": "1.8.4",
   "private": true,
   "license": "AGPL-3.0-only",
   "author": "Tim van der Hoven <support@br-dms.de>",
