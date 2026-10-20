@@ -1,6 +1,6 @@
 # BR-DMS – Roadmap
 
-Stand: 16. Oktober 2026. Hier steht, was als Nächstes kommt und was dabei schon entschieden ist –
+Stand: 20. Oktober 2026. Hier steht, was als Nächstes kommt und was dabei schon entschieden ist –
 damit an jedem Rechner nach `git pull` klar ist, wo es weitergeht.
 
 ## Erledigt
@@ -160,6 +160,27 @@ jede Zeile mit Status `ungeprüft` / `geprüft TT.MM.JJJJ`. Auch von der Webseit
 Offen: Zeile für Zeile gegen den Gesetzestext prüfen (Link je Zeile) und den Status nachtragen. Wiedereinbau in
 Handbuch oder Webseite erst, wenn alles geprüft und anwaltlich gegengelesen ist. Auch die Fließtexte der
 Funktionskarten prüfen, nicht nur die Zitate.
+
+**Einladungsmail, Benachrichtigungen, Protokollführung (besprochen 20.10.2026), in dieser Reihenfolge:**
+
+| # | Paket | Größe | Inhalt |
+|---|---|---|---|
+| 1 | Einladungsmail datensparsam | M | Detailgrad beim Versand wählbar (Voreinstellung in den Einstellungen, je Versand änderbar): **Vollständig** (wie heute: TOP-Liste, PDF, `.ics`) · **Nur TOP-Titel** (ohne PDF) · **Nur Link** („Ich lade dich zur Sitzung am … ein, die Tagesordnung findest du unter …“). Die `.ics`-Beschreibung folgt derselben Stufe. Dazu je TOP ein optionaler **neutraler Titel für die Einladung** (z. B. „Personelle Einzelmaßnahme § 99“), damit keine Namen in fremd mitgelesenen Postfächern landen – Favorit als Standard. Bei „Nur Link“ Hinweis im Versanddialog: BR-DMS ist nur im Intranet erreichbar, § 29 Abs. 2 verlangt die Mitteilung der Tagesordnung – wer verhindert zu Hause ist, kommt evtl. nicht dran. Darum **Abrufnachweis**: erstes Öffnen der Sitzung je geladener Person nach dem Versand festhalten, neben dem Versandnachweis anzeigen und ins Sitzungspaket. Betrifft `lib/mailer.ts` (`sendeEinladung`), `lib/kalender.ts`, `routes/einladung.ts`, `EinladungKarte.tsx` |
+| 2 | Benachrichtigungen: im System, E-Mail als Rückfall | M–L | Jede Benachrichtigung entsteht als interne Nachricht (Modell `Nachricht` gibt es schon). Ist sie nach **15 Minuten noch ungelesen**, geht eine E-Mail raus (Worker) – wer im System ist, liest sie vorher und bekommt keine Mail. „Zuletzt aktiv“ wird über die vorhandene 60-Sekunden-Abfrage im `Layout.tsx` mitgeschrieben (nur bei sichtbarem Tab), aber **nur intern** genutzt: kein Online-Status für andere sichtbar (BR baut selbst keine Verhaltenskontrolle, vgl. § 87 Abs. 1 Nr. 6). In „Mein Konto“ je Ereignis: aus / nur im System / mit E-Mail. Mails enthalten nur Art + Link, keine Inhalte (gleiche Logik wie Paket 1). Ereignisse zum Start: **Aufgabe zugewiesen**, Aufgabe fällig, Ladung als Ersatzmitglied, Protokoll zur Genehmigung/Unterschrift bereit, als Protokollführung eingetragen, Erwähnung/Antwort in Kommentaren, neuer Kummerkasten-Eintrag (nur Vorsitz/Stv.). Fristsachen- und Eingangsmails später in dasselbe System überführen. Änderungen der Tagesordnung entfallen: nach der Fixierung kommen nur Spontan-TOPs in der Sitzung dazu, da sind alle im Raum |
+| 3 | Protokollführung (Haken + Zuordnung je Sitzung) | M | Haken **„Protokollführung“** am Benutzer = *darf* protokollieren (bei Mitgliedern z. B. die ständige Schriftführung laut Geschäftsordnung). **Wer konkret** protokolliert, legt die Sitzung fest (`protokollfuehrerId`): bei neuen Sitzungen mit der Person mit Haken vorbelegt, änderbar (Urlaub, Vertretung). Name auf der Unterschriftenseite (§ 34) vorbelegt. Mitglieder dürfen das Protokoll heute ohnehin bearbeiten (`routes/protocol.ts`, Mindestrolle MITGLIED) – für sie ändert sich an Rechten nichts, der Haken ist Grundlage für Paket 4 |
+| 4 | Rolle „Extern“ (externe Protokollführung) | L | Neuer Rollenwert `EXTERN`, **nur zusammen mit dem Haken „Protokollführung“** – soll jemand Externes protokollieren, wird dafür ein Konto angelegt (z. B. Bürokraft nach § 40 Abs. 2). Zugriff wie bei JAV/SBV über eine Positivliste in `middleware/auth.ts`, Rang unterhalb aller anderen: **nur die Sitzungen, in denen die Person als Protokollführung eingetragen ist** (Tagesordnung, Anwesenheit, Protokoll-Editor), nach Abschluss des Protokolls endet der Zugriff. Keine Dokumente, kein Kummerkasten, keine Mitarbeiterdaten, keine Wahlen, keine Rundnachrichten. Je TOP Vermerk **„Externe verlässt den Raum“** → TOP für sie unsichtbar, diesen Teil protokolliert Vorsitz/ein Mitglied (Logik in `lib/vertraulich.ts`). Darf **nie als „weiteres Mitglied“ nach § 34 unterschreiben**. Beim Anlegen **Verschwiegenheitserklärung** (Häkchen + Upload; § 79 erfasst Externe nicht automatisch). Rollentests (`test/rechte-uebersicht.json`) um die neue Rolle erweitern – größter Aufwand, weil jede Route sie abweisen muss |
+| 5 | Gäste je TOP (ohne Konto) | S–M | Arbeitgeber (§ 29 Abs. 4), Gewerkschaft (§ 31), Sachverständige (§ 80 Abs. 3), Auskunftspersonen: **kein Login**, als Gast am TOP eintragen, erscheinen bei der Anwesenheit im Protokoll, optional Mail mit Termin und nur *ihrem* TOP |
+
+Beim Umsetzen gleich mitnehmen:
+
+- **Mit Paket 1:** Der Abrufnachweis liefert zusammen mit dem Versandnachweis die Daten für die offene
+  Spontan-TOP-Prüfung „alle rechtzeitig geladen“ (siehe Notiz vom 18.10.2026 oben) – beides zusammen bauen.
+- **Mit Paket 2:** Mehrere ungelesene Benachrichtigungen am selben Tag als **eine Sammelmail** statt einzeln
+  (wie die Sammelmail zum Dokumenteneingang).
+- **Mit Paket 4:** **Geschwärztes Protokoll** (Fassung ohne vertrauliche TOPs) – löst zugleich, dass JAV/SBV bei
+  Sitzungen mit vertraulichen TOPs heute gar kein Protokoll-PDF bekommen. Außerdem **Zugriffsprotokoll für
+  Externe**: jedes Öffnen einer Sitzung und jede Protokolländerung ins Audit, damit der Vorsitz es bei Streit um die
+  Verschwiegenheit nachvollziehen kann.
 
 ## Wahl-Modul (BR und JAV) – Entscheidungen
 
