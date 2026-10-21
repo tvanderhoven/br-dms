@@ -893,6 +893,7 @@ export default function Layout() {
                           {meineRolle === "ERSATZMITGLIED" && "Ersatzmitglied"}
                           {meineRolle === "JAV" && "JAV"}
                           {meineRolle === "SBV" && "SBV"}
+                          {meineRolle === "EXTERN" && "Extern"}
                         </p>
                       )}
                     </div>
