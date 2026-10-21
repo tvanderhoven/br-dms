@@ -312,6 +312,7 @@ export default function Layout() {
   const navigate   = useNavigate();
   const location   = useLocation();
   const [mobileOffen, setMobileOffen]             = useState(false);
+  const [accountMenuOffen, setAccountMenuOffen]   = useState(false);
   const [inboxCount, setInboxCount]               = useState(0);
   const [nachrichtenCount, setNachrichtenCount]   = useState(0);
   const [aufgabenCount, setAufgabenCount]         = useState(0);
@@ -333,6 +334,7 @@ export default function Layout() {
   // Rolle daher per Ref lesen, nicht aus dem State
   const meinKonto = useRef<{ rolle: Rolle | null; ohneInhalt: boolean }>({ rolle: null, ohneInhalt: false });
   const letzteAktivitaet = useRef(Date.now());
+  const accountMenuRef = useRef<HTMLDivElement>(null);
 
   // Auf-/zugeklappte Menü-Gruppen – pro Gerät gemerkt (Standard: alle offen)
   const [navGruppenZu, setNavGruppenZu] = useState<Record<string, boolean>>(() => {
@@ -422,6 +424,18 @@ export default function Layout() {
     const t = setTimeout(() => setToast(null), 5000);
     return () => clearTimeout(t);
   }, [toast]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(e.target as Node)) {
+        setAccountMenuOffen(false);
+      }
+    }
+    if (accountMenuOffen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [accountMenuOffen]);
 
   // Erst serverseitig abmelden (Token wird ungültig), dann lokal – auch wenn der Server nicht antwortet
   async function abmelden() {
@@ -817,7 +831,7 @@ export default function Layout() {
 
       {/* Hauptbereich */}
       <main className="flex-1 overflow-auto">
-        {/* Kopfbalken: Hamburger nur mobil, Suche über die volle Breite, Einstellungen + Abmelden am rechten Rand */}
+        {/* Kopfbalken: Hamburger nur mobil, Suche über die volle Breite, Account-Menü am rechten Rand */}
         <div
           className="flex items-center gap-3 px-4 py-2 sticky top-0 z-10"
           style={{ background: "rgb(var(--sidebar-bg))", borderBottom: "1px solid rgba(255,255,255,0.08)" }}
@@ -829,29 +843,113 @@ export default function Layout() {
           <div className="flex-1 min-w-0">
             {meineRolle !== "JAV" && meineRolle !== "SBV" && !ohneInhalt && <GlobaleSuche />}
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            {!DEMO_MODE && meineRolle !== "JAV" && meineRolle !== "SBV" && meineRolle !== "ERSATZMITGLIED" && (
-              <NavLink
-                to="/einstellungen"
-                title="Einstellungen"
-                className={({ isActive }) =>
-                  `p-1.5 rounded-lg transition-colors ${
-                    isActive
-                      ? "bg-[rgb(var(--sidebar-active))] text-[rgb(var(--sidebar-text))]"
-                      : "text-[rgb(var(--sidebar-text-muted))] hover:text-[rgb(var(--sidebar-text))] hover:bg-[rgb(var(--sidebar-hover))]"
-                  }`
-                }
-              >
-                <Settings size={16} />
-              </NavLink>
-            )}
+          {/* Account-Menü Dropdown */}
+          <div ref={accountMenuRef} className="relative shrink-0">
             <button
-              onClick={abmelden}
-              title="Abmelden"
-              className="p-1.5 rounded-lg text-[rgb(var(--sidebar-text-muted))] hover:text-[rgb(var(--sidebar-text))] hover:bg-[rgb(var(--sidebar-hover))] transition-colors"
+              onClick={() => setAccountMenuOffen(!accountMenuOffen)}
+              className="flex items-center gap-2 px-2.5 py-1 rounded-lg transition-colors text-[rgb(var(--sidebar-text))]"
+              style={{
+                background: accountMenuOffen ? "rgba(255,255,255,0.1)" : "transparent",
+                border: "0.5px solid rgba(255,255,255,0.1)"
+              }}
+              title="Konto-Menü"
             >
               <UserCircle size={16} />
+              <span className="text-xs font-medium hidden sm:inline truncate max-w-[120px]">{meinName.split(" ")[0]}</span>
+              <ChevronDown size={14} className={`transition-transform ${accountMenuOffen ? "rotate-180" : ""}`} />
             </button>
+
+            {/* Dropdown-Menü */}
+            {accountMenuOffen && (
+              <div
+                className="absolute right-0 mt-2 w-56 rounded-lg shadow-lg border"
+                style={{
+                  background: "rgb(var(--sidebar-bg))",
+                  borderColor: "rgba(255,255,255,0.1)"
+                }}
+              >
+                {/* Profil-Info */}
+                <div className="px-3 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-9 h-9 rounded-full flex items-center justify-center font-semibold text-xs shrink-0"
+                      style={{
+                        background: "rgb(24, 95, 165)",
+                        color: "rgb(255,255,255)"
+                      }}
+                    >
+                      {meinName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium truncate" style={{ color: "rgb(var(--sidebar-text))" }}>
+                        {meinName}
+                      </p>
+                      {meineRolle && (
+                        <p className="text-xs truncate" style={{ color: "rgb(var(--sidebar-text-muted))" }}>
+                          {meineRolle === "VORSITZ" && "Vorsitz"}
+                          {meineRolle === "STELLVERTRETER" && "Stellvertreter"}
+                          {meineRolle === "MITGLIED" && "Mitglied"}
+                          {meineRolle === "ADMIN" && "Administrator"}
+                          {meineRolle === "ERSATZMITGLIED" && "Ersatzmitglied"}
+                          {meineRolle === "JAV" && "JAV"}
+                          {meineRolle === "SBV" && "SBV"}
+                          {meineRolle === "EXTERN" && "Extern"}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Menü-Items */}
+                <div className="py-1">
+                  <button
+                    onClick={() => {
+                      navigate("/konto");
+                      setAccountMenuOffen(false);
+                    }}
+                    className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 rounded hover:brightness-110 transition-[filter]"
+                    style={{ color: "rgb(var(--sidebar-text))" }}
+                  >
+                    <UserCircle size={14} />
+                    Mein Konto
+                  </button>
+                  {!DEMO_MODE && meineRolle !== "JAV" && meineRolle !== "SBV" && meineRolle !== "ERSATZMITGLIED" && (
+                    <NavLink
+                      to="/einstellungen"
+                      onClick={() => setAccountMenuOffen(false)}
+                      className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 rounded hover:brightness-110 transition-[filter]"
+                      style={{ color: "rgb(var(--sidebar-text))", display: "flex" }}
+                    >
+                      <Settings size={14} />
+                      Einstellungen
+                    </NavLink>
+                  )}
+                </div>
+
+                {/* Trennlinie */}
+                <div style={{ borderColor: "rgba(255,255,255,0.08)" }} className="border-t" />
+
+                {/* Logout */}
+                <div className="p-1">
+                  <button
+                    onClick={() => {
+                      setAccountMenuOffen(false);
+                      abmelden();
+                    }}
+                    className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 rounded transition-colors"
+                    style={{
+                      color: "rgb(239, 68, 68)",
+                      background: "transparent"
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)"}
+                    onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                  >
+                    <i className="ti ti-logout-2" style={{ fontSize: "14px" }} />
+                    Abmelden
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
         {/* Hinweis auf neue BR-DMS-Version – nur für Vorsitz, Stellvertretung und Admin (Backend prüft zusätzlich) */}
