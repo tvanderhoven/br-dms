@@ -116,8 +116,8 @@ if ($Trocken) {
 
 # ── Sicherheitspruefung der Pakete ──
 # Standard: Audit überspringen (TLS-Zertifikat-Problem auf diesem Host)
-# Zum Aktivieren: $env:OHNE_AUDIT = "0" vor dem Script
-if ($env:OHNE_AUDIT -eq "0") {
+# Zum Aktivieren: $env:MIT_AUDIT = "1" vor dem Script setzen
+if ($env:MIT_AUDIT -eq "1") {
     if (Get-Command npm -ErrorAction SilentlyContinue) {
         $funde = @()
         foreach ($teil in @("backend", "frontend")) {
