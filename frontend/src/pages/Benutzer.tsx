@@ -17,6 +17,7 @@ export const ROLLEN_LABEL: Record<Rolle, string> = {
   ADMIN:           "Administrator",
   JAV:             "JAV (nur Sitzungen/Protokolle)",
   SBV:             "SBV (nur Sitzungen/Protokolle)",
+  EXTERN:          "Extern (Protokollführung)",
 };
 
 export const ROLLEN_FARBE: Record<Rolle, string> = {
@@ -27,6 +28,7 @@ export const ROLLEN_FARBE: Record<Rolle, string> = {
   ADMIN:           "bg-purple-100 text-purple-700",
   JAV:             "bg-teal-100 text-teal-700",
   SBV:             "bg-blue-100 text-blue-700",
+  EXTERN:          "bg-orange-100 text-orange-700",
 };
 
 export default function BenutzerVerwaltung({ eingebettet = false }: { eingebettet?: boolean }) {

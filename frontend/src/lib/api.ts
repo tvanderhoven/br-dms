@@ -854,7 +854,7 @@ export type Geschlecht = "MAENNLICH" | "WEIBLICH";
 
 export const ROLLE_LABEL: Record<Rolle, string> = {
   VORSITZ: "Vorsitz", STELLVERTRETER: "Stellv. Vorsitz", MITGLIED: "Mitglied",
-  ERSATZMITGLIED: "Ersatzmitglied", ADMIN: "Admin", JAV: "JAV", SBV: "SBV",
+  ERSATZMITGLIED: "Ersatzmitglied", ADMIN: "Admin", JAV: "JAV", SBV: "SBV", EXTERN: "Extern",
 };
 
 export type LoginAntwort =
