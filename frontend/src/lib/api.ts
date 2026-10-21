@@ -787,7 +787,7 @@ export interface ProtokollEinstellungen {
   hat_logo:             string; // "true" | "false"
 }
 
-export type Rolle = "VORSITZ" | "STELLVERTRETER" | "MITGLIED" | "ERSATZMITGLIED" | "ADMIN" | "JAV" | "SBV";
+export type Rolle = "VORSITZ" | "STELLVERTRETER" | "MITGLIED" | "ERSATZMITGLIED" | "ADMIN" | "JAV" | "SBV" | "EXTERN";
 export type Prioritaet = "HOCH" | "MITTEL" | "NIEDRIG";
 export type Sichtbarkeit = "PRIVAT" | "OEFFENTLICH";
 export type AufgabeTyp = "PROJEKT" | "AUFGABE";
