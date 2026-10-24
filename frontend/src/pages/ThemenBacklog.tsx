@@ -309,6 +309,8 @@ function KanbanAnsicht({
                   key={karte.id}
                   draggable
                   onDragStart={e => e.dataTransfer.setData("text/aufgabe-id", karte.id)}
+                  // Doppelklick öffnet das Thema wie auf der Aufgaben-Seite – nicht auf den Knöpfen der Karte
+                  onDoubleClick={e => { if (!(e.target as HTMLElement).closest("button")) onBearbeiten(karte); }}
                   className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 cursor-grab active:cursor-grabbing group"
                 >
                   <div className="flex items-start justify-between gap-2">
