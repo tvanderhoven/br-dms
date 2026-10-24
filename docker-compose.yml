@@ -66,6 +66,8 @@ services:
       SMTP_USER:       ${SMTP_USER}
       SMTP_PASS:       ${SMTP_PASS}
       SMTP_FROM:       ${SMTP_FROM}
+      # Nur als Notlösung bei abgelaufenem Zertifikat des Mailservers: true = Zertifikat nicht prüfen
+      SMTP_TLS_UNSICHER: ${SMTP_TLS_UNSICHER:-false}
       APP_URL:         ${APP_URL}
       # Reverse-Proxys vor dem Backend (eigener HTTPS-Proxy + Frontend-nginx = 2), für die echte Client-IP
       PROXY_STATIONEN: ${PROXY_STATIONEN:-2}

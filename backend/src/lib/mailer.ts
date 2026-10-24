@@ -7,6 +7,10 @@ import prisma from "./prisma.js";
 // schon mal zu einem komplett leeren From-Header, weil "??" einen leeren
 // String nicht als "fehlt" erkennt.
 const SMTP_FROM = process.env.SMTP_FROM || `"BR-DMS" <noreply@br-dms.lokal>`;
+/** TLS-Optionen für den Mailversand – Zertifikat wird geprüft, außer SMTP_TLS_UNSICHER=true */
+export function smtpTlsOptionen(env: NodeJS.ProcessEnv = process.env): { rejectUnauthorized: boolean } {
+  return { rejectUnauthorized: env.SMTP_TLS_UNSICHER !== "true" };
+}
 
 export const MAIL_ABSENDER_NAME    = "mail.absender_name";
 export const MAIL_ABSENDER_ADRESSE = "mail.absender_adresse";
@@ -37,13 +41,15 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER!,
     pass: process.env.SMTP_PASS!,
   },
-  // TODO wieder entfernen, sobald die IT das abgelaufene TLS-Zertifikat des
-  // Mailservers erneuert hat (Stand 2026-10-01: "certificate has expired").
-  // Ohne das brechen alle ausgehenden Mails (Fristen/Ablauf-Erinnerung,
-  // Passwort-Reset) beim TLS-Handshake ab. Nur vertretbar, weil der
-  // Mailserver ausschließlich im internen, vertrauenswürdigen Netz liegt.
-  tls: { rejectUnauthorized: false },
+  // Zertifikat des Mailservers wird geprüft – sonst könnte jemand im Netz die Mails
+  // mitlesen, auch die Links zum Passwort-Zurücksetzen. Nur als Notlösung bei einem
+  // abgelaufenen Zertifikat abschaltbar (SMTP_TLS_UNSICHER=true in der .env), bis die
+  // IT es erneuert hat.
+  tls: smtpTlsOptionen(),
 });
+if (!smtpTlsOptionen().rejectUnauthorized) {
+  console.warn("[Mailer] SMTP_TLS_UNSICHER=true – das Zertifikat des Mailservers wird NICHT geprüft. Nur vorübergehend nutzen.");
+}
 
 export async function sendePasswortReset(email: string, name: string, token: string): Promise<void> {
   const appUrl = process.env.APP_URL ?? "http://localhost:3000";
