@@ -180,10 +180,10 @@ Beim Umsetzen gleich mitnehmen:
   „Rechtzeitig“ beurteilt weiter der Mensch.
 - **Mit Paket 2:** Mehrere ungelesene Benachrichtigungen am selben Tag als **eine Sammelmail** statt einzeln
   (wie die Sammelmail zum Dokumenteneingang).
-- **Mit Paket 4:** **Geschwärztes Protokoll** (Fassung ohne vertrauliche TOPs) – löst zugleich, dass JAV/SBV bei
-  Sitzungen mit vertraulichen TOPs heute gar kein Protokoll-PDF bekommen. Außerdem **Zugriffsprotokoll für
-  Externe**: jedes Öffnen einer Sitzung und jede Protokolländerung ins Audit, damit der Vorsitz es bei Streit um die
-  Verschwiegenheit nachvollziehen kann.
+- ✓ **Mit Paket 4 (erledigt 24.10.2026):** **Geschwärztes Protokoll** – JAV/SBV bekommen bei Sitzungen mit
+  vertraulichen TOPs das Protokoll-PDF als geschwärzte Fassung (TOP-Nummer bleibt, Titel/Inhalt/Beschlüsse fehlen,
+  Hinweis unter der Überschrift), frisch erzeugt und nicht gespeichert (`routes/pdf.ts`, `geschwaerzteFassung`).
+  Sitzungspaket und Scans bleiben für sie gesperrt. **Zugriffsprotokoll für Externe** (`EXTERN_ZUGRIFF`) ebenfalls erledigt.
 
 **Themenakte (besprochen 24.10.2026), Reihenfolge zu den Paketen oben noch offen:**
 

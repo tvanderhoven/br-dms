@@ -287,17 +287,32 @@ describe("JAV und SBV: vertrauliche TOPs", () => {
     assert.deepEqual(lecks, []);
   });
 
-  test("PDF-Dateien: TOP-Auszug nur für offene TOPs, vollständiges Protokoll gesperrt", async () => {
+  test("PDF-Dateien: TOP-Auszug nur für offene TOPs, Paket und Scans gesperrt", async () => {
     for (const konto of ["JAV", "SBV"] as const) {
       assert.equal(await status(konto, "GET", `/api/sitzungen/${sitzungId}/tops/${geheimTop}/auszug`), 404, konto);
       assert.equal(await status(konto, "GET", `/api/sitzungen/${sitzungId}/tops/${offenTop}/auszug`), 200, konto);
-      assert.equal(await status(konto, "GET", `/api/sitzungen/${sitzungId}/pdf/1`), 403, konto);
       assert.equal(await status(konto, "GET", `/api/sitzungen/${sitzungId}/sitzungspaket`), 403, konto);
       assert.equal(await status(konto, "GET", `/api/sitzungen/${sitzungId}/scans/PROTOKOLL_UNTERSCHRIFTEN/download`), 403, konto);
     }
-    // Ohne vertrauliche TOPs greift die Sperre nicht (hier 404, weil es noch keine Version gibt)
-    const offen = await prisma.sitzung.create({ data: { titel: "Offen", sitzungsdatum: new Date(), erstelltVonId: env.ids.VORSITZ } });
-    assert.equal(await status("JAV", "GET", `/api/sitzungen/${offen.id}/pdf/1`), 404);
+  });
+
+  test("Protokoll-PDF: JAV/SBV bekommen die geschwärzte Fassung ohne den vertraulichen TOP", async () => {
+    await prisma.tOP.update({ where: { id: offenTop }, data: { ergebnis: "OFFEN-ERGEBNIS" } });
+    await prisma.sitzungVersion.create({
+      data: { sitzungId, versionNummer: "2.1", typ: "PROTOKOLL_FINAL", readonly: true, pdfPfad: "/nicht/vorhanden.pdf", pdfDateiname: "protokoll.pdf", erstelltVonId: env.ids.VORSITZ },
+    });
+    const { PDFParse } = await import("pdf-parse");
+    for (const konto of ["JAV", "SBV"] as const) {
+      const res = await anfrage(env, konto, "GET", `/api/sitzungen/${sitzungId}/pdf/2.1`);
+      assert.equal(res.statusCode, 200, `${konto}: ${res.body.slice(0, 200)}`);
+      assert.match(String(res.headers["content-disposition"]), /geschwaerzt/);
+      const text = (await new PDFParse({ data: res.rawPayload }).getText()).text;
+      assert.match(text, /OFFEN-TOP/);
+      assert.match(text, /geschwärzt/);
+      assert.doesNotMatch(text, /GEHEIM/);
+    }
+    // Mitglieder bekommen weiter die gespeicherte Originalfassung (hier nicht vorhanden → 404)
+    assert.equal(await status("MITGLIED", "GET", `/api/sitzungen/${sitzungId}/pdf/2.1`), 404);
   });
 
   test("Mitglied sieht den vertraulichen TOP samt Beschluss und Auszug", async () => {
