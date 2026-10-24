@@ -19,7 +19,7 @@ export async function ressourcenRouten(app: FastifyInstance): Promise<void> {
   );
 
   // POST /api/ressourcen
-  app.post("/", { preHandler: [authenticate] },
+  app.post("/", { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { titel, url, beschreibung, kategorie, tags } = request.body as {
         titel: string;
@@ -50,7 +50,7 @@ export async function ressourcenRouten(app: FastifyInstance): Promise<void> {
 
   // PATCH /api/ressourcen/:id
   app.patch<{ Params: { id: string } }>(
-    "/:id", { preHandler: [authenticate] },
+    "/:id", { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request, reply) => {
       const { id } = request.params;
       const { titel, url, beschreibung, kategorie, tags } = request.body as {

@@ -16,6 +16,7 @@ import { FastifyInstance, FastifyRequest } from "fastify";
 import prisma from "../lib/prisma.js";
 import { dokumentVertraulichFilter } from "../lib/vertraulich.js";
 import { authenticate } from "../middleware/auth.js";
+import { hatMindestrolle } from "../middleware/rbac.js";
 import { DokumentStatus, Role } from "@prisma/client";
 
 export async function sucheRouten(app: FastifyInstance): Promise<void> {
@@ -242,7 +243,8 @@ export async function sucheRouten(app: FastifyInstance): Promise<void> {
         .map(({ relevanz: _relevanz, ...g }) => g);
 
       // ── Mitarbeiter (Gehaltstabelle) ──────────────────────────
-      const mitarbeiter = await prisma.mitarbeiter.findMany({
+      // Wie /api/mitarbeiter erst ab Mitglied – Ersatzmitglieder nur in aktiver Vertretung
+      const mitarbeiter = !(await hatMindestrolle({ sub, rolle }, Role.MITGLIED)) ? [] : await prisma.mitarbeiter.findMany({
         where: {
           OR: [
             { vorname:  { contains: suchbegriff, mode: "insensitive" } },

@@ -23,6 +23,22 @@ const RANG: Record<Role, number> = {
 };
 
 /**
+ * Wirksamer Rang: Ein Ersatzmitglied zählt nur mit aktiver Vertretung als Mitglied,
+ * sonst bleibt es beim lesenden Rang. Für Prüfungen im Handler, die nicht über
+ * erfordert() laufen (z. B. Teile einer Antwort, Autorenschaft).
+ */
+export async function hatMindestrolle(benutzer: { sub: string; rolle: Role }, mindestRolle: Role): Promise<boolean> {
+  if (benutzer.rolle === Role.ERSATZMITGLIED && RANG[mindestRolle] >= RANG[Role.MITGLIED]) {
+    const aktiv = await prisma.benutzer.findUnique({
+      where: { id: benutzer.sub },
+      select: { istVertretungFuer: true },
+    });
+    return !!aktiv?.istVertretungFuer && RANG[Role.MITGLIED] >= RANG[mindestRolle];
+  }
+  return RANG[benutzer.rolle] >= RANG[mindestRolle];
+}
+
+/**
  * Gibt einen Hook zurück, der mindestens die angegebene Rolle erfordert.
  *
  * Beispiel:
@@ -36,22 +52,10 @@ export function erfordert(mindestRolle: Role) {
     }
 
     // Ersatzmitglied: nur Zugriff wenn aktiv als Vertretung – dann mit den Rechten eines Mitglieds
-    let rang = RANG[benutzer.rolle];
-    if (benutzer.rolle === Role.ERSATZMITGLIED && RANG[mindestRolle] >= RANG[Role.MITGLIED]) {
-      const aktiv = await prisma.benutzer.findUnique({
-        where: { id: benutzer.sub },
-        select: { istVertretungFuer: true },
-      });
-      if (!aktiv?.istVertretungFuer) {
-        await auditZugriffVerweigert(request);
-        return reply.status(403).send({ fehler: "Nur lesender Zugriff ohne aktive Vertretung" });
-      }
-      rang = RANG[Role.MITGLIED];
-    }
-
-    if (rang < RANG[mindestRolle]) {
+    if (!(await hatMindestrolle(benutzer, mindestRolle))) {
       await auditZugriffVerweigert(request);
-      return reply.status(403).send({ fehler: "Keine Berechtigung" });
+      const ohneVertretung = benutzer.rolle === Role.ERSATZMITGLIED && RANG[mindestRolle] === RANG[Role.MITGLIED];
+      return reply.status(403).send({ fehler: ohneVertretung ? "Nur lesender Zugriff ohne aktive Vertretung" : "Keine Berechtigung" });
     }
   };
   // Für die Rechte-Übersicht der Rollentests (test/rechte.test.ts) ablesbar

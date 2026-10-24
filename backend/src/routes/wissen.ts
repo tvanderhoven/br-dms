@@ -63,7 +63,7 @@ export async function wissenRouten(app: FastifyInstance): Promise<void> {
     }
   );
 
-  app.post("/", { preHandler: [authenticate] },
+  app.post("/", { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { titel, inhalt, inhaltJson, kategorien, loesung, loesungJson, herkunft, quelle } = request.body as {
         titel: string;
@@ -109,7 +109,7 @@ export async function wissenRouten(app: FastifyInstance): Promise<void> {
     loesungJson?: object | null;
   } }>(
     "/:id",
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request, reply) => {
       const { id } = request.params;
       const { titel, inhalt, inhaltJson, kategorien, loesung, loesungJson } = request.body;

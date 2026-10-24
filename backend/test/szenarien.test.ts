@@ -716,3 +716,94 @@ describe("Abwesenheitskalender und Verfügbarkeit zur Ladung", () => {
     assert.equal(v.prognose.beschlussfaehig, true);
   });
 });
+
+describe("Aufgaben: private Aufgaben und Bearbeitungsrechte", () => {
+  let privat: string, oeffentlich: string, privatesProjekt: string, kindImPrivaten: string;
+
+  const aufgabeAnlegen = (titel: string, von: Konto, sichtbarkeit: "PRIVAT" | "OEFFENTLICH", extra: object = {}) =>
+    prisma.aufgabe.create({ data: { titel, sichtbarkeit, erstelltVonId: env.ids[von], ...extra } });
+
+  before(async () => {
+    privat          = (await aufgabeAnlegen("PRIVAT-AUFGABE", "VORSITZ", "PRIVAT")).id;
+    oeffentlich     = (await aufgabeAnlegen("OFFENE-AUFGABE", "VORSITZ", "OEFFENTLICH")).id;
+    privatesProjekt = (await aufgabeAnlegen("PRIVATES-PROJEKT", "VORSITZ", "PRIVAT", { typ: "PROJEKT" })).id;
+    kindImPrivaten  = (await aufgabeAnlegen("KIND-AUFGABE", "VORSITZ", "OEFFENTLICH", { oberProjektId: privatesProjekt })).id;
+  });
+
+  test("fremde private Aufgabe: Ändern und Löschen wie nicht vorhanden, nichts wird verraten", async () => {
+    for (const konto of ["MITGLIED", "STELLVERTRETER", "ADMIN"] as const) {
+      const patch = await anfrage(env, konto, "PATCH", `/api/aufgaben/${privat}`, {});
+      assert.equal(patch.statusCode, 404, `${konto}: ${patch.body}`);
+      assert.doesNotMatch(patch.body, /PRIVAT-AUFGABE/);
+      assert.equal(await status(konto, "PATCH", `/api/aufgaben/${privat}`, { sichtbarkeit: "OEFFENTLICH" }), 404, konto);
+      assert.equal(await status(konto, "DELETE", `/api/aufgaben/${privat}`), 404, konto);
+    }
+    const unveraendert = await prisma.aufgabe.findUnique({ where: { id: privat } });
+    assert.equal(unveraendert?.sichtbarkeit, "PRIVAT");
+  });
+
+  test("eigene private Aufgabe bleibt bearbeitbar", async () => {
+    assert.equal(await status("VORSITZ", "PATCH", `/api/aufgaben/${privat}`, { titel: "PRIVAT-AUFGABE" }), 200);
+  });
+
+  test("Sichtbarkeit ändert nur, wer die Aufgabe angelegt hat – derselbe Wert geht durch", async () => {
+    assert.equal(await status("MITGLIED", "PATCH", `/api/aufgaben/${oeffentlich}`, { sichtbarkeit: "PRIVAT" }), 403);
+    assert.equal(await status("MITGLIED", "PATCH", `/api/aufgaben/${oeffentlich}`, { sichtbarkeit: "OEFFENTLICH", titel: "OFFENE-AUFGABE" }), 200);
+  });
+
+  test("Ersatzmitglied ohne Vertretung liest nur, mit Vertretung darf es bearbeiten", async () => {
+    assert.equal(await status("ERSATZMITGLIED", "PATCH", `/api/aufgaben/${oeffentlich}`, { titel: "x" }), 403);
+    assert.equal(await status("ERSATZMITGLIED", "DELETE", `/api/aufgaben/${oeffentlich}`), 403);
+    assert.equal(await status("ERSATZ_VERTRETUNG", "PATCH", `/api/aufgaben/${oeffentlich}`, { titel: "OFFENE-AUFGABE" }), 200);
+  });
+
+  test("Ersatzmitglied darf eigene und ihm zugewiesene Aufgaben bearbeiten", async () => {
+    const eigene = (await aufgabeAnlegen("ERSATZ-EIGENE", "ERSATZMITGLIED", "OEFFENTLICH")).id;
+    const zugewiesen = (await aufgabeAnlegen("ERSATZ-ZUGEWIESEN", "VORSITZ", "OEFFENTLICH", { zugewiesenAnId: env.ids.ERSATZMITGLIED })).id;
+    assert.equal(await status("ERSATZMITGLIED", "PATCH", `/api/aufgaben/${zugewiesen}`, { erledigt: true }), 200);
+    assert.equal(await status("ERSATZMITGLIED", "DELETE", `/api/aufgaben/${eigene}`), 200);
+  });
+
+  test("Liste verrät ein fremdes privates Projekt nicht über seine Unteraufgaben", async () => {
+    const res = await anfrage(env, "MITGLIED", "GET", "/api/aufgaben");
+    assert.equal(res.statusCode, 200, res.body);
+    assert.doesNotMatch(res.body, /PRIVATES-PROJEKT/);
+    assert.ok(!res.body.includes(privatesProjekt), "ID des privaten Projekts verraten");
+    const kind = res.json().find((a: { id: string }) => a.id === kindImPrivaten);
+    assert.equal(kind.oberProjektId, null);
+    // Bearbeiten ohne Projekt (so schickt es das Formular) löst die Aufgabe nicht aus dem fremden Projekt
+    assert.equal(await status("MITGLIED", "PATCH", `/api/aufgaben/${kindImPrivaten}`, { oberProjektId: "" }), 200);
+    assert.equal((await prisma.aufgabe.findUnique({ where: { id: kindImPrivaten } }))?.oberProjektId, privatesProjekt);
+    // Die Ersteller-Sicht bleibt vollständig
+    const eigen = (await anfrage(env, "VORSITZ", "GET", "/api/aufgaben")).json();
+    assert.equal(eigen.find((a: { id: string }) => a.id === kindImPrivaten).oberProjektId, privatesProjekt);
+  });
+
+  test("an ein fremdes privates Projekt lässt sich nichts hängen", async () => {
+    assert.equal(await status("MITGLIED", "POST", "/api/aufgaben", { titel: "x", oberProjektId: privatesProjekt }), 400);
+    assert.equal(await status("MITGLIED", "PATCH", `/api/aufgaben/${oeffentlich}`, { oberProjektId: privatesProjekt }), 400);
+  });
+});
+
+describe("Globale Suche: Mitarbeiter erst ab Mitglied", () => {
+  before(async () => {
+    await prisma.mitarbeiter.create({ data: { vorname: "Suchtest", nachname: "Personal" } });
+  });
+
+  test("Ersatzmitglied ohne Vertretung findet keine Mitarbeiter, Mitglied und Vertretung schon", async () => {
+    const treffer = async (konto: Konto) => (await anfrage(env, konto, "GET", "/api/suche?q=Suchtest")).json().mitarbeiter.length;
+    assert.equal(await treffer("ERSATZMITGLIED"), 0);
+    assert.equal(await treffer("ERSATZ_VERTRETUNG"), 1);
+    assert.equal(await treffer("MITGLIED"), 1);
+  });
+});
+
+describe("Mailversand: Zertifikat des Mailservers", () => {
+  test("wird standardmäßig geprüft, nur SMTP_TLS_UNSICHER=true schaltet es ab", async () => {
+    const { smtpTlsOptionen } = await import("../src/lib/mailer.js");
+    assert.equal(smtpTlsOptionen({}).rejectUnauthorized, true);
+    assert.equal(smtpTlsOptionen({ SMTP_TLS_UNSICHER: "false" }).rejectUnauthorized, true);
+    assert.equal(smtpTlsOptionen({ SMTP_TLS_UNSICHER: "1" }).rejectUnauthorized, true);
+    assert.equal(smtpTlsOptionen({ SMTP_TLS_UNSICHER: "true" }).rejectUnauthorized, false);
+  });
+});

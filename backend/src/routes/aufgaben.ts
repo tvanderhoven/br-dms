@@ -1,14 +1,16 @@
-import { FastifyInstance } from "fastify";
-import { Prisma, Prioritaet, Sichtbarkeit, AufgabeTyp, KanbanStatus, AufgabenStatus } from "@prisma/client";
+import { FastifyInstance, FastifyReply } from "fastify";
+import { Prisma, Prioritaet, Role, Sichtbarkeit, AufgabeTyp, KanbanStatus, AufgabenStatus } from "@prisma/client";
 import prisma from "../lib/prisma.js";
-import { authenticate } from "../middleware/auth.js";
+import { authenticate, JwtPayload } from "../middleware/auth.js";
+import { hatMindestrolle } from "../middleware/rbac.js";
 
 const BENUTZER_SELECT = { id: true, name: true, email: true };
 
 const AUFGABE_INCLUDE = {
   erstelltVon:  { select: BENUTZER_SELECT },
   zugewiesenAn: { select: BENUTZER_SELECT },
-  oberProjekt:  { select: { id: true, titel: true, farbe: true } },
+  // sichtbarkeit/erstelltVonId nur für ohneFremdesPrivatesProjekt(), gehen nicht raus
+  oberProjekt:  { select: { id: true, titel: true, farbe: true, sichtbarkeit: true, erstelltVonId: true } },
   top: {
     select: {
       id: true, nummer: true, titel: true,
@@ -17,17 +19,59 @@ const AUFGABE_INCLUDE = {
   },
 };
 
+/** Private Aufgaben sieht nur, wer sie angelegt hat */
+const sichtbarFuer = (benutzerId: string): Prisma.AufgabeWhereInput => ({
+  OR: [
+    { sichtbarkeit: "OEFFENTLICH" },
+    { sichtbarkeit: "PRIVAT", erstelltVonId: benutzerId },
+  ],
+});
+
+type MitOberProjekt = {
+  oberProjektId: string | null;
+  oberProjekt: { id: string; titel: string; farbe: string | null; sichtbarkeit: Sichtbarkeit; erstelltVonId: string } | null;
+};
+
+/** Hängt eine Aufgabe an einem fremden privaten Projekt, verrät die Antwort weder dessen ID noch Titel */
+function ohneFremdesPrivatesProjekt<T extends MitOberProjekt>(aufgabe: T, benutzerId: string) {
+  const p = aufgabe.oberProjekt;
+  if (p && p.sichtbarkeit === "PRIVAT" && p.erstelltVonId !== benutzerId) {
+    return { ...aufgabe, oberProjektId: null, oberProjekt: null };
+  }
+  return { ...aufgabe, oberProjekt: p && { id: p.id, titel: p.titel, farbe: p.farbe } };
+}
+
+/**
+ * Aufgabe laden, die der Benutzer sehen und bearbeiten darf – sonst 404 bzw. 403.
+ * Bearbeiten: wer sie angelegt hat oder wem sie zugewiesen ist, sonst ab Mitglied
+ * (Ersatzmitglieder ohne aktive Vertretung lesen nur).
+ */
+async function bearbeitbareAufgabe(id: string, benutzer: JwtPayload, reply: FastifyReply) {
+  const aufgabe = await prisma.aufgabe.findFirst({
+    where:  { id, ...sichtbarFuer(benutzer.sub) },
+    select: {
+      id: true, erstelltVonId: true, zugewiesenAnId: true, sichtbarkeit: true,
+      oberProjekt: { select: { sichtbarkeit: true, erstelltVonId: true } },
+    },
+  });
+  if (!aufgabe) {
+    reply.status(404).send({ fehler: "Aufgabe nicht gefunden" });
+    return null;
+  }
+  const beteiligt = aufgabe.erstelltVonId === benutzer.sub || aufgabe.zugewiesenAnId === benutzer.sub;
+  if (!beteiligt && !(await hatMindestrolle(benutzer, Role.MITGLIED))) {
+    reply.status(403).send({ fehler: "Nur lesender Zugriff ohne aktive Vertretung" });
+    return null;
+  }
+  return aufgabe;
+}
+
 export async function aufgabenRouten(app: FastifyInstance): Promise<void> {
 
   // ── GET / – alle Aufgaben (flach; Hierarchie baut das Frontend) ──
   app.get("/", { preHandler: [authenticate] }, async (req, reply) => {
     const aufgaben = await prisma.aufgabe.findMany({
-      where: {
-        OR: [
-          { sichtbarkeit: "OEFFENTLICH" },
-          { sichtbarkeit: "PRIVAT", erstelltVonId: req.benutzer.sub },
-        ],
-      },
+      where: sichtbarFuer(req.benutzer.sub),
       orderBy: [
         { typ: "asc" },           // AUFGABE kommt nach PROJEKT (alphabetisch)
         { erledigt: "asc" },
@@ -41,7 +85,7 @@ export async function aufgabenRouten(app: FastifyInstance): Promise<void> {
     const sortiert = [
       ...aufgaben.filter(a => a.typ === "PROJEKT"),
       ...aufgaben.filter(a => a.typ === "AUFGABE"),
-    ];
+    ].map(a => ohneFremdesPrivatesProjekt(a, req.benutzer.sub));
     return reply.send(sortiert);
   });
 
@@ -98,6 +142,10 @@ export async function aufgabenRouten(app: FastifyInstance): Promise<void> {
         kanbanStatus, aufgabenStatus, topId,
       } = req.body;
 
+      if (oberProjektId && !(await prisma.aufgabe.findFirst({ where: { id: oberProjektId, ...sichtbarFuer(req.benutzer.sub) }, select: { id: true } }))) {
+        return reply.status(400).send({ fehler: "Projekt nicht gefunden" });
+      }
+
       const aufgabe = await prisma.aufgabe.create({
         data: {
           titel,
@@ -119,7 +167,7 @@ export async function aufgabenRouten(app: FastifyInstance): Promise<void> {
         },
         include: AUFGABE_INCLUDE,
       });
-      return reply.status(201).send(aufgabe);
+      return reply.status(201).send(ohneFremdesPrivatesProjekt(aufgabe, req.benutzer.sub));
     }
   );
 
@@ -158,6 +206,18 @@ export async function aufgabenRouten(app: FastifyInstance): Promise<void> {
         kanbanStatus, aufgabenStatus, topId,
       } = req.body;
 
+      const vorhanden = await bearbeitbareAufgabe(id, req.benutzer, reply);
+      if (!vorhanden) return reply;
+      // Sichtbarkeit legt nur fest, wer die Aufgabe angelegt hat – sonst ließe sich eine
+      // fremde Aufgabe privat schalten und damit allen anderen entziehen. Das Formular
+      // schickt den Wert immer mit, abgewiesen wird nur eine echte Änderung.
+      if (sichtbarkeit !== undefined && sichtbarkeit !== vorhanden.sichtbarkeit && vorhanden.erstelltVonId !== req.benutzer.sub) {
+        return reply.status(403).send({ fehler: "Die Sichtbarkeit kann nur ändern, wer die Aufgabe angelegt hat" });
+      }
+      if (oberProjektId && !(await prisma.aufgabe.findFirst({ where: { id: oberProjektId, ...sichtbarFuer(req.benutzer.sub) }, select: { id: true } }))) {
+        return reply.status(400).send({ fehler: "Projekt nicht gefunden" });
+      }
+
       const data: Record<string, unknown> = {};
       if (titel           !== undefined) data.titel           = titel;
       if (beschreibung    !== undefined) data.beschreibung    = beschreibung;
@@ -170,7 +230,10 @@ export async function aufgabenRouten(app: FastifyInstance): Promise<void> {
       if (faelligAm       !== undefined) data.faelligAm       = faelligAm  ? new Date(faelligAm)  : null;
       if (farbe           !== undefined) data.farbe           = farbe || null;
       if (zugewiesenAnId  !== undefined) data.zugewiesenAnId  = zugewiesenAnId || null;
-      if (oberProjektId   !== undefined) data.oberProjektId   = oberProjektId  || null;
+      // Ein fremdes privates Projekt kommt im Formular als „kein Projekt“ an (siehe
+      // ohneFremdesPrivatesProjekt) – dann nicht still daraus lösen
+      const fremdesPrivatesProjekt = vorhanden.oberProjekt?.sichtbarkeit === "PRIVAT" && vorhanden.oberProjekt.erstelltVonId !== req.benutzer.sub;
+      if (oberProjektId   !== undefined && !(fremdesPrivatesProjekt && !oberProjektId)) data.oberProjektId = oberProjektId || null;
       if (topId           !== undefined) data.topId           = topId || null;
       if (erledigt        !== undefined) {
         data.erledigt   = erledigt;
@@ -206,7 +269,7 @@ export async function aufgabenRouten(app: FastifyInstance): Promise<void> {
         data,
         include: AUFGABE_INCLUDE,
       });
-      return reply.send(aufgabe);
+      return reply.send(ohneFremdesPrivatesProjekt(aufgabe, req.benutzer.sub));
     }
   );
 
@@ -215,6 +278,7 @@ export async function aufgabenRouten(app: FastifyInstance): Promise<void> {
     "/:id",
     { preHandler: [authenticate] },
     async (req, reply) => {
+      if (!(await bearbeitbareAufgabe(req.params.id, req.benutzer, reply))) return reply;
       // Kinder-Elemente vom Projekt lösen, dann Eintrag löschen
       await prisma.aufgabe.updateMany({
         where: { oberProjektId: req.params.id },
