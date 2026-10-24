@@ -6,6 +6,7 @@
  */
 
 import { Prisma, PrismaClient, Role, SitzungStatus } from "@prisma/client";
+import { standardProtokollfuehrer } from "./protokollfuehrung.js";
 import defaultPrisma from "./prisma.js";
 import { STANDARD_TOPS, istBetriebsversammlung } from "./sitzungstypen.js";
 
@@ -32,6 +33,7 @@ export async function sitzungAnlegen(
       sitzungstyp:   s.sitzungstyp,
       notizen:       s.notizen ?? null,
       gremiumId:     s.gremiumId ?? null,
+      protokollfuehrerId: await standardProtokollfuehrer(client),
       status:        SitzungStatus.ENTWURF,
       erstelltVonId: s.erstelltVonId,
       versionen: {

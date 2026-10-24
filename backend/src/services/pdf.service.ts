@@ -73,9 +73,16 @@ interface PdfSitzung {
   notizen?:     string | null;
   teilnehmerzahl?: number | null;
   erstelltVon:  { name: string };
+  protokollfuehrer?: PdfProtokollfuehrer | null;
   anwesenheiten?: PdfAnwesenheit[];
   tops:         PdfTop[];
 }
+
+// Protokollführung der Sitzung (Roadmap Paket 3) – Gremiumsmitglieder stehen vorbelegt an der
+// zweiten Unterschriftszeile (§ 34 Abs. 1: Vorsitz und ein weiteres Mitglied), alle anderen
+// (z. B. eine externe Bürokraft) nur als Vermerk – sie unterschreiben nie als „weiteres Mitglied“
+interface PdfProtokollfuehrer { name: string; rolle: string }
+const GREMIUMS_ROLLEN_PDF = ["VORSITZ", "STELLVERTRETER", "MITGLIED", "ERSATZMITGLIED"];
 
 interface PdfVersion {
   versionNummer: string;
@@ -345,7 +352,7 @@ export async function pdfGenerieren(
     if (!mitProtokoll) {
       unterschriftenTagesordnung(doc, layout, sitzung.sitzungsdatum, istBV);
     } else if (istFinal) {
-      unterschriftenProtokoll(doc, layout, sitzung.sitzungsdatum, istBV);
+      unterschriftenProtokoll(doc, layout, sitzung.sitzungsdatum, istBV, sitzung.protokollfuehrer);
     }
 
     // ── Fußzeile auf allen Seiten ────────────────────────────────
@@ -859,7 +866,10 @@ function unterschriftenTagesordnung(doc: InstanceType<typeof PDFDocument>, layou
 }
 
 // ── Unterschriften Protokoll ──────────────────────────────────────
-function unterschriftenProtokoll(doc: InstanceType<typeof PDFDocument>, layout: ProtokollLayout, sitzungsdatum: Date, istBV: boolean) {
+function unterschriftenProtokoll(
+  doc: InstanceType<typeof PDFDocument>, layout: ProtokollLayout, sitzungsdatum: Date, istBV: boolean,
+  protokollfuehrer?: PdfProtokollfuehrer | null,
+) {
   // Gleicher Fix wie bei der Tagesordnung – siehe Kommentar dort.
   if (doc.y > 600) doc.addPage();
   doc.moveDown(2);
@@ -874,6 +884,13 @@ function unterschriftenProtokoll(doc: InstanceType<typeof PDFDocument>, layout: 
          : "Die Unterzeichnenden bestätigen, dass dieses Protokoll in der Betriebsratssitzung verlesen, genehmigt und für richtig befunden wurde.",
        RAND_LINKS, doc.y, { width: BREITE }
      );
+  const istMitglied = !!protokollfuehrer && GREMIUMS_ROLLEN_PDF.includes(protokollfuehrer.rolle);
+  if (protokollfuehrer && !istMitglied) {
+    doc.moveDown(0.5);
+    doc.fontSize(9).font("Helvetica").fillColor("#374151")
+       .text(`Protokollführung: ${pdfText(protokollfuehrer.name)} (kein Mitglied des Gremiums, unterschreibt nicht nach § 34 Abs. 1 BetrVG)`,
+         RAND_LINKS, doc.y, { width: BREITE });
+  }
   doc.moveDown(2.5);
 
   const ortDatum = ortUndDatum(layout, sitzungsdatum);
@@ -881,8 +898,9 @@ function unterschriftenProtokoll(doc: InstanceType<typeof PDFDocument>, layout: 
   unterschriftsLinie(doc, RAND_LINKS, layout.unterschrift_vorsitz, ortDatum);
   const yNachErster = doc.y;
   doc.y = yNachErster - 40;
-  unterschriftsLinie(doc, mitte, layout.unterschrift_zeuge, ortDatum);
-  doc.y = yNachErster;
+  const zeuge = istMitglied ? `${pdfText(protokollfuehrer!.name)} – ${layout.unterschrift_zeuge}` : layout.unterschrift_zeuge;
+  unterschriftsLinie(doc, mitte, zeuge, ortDatum);
+  doc.y = Math.max(yNachErster, doc.y);
 }
 
 // ── Hilfsfunktion: eine Unterschriftslinie ────────────────────────
@@ -1170,7 +1188,7 @@ export async function anwesenheitslistePdfGenerieren(
 // Trägt Version + Prüfsumme der finalisierten Protokoll-PDF, damit die unterschriebene
 // Seite eindeutig einer Protokollversion zuzuordnen ist (statt das ganze Protokoll zu drucken).
 export async function unterschriftenseitePdfGenerieren(
-  sitzung: { titel: string; sitzungsdatum: Date; ort?: string | null; sitzungstyp: string },
+  sitzung: { titel: string; sitzungsdatum: Date; ort?: string | null; sitzungstyp: string; protokollfuehrer?: PdfProtokollfuehrer | null },
   version: { versionNummer: string; zeitstempel: string | null; finalisiertAm: Date | null },
 ): Promise<Buffer> {
   const layout     = await layoutLaden();
@@ -1235,7 +1253,7 @@ export async function unterschriftenseitePdfGenerieren(
     doc.y = yBox + 64;
 
     // Unterschriftslinien – identische Darstellung wie im finalen Protokoll
-    unterschriftenProtokoll(doc, layout, sitzung.sitzungsdatum, istBV);
+    unterschriftenProtokoll(doc, layout, sitzung.sitzungsdatum, istBV, sitzung.protokollfuehrer);
 
     // Fußzeilen
     const seiten = (doc as any).bufferedPageRange().count;

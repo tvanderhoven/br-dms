@@ -13,7 +13,7 @@ import {
   api, Sitzung, SitzungListItem, SitzungStatus, TOP, TopStatus, Dokument, Mitarbeiter, Abteilung, Rolle,
   TOP_STATUS_LABEL, KATEGORIE_LABEL, SITZUNGSTYP_LABEL, KummerkastenEintrag, SitzungScan, SitzungScanTyp,
   istBetriebsversammlung, sitzungStatusLabel, formatDatum,
-  AnhoerungVorgangAntwort, AnhoerungArt, ANHOERUNG_ART_LABEL, gruendeFuerArt, LadungPruefung,
+  AnhoerungVorgangAntwort, AnhoerungArt, ANHOERUNG_ART_LABEL, gruendeFuerArt, LadungPruefung, Benutzer,
 } from "../lib/api";
 import { useZeitmodelle, zeitmodellVorschlag } from "../lib/useZeitmodelle";
 import { useEntgelt } from "../lib/useEntgelt";
@@ -365,6 +365,52 @@ function SitzungTabelle({ gruppen, onOeffnen }: {
         ))}
       </table>
     </div>
+  );
+}
+
+// ── Protokollführung der Sitzung (Roadmap Paket 3) ─────────────────
+// Vorbelegt mit der Person mit Haken „Protokollführung“ (Benutzerverwaltung); Vorsitz und
+// Stellvertretung ändern sie bis zur Finalisierung (Urlaub, Vertretung).
+const PROTOKOLL_ROLLEN: Rolle[] = ["VORSITZ", "STELLVERTRETER", "MITGLIED", "ERSATZMITGLIED"];
+
+function ProtokollfuehrungAuswahl({ sitzung, meineRolle, readonly, onGeaendert }: {
+  sitzung: Sitzung; meineRolle: Rolle | null; readonly: boolean; onGeaendert: () => void;
+}) {
+  const darfAendern = !readonly && !!meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle);
+  const [kandidaten, setKandidaten] = useState<Benutzer[] | null>(null);
+  const [fehler, setFehler] = useState("");
+
+  useEffect(() => {
+    if (!darfAendern) return;
+    api.get<Benutzer[]>("/api/benutzer")
+      .then(liste => setKandidaten(liste.filter(b => b.aktiv && (b.protokollfuehrung || PROTOKOLL_ROLLEN.includes(b.rolle)))))
+      .catch(() => setKandidaten([]));
+  }, [darfAendern]);
+
+  async function aendern(id: string) {
+    setFehler("");
+    try {
+      await api.sitzungen.aktualisieren(sitzung.id, { protokollfuehrerId: id || null });
+      onGeaendert();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler");
+    }
+  }
+
+  if (!darfAendern || !kandidaten) {
+    return sitzung.protokollfuehrer ? <span>Protokoll: {sitzung.protokollfuehrer.name}</span> : null;
+  }
+  return (
+    <span className="flex items-center gap-1">
+      Protokoll:
+      <select value={sitzung.protokollfuehrer?.id ?? ""} onChange={e => aendern(e.target.value)}
+        title="Protokollführung dieser Sitzung"
+        className="text-sm border border-gray-200 rounded-md px-1.5 py-0.5 bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]">
+        <option value="">– nicht festgelegt –</option>
+        {kandidaten.map(b => <option key={b.id} value={b.id}>{b.name}{b.protokollfuehrung ? " ✓" : ""}</option>)}
+      </select>
+      {fehler && <span className="text-xs text-red-600">{fehler}</span>}
+    </span>
   );
 }
 
@@ -771,10 +817,11 @@ function SitzungDetail({
               </button>
             )}
           </div>
-          <div className="flex gap-4 mt-1 text-sm text-gray-500 flex-wrap">
+          <div className="flex gap-4 mt-1 text-sm text-gray-500 flex-wrap items-center">
             <span>{formatDatum(sitzung.sitzungsdatum)}</span>
             {sitzung.ort && <span>{sitzung.ort}</span>}
             <span>{SITZUNGSTYP_LABEL[sitzung.sitzungstyp] ?? sitzung.sitzungstyp}</span>
+            <ProtokollfuehrungAuswahl sitzung={sitzung} meineRolle={meineRolle} readonly={readonly} onGeaendert={onAktualisieren} />
           </div>
         </div>
       </div>
