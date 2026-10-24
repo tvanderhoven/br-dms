@@ -76,15 +76,29 @@ export function fremdprotokollVertraulichFilter(rolle: Role, benutzerId: string)
 // JAV und SBV lesen Sitzungen mit (middleware/auth.ts), aber keine als vertraulich
 // markierten TOPs – weder in der Sitzungsansicht noch über Beschlüsse, Abstimmungen,
 // Protokollblöcke, TOP-Auszüge oder das komplette Protokoll-PDF.
+// Externe Protokollführung (Paket 4) sieht zusätzlich keine TOPs mit „Externe verlässt den Raum“.
 
 export function siehtKeineVertraulichenTops(rolle: Role): boolean {
-  return rolle === Role.JAV || rolle === Role.SBV;
+  return rolle === Role.JAV || rolle === Role.SBV || rolle === Role.EXTERN;
+}
+
+/** Prisma-where-Teil für TOPs, die diese Rolle sehen darf ({} = alle) */
+export function topSichtbarFilter(rolle: Role) {
+  if (rolle === Role.EXTERN) return { vertraulich: false, externAusgeschlossen: false };
+  if (siehtKeineVertraulichenTops(rolle)) return { vertraulich: false };
+  return {};
+}
+
+/** Für bereits geladene TOPs (z. B. Sitzungsansicht) – gleiche Regel wie topSichtbarFilter */
+export function topSichtbar(top: { vertraulich: boolean; externAusgeschlossen?: boolean }, rolle: Role): boolean {
+  if (!siehtKeineVertraulichenTops(rolle)) return true;
+  return !top.vertraulich && !(rolle === Role.EXTERN && top.externAusgeschlossen);
 }
 
 // Prisma-where-Teil für Protokollblöcke (Blöcke ohne TOP gehören zur Sitzung allgemein)
 export function protokollBlockVertraulichFilter(rolle: Role) {
   if (!siehtKeineVertraulichenTops(rolle)) return {};
-  return { OR: [{ topId: null }, { top: { vertraulich: false } }] };
+  return { OR: [{ topId: null }, { top: topSichtbarFilter(rolle) }] };
 }
 
 /**
@@ -94,8 +108,8 @@ export function protokollBlockVertraulichFilter(rolle: Role) {
  */
 export async function topZugriffPruefen(topId: string, rolle: Role, reply: FastifyReply): Promise<boolean> {
   if (!siehtKeineVertraulichenTops(rolle)) return true;
-  const top = await prisma.tOP.findUnique({ where: { id: topId }, select: { vertraulich: true } });
-  if (top?.vertraulich) {
+  const top = await prisma.tOP.findUnique({ where: { id: topId }, select: { vertraulich: true, externAusgeschlossen: true } });
+  if (top && !topSichtbar(top, rolle)) {
     reply.status(404).send({ fehler: "TOP nicht gefunden" });
     return false;
   }
@@ -109,7 +123,7 @@ export async function topZugriffPruefen(topId: string, rolle: Role, reply: Fasti
  */
 export async function sitzungsdateiZugriffPruefen(sitzungId: string, rolle: Role, reply: FastifyReply): Promise<boolean> {
   if (!siehtKeineVertraulichenTops(rolle)) return true;
-  const anzahl = await prisma.tOP.count({ where: { sitzungId, vertraulich: true } });
+  const anzahl = await prisma.tOP.count({ where: { sitzungId, NOT: topSichtbarFilter(rolle) } });
   if (anzahl > 0) {
     reply.status(403).send({ fehler: "Die Sitzung enthält vertrauliche TOPs – das vollständige Protokoll ist für diese Rolle gesperrt" });
     return false;

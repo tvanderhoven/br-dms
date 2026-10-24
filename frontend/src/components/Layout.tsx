@@ -317,6 +317,7 @@ export default function Layout() {
   const [nachrichtenCount, setNachrichtenCount]   = useState(0);
   const [aufgabenCount, setAufgabenCount]         = useState(0);
   const [meineRolle, setMeineRolle]               = useState<Rolle | null>(null);
+  const nurSitzungen = meineRolle === "JAV" || meineRolle === "SBV" || meineRolle === "EXTERN";
   const [meinName, setMeinName]                   = useState("");
   // Admin ohne Inhaltszugriff (Einstellungen → Benutzer, festgelegt von Vorsitz/Stellv.)
   const [ohneInhalt, setOhneInhalt]               = useState(false);
@@ -489,9 +490,9 @@ export default function Layout() {
     return <Navigate to="/einstellungen" replace />;
   }
 
-  // JAV und SBV: stark eingeschränkte Rollen, dürfen im Frontend nur /sitzungen (und das eigene Konto) sehen
-  // (Backend erzwingt das ohnehin zusätzlich auf API-Ebene, siehe middleware/auth.ts)
-  if ((meineRolle === "JAV" || meineRolle === "SBV") && !location.pathname.startsWith("/sitzungen") && !location.pathname.startsWith("/konto")) {
+  // JAV, SBV und externe Protokollführung: stark eingeschränkte Rollen, dürfen im Frontend nur /sitzungen
+  // (und das eigene Konto) sehen (Backend erzwingt das ohnehin zusätzlich auf API-Ebene, siehe middleware/auth.ts)
+  if (nurSitzungen && !location.pathname.startsWith("/sitzungen") && !location.pathname.startsWith("/konto")) {
     return <Navigate to="/sitzungen" replace />;
   }
 
@@ -589,8 +590,8 @@ export default function Layout() {
                 Technischer Zugang: Inhalte des Gremiums sind für den Admin gesperrt.
               </p>
             </>
-          ) : meineRolle === "JAV" || meineRolle === "SBV" ? (
-            // JAV/SBV: stark eingeschränkte Rollen, sehen nur Sitzungen/Protokolle
+          ) : nurSitzungen ? (
+            // JAV/SBV/Extern: stark eingeschränkte Rollen, sehen nur Sitzungen/Protokolle
             <NavLink to="/sitzungen" className={linkKlasse} onClick={() => setMobileOffen(false)}>
               <CalendarDays size={16} />
               Sitzungen
@@ -841,7 +842,7 @@ export default function Layout() {
           </button>
           <span className="md:hidden font-semibold text-sm shrink-0" style={{ color: "rgb(var(--sidebar-text))" }}>BR-DMS</span>
           <div className="flex-1 min-w-0">
-            {meineRolle !== "JAV" && meineRolle !== "SBV" && !ohneInhalt && <GlobaleSuche />}
+            {!nurSitzungen && !ohneInhalt && <GlobaleSuche />}
           </div>
           {/* Account-Menü Dropdown */}
           <div ref={accountMenuRef} className="relative shrink-0">
@@ -913,7 +914,7 @@ export default function Layout() {
                     <UserCircle size={14} />
                     Mein Konto
                   </button>
-                  {!DEMO_MODE && meineRolle !== "JAV" && meineRolle !== "SBV" && meineRolle !== "ERSATZMITGLIED" && (
+                  {!DEMO_MODE && !nurSitzungen && meineRolle !== "ERSATZMITGLIED" && (
                     <NavLink
                       to="/einstellungen"
                       onClick={() => setAccountMenuOffen(false)}

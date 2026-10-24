@@ -28,6 +28,10 @@ enum Role {
   JAV
   // Schwerbehindertenvertretung (§ 178 SGB IX) – dieselbe Einschränkung wie JAV
   SBV
+  // Externe Protokollführung (z. B. Bürokraft nach § 40 Abs. 2, Roadmap Paket 4): nur mit Haken
+  // „Protokollführung“ und Verschwiegenheitserklärung; sieht nur die Sitzungen, die sie
+  // protokolliert, bis das Protokoll finalisiert ist (middleware/auth.ts)
+  EXTERN
 }
 
 enum Prioritaet {
@@ -215,6 +219,8 @@ enum AuditAktion {
   SITZUNG_SCAN_HOCHGELADEN
   SITZUNG_SCAN_GELOESCHT
   SITZUNG_ABGESCHLOSSEN
+  EXTERN_ZUGRIFF            // jedes Öffnen/Ändern einer Sitzung durch externe Protokollführung
+  VERSCHWIEGENHEIT_HINTERLEGT
   SITZUNGSPAKET_HERUNTERGELADEN
   GREMIUM_ERSTELLT
   GREMIUM_AKTUALISIERT
@@ -271,6 +277,12 @@ model Benutzer {
   // Haken „Protokollführung“ = darf protokollieren (z. B. ständige Schriftführung laut GO);
   // wer es in einer Sitzung konkret tut, steht an der Sitzung (Sitzung.protokollfuehrerId)
   protokollfuehrung Boolean                       @default(false)
+  // Verschwiegenheitserklärung externer Protokollführung (§ 79 erfasst Externe nicht automatisch):
+  // Bestätigung + verschlüsselter Scan (Ablage wie Dokumente, Schlüssel aus der Benutzer-ID)
+  verschwiegenheitBestaetigtAm DateTime? @map("verschwiegenheit_bestaetigt_am")
+  verschwiegenheitPfad         String?   @map("verschwiegenheit_pfad")       // relativ zu STORAGE_PATH
+  verschwiegenheitDateiname    String?   @map("verschwiegenheit_dateiname")
+  verschwiegenheitMimeTyp      String?   @map("verschwiegenheit_mime_typ")
   protokollGefuehrt Sitzung[]                     @relation("SitzungProtokollfuehrer")
   vertretungErhalten Anwesenheit[]              @relation("VertretungErhalten")
 
@@ -964,6 +976,10 @@ model TOP {
 
   // Für stark eingeschränkte Rollen (z.B. JAV) ausgeblendet
   vertraulich    Boolean   @default(false)
+
+  // „Externe verlässt den Raum“: TOP für externe Protokollführung unsichtbar, diesen Teil protokolliert
+  // Vorsitz oder ein Mitglied (lib/vertraulich.ts). Vertrauliche TOPs sind für Externe immer unsichtbar.
+  externAusgeschlossen Boolean @default(false) @map("extern_ausgeschlossen")
 
   // Neutraler Titel für Einladungsmail und Kalendertermin (z. B. „Personelle Einzelmaßnahme § 99“),
   // damit keine Namen in fremd mitgelesenen Postfächern landen – Tagesordnung und PDF behalten den echten Titel

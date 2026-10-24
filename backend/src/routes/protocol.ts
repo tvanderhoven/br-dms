@@ -10,7 +10,7 @@
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import prisma from "../lib/prisma.js";
-import { protokollBlockVertraulichFilter } from "../lib/vertraulich.js";
+import { protokollBlockVertraulichFilter, topZugriffPruefen } from "../lib/vertraulich.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { Role } from "@prisma/client";
@@ -77,6 +77,7 @@ export async function protocolRouten(app: FastifyInstance): Promise<void> {
         if (!top) {
           return reply.status(400).send({ fehler: "TOP nicht gefunden" });
         }
+        if (!(await topZugriffPruefen(topId, request.benutzer.rolle, reply))) return reply;
       }
 
       // Nächste Reihenfolge ermitteln
@@ -111,8 +112,9 @@ export async function protocolRouten(app: FastifyInstance): Promise<void> {
         inhaltsJson?: object;
       };
 
+      // Blöcke an TOPs, die diese Rolle nicht sieht, gelten als nicht vorhanden
       const block = await prisma.protocolBlock.findFirst({
-        where: { id: bid, sitzungId: id },
+        where: { id: bid, sitzungId: id, ...protokollBlockVertraulichFilter(request.benutzer.rolle) },
       });
 
       if (!block) {
@@ -138,8 +140,9 @@ export async function protocolRouten(app: FastifyInstance): Promise<void> {
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id, bid } = request.params as { id: string; bid: string };
 
+      // Blöcke an TOPs, die diese Rolle nicht sieht, gelten als nicht vorhanden
       const block = await prisma.protocolBlock.findFirst({
-        where: { id: bid, sitzungId: id },
+        where: { id: bid, sitzungId: id, ...protokollBlockVertraulichFilter(request.benutzer.rolle) },
       });
 
       if (!block) {

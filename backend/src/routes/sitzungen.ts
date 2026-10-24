@@ -31,6 +31,7 @@ import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { pdfAutomatischGenerieren } from "./pdf.js";
 import { SITZUNGSTYPEN, istBetriebsversammlung } from "../lib/sitzungstypen.js";
+import { siehtKeineVertraulichenTops, topSichtbar, topSichtbarFilter, topZugriffPruefen } from "../lib/vertraulich.js";
 import { darfProtokollieren } from "../lib/protokollfuehrung.js";
 import { sitzungAnlegen } from "../lib/sitzungAnlegen.js";
 import { betriebsversammlungFristAbgleichen } from "../lib/betriebsversammlungFrist.js";
@@ -60,6 +61,7 @@ const TOP_SELECT = {
   status:      true,
   spontan:     true,
   vertraulich: true,
+  externAusgeschlossen: true,
   einladungTitel: true,
   erstelltAm:    true,
   aktualisiertAm: true,
@@ -149,8 +151,12 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
     "/",
     { preHandler: [authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
+      // Externe Protokollführung sieht nur die Sitzungen, die sie gerade protokolliert (middleware/auth.ts)
+      const nurEigene = request.benutzer.rolle === Role.EXTERN
+        ? { protokollfuehrerId: request.benutzer.sub, status: { notIn: [SitzungStatus.ABGESAGT, SitzungStatus.PROTOKOLL_FINAL, SitzungStatus.ABGESCHLOSSEN] } }
+        : { status: { not: SitzungStatus.ABGESAGT } };
       const sitzungen = await prisma.sitzung.findMany({
-        where: { status: { not: SitzungStatus.ABGESAGT } },
+        where: nurEigene,
         select: {
           id:           true,
           titel:        true,
@@ -174,7 +180,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
       // Verknüpfte Dokumente je Sitzung (über die TOPs, jedes Dokument nur einmal);
       // JAV und SBV sehen vertrauliche TOPs nicht, also zählen sie für sie auch nicht mit
       const verknuepfungen = await prisma.topDokument.findMany({
-        where:  (request.benutzer.rolle === Role.JAV || request.benutzer.rolle === Role.SBV) ? { top: { vertraulich: false } } : {},
+        where:  { top: topSichtbarFilter(request.benutzer.rolle) },
         select: { dokumentId: true, top: { select: { sitzungId: true } } },
       });
       const dokumenteJeSitzung = new Map<string, Set<string>>();
@@ -246,9 +252,15 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
         data:  { abgerufenAm: new Date() },
       }).catch(() => {});
 
-      // JAV und SBV sehen als vertraulich markierte TOPs nicht
-      if (request.benutzer.rolle === Role.JAV || request.benutzer.rolle === Role.SBV) {
-        return reply.send({ ...sitzung, tops: sitzung.tops.filter(t => !t.vertraulich) });
+      // JAV und SBV sehen als vertraulich markierte TOPs nicht, die externe Protokollführung
+      // zusätzlich keine TOPs mit „Externe verlässt den Raum“ und keine internen Notizen
+      const rolle = request.benutzer.rolle;
+      if (siehtKeineVertraulichenTops(rolle)) {
+        return reply.send({
+          ...sitzung,
+          ...(rolle === Role.EXTERN ? { notizen: null } : {}),
+          tops: sitzung.tops.filter(t => topSichtbar(t, rolle)),
+        });
       }
 
       return reply.send(sitzung);
@@ -588,8 +600,8 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
         return reply.status(409).send({ fehler: "TOPs können nur in Sitzungen im Status ENTWURF hinzugefügt werden" });
       }
 
-      const { titel, inhalt, inhaltsJson, vertraulich, einladungTitel } =
-        request.body as { titel: string; inhalt?: string; inhaltsJson?: object; vertraulich?: boolean; einladungTitel?: string | null };
+      const { titel, inhalt, inhaltsJson, vertraulich, einladungTitel, externAusgeschlossen } =
+        request.body as { titel: string; inhalt?: string; inhaltsJson?: object; vertraulich?: boolean; einladungTitel?: string | null; externAusgeschlossen?: boolean };
       if (!titel) return reply.status(400).send({ fehler: "titel ist ein Pflichtfeld" });
 
       const naechsteNummer = (sitzung.tops[0]?.nummer ?? 0) + 1;
@@ -603,6 +615,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
           inhaltsJson: inhaltsJson ?? undefined,
           status:      TopStatus.OFFEN,
           vertraulich: vertraulich ?? false,
+          externAusgeschlossen: externAusgeschlossen ?? false,
           einladungTitel: einladungTitel?.trim().slice(0, 300) || null,
         },
         select: TOP_SELECT,
@@ -716,10 +729,20 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
 
       const top = await prisma.tOP.findFirst({ where: { id: topId, sitzungId: id }, select: { id: true } });
       if (!top) return reply.status(404).send({ fehler: "TOP nicht gefunden" });
+      if (!(await topZugriffPruefen(topId, request.benutzer.rolle, reply))) return reply;
 
       const status = sitzung.status;
-      const { titel, inhalt, inhaltsJson, ergebnis, ergebnisJson, topStatus, vertraulich, einladungTitel } =
-        request.body as Partial<{ titel: string; inhalt: string; inhaltsJson: object; ergebnis: string; ergebnisJson: object; topStatus: TopStatus; vertraulich: boolean; einladungTitel: string | null }>;
+      const { titel, inhalt, inhaltsJson, ergebnis, ergebnisJson, topStatus, vertraulich, einladungTitel, externAusgeschlossen } =
+        request.body as Partial<{ titel: string; inhalt: string; inhaltsJson: object; ergebnis: string; ergebnisJson: object; topStatus: TopStatus; vertraulich: boolean; einladungTitel: string | null; externAusgeschlossen: boolean }>;
+
+      // Externe Protokollführung schreibt nur das Protokoll (Ergebnis, Status) – Titel, Tagesordnung
+      // und Sichtbarkeit bleiben beim Gremium
+      if (request.benutzer.rolle === Role.EXTERN) {
+        const erlaubt = new Set(["ergebnis", "ergebnisJson", "topStatus"]);
+        if (Object.keys(request.body as object ?? {}).some(k => !erlaubt.has(k))) {
+          return reply.status(403).send({ fehler: "Externe Protokollführung kann nur das Ergebnis eines TOPs bearbeiten" });
+        }
+      }
 
       // Titel (auch der neutrale für die Einladung) nur in ENTWURF editierbar – danach ist die Tagesordnung fixiert
       if ((titel !== undefined || einladungTitel !== undefined) && status !== SitzungStatus.ENTWURF) {
@@ -752,6 +775,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
           ...(topStatus    !== undefined && { status: topStatus }),
           ...(vertraulich  !== undefined && { vertraulich }),
           ...(einladungTitel !== undefined && { einladungTitel: einladungTitel?.trim().slice(0, 300) || null }),
+          ...(externAusgeschlossen !== undefined && { externAusgeschlossen }),
         },
         select: TOP_SELECT,
       });

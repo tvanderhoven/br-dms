@@ -52,8 +52,15 @@ function technikAdminErlaubt(r: Route): boolean {
 }
 
 const RANG: Record<Role, number> = {
-  ADMIN: 4, VORSITZ: 3, STELLVERTRETER: 3, MITGLIED: 2, ERSATZMITGLIED: 1, JAV: 0, SBV: 0,
+  ADMIN: 4, VORSITZ: 3, STELLVERTRETER: 3, MITGLIED: 2, ERSATZMITGLIED: 1, JAV: 0, SBV: 0, EXTERN: -1,
 };
+
+// Externe Protokollführung ohne zugeordnete Sitzung: nur eigenes Konto und die (leere) Sitzungsliste.
+// Jede Sitzungsroute braucht eine Sitzung, die sie protokolliert – mit den Platzhalter-IDs gibt es keine.
+function externErlaubt(r: Route): boolean {
+  return r.pfad === "/api/auth/me" || r.pfad === "/api/auth/logout" || /^\/api\/konto(\/|$)/.test(r.pfad)
+    || (r.methode === "GET" && r.pfad === "/api/sitzungen");
+}
 
 const schluessel = (r: Route) => `${r.methode} ${r.pfad}`;
 
@@ -150,6 +157,18 @@ describe("JAV und SBV (nur Sitzungen lesen)", () => {
   }
 });
 
+describe("Externe Protokollführung (ohne zugeordnete Sitzung)", () => {
+  test("EXTERN: alles außer eigenem Konto und Sitzungsliste antwortet 403", async () => {
+    await alleErwarten("EXTERN", apiRouten.filter(r => !externErlaubt(r)), 403);
+  });
+
+  test("EXTERN: Sitzungsliste ist leer", async () => {
+    const res = await anfrage(env, "EXTERN", "GET", "/api/sitzungen");
+    assert.equal(res.statusCode, 200, res.body);
+    assert.deepEqual(res.json(), []);
+  });
+});
+
 describe("Mindestrollen aus erfordert()", () => {
   // Für jedes Konto: alle Routen, deren Mindestrolle über dem eigenen Rang liegt
   const faelle: [Konto, (r: Route) => boolean][] = [
@@ -193,6 +212,7 @@ describe("Hierarchie von erfordert() (beide Richtungen)", () => {
       ADMIN:             [Role.ERSATZMITGLIED, Role.MITGLIED, Role.VORSITZ, Role.ADMIN],
       JAV:               [],
       SBV:               [],
+      EXTERN:            [],
     };
     const ist = {} as Record<Konto, Role[]>;
     for (const konto of KONTEN) {

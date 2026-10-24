@@ -37,7 +37,7 @@ async function geladene(sitzungId: string) {
     where: {
       sitzungId,
       status:   { in: [AnwesenheitsStatus.ANWESEND, AnwesenheitsStatus.ERSATZ_FUER] },
-      benutzer: { aktiv: true, rolle: { not: Role.ADMIN } },
+      benutzer: { aktiv: true, rolle: { notIn: [Role.ADMIN, Role.EXTERN] } },
     },
     select: {
       status: true,
