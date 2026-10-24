@@ -31,6 +31,7 @@ import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { pdfAutomatischGenerieren } from "./pdf.js";
 import { SITZUNGSTYPEN, istBetriebsversammlung } from "../lib/sitzungstypen.js";
+import { darfProtokollieren } from "../lib/protokollfuehrung.js";
 import { sitzungAnlegen } from "../lib/sitzungAnlegen.js";
 import { betriebsversammlungFristAbgleichen } from "../lib/betriebsversammlungFrist.js";
 
@@ -94,6 +95,7 @@ const SITZUNG_SELECT = {
   aktualisiertAm: true,
   gremium:      { select: { id: true, name: true } },
   erstelltVon:  { select: { id: true, name: true } },
+  protokollfuehrer: { select: { id: true, name: true, rolle: true } },
   versionen: {
     orderBy: { erstelltAm: "asc" as const },
     select: {
@@ -266,10 +268,10 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
         return reply.status(409).send({ fehler: "Finalisierte Sitzungen können nicht bearbeitet werden" });
       }
 
-      const { titel, sitzungsdatum, ort, sitzungstyp, notizen, teilnehmerzahl: tzEingabe, gremiumId } =
+      const { titel, sitzungsdatum, ort, sitzungstyp, notizen, teilnehmerzahl: tzEingabe, gremiumId, protokollfuehrerId } =
         request.body as Partial<{
           titel: string; sitzungsdatum: string; ort: string; sitzungstyp: string; notizen: string;
-          teilnehmerzahl: number | null; gremiumId: string | null;
+          teilnehmerzahl: number | null; gremiumId: string | null; protokollfuehrerId: string | null;
         }>;
 
       if (sitzungstyp !== undefined) {
@@ -290,6 +292,12 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
         const gremium = await prisma.gremium.findUnique({ where: { id: gremiumId } });
         if (!gremium) return reply.status(404).send({ fehler: "Gremium nicht gefunden" });
       }
+      if (protokollfuehrerId) {
+        const p = await prisma.benutzer.findUnique({ where: { id: protokollfuehrerId }, select: { aktiv: true, rolle: true, protokollfuehrung: true } });
+        if (!p || !darfProtokollieren(p)) {
+          return reply.status(400).send({ fehler: "Diese Person kann nicht als Protokollführung eingetragen werden" });
+        }
+      }
 
       const aktualisiert = await prisma.sitzung.update({
         where:  { id },
@@ -301,6 +309,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
           ...(notizen      !== undefined && { notizen }),
           ...(teilnehmerzahl !== undefined && { teilnehmerzahl }),
           ...(gremiumId    !== undefined && { gremiumId }),
+          ...(protokollfuehrerId !== undefined && { protokollfuehrerId: protokollfuehrerId || null }),
         },
         select: SITZUNG_SELECT,
       });

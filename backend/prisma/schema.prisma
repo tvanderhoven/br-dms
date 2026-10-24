@@ -268,6 +268,10 @@ model Benutzer {
   zweiFaktorWiederherstellung String[] @default([]) @map("zwei_faktor_wiederherstellung") // SHA-256 je Code
 
   istVertretungFuer String?                      @map("ist_vertretung_fuer")
+  // Haken „Protokollführung“ = darf protokollieren (z. B. ständige Schriftführung laut GO);
+  // wer es in einer Sitzung konkret tut, steht an der Sitzung (Sitzung.protokollfuehrerId)
+  protokollfuehrung Boolean                       @default(false)
+  protokollGefuehrt Sitzung[]                     @relation("SitzungProtokollfuehrer")
   vertretungErhalten Anwesenheit[]              @relation("VertretungErhalten")
 
   // Wahlergebnis der letzten BR-Wahl (einmalig aus dem Wahlprotokoll übertragen) –
@@ -682,6 +686,11 @@ model Sitzung {
 
   erstelltVonId  String        @map("erstellt_von_id")
   erstelltVon    Benutzer      @relation("SitzungenErstellt", fields: [erstelltVonId], references: [id])
+
+  // Wer protokolliert diese Sitzung (Roadmap Paket 3) – bei neuen Sitzungen mit der Person mit
+  // Haken „Protokollführung“ vorbelegt, änderbar (Urlaub, Vertretung)
+  protokollfuehrerId String?   @map("protokollfuehrer_id")
+  protokollfuehrer   Benutzer? @relation("SitzungProtokollfuehrer", fields: [protokollfuehrerId], references: [id], onDelete: SetNull)
 
   erstelltAm     DateTime      @default(now()) @map("erstellt_am")
   aktualisiertAm DateTime      @updatedAt @map("aktualisiert_am")

@@ -45,6 +45,7 @@ async function sitzungFuerPdf(id: string) {
       notizen:       true,
       teilnehmerzahl: true,
       erstelltVon:   { select: { name: true } },
+      protokollfuehrer: { select: { name: true, rolle: true } },
       anwesenheiten: {
         select: {
           status:         true,
@@ -174,7 +175,7 @@ export async function pdfRouten(app: FastifyInstance): Promise<void> {
 
       const sitzung = await prisma.sitzung.findUnique({
         where: { id },
-        select: { titel: true, sitzungsdatum: true, ort: true, sitzungstyp: true },
+        select: { titel: true, sitzungsdatum: true, ort: true, sitzungstyp: true, protokollfuehrer: { select: { name: true, rolle: true } } },
       });
       if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
 

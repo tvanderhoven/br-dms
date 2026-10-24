@@ -354,7 +354,14 @@ function sitzungAnfrage(method: string, id: string | undefined, sub: string | un
 
   if (!sub) {
     if (method === "GET") return json(s);
-    if (method === "PATCH") { Object.assign(s, body, { aktualisiertAm: jetzt() }); return json(s); }
+    if (method === "PATCH") {
+      Object.assign(s, body, { aktualisiertAm: jetzt() });
+      if ("protokollfuehrerId" in body) {
+        const p = db.benutzer.find(b => b.id === body.protokollfuehrerId);
+        s.protokollfuehrer = p ? { id: p.id, name: p.name, rolle: p.rolle } : null;
+      }
+      return json(s);
+    }
     if (method === "DELETE") { s.status = "ABGESAGT"; return json({ nachricht: "Sitzung abgesagt (Demo)" }); }
   }
 

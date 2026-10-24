@@ -93,6 +93,15 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
     }
   }
 
+  async function protokollfuehrungAendern(b: Benutzer, protokollfuehrung: boolean) {
+    try {
+      await apiFetch(`/api/benutzer/${b.id}`, "PATCH", { protokollfuehrung });
+      laden_();
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Fehler");
+    }
+  }
+
   async function wahlReihenfolgeAendern(b: Benutzer, wahlReihenfolge: number | null) {
     try {
       await apiFetch(`/api/benutzer/${b.id}`, "PATCH", { wahlReihenfolge });
@@ -208,6 +217,13 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
                           <option key={r} value={r}>{ROLLEN_LABEL[r]}</option>
                         ))}
                       </select>
+                    )}
+                    {b.rolle !== "ADMIN" && (
+                      <label className="flex items-center gap-1 mt-1 text-xs text-gray-500 cursor-pointer" title="Darf protokollieren (z. B. ständige Schriftführung laut Geschäftsordnung) – wird bei neuen Sitzungen als Protokollführung vorbelegt">
+                        <input type="checkbox" checked={!!b.protokollfuehrung} onChange={e => protokollfuehrungAendern(b, e.target.checked)}
+                          className="rounded-sm border-gray-300 text-[rgb(var(--accent))]" />
+                        Protokollführung
+                      </label>
                     )}
                   </td>
 
@@ -376,6 +392,7 @@ function NeuerBenutzerModal({ onSchliessen, onErfolg }: { onSchliessen: () => vo
   const [email, setEmail]     = useState("");
   const [einladungEmail, setEinladungEmail] = useState("");
   const [rolle, setRolle]     = useState<Rolle>("MITGLIED");
+  const [protokollfuehrung, setProtokollfuehrung] = useState(false);
   const [pw, setPw]           = useState("");
   const [pwWdh, setPwWdh]     = useState("");
 
@@ -386,7 +403,7 @@ function NeuerBenutzerModal({ onSchliessen, onErfolg }: { onSchliessen: () => vo
     setFehler("");
     setLaden(true);
     try {
-      await apiFetch("/api/benutzer", "POST", { name, email, rolle, passwort: pw, einladungEmail: einladungEmail || null });
+      await apiFetch("/api/benutzer", "POST", { name, email, rolle, passwort: pw, einladungEmail: einladungEmail || null, protokollfuehrung });
       onErfolg();
     } catch (err) {
       setFehler(err instanceof Error ? err.message : "Fehler");
@@ -412,6 +429,11 @@ function NeuerBenutzerModal({ onSchliessen, onErfolg }: { onSchliessen: () => vo
             {ROLLEN.map(r => <option key={r} value={r}>{ROLLEN_LABEL[r]}</option>)}
           </select>
         </Feld>
+        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input type="checkbox" checked={protokollfuehrung} onChange={e => setProtokollfuehrung(e.target.checked)}
+            className="rounded-sm border-gray-300 text-[rgb(var(--accent))]" />
+          Protokollführung – darf protokollieren, wird bei neuen Sitzungen vorbelegt
+        </label>
         <Feld label="Passwort *">
           <input type="password" value={pw} onChange={e => setPw(e.target.value)} required minLength={8} className={input} placeholder="Mindestens 8 Zeichen" />
         </Feld>

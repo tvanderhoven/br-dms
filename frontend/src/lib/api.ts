@@ -289,7 +289,7 @@ export const api = {
     einzel: (id: string) => request<Sitzung>(`/api/sitzungen/${id}`),
     erstellen: (data: { titel: string; sitzungsdatum: string; ort?: string; sitzungstyp?: string; notizen?: string; vorlageId?: string; gremiumId?: string | null }) =>
       request<Sitzung>("/api/sitzungen", { method: "POST", body: JSON.stringify(data) }),
-    aktualisieren: (id: string, data: Partial<{ titel: string; sitzungsdatum: string; ort: string; sitzungstyp: string; notizen: string; teilnehmerzahl: number | null; gremiumId: string | null }>) =>
+    aktualisieren: (id: string, data: Partial<{ titel: string; sitzungsdatum: string; ort: string; sitzungstyp: string; notizen: string; teilnehmerzahl: number | null; gremiumId: string | null; protokollfuehrerId: string | null }>) =>
       request<Sitzung>(`/api/sitzungen/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     absagen: (id: string) =>
       request<{ nachricht: string }>(`/api/sitzungen/${id}`, { method: "DELETE" }),
@@ -881,6 +881,7 @@ export interface Benutzer {
   geschlecht?: Geschlecht | null; wahlReihenfolge?: number | null;
   ohneInhaltszugriff?: boolean;   // nur aus /api/auth/me: Admin ohne Zugriff auf Inhalte
   einladungEmail?: string | null; // Zweitadresse für Einladungen, leer = Hauptadresse
+  protokollfuehrung?: boolean;    // Haken „Protokollführung“: darf protokollieren
 }
 
 export type Kategorie =
@@ -1375,6 +1376,7 @@ export interface Sitzung {
   teilnehmerzahl?: number | null;
   gremium?: { id: string; name: string } | null;
   erstelltVon?: { id: string; name: string };
+  protokollfuehrer?: { id: string; name: string; rolle: Rolle } | null;   // Paket 3
   versionen: SitzungVersion[];
   tops: TOP[];
   scans: SitzungScan[];

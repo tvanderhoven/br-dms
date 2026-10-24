@@ -24,6 +24,7 @@ interface NeuerBenutzer {
   rolle:    Role;
   passwort: string;
   einladungEmail?: string | null;
+  protokollfuehrung?: boolean;
 }
 
 
@@ -42,6 +43,7 @@ interface BenutzerUpdate {
   geschlecht?: Geschlecht | null;
   wahlReihenfolge?: number | null;
   einladungEmail?: string | null;
+  protokollfuehrung?: boolean;
 }
 
 interface PasswortReset {
@@ -73,6 +75,7 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
           istVertretungFuer: true,
           geschlecht:       true,
           wahlReihenfolge:  true,
+          protokollfuehrung: true,
           zweiFaktorAktiv:  leitung,
         },
         orderBy: [{ rolle: "asc" }, { name: "asc" }],
@@ -123,8 +126,9 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
           rolle,
           aktiv:        true,
           einladungEmail,
+          protokollfuehrung: !!request.body.protokollfuehrung,
         },
-        select: { id: true, name: true, email: true, einladungEmail: true, rolle: true, aktiv: true, erstelltAm: true },
+        select: { id: true, name: true, email: true, einladungEmail: true, rolle: true, aktiv: true, protokollfuehrung: true, erstelltAm: true },
       });
 
       await prisma.auditLog.create({
@@ -163,7 +167,7 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request: FastifyRequest<{ Params: { id: string }; Body: BenutzerUpdate }>, reply: FastifyReply) => {
       const { id } = request.params;
-      const { rolle, aktiv, istVertretungFuer, geschlecht, wahlReihenfolge } = request.body;
+      const { rolle, aktiv, istVertretungFuer, geschlecht, wahlReihenfolge, protokollfuehrung } = request.body;
       let einladungEmail: string | null | undefined;
       try {
         einladungEmail = request.body.einladungEmail === undefined ? undefined : zweitadresse(request.body.einladungEmail);
@@ -199,8 +203,9 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
           ...(geschlecht !== undefined ? { geschlecht } : {}),
           ...(wahlReihenfolge !== undefined ? { wahlReihenfolge } : {}),
           ...(einladungEmail !== undefined ? { einladungEmail } : {}),
+          ...(protokollfuehrung !== undefined ? { protokollfuehrung: !!protokollfuehrung } : {}),
         },
-        select: { id: true, name: true, email: true, einladungEmail: true, rolle: true, aktiv: true, istVertretungFuer: true, geschlecht: true, wahlReihenfolge: true },
+        select: { id: true, name: true, email: true, einladungEmail: true, rolle: true, aktiv: true, istVertretungFuer: true, geschlecht: true, wahlReihenfolge: true, protokollfuehrung: true },
       });
 
       await prisma.auditLog.create({
