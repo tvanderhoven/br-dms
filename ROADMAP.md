@@ -183,6 +183,17 @@ Beim Umsetzen gleich mitnehmen:
   Externe**: jedes Öffnen einer Sitzung und jede Protokolländerung ins Audit, damit der Vorsitz es bei Streit um die
   Verschwiegenheit nachvollziehen kann.
 
+**Themenakte (besprochen 24.10.2026), Reihenfolge zu den Paketen oben noch offen:**
+
+| # | Paket | Größe | Inhalt |
+|---|---|---|---|
+| 1 | Themenakte mit Verlauf | L | Eigenes Objekt **„Thema“** (z. B. „Einführung Schichtplan-Software“, „BV mobiles Arbeiten“) als roter Faden über Wochen und Monate – nicht als Reiter am Vorhaben, weil Aufgaben nur ein Teil davon sind. **Kopf:** Status (offen / in Verhandlung / ruht / abgeschlossen), Zuständige, nächster Schritt und Termin. **Zeitstrahl** aus zwei Arten von Einträgen: (a) **Beiträge** – Notiz, Gesprächsvermerk (z. B. mit der Personalleitung), Idee/Frage, Recherche; Tiptap-Text, Dokumente anhängen oder verlinken, wichtige Beiträge oben anheften; **nicht veränderbar** (wie ein Protokoll – Korrektur nur als neuer Beitrag); (b) **automatische Einträge** aus verknüpften Objekten: Dokument eingegangen/abgelegt, als TOP in Sitzung X behandelt (mit Ergebnis), Beschluss gefasst, Frist gesetzt/erledigt, Aufgabe erledigt, BV abgeschlossen. **Rechte:** schreiben dürfen alle Mitglieder, Ersatzmitglieder nur in aktiver Vertretung; optional ein **Projektteam** je Thema, Vorsitz und Stellvertretung haben immer alle Rechte. Vertraulichkeit in denselben drei Stufen wie Dokumente (alle / Betriebsrat / nur Vorsitz+Stv.), JAV/SBV/Extern nur, wenn ausdrücklich beteiligt. **Keine Abstimmung** in der Akte – beschlossen wird nur in der Sitzung (§ 33, kein Umlaufbeschluss); stattdessen Knopf „Als TOP vormerken“. Das **Themen-Backlog** wird zur Übersicht der Akten. Export als PDF-Chronik (auch für die Amtsübergabe), Löschfrist X Jahre nach „abgeschlossen“. Einzelfälle mit Personenbezug laufen weiter über die Anhörung als Vorgang (§ 99/§ 102). Noch offen: eher Akte (Einträge nacheinander) oder Faden mit Antworten? |
+
+Beim Umsetzen gleich mitnehmen:
+
+- **Mit Paket 2 (Benachrichtigungen):** „Neuer Beitrag in meinem Thema“ und @Erwähnungen in Beiträgen als Ereignisse –
+  die Themenakte wird erst damit richtig nützlich.
+
 ## Wahl-Modul (BR und JAV) – Entscheidungen
 
 Werkzeug des **Betriebsrats**, nicht des Wahlvorstands: Wahlvorstand bestellen, Fristen überwachen,
