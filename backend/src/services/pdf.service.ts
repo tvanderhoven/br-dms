@@ -74,6 +74,8 @@ interface PdfSitzung {
   teilnehmerzahl?: number | null;
   erstelltVon:  { name: string };
   protokollfuehrer?: PdfProtokollfuehrer | null;
+  /** Geschwärzte Fassung (z. B. für JAV/SBV): Hinweistext unter der Überschrift, sonst null */
+  geschwaerzt?: string | null;
   anwesenheiten?: PdfAnwesenheit[];
   tops:         PdfTop[];
 }
@@ -304,8 +306,17 @@ export async function pdfGenerieren(
       ? (mitProtokoll ? "Niederschrift der Betriebsversammlung" : "Einladung zur Betriebsversammlung")
       : (mitProtokoll ? "Protokoll" : "Tagesordnung");
     doc.fontSize(12).font("Helvetica-Bold").fillColor(layout.farbe)
-       .text(`${typUeberschrift} (Version ${version.versionNummer})`, RAND_LINKS, doc.y);
+       .text(`${typUeberschrift} (Version ${version.versionNummer})${sitzung.geschwaerzt ? " – geschwärzte Fassung" : ""}`, RAND_LINKS, doc.y);
     doc.moveDown(0.8);
+
+    if (sitzung.geschwaerzt) {
+      const yHinweis = doc.y;
+      doc.fontSize(8.5).font("Helvetica").fillColor("#374151")
+         .text(pdfText(sitzung.geschwaerzt), RAND_LINKS + 10, yHinweis + 6, { width: BREITE - 20 });
+      const hoehe = doc.y - yHinweis + 6;
+      doc.rect(RAND_LINKS, yHinweis, 3, hoehe).fill(FARBE_GRAU);
+      doc.y = yHinweis + hoehe + 8;
+    }
 
     // Einladung/Aushang: an die Belegschaft gerichtet, nicht an das Gremium
     if (istBV && !mitProtokoll) {

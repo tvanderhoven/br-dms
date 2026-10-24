@@ -11,7 +11,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import prisma from "../lib/prisma.js";
-import { sitzungsdateiZugriffPruefen, topZugriffPruefen } from "../lib/vertraulich.js";
+import { siehtKeineVertraulichenTops, topSichtbar, topSichtbarFilter, topZugriffPruefen } from "../lib/vertraulich.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { pdfGenerieren, anwesenheitslistePdfGenerieren, topAuszugPdfGenerieren, unterschriftenseitePdfGenerieren } from "../services/pdf.service.js";
@@ -32,6 +32,24 @@ function pdfZiel(sitzungId: string, versionNummer: string) {
   const pdfPfad = path.resolve(pdfDir, dateiname);
   if (!pdfPfad.startsWith(path.resolve(pdfDir) + path.sep)) throw new Error("Ungültiger PDF-Pfad");
   return { pdfDir, dateiname, pdfPfad };
+}
+
+/**
+ * Geschwärzte Fassung (Roadmap, mit Paket 4): TOPs, die die Rolle nicht sehen darf, bleiben mit
+ * Nummer stehen, aber ohne Titel, Inhalt, Ergebnis, Beschlüsse, Abstimmung, Dokumente und Kommentare.
+ */
+function geschwaerzteFassung<S extends NonNullable<Awaited<ReturnType<typeof sitzungFuerPdf>>>>(sitzung: S, rolle: Role): S {
+  return {
+    ...sitzung,
+    geschwaerzt: "Diese Fassung enthält keine vertraulichen Tagesordnungspunkte: Titel, Beratung und Beschlüsse "
+      + "der geschwärzten TOPs sind ausgelassen. Maßgeblich ist das vollständige Protokoll beim Betriebsrat.",
+    tops: sitzung.tops.map(t => topSichtbar(t, rolle) ? t : {
+      ...t,
+      titel: "[geschwärzt – vertraulicher Tagesordnungspunkt]",
+      inhalt: null, inhaltsJson: null, ergebnis: null, ergebnisJson: null,
+      dokumente: [], beschluesse: [], kommentare: [], abstimmung: null,
+    }),
+  };
 }
 
 async function sitzungFuerPdf(id: string) {
@@ -64,6 +82,8 @@ async function sitzungFuerPdf(id: string) {
           ergebnis:    true,
           ergebnisJson: true,
           status:      true,
+          vertraulich: true,
+          externAusgeschlossen: true,
           dokumente: {
             select: {
               dokument: { select: { titel: true, kategorie: true, aktenzeichen: true } },
@@ -201,7 +221,7 @@ export async function pdfRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id, versionNummer } = request.params as { id: string; versionNummer: string };
-      if (!(await sitzungsdateiZugriffPruefen(id, request.benutzer.rolle, reply))) return;
+      const rolle = request.benutzer.rolle;
 
       const version = await prisma.sitzungVersion.findUnique({
         where: { sitzungId_versionNummer: { sitzungId: id, versionNummer } },
@@ -209,6 +229,21 @@ export async function pdfRouten(app: FastifyInstance): Promise<void> {
       });
 
       if (!version) return reply.status(404).send({ fehler: "Version nicht gefunden" });
+
+      // Geschwärzte Fassung: Wer vertrauliche TOPs nicht sehen darf (JAV/SBV), bekommt das PDF
+      // ohne deren Inhalt – frisch erzeugt, nicht gespeichert, ohne Prüfsumme der Originalfassung
+      if (siehtKeineVertraulichenTops(rolle)
+          && await prisma.tOP.count({ where: { sitzungId: id, NOT: topSichtbarFilter(rolle) } }) > 0) {
+        const sitzung = await sitzungFuerPdf(id);
+        if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
+        const mitProtokoll = version.typ === "PROTOKOLL_ENTWURF" || version.typ === "PROTOKOLL_FINAL";
+        const { buffer } = await pdfGenerieren(geschwaerzteFassung(sitzung, rolle), version, mitProtokoll);
+        const name = (version.pdfDateiname ?? `sitzung-${versionNummer}.pdf`).replace(/\.pdf$/i, "") + "-geschwaerzt.pdf";
+        return reply
+          .header("Content-Type", "application/pdf")
+          .header("Content-Disposition", `attachment; filename="${name}"`)
+          .send(buffer);
+      }
 
       // Wenn PDF noch nicht generiert → on-the-fly generieren
       if (!version.pdfPfad) {

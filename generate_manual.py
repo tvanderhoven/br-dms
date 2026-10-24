@@ -1810,8 +1810,8 @@ def build():
         "Sitzungen beratend teil (§ 67 BetrVG, § 178 Abs. 4 SGB IX), werden automatisch geladen, in "
         "Einladung, Unterschriftenliste und Sitzungspaket als eigene Gruppe geführt und sehen in der "
         "Sidebar nur „Sitzungen“. Vertrauliche TOPs bleiben für sie überall verborgen – auch Beschlüsse, "
-        "Abstimmung und TOP-Auszug dazu. Das vollständige Protokoll-PDF und das Sitzungspaket erhalten sie nur "
-        "für Sitzungen ohne vertrauliche TOPs."
+        "Abstimmung und TOP-Auszug dazu. Bei Sitzungen mit vertraulichen TOPs erhalten sie das Protokoll-PDF "
+        "als geschwärzte Fassung (vertrauliche TOPs ohne Titel und Inhalt), das Sitzungspaket gar nicht."
     )
     pdf.hinweis(
         "Admin gehört nicht zum Gremium: Er taucht nicht auf Anwesenheitslisten auf und nimmt nicht an "
