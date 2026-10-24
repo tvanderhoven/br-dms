@@ -36,6 +36,8 @@ describe("Protokollführung", () => {
   });
 
   test("neue Sitzung ist mit der Person mit Haken vorbelegt", async () => {
+    // Das Testkonto der externen Protokollführung hat den Haken immer – hier nur das Mitglied
+    await prisma.benutzer.update({ where: { id: env.ids.EXTERN }, data: { protokollfuehrung: false } });
     const s = await neueSitzung();
     assert.equal(s.protokollfuehrer?.id, env.ids.MITGLIED);
   });

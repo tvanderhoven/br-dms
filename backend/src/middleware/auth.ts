@@ -3,7 +3,7 @@
  */
 
 import { FastifyRequest, FastifyReply } from "fastify";
-import { Role } from "@prisma/client";
+import { AuditAktion, Role, SitzungStatus } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { adminHatInhaltszugriff } from "../lib/adminZugriff.js";
 
@@ -18,6 +18,8 @@ export interface JwtPayload {
 declare module "fastify" {
   interface FastifyRequest {
     benutzer: JwtPayload;
+    /** Externe Protokollführung: Zugriff auf eine ihr zugeordnete Sitzung geprüft (erfordert() lässt dann bis MITGLIED durch) */
+    externFreigabe?: boolean;
   }
 }
 
@@ -32,6 +34,45 @@ function eingeschraenkteRolleDarfZugreifen(request: FastifyRequest): boolean {
   if (pfad === "/api/auth/logout") return true;
   if (/^\/api\/konto(\/|$)/.test(pfad)) return true; // eigenes Konto (Passwort, E-Mail, 2FA)
   return request.method === "GET" && EINGESCHRAENKT_ERLAUBTE_GET_PFADE.some(r => r.test(pfad));
+}
+
+// Externe Protokollführung (Roadmap Paket 4): Positivliste, jede Sitzungsroute nur für Sitzungen,
+// in denen die Person als Protokollführung eingetragen ist, und nur bis das Protokoll finalisiert
+// ist. Tagesordnung, Anwesenheit und Protokoll-Editor – keine Dokumente, kein Kummerkasten, keine
+// Mitarbeiterdaten, keine Wahlen, keine Nachrichten. Welche TOPs sie sieht: lib/vertraulich.ts.
+const EXTERN_SITZUNGSROUTEN: { methoden: string[]; muster: RegExp }[] = [
+  { methoden: ["GET"],                    muster: /^\/api\/sitzungen\/([^/]+)$/ },
+  { methoden: ["GET", "POST"],            muster: /^\/api\/sitzungen\/([^/]+)\/anwesenheit$/ },
+  { methoden: ["DELETE"],                 muster: /^\/api\/sitzungen\/([^/]+)\/anwesenheit\/[^/]+$/ },
+  { methoden: ["GET", "POST"],            muster: /^\/api\/sitzungen\/([^/]+)\/blocks$/ },
+  { methoden: ["PATCH", "DELETE"],        muster: /^\/api\/sitzungen\/([^/]+)\/blocks\/[^/]+$/ },
+  { methoden: ["PATCH"],                  muster: /^\/api\/sitzungen\/([^/]+)\/tops\/[^/]+$/ },
+  { methoden: ["GET"],                    muster: /^\/api\/sitzungen\/([^/]+)\/tops\/[^/]+\/(beschluesse|abstimmung)$/ },
+];
+const EXTERN_ZUGRIFF_ENDET: SitzungStatus[] = [SitzungStatus.PROTOKOLL_FINAL, SitzungStatus.ABGESCHLOSSEN, SitzungStatus.ABGESAGT];
+
+async function externDarfZugreifen(request: FastifyRequest, benutzerId: string): Promise<boolean> {
+  const pfad = request.url.split("?")[0];
+  if (pfad === "/api/auth/me" || pfad === "/api/auth/logout" || /^\/api\/konto(\/|$)/.test(pfad)) return true;
+  if (request.method === "GET" && pfad === "/api/sitzungen") return true;   // Liste filtert routes/sitzungen.ts
+
+  const treffer = EXTERN_SITZUNGSROUTEN.find(r => r.methoden.includes(request.method) && r.muster.test(pfad));
+  if (!treffer) return false;
+  const sitzungId = pfad.match(treffer.muster)![1];
+  const sitzung = await prisma.sitzung.findUnique({ where: { id: sitzungId }, select: { protokollfuehrerId: true, status: true } });
+  if (!sitzung || sitzung.protokollfuehrerId !== benutzerId || EXTERN_ZUGRIFF_ENDET.includes(sitzung.status)) return false;
+
+  request.externFreigabe = true;
+  // Zugriffsprotokoll: jedes Öffnen und jede Änderung, damit der Vorsitz es bei Streit um die
+  // Verschwiegenheit nachvollziehen kann
+  await prisma.auditLog.create({
+    data: {
+      benutzerId, sitzungId, aktion: AuditAktion.EXTERN_ZUGRIFF,
+      ip: request.ip, userAgent: request.headers["user-agent"] ?? null,
+      details: { methode: request.method, pfad },
+    },
+  }).catch(() => {});
+  return true;
 }
 
 // Admin ohne Inhaltszugriff (Einstellung von Vorsitz/Stellvertretung, siehe
@@ -86,6 +127,10 @@ export async function authenticate(
 
     if ((benutzer.rolle === Role.JAV || benutzer.rolle === Role.SBV) && !eingeschraenkteRolleDarfZugreifen(request)) {
       return reply.status(403).send({ fehler: "Kein Zugriff für diese Rolle" });
+    }
+
+    if (benutzer.rolle === Role.EXTERN && !(await externDarfZugreifen(request, benutzer.id))) {
+      return reply.status(403).send({ fehler: "Kein Zugriff – nur die Sitzungen, die Sie protokollieren, bis das Protokoll finalisiert ist" });
     }
 
     if (benutzer.rolle === Role.ADMIN && !technikAdminDarfZugreifen(request) && !(await adminHatInhaltszugriff())) {

@@ -17,6 +17,17 @@ import { ZWEI_FAKTOR_LEEREN } from "../lib/zweiFaktor.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { istTechnikAdmin } from "../lib/adminZugriff.js";
+import { createWriteStream } from "node:fs";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { pipeline } from "node:stream/promises";
+import { decryptFile, encryptFile } from "../lib/encryption.js";
+
+const STORAGE    = process.env.STORAGE_PATH ?? "/data/storage";
+const MASTER_KEY = process.env.ENCRYPTION_KEY!;
+// Verschwiegenheitserklärungen externer Protokollführung (Roadmap Paket 4)
+const REL_VERSCHWIEGENHEIT = "verschwiegenheit";
+const ERKLAERUNG_MIME = ["application/pdf", "image/png", "image/jpeg"];
 
 interface NeuerBenutzer {
   name:     string;
@@ -76,6 +87,8 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
           geschlecht:       true,
           wahlReihenfolge:  true,
           protokollfuehrung: true,
+          verschwiegenheitBestaetigtAm: leitung,
+          verschwiegenheitDateiname:    leitung,
           zweiFaktorAktiv:  leitung,
         },
         orderBy: [{ rolle: "asc" }, { name: "asc" }],
@@ -118,15 +131,18 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
         return reply.status(409).send({ fehler: "E-Mail bereits vergeben" });
       }
 
+      // Externe Protokollführung: immer mit Haken „Protokollführung“, aktiv erst mit hinterlegter
+      // Verschwiegenheitserklärung (POST /:id/verschwiegenheit)
+      const extern = rolle === Role.EXTERN;
       const benutzer = await prisma.benutzer.create({
         data: {
           name:         name.trim(),
           email:        email.toLowerCase().trim(),
           passwortHash: hashPassword(passwort),
           rolle,
-          aktiv:        true,
+          aktiv:        !extern,
           einladungEmail,
-          protokollfuehrung: !!request.body.protokollfuehrung,
+          protokollfuehrung: extern || !!request.body.protokollfuehrung,
         },
         select: { id: true, name: true, email: true, einladungEmail: true, rolle: true, aktiv: true, protokollfuehrung: true, erstelltAm: true },
       });
@@ -194,6 +210,19 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
       const benutzer = await prisma.benutzer.findUnique({ where: { id } });
       if (!benutzer) return reply.status(404).send({ fehler: "Benutzer nicht gefunden" });
 
+      // Externe Protokollführung: nur mit Haken „Protokollführung“ und hinterlegter Erklärung aktiv
+      const wirdExtern = (rolle ?? benutzer.rolle) === Role.EXTERN;
+      if (wirdExtern && protokollfuehrung === false) {
+        return reply.status(400).send({ fehler: "Externe Protokollführung braucht den Haken „Protokollführung“" });
+      }
+      const ohneErklaerung = !benutzer.verschwiegenheitBestaetigtAm || !benutzer.verschwiegenheitPfad;
+      if (wirdExtern && aktiv === true && ohneErklaerung) {
+        return reply.status(409).send({ fehler: "Erst die Verschwiegenheitserklärung hinterlegen – dann wird das Konto aktiv" });
+      }
+      const externZwang = wirdExtern
+        ? { protokollfuehrung: true, ...(ohneErklaerung ? { aktiv: false } : {}) }
+        : {};
+
       const aktualisiert = await prisma.benutzer.update({
         where: { id },
         data: {
@@ -204,6 +233,7 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
           ...(wahlReihenfolge !== undefined ? { wahlReihenfolge } : {}),
           ...(einladungEmail !== undefined ? { einladungEmail } : {}),
           ...(protokollfuehrung !== undefined ? { protokollfuehrung: !!protokollfuehrung } : {}),
+          ...externZwang,
         },
         select: { id: true, name: true, email: true, einladungEmail: true, rolle: true, aktiv: true, istVertretungFuer: true, geschlecht: true, wahlReihenfolge: true, protokollfuehrung: true },
       });
@@ -217,6 +247,83 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
       });
 
       return reply.send(aktualisiert);
+    }
+  );
+
+  // ── POST /:id/verschwiegenheit – Erklärung externer Protokollführung hinterlegen ──
+  // § 79 BetrVG erfasst Externe nicht automatisch: Bestätigung (Feld "bestaetigt" = "true")
+  // und Scan der unterschriebenen Erklärung (PDF/PNG/JPG) sind Pflicht, erst dann wird ein
+  // externes Konto aktiv. Ablage verschlüsselt wie Dokumente (Schlüssel aus der Benutzer-ID).
+  app.post<{ Params: { id: string } }>(
+    "/:id/verschwiegenheit",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (request, reply) => {
+      const { id } = request.params;
+      const benutzer = await prisma.benutzer.findUnique({ where: { id }, select: { id: true, email: true, rolle: true, verschwiegenheitPfad: true } });
+      if (!benutzer) return reply.status(404).send({ fehler: "Benutzer nicht gefunden" });
+
+      const data = await request.file();
+      if (!data) return reply.status(400).send({ fehler: "Bitte den Scan der unterschriebenen Erklärung hochladen" });
+      const fields = data.fields as Record<string, { value?: string } | undefined>;
+      if (fields.bestaetigt?.value !== "true") {
+        data.file.resume();
+        return reply.status(400).send({ fehler: "Bitte bestätigen, dass die Verschwiegenheitserklärung unterschrieben vorliegt" });
+      }
+      if (!ERKLAERUNG_MIME.includes(data.mimetype)) {
+        data.file.resume();
+        return reply.status(400).send({ fehler: "Nur PDF, PNG oder JPG" });
+      }
+
+      const encName = `${id}.enc`;
+      const tmpPfad = path.join(STORAGE, "tmp", `verschwiegenheit-${id}.tmp`);
+      await fs.mkdir(path.join(STORAGE, "tmp"), { recursive: true });
+      await fs.mkdir(path.join(STORAGE, REL_VERSCHWIEGENHEIT), { recursive: true });
+      try {
+        await pipeline(data.file, createWriteStream(tmpPfad));
+        if (data.file.truncated) return reply.status(413).send({ fehler: "Datei zu groß" });
+        await encryptFile({ sourcePath: tmpPfad, destPath: path.join(STORAGE, REL_VERSCHWIEGENHEIT, encName), masterKey: MASTER_KEY, documentId: id });
+      } finally {
+        await fs.unlink(tmpPfad).catch(() => {});
+      }
+
+      const aktualisiert = await prisma.benutzer.update({
+        where: { id },
+        data: {
+          verschwiegenheitBestaetigtAm: new Date(),
+          verschwiegenheitPfad:         path.join(REL_VERSCHWIEGENHEIT, encName),
+          verschwiegenheitDateiname:    data.filename,
+          verschwiegenheitMimeTyp:      data.mimetype,
+          ...(benutzer.rolle === Role.EXTERN ? { aktiv: true } : {}),
+        },
+        select: { id: true, aktiv: true, verschwiegenheitBestaetigtAm: true, verschwiegenheitDateiname: true },
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          benutzerId: request.benutzer.sub, aktion: AuditAktion.VERSCHWIEGENHEIT_HINTERLEGT,
+          ip: request.ip, userAgent: request.headers["user-agent"] ?? null,
+          details: { betroffener: benutzer.email, dateiname: data.filename },
+        },
+      });
+      return reply.send(aktualisiert);
+    }
+  );
+
+  // ── GET /:id/verschwiegenheit – hinterlegte Erklärung herunterladen ──
+  app.get<{ Params: { id: string } }>(
+    "/:id/verschwiegenheit",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (request, reply) => {
+      const b = await prisma.benutzer.findUnique({
+        where: { id: request.params.id },
+        select: { id: true, verschwiegenheitPfad: true, verschwiegenheitDateiname: true, verschwiegenheitMimeTyp: true },
+      });
+      if (!b?.verschwiegenheitPfad) return reply.status(404).send({ fehler: "Keine Erklärung hinterlegt" });
+      const inhalt = await decryptFile({ sourcePath: path.join(STORAGE, b.verschwiegenheitPfad), masterKey: MASTER_KEY, documentId: b.id });
+      return reply
+        .header("Content-Type", b.verschwiegenheitMimeTyp ?? "application/octet-stream")
+        .header("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(b.verschwiegenheitDateiname ?? "Verschwiegenheitserklaerung")}`)
+        .send(inhalt);
     }
   );
 

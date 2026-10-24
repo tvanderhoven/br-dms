@@ -29,7 +29,10 @@ export async function istTechnikAdmin(rolle: Role): Promise<boolean> {
 /**
  * Filter für Rundnachrichten (Tagesordnung, "an alle"): Ein Admin ohne
  * Inhaltszugriff bekommt sie nicht, sonst läsen sich Sitzungstitel darüber.
+ * Externe Protokollführung bekommt nie Rundnachrichten (Roadmap Paket 4).
  */
 export async function rundnachrichtFilter(): Promise<Prisma.BenutzerWhereInput> {
-  return (await adminHatInhaltszugriff()) ? {} : { rolle: { not: Role.ADMIN } };
+  return (await adminHatInhaltszugriff())
+    ? { rolle: { not: Role.EXTERN } }
+    : { rolle: { notIn: [Role.ADMIN, Role.EXTERN] } };
 }

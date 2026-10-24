@@ -304,9 +304,9 @@ export const api = {
     abschliessen: (id: string) =>
       request<Sitzung>(`/api/sitzungen/${id}/abschliessen`, { method: "POST" }),
     sitzungspaketUrl: (id: string) => `${BASE}/api/sitzungen/${id}/sitzungspaket`,
-    topHinzufuegen: (id: string, data: { titel: string; inhalt?: string; inhaltsJson?: object; vertraulich?: boolean; einladungTitel?: string | null }) =>
+    topHinzufuegen: (id: string, data: { titel: string; inhalt?: string; inhaltsJson?: object; vertraulich?: boolean; einladungTitel?: string | null; externAusgeschlossen?: boolean }) =>
       request<TOP>(`/api/sitzungen/${id}/tops`, { method: "POST", body: JSON.stringify(data) }),
-    topAktualisieren: (id: string, topId: string, data: Partial<{ titel: string; inhalt: string; inhaltsJson: object; ergebnis: string; ergebnisJson: object; topStatus: TopStatus; vertraulich: boolean; einladungTitel: string | null }>) =>
+    topAktualisieren: (id: string, topId: string, data: Partial<{ titel: string; inhalt: string; inhaltsJson: object; ergebnis: string; ergebnisJson: object; topStatus: TopStatus; vertraulich: boolean; einladungTitel: string | null; externAusgeschlossen: boolean }>) =>
       request<TOP>(`/api/sitzungen/${id}/tops/${topId}`, { method: "PATCH", body: JSON.stringify(data) }),
     topLoeschen: (id: string, topId: string) =>
       request<{ nachricht: string }>(`/api/sitzungen/${id}/tops/${topId}`, { method: "DELETE" }),
@@ -882,6 +882,8 @@ export interface Benutzer {
   ohneInhaltszugriff?: boolean;   // nur aus /api/auth/me: Admin ohne Zugriff auf Inhalte
   einladungEmail?: string | null; // Zweitadresse für Einladungen, leer = Hauptadresse
   protokollfuehrung?: boolean;    // Haken „Protokollführung“: darf protokollieren
+  verschwiegenheitBestaetigtAm?: string | null;  // nur für die Leitung geliefert (externe Protokollführung)
+  verschwiegenheitDateiname?: string | null;
 }
 
 export type Kategorie =
@@ -1316,6 +1318,7 @@ export interface TOP {
   spontan: boolean;
   vertraulich: boolean;
   einladungTitel?: string | null;   // neutraler Titel für Einladungsmail und Kalendertermin
+  externAusgeschlossen?: boolean;   // „Externe verlässt den Raum“ (Paket 4)
   dokumente: TopDokumentInfo[];
   _count?: { kommentare: number };
   erstelltAm: string;

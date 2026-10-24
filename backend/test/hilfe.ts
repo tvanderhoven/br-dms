@@ -21,7 +21,7 @@ export { prisma };
 
 /** Testkonten: jede Rolle einmal, das Ersatzmitglied zusätzlich mit aktiver Vertretung */
 export const KONTEN = [
-  "VORSITZ", "STELLVERTRETER", "MITGLIED", "ERSATZMITGLIED", "ERSATZ_VERTRETUNG", "JAV", "SBV", "ADMIN",
+  "VORSITZ", "STELLVERTRETER", "MITGLIED", "ERSATZMITGLIED", "ERSATZ_VERTRETUNG", "JAV", "SBV", "ADMIN", "EXTERN",
 ] as const;
 export type Konto = typeof KONTEN[number];
 
@@ -87,6 +87,7 @@ export async function starteTestumgebung(): Promise<TestUmgebung> {
         name:         `Test ${konto}`,
         passwortHash: "x",          // Login wird hier nicht getestet, Tokens werden direkt signiert
         rolle,
+        protokollfuehrung: rolle === Role.EXTERN,   // externe Protokollführung gibt es nur mit Haken
       },
     });
     ids[konto]   = b.id;

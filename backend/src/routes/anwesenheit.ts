@@ -45,7 +45,7 @@ export async function anwesenheitRouten(app: FastifyInstance): Promise<void> {
       // Alle BR-Mitglieder laden (für vollständige Liste) – ADMIN ist ein rein
       // funktionaler Zugang, kein echtes Sitzungsmitglied, taucht hier nicht auf.
       const alleMitglieder = await prisma.benutzer.findMany({
-        where: { aktiv: true, rolle: { not: Role.ADMIN } },
+        where: { aktiv: true, rolle: { notIn: [Role.ADMIN, Role.EXTERN] } },
         select: { id: true, name: true, rolle: true, istVertretungFuer: true, wahlReihenfolge: true },
       });
 
@@ -107,10 +107,11 @@ export async function anwesenheitRouten(app: FastifyInstance): Promise<void> {
 
       const benutzer = await prisma.benutzer.findUnique({
         where: { id: benutzerId },
-        select: { id: true, aktiv: true },
+        select: { id: true, aktiv: true, rolle: true },
       });
 
-      if (!benutzer || !benutzer.aktiv) {
+      // Admin und externe Protokollführung gehören nicht zum Gremium – keine Ladung, keine Anwesenheit
+      if (!benutzer || !benutzer.aktiv || benutzer.rolle === Role.ADMIN || benutzer.rolle === Role.EXTERN) {
         return reply.status(404).send({ fehler: "Benutzer nicht gefunden" });
       }
 

@@ -1252,6 +1252,14 @@ function TopZeile({
                 <Lock size={10} /> Vertraulich
               </span>
             )}
+            {top.externAusgeschlossen && !top.vertraulich && (
+              <span
+                title="Externe Protokollführung verlässt den Raum – Vorsitz oder ein Mitglied protokolliert diesen TOP"
+                className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full bg-orange-50 text-orange-700"
+              >
+                <Lock size={10} /> Ohne Externe
+              </span>
+            )}
             {top.einladungTitel && (
               <span
                 title={`In der Einladung: „${top.einladungTitel}“`}
@@ -2145,6 +2153,7 @@ function TopModal({
   const [inhaltJson, setInhaltJson] = useState<object | null>(top?.inhaltsJson ?? null);
   const [vertraulich, setVertraulich] = useState(top?.vertraulich ?? false);
   const [einladungTitel, setEinladungTitel] = useState(top?.einladungTitel ?? "");
+  const [externRaus, setExternRaus] = useState(top?.externAusgeschlossen ?? false);
 
   async function speichern(e: FormEvent) {
     e.preventDefault();
@@ -2159,6 +2168,7 @@ function TopModal({
         inhalt: tiptapZuText(inhaltJson) || undefined,
         inhaltsJson: inhaltJson ?? undefined,
         vertraulich,
+        externAusgeschlossen: externRaus,
         ...(neutralGeaendert ? { einladungTitel: einladungTitel.trim() || null } : {}),
       };
       if (top) {
@@ -2214,7 +2224,19 @@ function TopModal({
               onChange={e => setVertraulich(e.target.checked)}
               className="rounded-sm border-gray-300 text-[rgb(var(--accent))]"
             />
-            <span className="text-sm text-gray-700">Vertraulich (für JAV/SBV-Zugang ausgeblendet)</span>
+            <span className="text-sm text-gray-700">Vertraulich (für JAV/SBV und externe Protokollführung ausgeblendet)</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={externRaus || vertraulich}
+              disabled={vertraulich}
+              onChange={e => setExternRaus(e.target.checked)}
+              className="rounded-sm border-gray-300 text-[rgb(var(--accent))]"
+            />
+            <span className="text-sm text-gray-700">
+              Externe verlässt den Raum – externe Protokollführung sieht diesen TOP nicht, Vorsitz oder ein Mitglied protokolliert ihn
+            </span>
           </label>
           {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
           <div className="flex gap-3 pt-2">

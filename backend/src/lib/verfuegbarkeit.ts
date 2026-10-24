@@ -106,7 +106,7 @@ export async function verfuegbarkeitErmitteln(
 
   const [benutzer, anwesenheiten, abwesende, sollStaerke] = await Promise.all([
     prisma.benutzer.findMany({
-      where:  { aktiv: true, rolle: { not: Role.ADMIN } },
+      where:  { aktiv: true, rolle: { notIn: [Role.ADMIN, Role.EXTERN] } },
       select: { id: true, name: true, rolle: true, wahlReihenfolge: true },
     }),
     prisma.anwesenheit.findMany({

@@ -1,5 +1,5 @@
 import { useEffect, useState, FormEvent } from "react";
-import { UserPlus, KeyRound, Power, Trash2, Loader2, X, Shield, Users, Info, ShieldCheck, ShieldOff } from "lucide-react";
+import { UserPlus, KeyRound, Power, Trash2, Loader2, X, Shield, Users, Info, ShieldCheck, ShieldOff, FileCheck, Upload } from "lucide-react";
 import { api, Benutzer, Rolle, Geschlecht } from "../lib/api";
 
 const GESCHLECHT_LABEL: Record<Geschlecht, string> = {
@@ -7,7 +7,7 @@ const GESCHLECHT_LABEL: Record<Geschlecht, string> = {
   WEIBLICH:  "Weiblich",
 };
 
-const ROLLEN: Rolle[] = ["VORSITZ", "STELLVERTRETER", "MITGLIED", "ERSATZMITGLIED", "JAV", "SBV"];
+const ROLLEN: Rolle[] = ["VORSITZ", "STELLVERTRETER", "MITGLIED", "ERSATZMITGLIED", "JAV", "SBV", "EXTERN"];
 
 export const ROLLEN_LABEL: Record<Rolle, string> = {
   VORSITZ:         "Vorsitz",
@@ -225,6 +225,7 @@ export default function BenutzerVerwaltung({ eingebettet = false }: { eingebette
                         Protokollführung
                       </label>
                     )}
+                    {b.rolle === "EXTERN" && <VerschwiegenheitZelle benutzer={b} onGespeichert={laden_} onFehler={setFehler} />}
                   </td>
 
                   <td className="px-4 py-3">
@@ -384,6 +385,89 @@ function EinladungsAdresse({ benutzer, onGespeichert, onFehler }: {
   );
 }
 
+// ── Verschwiegenheitserklärung externer Protokollführung (Roadmap Paket 4) ──
+// § 79 BetrVG erfasst Externe nicht automatisch: Bestätigung + Scan sind Pflicht, erst dann
+// schaltet das Backend das Konto frei (routes/benutzer.ts, POST /:id/verschwiegenheit).
+function VerschwiegenheitZelle({ benutzer, onGespeichert, onFehler }: {
+  benutzer: Benutzer; onGespeichert: () => void; onFehler: (f: string) => void;
+}) {
+  const [offen, setOffen]           = useState(false);
+  const [bestaetigt, setBestaetigt] = useState(false);
+  const [datei, setDatei]           = useState<File | null>(null);
+  const [laden, setLaden]           = useState(false);
+  const token = () => localStorage.getItem("brdms_token");
+  const base = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
+
+  async function hochladen() {
+    if (!datei || !bestaetigt) return;
+    setLaden(true);
+    try {
+      const form = new FormData();
+      form.append("bestaetigt", "true");     // Feld vor der Datei, sonst liest das Backend es nicht mehr
+      form.append("datei", datei);
+      const res = await fetch(`${base}/api/benutzer/${benutzer.id}/verschwiegenheit`, {
+        method: "POST", body: form, headers: token() ? { Authorization: `Bearer ${token()}` } : {},
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.fehler ?? `HTTP ${res.status}`);
+      setOffen(false); setDatei(null); setBestaetigt(false);
+      onGespeichert();
+    } catch (err) {
+      onFehler(err instanceof Error ? err.message : "Hochladen fehlgeschlagen");
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  function herunterladen() {
+    fetch(`${base}/api/benutzer/${benutzer.id}/verschwiegenheit`, { headers: token() ? { Authorization: `Bearer ${token()}` } : {} })
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.blob(); })
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = benutzer.verschwiegenheitDateiname ?? "Verschwiegenheitserklaerung";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      })
+      .catch(err => onFehler(err instanceof Error ? err.message : "Herunterladen fehlgeschlagen"));
+  }
+
+  return (
+    <div className="mt-1 text-xs">
+      {benutzer.verschwiegenheitBestaetigtAm ? (
+        <button onClick={herunterladen} className="flex items-center gap-1 text-green-700 hover:underline" title="Hinterlegte Erklärung herunterladen">
+          <FileCheck size={12} /> Verschwiegenheit {new Date(benutzer.verschwiegenheitBestaetigtAm).toLocaleDateString("de-DE")}
+        </button>
+      ) : (
+        <span className="text-amber-700">Gesperrt bis zur Verschwiegenheitserklärung</span>
+      )}
+      {!offen ? (
+        <button onClick={() => setOffen(true)} className="flex items-center gap-1 text-gray-500 hover:text-[rgb(var(--accent))] mt-0.5">
+          <Upload size={12} /> {benutzer.verschwiegenheitBestaetigtAm ? "Neue Erklärung hochladen" : "Erklärung hochladen"}
+        </button>
+      ) : (
+        <div className="mt-1 space-y-1 border border-gray-200 rounded-lg p-2 bg-gray-50 max-w-xs">
+          <input type="file" accept="application/pdf,image/png,image/jpeg" onChange={e => setDatei(e.target.files?.[0] ?? null)} className="text-xs w-full" />
+          <label className="flex items-start gap-1.5 cursor-pointer">
+            <input type="checkbox" checked={bestaetigt} onChange={e => setBestaetigt(e.target.checked)} className="mt-0.5 rounded-sm border-gray-300" />
+            <span>Die unterschriebene Verschwiegenheitserklärung liegt vor (§ 79 BetrVG gilt für Externe nicht automatisch).</span>
+          </label>
+          <div className="flex gap-2">
+            <button onClick={hochladen} disabled={!datei || !bestaetigt || laden}
+              className="flex items-center gap-1 bg-[rgb(var(--accent))] text-white rounded-md px-2 py-1 disabled:opacity-50">
+              {laden && <Loader2 size={12} className="animate-spin" />} Hinterlegen
+            </button>
+            <button onClick={() => setOffen(false)} className="text-gray-500">Abbrechen</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Neuer Benutzer Modal ──────────────────────────────────────────
 function NeuerBenutzerModal({ onSchliessen, onErfolg }: { onSchliessen: () => void; onErfolg: () => void }) {
   const [laden, setLaden]     = useState(false);
@@ -430,10 +514,19 @@ function NeuerBenutzerModal({ onSchliessen, onErfolg }: { onSchliessen: () => vo
           </select>
         </Feld>
         <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-          <input type="checkbox" checked={protokollfuehrung} onChange={e => setProtokollfuehrung(e.target.checked)}
+          <input type="checkbox" checked={protokollfuehrung || rolle === "EXTERN"} disabled={rolle === "EXTERN"}
+            onChange={e => setProtokollfuehrung(e.target.checked)}
             className="rounded-sm border-gray-300 text-[rgb(var(--accent))]" />
           Protokollführung – darf protokollieren, wird bei neuen Sitzungen vorbelegt
         </label>
+        {rolle === "EXTERN" && (
+          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            Externe Protokollführung (z. B. Bürokraft nach § 40 Abs. 2 BetrVG): sieht nur die Sitzungen, in denen sie als
+            Protokollführung eingetragen ist, bis das Protokoll finalisiert ist – ohne vertrauliche TOPs und ohne TOPs mit
+            „Externe verlässt den Raum“. Das Konto bleibt gesperrt, bis in der Liste die unterschriebene
+            Verschwiegenheitserklärung hochgeladen ist. Sie unterschreibt das Protokoll nicht als weiteres Mitglied (§ 34).
+          </p>
+        )}
         <Feld label="Passwort *">
           <input type="password" value={pw} onChange={e => setPw(e.target.value)} required minLength={8} className={input} placeholder="Mindestens 8 Zeichen" />
         </Feld>

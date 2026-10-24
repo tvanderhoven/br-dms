@@ -20,6 +20,8 @@ const RANG: Record<Role, number> = {
   // beschränkt, dieser Rang ist nur eine zusätzliche Absicherung für erfordert()-Checks.
   JAV:            0,
   SBV:            0,
+  // Externe Protokollführung: unterhalb aller – kommt nur über die Freigabe aus middleware/auth.ts durch
+  EXTERN:        -1,
 };
 
 /**
@@ -49,6 +51,14 @@ export function erfordert(mindestRolle: Role) {
     const benutzer = request.benutzer;
     if (!benutzer) {
       return reply.status(401).send({ fehler: "Nicht authentifiziert" });
+    }
+
+    // Externe Protokollführung: nur auf geprüften Sitzungsrouten (middleware/auth.ts) und dort
+    // höchstens mit den Rechten eines Mitglieds (Protokoll, Anwesenheit) – nie Vorsitz-Aktionen
+    if (benutzer.rolle === Role.EXTERN) {
+      if (request.externFreigabe && RANG[mindestRolle] <= RANG[Role.MITGLIED]) return;
+      await auditZugriffVerweigert(request);
+      return reply.status(403).send({ fehler: "Keine Berechtigung" });
     }
 
     // Ersatzmitglied: nur Zugriff wenn aktiv als Vertretung – dann mit den Rechten eines Mitglieds
