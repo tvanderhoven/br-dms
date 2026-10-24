@@ -59,6 +59,7 @@ const TOP_SELECT = {
   status:      true,
   spontan:     true,
   vertraulich: true,
+  einladungTitel: true,
   erstelltAm:    true,
   aktualisiertAm: true,
   _count: { select: { kommentare: true } },
@@ -236,6 +237,12 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
       const { id } = request.params as { id: string };
       const sitzung = await prisma.sitzung.findUnique({ where: { id }, select: SITZUNG_SELECT });
       if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
+
+      // Abrufnachweis (Einladungsmail datensparsam): erstes Öffnen nach einer erfolgreichen Einladung
+      await prisma.einladungVersand.updateMany({
+        where: { sitzungId: id, benutzerId: request.benutzer.sub, erfolgreich: true, abgerufenAm: null },
+        data:  { abgerufenAm: new Date() },
+      }).catch(() => {});
 
       // JAV und SBV sehen als vertraulich markierte TOPs nicht
       if (request.benutzer.rolle === Role.JAV || request.benutzer.rolle === Role.SBV) {
@@ -572,8 +579,8 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
         return reply.status(409).send({ fehler: "TOPs können nur in Sitzungen im Status ENTWURF hinzugefügt werden" });
       }
 
-      const { titel, inhalt, inhaltsJson, vertraulich } =
-        request.body as { titel: string; inhalt?: string; inhaltsJson?: object; vertraulich?: boolean };
+      const { titel, inhalt, inhaltsJson, vertraulich, einladungTitel } =
+        request.body as { titel: string; inhalt?: string; inhaltsJson?: object; vertraulich?: boolean; einladungTitel?: string | null };
       if (!titel) return reply.status(400).send({ fehler: "titel ist ein Pflichtfeld" });
 
       const naechsteNummer = (sitzung.tops[0]?.nummer ?? 0) + 1;
@@ -587,6 +594,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
           inhaltsJson: inhaltsJson ?? undefined,
           status:      TopStatus.OFFEN,
           vertraulich: vertraulich ?? false,
+          einladungTitel: einladungTitel?.trim().slice(0, 300) || null,
         },
         select: TOP_SELECT,
       });
@@ -701,11 +709,11 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
       if (!top) return reply.status(404).send({ fehler: "TOP nicht gefunden" });
 
       const status = sitzung.status;
-      const { titel, inhalt, inhaltsJson, ergebnis, ergebnisJson, topStatus, vertraulich } =
-        request.body as Partial<{ titel: string; inhalt: string; inhaltsJson: object; ergebnis: string; ergebnisJson: object; topStatus: TopStatus; vertraulich: boolean }>;
+      const { titel, inhalt, inhaltsJson, ergebnis, ergebnisJson, topStatus, vertraulich, einladungTitel } =
+        request.body as Partial<{ titel: string; inhalt: string; inhaltsJson: object; ergebnis: string; ergebnisJson: object; topStatus: TopStatus; vertraulich: boolean; einladungTitel: string | null }>;
 
-      // Titel nur in ENTWURF editierbar
-      if (titel !== undefined && status !== SitzungStatus.ENTWURF) {
+      // Titel (auch der neutrale für die Einladung) nur in ENTWURF editierbar – danach ist die Tagesordnung fixiert
+      if ((titel !== undefined || einladungTitel !== undefined) && status !== SitzungStatus.ENTWURF) {
         return reply.status(409).send({ fehler: "Der Titel kann nur im Status ENTWURF bearbeitet werden" });
       }
       // Inhalt (Beschreibung/Aufzählung) auch in PROTOKOLL_ENTWURF editierbar
@@ -734,6 +742,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
           ...(ergebnisJson !== undefined && { ergebnisJson }),
           ...(topStatus    !== undefined && { status: topStatus }),
           ...(vertraulich  !== undefined && { vertraulich }),
+          ...(einladungTitel !== undefined && { einladungTitel: einladungTitel?.trim().slice(0, 300) || null }),
         },
         select: TOP_SELECT,
       });

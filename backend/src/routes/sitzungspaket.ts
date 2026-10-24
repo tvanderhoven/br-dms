@@ -16,6 +16,7 @@ import { authenticate } from "../middleware/auth.js";
 import { decryptFile } from "../lib/encryption.js";
 import { STORAGE_SITZUNG_SCANS as STORAGE, MASTER_KEY } from "../lib/sitzungScan.js";
 import { istBetriebsversammlung } from "../lib/sitzungstypen.js";
+import { EINLADUNG_DETAIL_LABEL } from "../lib/einladungDetail.js";
 import { versandnachweisPdfGenerieren } from "../services/pdf.service.js";
 
 const ROLLE_LABEL: Record<string, string> = {
@@ -80,16 +81,19 @@ export async function sitzungspaketRouten(app: FastifyInstance): Promise<void> {
             name: v.name, adresse: v.adresse, rolle: ROLLE_LABEL[v.rolle] ?? v.rolle,
             vertretungFuer: v.vertretungFuer, versendetAm: v.versendetAm,
             erfolgreich: v.erfolgreich, fehler: v.fehler,
+            detail: EINLADUNG_DETAIL_LABEL[v.detail], abgerufenAm: v.abgerufenAm,
           })),
         ).catch(() => null);
         if (pdf) zip.addFile("02_Versandnachweis.pdf", pdf);
 
         const zeilen = [
-          ["Name", "Adresse", "Rolle", "Vertretung für", "Versendet am", "Erfolgreich", "Fehler"],
+          ["Name", "Adresse", "Rolle", "Vertretung für", "Versendet am", "Erfolgreich", "Fehler", "Inhalt der Mail", "Abgerufen am"],
           ...versandnachweis.map(v => [
             v.name, v.adresse, ROLLE_LABEL[v.rolle] ?? v.rolle, v.vertretungFuer ?? "",
             v.versendetAm.toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }),
             v.erfolgreich ? "ja" : "nein", v.fehler ?? "",
+            EINLADUNG_DETAIL_LABEL[v.detail],
+            v.abgerufenAm?.toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) ?? "",
           ]),
         ];
         const csv = "\uFEFF" + zeilen.map(z => z.map(csvZelle).join(";")).join("\r\n");

@@ -402,7 +402,7 @@ function sitzungAnfrage(method: string, id: string | undefined, sub: string | un
     if (method === "POST" && !subId) {
       const neu = { id: zufallsId(`${s.id}-top`), sitzungId: s.id, nummer: s.tops.length + 1, titel: body.titel ?? "Neuer TOP",
         inhalt: body.inhalt ?? "", inhaltsJson: body.inhaltsJson, ergebnis: "", status: "OFFEN", spontan: sub === "spontan-top",
-        vertraulich: !!body.vertraulich, dokumente: [], _count: { kommentare: 0 }, erstelltAm: jetzt(), aktualisiertAm: jetzt() };
+        vertraulich: !!body.vertraulich, einladungTitel: body.einladungTitel ?? null, dokumente: [], _count: { kommentare: 0 }, erstelltAm: jetzt(), aktualisiertAm: jetzt() };
       s.tops.push(neu);
       return json(neu);
     }
@@ -450,6 +450,9 @@ function sitzungAnfrage(method: string, id: string | undefined, sub: string | un
     return json(v);
   }
 
+  // Ladung vor einem Spontan-TOP: in der Demo gilt die Einladung als vollständig verschickt
+  if (sub === "ladung-pruefung") return json({ vollstaendig: true, maengel: [], sitzungsdatum: s.sitzungsdatum });
+
   // Einladung: Versand wird nur nachgestellt – es geht keine echte E-Mail raus
   if (sub === "einladung") {
     const geladene = db.benutzer.filter(b => b.aktiv);
@@ -458,22 +461,26 @@ function sitzungAnfrage(method: string, id: string | undefined, sub: string | un
     if (fixiert?.einladungVersendetAm && Object.keys(versand).length === 0) {
       geladene.forEach(b => { versand[b.id] = fixiert.einladungVersendetAm; });
     }
+    const detail = (s.einladungDetail ??= {} as Record<string, string>);
     if (method === "POST") {
       const ids: string[] = body.benutzerIds ?? geladene.map(b => b.id);
-      ids.forEach(bid => { versand[bid] = jetzt(); });
+      ids.forEach(bid => { versand[bid] = jetzt(); detail[bid] = body.detail ?? "VOLLSTAENDIG"; });
       if (fixiert && !fixiert.einladungVersendetAm) fixiert.einladungVersendetAm = jetzt();
       return json({ gesendet: ids.length, fehlgeschlagen: 0 });
     }
     return json({
       empfaenger: geladene.map(b => ({
         benutzerId: b.id, name: b.name, rolle: b.rolle, adresse: b.email, ersatzFuer: null,
-        letzterVersand: versand[b.id] ? { versendetAm: versand[b.id], erfolgreich: true, fehler: null, adresse: b.email } : null,
+        letzterVersand: versand[b.id] ? { versendetAm: versand[b.id], erfolgreich: true, fehler: null, adresse: b.email,
+          detail: detail[b.id] ?? "VOLLSTAENDIG", abgerufenAm: b.id === F.DEMO_ME.id ? versand[b.id] : null } : null,
       })),
       protokoll: Object.entries(versand).map(([bid, am]) => {
         const b = geladene.find(x => x.id === bid);
         return { id: `${s.id}-ev-${bid}`, name: b?.name ?? "", adresse: b?.email ?? "", rolle: b?.rolle ?? "", vertretungFuer: null,
-          mitAnhang: true, erfolgreich: true, fehler: null, versendetAm: am, versendetVon: F.DEMO_ME.name, zusatz: null };
+          mitAnhang: (detail[bid] ?? "VOLLSTAENDIG") === "VOLLSTAENDIG", erfolgreich: true, fehler: null, versendetAm: am, versendetVon: F.DEMO_ME.name, zusatz: null,
+          detail: detail[bid] ?? "VOLLSTAENDIG", abgerufenAm: bid === F.DEMO_ME.id ? am : null };
       }),
+      detailStandard: "VOLLSTAENDIG",
       letzterZusatz: "", smtpAktiv: true, kannVersenden: s.status === "TAGESORDNUNG_FIXIERT",
     });
   }

@@ -707,6 +707,14 @@ model Sitzung {
 // Versandnachweis der Einladungen (§ 29 Abs. 2 BetrVG) – ein Eintrag je Mail.
 // Name, Adresse und Vertretung als Momentaufnahme, damit der Nachweis auch nach
 // Änderungen am Benutzer stimmt; deshalb keine Relation zum Benutzer.
+// Detailgrad der Einladungsmail (Paket 1 „Einladungsmail datensparsam“): VOLLSTAENDIG = TOP-Liste,
+// PDF und .ics wie bisher · NUR_TITEL = TOP-Liste ohne PDF · NUR_LINK = nur Termin und Link
+enum EinladungDetail {
+  VOLLSTAENDIG
+  NUR_TITEL
+  NUR_LINK
+}
+
 model EinladungVersand {
   id             String   @id @default(uuid())
   sitzungId      String   @map("sitzung_id")
@@ -717,6 +725,9 @@ model EinladungVersand {
   rolle          String
   vertretungFuer String?  @map("vertretung_fuer")   // Name des verhinderten Mitglieds
   mitAnhang      Boolean  @default(false) @map("mit_anhang")
+  detail         EinladungDetail @default(VOLLSTAENDIG)  // wie viel von der Tagesordnung in der Mail stand
+  // Abrufnachweis: erstes Öffnen der Sitzung in BR-DMS nach diesem Versand (routes/sitzungen.ts, GET /:id)
+  abgerufenAm    DateTime? @map("abgerufen_am")
   zusatz         String?                             // freier Text dieses Versands (z. B. Online-Meeting-Link)
   erfolgreich    Boolean
   fehler         String?
@@ -944,6 +955,10 @@ model TOP {
 
   // Für stark eingeschränkte Rollen (z.B. JAV) ausgeblendet
   vertraulich    Boolean   @default(false)
+
+  // Neutraler Titel für Einladungsmail und Kalendertermin (z. B. „Personelle Einzelmaßnahme § 99“),
+  // damit keine Namen in fremd mitgelesenen Postfächern landen – Tagesordnung und PDF behalten den echten Titel
+  einladungTitel String?   @map("einladung_titel")
 
   dokumente      TopDokument[]
   abstimmung     Abstimmung?
