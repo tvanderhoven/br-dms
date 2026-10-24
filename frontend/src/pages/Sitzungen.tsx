@@ -7,12 +7,13 @@ import {
   Trash2, Link, Unlink, X, Loader2, CheckCircle, Circle, Clock, XCircle, RotateCcw, Eye,
   Send, ClipboardList, Download, MessageSquare, Zap, Pencil, RefreshCw, BookmarkPlus, Tag, CheckSquare, Folder, Wallet, MoreHorizontal, Copy, Timer,
   Users, Inbox, ListPlus,
+  Mail, AlertTriangle,
 } from "lucide-react";
 import {
   api, Sitzung, SitzungListItem, SitzungStatus, TOP, TopStatus, Dokument, Mitarbeiter, Abteilung, Rolle,
   TOP_STATUS_LABEL, KATEGORIE_LABEL, SITZUNGSTYP_LABEL, KummerkastenEintrag, SitzungScan, SitzungScanTyp,
   istBetriebsversammlung, sitzungStatusLabel, formatDatum,
-  AnhoerungVorgangAntwort, AnhoerungArt, ANHOERUNG_ART_LABEL, gruendeFuerArt,
+  AnhoerungVorgangAntwort, AnhoerungArt, ANHOERUNG_ART_LABEL, gruendeFuerArt, LadungPruefung,
 } from "../lib/api";
 import { useZeitmodelle, zeitmodellVorschlag } from "../lib/useZeitmodelle";
 import { useEntgelt } from "../lib/useEntgelt";
@@ -1204,6 +1205,14 @@ function TopZeile({
                 <Lock size={10} /> Vertraulich
               </span>
             )}
+            {top.einladungTitel && (
+              <span
+                title={`In der Einladung: „${top.einladungTitel}“`}
+                className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600"
+              >
+                <Mail size={10} /> Neutral in Einladung
+              </span>
+            )}
             {top.spontan && (
               <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
                 <Zap size={10} /> Spontan
@@ -2088,6 +2097,7 @@ function TopModal({
   const [titel, setTitel]       = useState(top?.titel ?? "");
   const [inhaltJson, setInhaltJson] = useState<object | null>(top?.inhaltsJson ?? null);
   const [vertraulich, setVertraulich] = useState(top?.vertraulich ?? false);
+  const [einladungTitel, setEinladungTitel] = useState(top?.einladungTitel ?? "");
 
   async function speichern(e: FormEvent) {
     e.preventDefault();
@@ -2095,11 +2105,14 @@ function TopModal({
     setFehler("");
     setLaden(true);
     try {
+      // Nur mitschicken, wenn geändert – der Titel für die Einladung ist (wie der Titel) nur im Entwurf änderbar
+      const neutralGeaendert = einladungTitel.trim() !== (top?.einladungTitel ?? "");
       const payload = {
         titel,
         inhalt: tiptapZuText(inhaltJson) || undefined,
         inhaltsJson: inhaltJson ?? undefined,
         vertraulich,
+        ...(neutralGeaendert ? { einladungTitel: einladungTitel.trim() || null } : {}),
       };
       if (top) {
         await api.sitzungen.topAktualisieren(sitzungId, top.id, payload);
@@ -2127,6 +2140,16 @@ function TopModal({
             <input value={titel} onChange={e => setTitel(e.target.value)} required autoFocus
               placeholder="z.B. Anhörung gemäß § 99 BetrVG – Einstellung Herr Müller"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Neutraler Titel für die Einladung (optional)</label>
+            <input value={einladungTitel} onChange={e => setEinladungTitel(e.target.value)} maxLength={300}
+              placeholder="z.B. Personelle Einzelmaßnahme § 99 BetrVG"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]" />
+            <p className="text-xs text-gray-400 mt-1">
+              Steht statt des Titels in Einladungsmail und Kalendertermin – damit keine Namen in mitgelesenen Postfächern landen.
+              Tagesordnung und PDF behalten den echten Titel.
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Sachverhalt / Beschreibung</label>
@@ -2541,6 +2564,12 @@ function SpontanTopModal({
   const [laden,  setLaden]  = useState(false);
   const [fehler, setFehler] = useState("");
   const [titel,  setTitel]  = useState("");
+  // Heilung des Ladungsmangels nur, wenn alle rechtzeitig geladen waren – Abgleich mit dem Versandnachweis
+  const [ladung, setLadung] = useState<LadungPruefung | null>(null);
+
+  useEffect(() => {
+    api.sitzungen.ladungPruefung(sitzungId).then(setLadung).catch(() => setLadung(null));
+  }, [sitzungId]);
 
   async function beantragen(e: FormEvent) {
     e.preventDefault();
@@ -2575,6 +2604,25 @@ function SpontanTopModal({
             Der BR muss die Aufnahme <strong>einstimmig</strong> beschließen (Rechtsprechung zu § 29 Abs. 2 S. 3 BetrVG).
             Nach dem Anlegen erscheint automatisch ein Aufnahme-Beschluss.
           </div>
+
+          {ladung && !ladung.vollstaendig && (
+            <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-800">
+              <p className="font-medium flex items-center gap-1.5"><AlertTriangle size={13} /> Ladung laut Versandnachweis nicht vollständig</p>
+              <p className="mt-1">
+                Die Aufnahme heilt den Ladungsmangel nur, wenn alle Mitglieder – für Verhinderte das Ersatzmitglied –
+                rechtzeitig geladen waren. Wurde auf anderem Weg (z. B. auf Papier) geladen, gilt das nicht.
+              </p>
+              <ul className="mt-1 list-disc pl-4 space-y-0.5">
+                {ladung.maengel.map((m, i) => <li key={i}>{m.text}</li>)}
+              </ul>
+            </div>
+          )}
+          {ladung?.vollstaendig && (
+            <p className="text-xs text-green-700 flex items-center gap-1.5">
+              <CheckCircle size={13} /> Laut Versandnachweis sind alle Mitglieder bzw. ihre Ersatzmitglieder per E-Mail eingeladen.
+              Ob das rechtzeitig war, bitte selbst prüfen.
+            </p>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">

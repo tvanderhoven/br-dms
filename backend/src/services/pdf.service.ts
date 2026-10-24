@@ -1674,6 +1674,8 @@ export interface VersandnachweisPdfZeile {
   versendetAm:    Date;
   erfolgreich:    boolean;
   fehler:         string | null;
+  detail?:        string;           // Inhalt der Mail (Label der Detailstufe)
+  abgerufenAm?:   Date | null;      // Abrufnachweis: erstes Öffnen der Sitzung danach
 }
 
 export async function versandnachweisPdfGenerieren(
@@ -1745,6 +1747,13 @@ export async function versandnachweisPdfGenerieren(
       if (!z.erfolgreich && z.fehler) {
         doc.fontSize(7.5).font("Helvetica").fillColor(FARBE_FEHLER)
            .text(pdfText(z.fehler), C_STATUS, doc.y, { width: RAND_RECHTS - C_STATUS });
+      }
+      if (z.erfolgreich) {
+        doc.fontSize(7.5).font("Helvetica").fillColor(FARBE_GRAU)
+           .text(pdfText([
+             z.detail,
+             z.abgerufenAm ? `abgerufen ${kurzDatum(z.abgerufenAm)} ${formatZeit(z.abgerufenAm)}` : "nicht abgerufen",
+           ].filter(Boolean).join(" · ")), C_STATUS, doc.y, { width: RAND_RECHTS - C_STATUS });
       }
 
       doc.y = Math.max(nameUnten, doc.y, y + 13) + 4;

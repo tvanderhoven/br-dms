@@ -390,7 +390,7 @@ export interface EinladungMail {
   sitzungTitel:    string;
   sitzungsdatum:   Date;
   ort:             string | null;
-  tops:            { nummer: number; titel: string }[];
+  tops:            { nummer: number; titel: string }[] | null;   // null = „Nur Link“ (lib/einladungDetail.ts)
   ersatzFuer:      string | null;     // Name des verhinderten Mitglieds
   sitzungUrl:      string;
   anhang:          { dateiname: string; pfad: string } | null;
@@ -439,12 +439,12 @@ export async function sendeEinladung(m: EinladungMail): Promise<void> {
     ...(ersatz ? ["", ersatz] : []),
     ...(m.zusatz ? ["", m.zusatz] : []),
     "",
-    "Tagesordnung:",
-    ...m.tops.map(t => `  ${t.nummer}. ${t.titel}`),
-    "",
+    ...(m.tops
+      ? ["Tagesordnung:", ...m.tops.map(t => `  ${t.nummer}. ${t.titel}`), ""]
+      : [`Die Tagesordnung findest du in BR-DMS: ${m.sitzungUrl}`, ""]),
     ...(m.anhang ? ["Die Tagesordnung liegt als PDF bei."] : []),
     ...(m.kalender ? [`Mit der Datei „${m.kalender.dateiname}“ übernimmst du den Termin in deinen Kalender.`] : []),
-    `In BR-DMS: ${m.sitzungUrl}`,
+    ...(m.tops ? [`In BR-DMS: ${m.sitzungUrl}`] : []),
     "",
     "Solltest du verhindert sein, gib bitte unverzüglich Bescheid, damit ein Ersatzmitglied geladen werden kann.",
     "",
@@ -453,9 +453,12 @@ export async function sendeEinladung(m: EinladungMail): Promise<void> {
     ...(m.signatur ? ["", "-- ", m.signatur] : []),
   ].join("\n");
 
-  const topsHtml = m.tops.map(t =>
-    `<tr><td style="padding:4px 10px 4px 0;color:#6b7280;vertical-align:top">${t.nummer}.</td><td style="padding:4px 0">${html(t.titel)}</td></tr>`
-  ).join("");
+  const topsHtml = m.tops
+    ? `<p style="margin-bottom:4px"><strong>Tagesordnung</strong></p>
+      <table style="border-collapse:collapse">${m.tops.map(t =>
+        `<tr><td style="padding:4px 10px 4px 0;color:#6b7280;vertical-align:top">${t.nummer}.</td><td style="padding:4px 0">${html(t.titel)}</td></tr>`
+      ).join("")}</table>`
+    : `<p>Die Tagesordnung findest du in BR-DMS: <a href="${html(m.sitzungUrl)}">${html(m.sitzungUrl)}</a></p>`;
 
   await transporter.sendMail({
     from:    await absender(),
@@ -471,8 +474,7 @@ export async function sendeEinladung(m: EinladungMail): Promise<void> {
       </table>
       ${ersatz ? `<p style="background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:8px 12px">${html(ersatz)}</p>` : ""}
       ${m.zusatz ? `<p style="background:#f3f4f6;border-radius:6px;padding:8px 12px">${textAlsHtml(m.zusatz)}</p>` : ""}
-      <p style="margin-bottom:4px"><strong>Tagesordnung</strong></p>
-      <table style="border-collapse:collapse">${topsHtml}</table>
+      ${topsHtml}
       <p>${m.anhang ? "Die Tagesordnung liegt als PDF bei. " : ""}${m.kalender ? `Mit der Datei „${html(m.kalender.dateiname)}“ übernimmst du den Termin in deinen Kalender. ` : ""}<a href="${html(m.sitzungUrl)}">Sitzung in BR-DMS öffnen</a></p>
       <p style="color:#6b7280;font-size:13px">Solltest du verhindert sein, gib bitte unverzüglich Bescheid, damit ein Ersatzmitglied geladen werden kann.</p>
       <p>Viele Grüße<br>${html(m.unterschrift)}</p>

@@ -124,6 +124,7 @@
   "GET /api/sitzungen/:id/einladung": "MITGLIED",
   "GET /api/sitzungen/:id/ersatz-vorschlag": "MITGLIED",
   "GET /api/sitzungen/:id/kommentare": "ANGEMELDET",
+  "GET /api/sitzungen/:id/ladung-pruefung": "VORSITZ",
   "GET /api/sitzungen/:id/pdf/:versionNummer": "ANGEMELDET",
   "GET /api/sitzungen/:id/scans/:typ/download": "ANGEMELDET",
   "GET /api/sitzungen/:id/sitzungspaket": "ANGEMELDET",

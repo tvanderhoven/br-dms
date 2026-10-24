@@ -304,9 +304,9 @@ export const api = {
     abschliessen: (id: string) =>
       request<Sitzung>(`/api/sitzungen/${id}/abschliessen`, { method: "POST" }),
     sitzungspaketUrl: (id: string) => `${BASE}/api/sitzungen/${id}/sitzungspaket`,
-    topHinzufuegen: (id: string, data: { titel: string; inhalt?: string; inhaltsJson?: object; vertraulich?: boolean }) =>
+    topHinzufuegen: (id: string, data: { titel: string; inhalt?: string; inhaltsJson?: object; vertraulich?: boolean; einladungTitel?: string | null }) =>
       request<TOP>(`/api/sitzungen/${id}/tops`, { method: "POST", body: JSON.stringify(data) }),
-    topAktualisieren: (id: string, topId: string, data: Partial<{ titel: string; inhalt: string; inhaltsJson: object; ergebnis: string; ergebnisJson: object; topStatus: TopStatus; vertraulich: boolean }>) =>
+    topAktualisieren: (id: string, topId: string, data: Partial<{ titel: string; inhalt: string; inhaltsJson: object; ergebnis: string; ergebnisJson: object; topStatus: TopStatus; vertraulich: boolean; einladungTitel: string | null }>) =>
       request<TOP>(`/api/sitzungen/${id}/tops/${topId}`, { method: "PATCH", body: JSON.stringify(data) }),
     topLoeschen: (id: string, topId: string) =>
       request<{ nachricht: string }>(`/api/sitzungen/${id}/tops/${topId}`, { method: "DELETE" }),
@@ -320,10 +320,11 @@ export const api = {
       request<{ nachricht: string }>(`/api/sitzungen/${id}/scans/${typ}`, { method: "DELETE" }),
     scanDownloadUrl: (id: string, typ: SitzungScanTyp) => `${BASE}/api/sitzungen/${id}/scans/${typ}/download`,
     einladung: (id: string) => request<EinladungStand>(`/api/sitzungen/${id}/einladung`),
-    einladungVersenden: (id: string, benutzerIds: string[] | undefined, zusatz: string) =>
+    einladungVersenden: (id: string, benutzerIds: string[] | undefined, zusatz: string, detail: EinladungDetail) =>
       request<{ gesendet: number; fehlgeschlagen: number }>(`/api/sitzungen/${id}/einladung/versenden`, {
-        method: "POST", body: JSON.stringify({ ...(benutzerIds ? { benutzerIds } : {}), zusatz }),
+        method: "POST", body: JSON.stringify({ ...(benutzerIds ? { benutzerIds } : {}), zusatz, detail }),
       }),
+    ladungPruefung: (id: string) => request<LadungPruefung>(`/api/sitzungen/${id}/ladung-pruefung`),
     topAuszugUrl: (sitzungId: string, topId: string) => `${BASE}/api/sitzungen/${sitzungId}/tops/${topId}/auszug`,
     dokumentVerknuepfen: (id: string, topId: string, dokumentId: string, hinweis?: string) =>
       request<TopDokumentInfo>(`/api/sitzungen/${id}/tops/${topId}/dokumente`, {
@@ -665,9 +666,9 @@ export const api = {
     wahlquote: () => request<{ minderheitengeschlecht: Geschlecht | null; mindestsitzeMinderheit: number }>("/api/einstellungen/wahlquote"),
     wahlquoteSpeichern: (data: { minderheitengeschlecht: Geschlecht | null; mindestsitzeMinderheit: number }) =>
       request<{ ok: boolean }>("/api/einstellungen/wahlquote", { method: "PUT", body: JSON.stringify(data) }),
-    mail: () => request<{ absenderName: string; absenderAdresse: string; signatur: string; standard: string; smtpAktiv: boolean }>("/api/einstellungen/mail"),
-    mailSpeichern: (data: { absenderName: string; absenderAdresse: string; signatur: string }) =>
-      request<{ absenderName: string; absenderAdresse: string; signatur: string }>("/api/einstellungen/mail", { method: "PUT", body: JSON.stringify(data) }),
+    mail: () => request<{ absenderName: string; absenderAdresse: string; signatur: string; standard: string; smtpAktiv: boolean; einladungDetail: EinladungDetail }>("/api/einstellungen/mail"),
+    mailSpeichern: (data: { absenderName: string; absenderAdresse: string; signatur: string; einladungDetail?: EinladungDetail }) =>
+      request<{ absenderName: string; absenderAdresse: string; signatur: string; einladungDetail: EinladungDetail }>("/api/einstellungen/mail", { method: "PUT", body: JSON.stringify(data) }),
   },
 
   wahlen: {
@@ -1313,6 +1314,7 @@ export interface TOP {
   status: TopStatus;
   spontan: boolean;
   vertraulich: boolean;
+  einladungTitel?: string | null;   // neutraler Titel für Einladungsmail und Kalendertermin
   dokumente: TopDokumentInfo[];
   _count?: { kommentare: number };
   erstelltAm: string;
@@ -1380,20 +1382,45 @@ export interface Sitzung {
   aktualisiertAm: string;
 }
 
-// ── Einladung per E-Mail (Backend: routes/einladung.ts) ──
+// ── Einladung per E-Mail (Backend: routes/einladung.ts, lib/einladungDetail.ts) ──
+export type EinladungDetail = "VOLLSTAENDIG" | "NUR_TITEL" | "NUR_LINK";
+
+export const EINLADUNG_DETAIL_LABEL: Record<EinladungDetail, string> = {
+  VOLLSTAENDIG: "Vollständig",
+  NUR_TITEL:    "Nur TOP-Titel",
+  NUR_LINK:     "Nur Link",
+};
+
+export const EINLADUNG_DETAIL_HINWEIS: Record<EinladungDetail, string> = {
+  VOLLSTAENDIG: "Termin, Tagesordnung und PDF",
+  NUR_TITEL:    "Termin und Tagesordnung, ohne PDF",
+  NUR_LINK:     "nur Termin und Link zur Sitzung in BR-DMS",
+};
+
 export interface EinladungStand {
   empfaenger: {
     benutzerId: string; name: string; rolle: string; adresse: string; ersatzFuer: string | null;
-    letzterVersand: { versendetAm: string; erfolgreich: boolean; fehler: string | null; adresse: string } | null;
+    letzterVersand: {
+      versendetAm: string; erfolgreich: boolean; fehler: string | null; adresse: string;
+      detail: EinladungDetail; abgerufenAm: string | null;
+    } | null;
   }[];
   protokoll: {
     id: string; name: string; adresse: string; rolle: string; vertretungFuer: string | null;
     mitAnhang: boolean; erfolgreich: boolean; fehler: string | null; versendetAm: string; versendetVon: string;
-    zusatz: string | null;
+    zusatz: string | null; detail: EinladungDetail; abgerufenAm: string | null;
   }[];
+  detailStandard: EinladungDetail;
   letzterZusatz: string;
   smtpAktiv: boolean;
   kannVersenden: boolean;
+}
+
+// Vor einem Spontan-TOP: Ladung laut Versandnachweis vollständig? (Backend: lib/ladungPruefen.ts)
+export interface LadungPruefung {
+  vollstaendig: boolean;
+  maengel: { name: string; grund: string; text: string }[];
+  sitzungsdatum: string;
 }
 
 export interface SitzungListItem {
