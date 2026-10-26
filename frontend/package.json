@@ -13,17 +13,17 @@
     "build:demo": "tsc && vite build --mode demo --outDir dist-demo"
   },
   "dependencies": {
-    "@tiptap/core": "3.31.3",
-    "@tiptap/extension-highlight": "3.31.3",
-    "@tiptap/extension-link": "3.31.3",
-    "@tiptap/extension-placeholder": "3.31.3",
-    "@tiptap/extension-text-align": "3.31.3",
-    "@tiptap/extension-underline": "3.31.3",
-    "@tiptap/extensions": "3.31.3",
-    "@tiptap/pm": "3.31.3",
-    "@tiptap/react": "3.31.3",
-    "@tiptap/starter-kit": "3.31.3",
-    "lucide-react": "^1.57.0",
+    "@tiptap/core": "3.32.0",
+    "@tiptap/extension-highlight": "3.32.0",
+    "@tiptap/extension-link": "3.32.0",
+    "@tiptap/extension-placeholder": "3.32.0",
+    "@tiptap/extension-text-align": "3.32.0",
+    "@tiptap/extension-underline": "3.32.0",
+    "@tiptap/extensions": "3.32.0",
+    "@tiptap/pm": "3.32.0",
+    "@tiptap/react": "3.32.0",
+    "@tiptap/starter-kit": "3.32.0",
+    "lucide-react": "^1.61.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router-dom": "^7.18.4"
@@ -35,6 +35,6 @@
     "@vitejs/plugin-react": "^6.1.2",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
-    "vite": "^8.3.4"
+    "vite": "^8.3.5"
   }
 }
