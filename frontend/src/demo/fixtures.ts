@@ -202,7 +202,7 @@ export const DEMO_ABWESENHEITEN = [
   { id: "demo-ab4", benutzerId: "demo-u1", grund: "URLAUB",      von: kalTag(28), bis: kalTag(39) },
 ];
 
-// ── Aufgaben (inkl. Themen-Backlog-Einträge über kanbanStatus) ──────
+// ── Aufgaben ─────────────────────────────────────────────────────────
 export const DEMO_AUFGABEN = [
   {
     id: "demo-a1", titel: "Fragebogen Mitarbeiterbefragung abstimmen", typ: "AUFGABE", prioritaet: "HOCH",
@@ -233,17 +233,58 @@ export const DEMO_AUFGABEN = [
     zugewiesenAn: { id: "demo-u2", name: "Jonas Mustermann", email: "jonas.mustermann@demo.invalid" },
     kanbanStatus: null, aufgabenStatus: "ERLEDIGT", erstelltAm: tag(-12), aktualisiertAm: tag(-4),
   },
+];
+
+// ── Themenakten (Themen-Backlog) ─────────────────────────────────────
+const anna = { id: "demo-u1", name: "Anna Beispiel" };
+const jonas = { id: "demo-u2", name: "Jonas Mustermann" };
+const lea = { id: "demo-u3", name: "Lea Fiktiv" };
+const tom = { id: "demo-u4", name: "Tom Platzhalter" };
+
+export const DEMO_THEMENAKTEN = [
   {
-    id: "demo-a4", titel: "Idee: Jobrad-Leasing ansprechen", typ: "AUFGABE", prioritaet: "NIEDRIG",
-    erledigt: false, sichtbarkeit: "OEFFENTLICH",
-    erstelltVon: { id: "demo-u3", name: "Lea Fiktiv", email: "lea.fiktiv@demo.invalid" },
-    kanbanStatus: "BACKLOG", erstelltAm: tag(-20), aktualisiertAm: tag(-20),
+    id: "demo-t1", titel: "BV Mobiles Arbeiten nachverhandeln", status: "IN_VERHANDLUNG", vertraulichkeit: "ALLE", nurTeam: false,
+    beschreibung: "Die Pauschale für das Arbeiten von zu Hause deckt die Kosten nicht mehr; die Geschäftsführung ist gesprächsbereit.",
+    naechsterSchritt: "Gegenentwurf an die Personalleitung schicken", naechsterTermin: tag(6),
+    erstelltVon: anna, erstelltAm: tag(-40), aktualisiertAm: tag(-2),
+    beteiligte: [{ zustaendig: true, benutzer: jonas }, { zustaendig: false, benutzer: lea }],
   },
   {
-    id: "demo-a5", titel: "Vorschlag Pausenraum-Umgestaltung", typ: "AUFGABE", prioritaet: "MITTEL",
-    erledigt: false, sichtbarkeit: "OEFFENTLICH",
-    erstelltVon: { id: "demo-u4", name: "Tom Platzhalter", email: "tom.platzhalter@demo.invalid" },
-    kanbanStatus: "IN_BEARBEITUNG", erstelltAm: tag(-15), aktualisiertAm: tag(-2),
+    id: "demo-t2", titel: "Pausenraum-Umgestaltung", status: "OFFEN", vertraulichkeit: "ALLE", nurTeam: false,
+    beschreibung: null, naechsterSchritt: null, naechsterTermin: null,
+    erstelltVon: tom, erstelltAm: tag(-15), aktualisiertAm: tag(-15),
+    beteiligte: [{ zustaendig: true, benutzer: tom }],
+  },
+  {
+    id: "demo-t3", titel: "Jobrad-Leasing ansprechen", status: "RUHT", vertraulichkeit: "ALLE", nurTeam: false,
+    beschreibung: "Idee aus der Betriebsversammlung.", naechsterSchritt: null, naechsterTermin: null,
+    erstelltVon: lea, erstelltAm: tag(-60), aktualisiertAm: tag(-20),
+    beteiligte: [{ zustaendig: true, benutzer: lea }],
+  },
+  {
+    id: "demo-t4", titel: "Arbeitskreis psychische Belastung", status: "ABGESCHLOSSEN", vertraulichkeit: "ALLE", nurTeam: false,
+    beschreibung: null, naechsterSchritt: null, naechsterTermin: null,
+    erstelltVon: anna, erstelltAm: tag(-120), aktualisiertAm: tag(-45),
+    beteiligte: [{ zustaendig: true, benutzer: anna }],
+  },
+];
+
+const absatz = (t: string) => ({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: t }] }] });
+export const DEMO_THEMA_BEITRAEGE = [
+  {
+    id: "demo-tb1", themaId: "demo-t1", art: "GESPRAECHSVERMERK", angeheftet: true, erstelltAm: tag(-30), autor: jonas, bezug: null, _count: { kommentare: 0 },
+    inhalt: "Gespräch mit der Personalleitung: Pauschale soll bleiben, aber eine Kostenbeteiligung für Bildschirme ist denkbar.",
+    inhaltJson: absatz("Gespräch mit der Personalleitung: Pauschale soll bleiben, aber eine Kostenbeteiligung für Bildschirme ist denkbar."),
+  },
+  {
+    id: "demo-tb2", themaId: "demo-t1", art: "RECHERCHE", angeheftet: false, erstelltAm: tag(-18), autor: lea, bezug: null, _count: { kommentare: 0 },
+    inhalt: "Vergleich: Zwei Betriebe der Branche zahlen eine monatliche Pauschale zwischen 30 und 50 Euro.",
+    inhaltJson: absatz("Vergleich: Zwei Betriebe der Branche zahlen eine monatliche Pauschale zwischen 30 und 50 Euro."),
+  },
+  {
+    id: "demo-tb3", themaId: "demo-t1", art: "IDEE_FRAGE", angeheftet: false, erstelltAm: tag(-2), autor: anna, bezug: null, _count: { kommentare: 0 },
+    inhalt: "Sollen wir den Gegenentwurf vorab in der Sitzung beschließen lassen?",
+    inhaltJson: absatz("Sollen wir den Gegenentwurf vorab in der Sitzung beschließen lassen?"),
   },
 ];
 

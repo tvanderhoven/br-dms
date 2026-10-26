@@ -33,6 +33,8 @@ const db: Record<string, Eintrag[]> = {
   geschaeftsordnung: klon(F.DEMO_GESCHAEFTSORDNUNG),
   beschluesse: klon(F.DEMO_BESCHLUESSE),
   themen: klon(F.DEMO_THEMEN),
+  themenakten: klon(F.DEMO_THEMENAKTEN),
+  themaBeitraege: klon(F.DEMO_THEMA_BEITRAEGE),
   nachrichten: klon(F.DEMO_NACHRICHTEN),
   nachrichtenGesendet: [],
   kummerkasten: klon(F.DEMO_KUMMERKASTEN),
@@ -409,7 +411,7 @@ function sitzungAnfrage(method: string, id: string | undefined, sub: string | un
     if (method === "POST" && !subId) {
       const neu = { id: zufallsId(`${s.id}-top`), sitzungId: s.id, nummer: s.tops.length + 1, titel: body.titel ?? "Neuer TOP",
         inhalt: body.inhalt ?? "", inhaltsJson: body.inhaltsJson, ergebnis: "", status: "OFFEN", spontan: sub === "spontan-top",
-        vertraulich: !!body.vertraulich, einladungTitel: body.einladungTitel ?? null, dokumente: [], _count: { kommentare: 0 }, erstelltAm: jetzt(), aktualisiertAm: jetzt() };
+        vertraulich: !!body.vertraulich, einladungTitel: body.einladungTitel ?? null, themaId: body.themaId ?? null, dokumente: [], _count: { kommentare: 0 }, erstelltAm: jetzt(), aktualisiertAm: jetzt() };
       s.tops.push(neu);
       return json(neu);
     }
@@ -641,6 +643,103 @@ function parseBody(bodyText: string | undefined): Eintrag {
   try { return JSON.parse(bodyText); } catch { return {}; }
 }
 
+// ── Themenakte (Backend: routes/themenakte.ts) – vereinfacht, die Demo läuft als Vorsitz ──
+function themenakteAnfrage(method: string, id: string | undefined, sub: string | undefined, subId: string | undefined, rest: string[], body: any): Response {
+  const themen = db.themenakten as any[];
+  const beitraege = db.themaBeitraege as any[];
+  const ich = { id: F.DEMO_ME.id, name: F.DEMO_ME.name };
+
+  if (!id) {
+    if (method === "POST") {
+      const t = {
+        id: zufallsId("demo-t"), titel: body.titel ?? "Neues Thema", beschreibung: body.beschreibung ?? null,
+        status: body.status ?? "OFFEN", vertraulichkeit: body.vertraulichkeit ?? "ALLE", nurTeam: false,
+        naechsterSchritt: null, naechsterTermin: null, erstelltVon: ich, erstelltAm: jetzt(), aktualisiertAm: jetzt(),
+        beteiligte: [{ zustaendig: true, benutzer: ich }],
+      };
+      themen.unshift(t);
+      return json({ id: t.id, titel: t.titel }, 201);
+    }
+    return json(themen.map(t => {
+      const eigene = beitraege.filter(b => b.themaId === t.id);
+      const letzte = [t.aktualisiertAm, ...eigene.map(b => b.erstelltAm)].sort().pop();
+      return { ...t, _count: { eintraege: eigene.length }, letzteAktivitaet: letzte };
+    }));
+  }
+
+  const t = themen.find(x => x.id === id);
+  if (!t) return json({ fehler: "Thema nicht gefunden" }, 404);
+  const tops = () => (db.sitzungen as any[]).flatMap(s => (s.tops ?? []).filter((top: any) => top.themaId === id)
+    .map((top: any) => ({ id: top.id, nummer: top.nummer, titel: top.titel, vertraulich: !!top.vertraulich, erstelltAm: top.erstelltAm ?? s.erstelltAm, sitzung: { id: s.id, titel: s.titel, sitzungsdatum: s.sitzungsdatum, status: s.status } })));
+
+  if (!sub) {
+    if (method === "PATCH") {
+      Object.assign(t, body, { aktualisiertAm: jetzt() });
+      if (body.beteiligte) {
+        t.beteiligte = body.beteiligte.map((b: any) => ({ zustaendig: !!b.zustaendig, benutzer: { id: b.benutzerId, name: (db.benutzer.find(u => u.id === b.benutzerId) as any)?.name ?? "?" } }));
+      }
+      return json({ ok: true });
+    }
+    if (method === "DELETE") { db.themenakten = themen.filter(x => x.id !== id); return json({ ok: true }); }
+    return json({
+      ...t,
+      dokumente: (db.dokumente as any[]).filter(d => d.themaId === id).map(d => ({ id: d.id, titel: d.titel, alias: d.alias ?? null, kategorie: d.kategorie, vertraulich: !!d.vertraulich, erstelltAm: d.erstelltAm })),
+      tops: tops(),
+      aufgaben: (db.aufgaben as any[]).filter(a => a.themaId === id).map(a => ({ id: a.id, titel: a.titel, erledigt: !!a.erledigt, faelligAm: a.faelligAm ?? null, zugewiesenAn: a.zugewiesenAn ?? null })),
+      betriebsvereinbarungen: (db.betriebsvereinbarungen as any[]).filter(b => b.themaId === id).map(b => ({ id: b.id, titel: b.titel, status: b.status, abschlussdatum: b.abschlussdatum })),
+      rechte: { schreiben: true, verwalten: true },
+    });
+  }
+
+  if (sub === "verlauf") {
+    const automatisch = [
+      ...tops().map(x => ({ automatisch: true, zeit: x.erstelltAm, art: "TOP", text: `Als TOP ${x.nummer} für „${x.sitzung.titel}“ vorgemerkt`, link: `/sitzungen?id=${x.sitzung.id}` })),
+      ...(db.aufgaben as any[]).filter(a => a.themaId === id).map(a => ({ automatisch: true, zeit: a.erstelltAm, art: "AUFGABE", text: `Aufgabe angelegt: ${a.titel}`, link: `/aufgaben?aufgabe=${a.id}` })),
+    ];
+    return json({ beitraege: beitraege.filter(b => b.themaId === id).sort((a, b) => a.erstelltAm.localeCompare(b.erstelltAm)), automatisch });
+  }
+
+  if (sub === "eintraege") {
+    if (subId && rest[0] === "kommentare") {
+      if (method === "POST") return json({ id: zufallsId("demo-k"), inhalt: body.inhalt ?? "", inhaltJson: body.inhaltJson, erstelltAm: jetzt(), aktualisiertAm: jetzt(), autor: { ...ich, email: F.DEMO_ME.email } }, 201);
+      return method === "GET" ? json([]) : json({ ok: true });
+    }
+    if (subId && method === "PATCH") {
+      const b = beitraege.find(x => x.id === subId);
+      if (b) b.angeheftet = !!body.angeheftet;
+      return json({ ok: true });
+    }
+    if (method === "POST") {
+      const bezug = beitraege.find(x => x.id === body.bezugId);
+      const b = {
+        id: zufallsId("demo-tb"), themaId: id, art: body.art ?? "NOTIZ", inhalt: body.inhalt ?? "", inhaltJson: body.inhaltJson ?? null,
+        angeheftet: false, erstelltAm: jetzt(), autor: ich, _count: { kommentare: 0 },
+        bezug: bezug ? { id: bezug.id, art: bezug.art, erstelltAm: bezug.erstelltAm, autor: bezug.autor } : null,
+      };
+      beitraege.push(b);
+      t.aktualisiertAm = jetzt();
+      return json({ id: b.id }, 201);
+    }
+  }
+
+  if (sub === "verknuepfungen") {
+    const sammlung: Record<string, string> = { DOKUMENT: "dokumente", AUFGABE: "aufgaben", BV: "betriebsvereinbarungen" };
+    const typ = method === "DELETE" ? subId : body.typ;
+    const zielId = method === "DELETE" ? rest[0] : body.zielId;
+    const neu = method === "DELETE" ? null : id;
+    if (typ === "TOP") {
+      for (const s of db.sitzungen as any[]) for (const top of s.tops ?? []) if (top.id === zielId) top.themaId = neu;
+    } else if (sammlung[typ]) {
+      const ziel = (db[sammlung[typ]] as any[]).find(x => x.id === zielId);
+      if (ziel) ziel.themaId = neu;
+    }
+    return json({ ok: true });
+  }
+
+  if (sub === "chronik") return text(DEMO_HINWEIS);
+  return method === "GET" ? json([]) : json({ ok: true });
+}
+
 export function handleDemoRequest(method: string, pathname: string, searchParams: URLSearchParams, bodyText?: string): Response {
   const body = parseBody(bodyText);
   const segs = pathname.replace(/^\/api\//, "").split("/").filter(Boolean);
@@ -688,6 +787,7 @@ export function handleDemoRequest(method: string, pathname: string, searchParams
   if (resource === "kosten") return kostenAnfrage(method, id, searchParams, body);
 
   if (resource === "abwesenheiten") return abwesenheitAnfrage(method, id, searchParams, body);
+  if (resource === "themenakte") return themenakteAnfrage(method, id, sub, subId, rest, body);
 
   // Kommentare an TOPs und Sitzungen: in der Demo leer, Neues wird nur angezeigt, nicht gespeichert
   if ((resource === "tops" || resource === "sitzungen") && sub === "kommentare") {

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, FormEvent, DragEvent, RefObject } from "react";
 import { createPortal } from "react-dom";
-import { useLocation } from "react-router-dom";
+import { Link as RouterLink, useLocation } from "react-router-dom";
 import { SitzungsVorlage, Gremium, istEmailDatei } from "../lib/api";
 import {
   CalendarDays, Plus, ChevronLeft, ChevronUp, ChevronDown, GripVertical, Lock, Unlock, FileCheck, FileText,
@@ -8,6 +8,7 @@ import {
   Send, ClipboardList, Download, MessageSquare, Zap, Pencil, RefreshCw, BookmarkPlus, Tag, CheckSquare, Folder, Wallet, MoreHorizontal, Copy, Timer,
   Users, Inbox, ListPlus,
   Mail, AlertTriangle,
+  FolderOpen,
 } from "lucide-react";
 import {
   api, Sitzung, SitzungListItem, SitzungStatus, TOP, TopStatus, Dokument, Mitarbeiter, Abteilung, Rolle,
@@ -1480,6 +1481,15 @@ function TopZeile({
             >
               <ClipboardList size={14} /> {istBV ? "Ergebnis" : "Beschluss"}
             </button>
+          )}
+          {top.themaId && (
+            <RouterLink
+              to={`/themenakte/${top.themaId}`}
+              title="Zur Themenakte dieses TOPs"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm text-xs font-medium text-gray-500 hover:text-[rgb(var(--accent))] hover:bg-accent/5 transition-colors"
+            >
+              <FolderOpen size={14} /> Themenakte
+            </RouterLink>
           )}
           {/* § 45 BetrVG: Anträge der Versammlung gehen an den BR → Themen-Backlog */}
           {istBV && (imProtokoll || sitzungStatus === "PROTOKOLL_FINAL") && (
@@ -3078,14 +3088,11 @@ function AntragBacklogModal({
     if (!titel.trim()) return;
     setLaden(true); setFehler("");
     try {
+      // Wird eine Themenakte (ehemals Themen-Backlog) – Herkunft und Antragstext als erster Beitrag
       const herkunft = `Antrag aus der Betriebsversammlung „${sitzungTitel}“ vom ${formatDatum(sitzungsdatum)} (§ 45 BetrVG)`;
-      const beschreibung = text.trim() ? `${herkunft}\n\n${text.trim()}` : herkunft;
-      await api.aufgaben.erstellen({
-        titel: titel.trim(),
-        beschreibung,
-        beschreibungJson: textZuTiptap(beschreibung) ?? undefined,
-        kanbanStatus: "BACKLOG",
-      });
+      const beitrag = text.trim() ? `${herkunft}\n\n${text.trim()}` : herkunft;
+      const thema = await api.themenakte.erstellen({ titel: titel.trim(), beschreibung: herkunft });
+      await api.themenakte.beitrag(thema.id, { art: "NOTIZ", inhalt: beitrag, inhaltJson: textZuTiptap(beitrag) });
       setErfolg(true);
       setTimeout(onSchliessen, 1200);
     } catch (err) {

@@ -1800,3 +1800,86 @@ export async function versandnachweisPdfGenerieren(
     doc.end();
   });
 }
+
+// ── Chronik einer Themenakte (lib/themenakte.ts) ─────────────────────
+// Auch für die Amtsübergabe: Kopf des Themas und der komplette Verlauf in zeitlicher
+// Reihenfolge – nur, was die exportierende Person sehen darf (Auswahl im Aufrufer).
+
+export interface ThemenChronikPdf {
+  titel:            string;
+  status:           string;
+  vertraulichkeit:  string;
+  beschreibung:     string | null;
+  zustaendige:      string[];
+  team:             string[];
+  naechsterSchritt: string | null;
+  naechsterTermin:  Date | null;
+  eintraege: { zeit: Date; kopf: string; text: string; automatisch: boolean }[];
+}
+
+export async function themenChronikPdfGenerieren(c: ThemenChronikPdf): Promise<Buffer> {
+  const layout     = await layoutLaden();
+  const logoBuffer = layout.logo_pfad ? await fs.readFile(layout.logo_pfad).catch(() => null) : null;
+  const zeitpunkt  = (d: Date) => d.toLocaleString("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+  return new Promise((resolve, reject) => {
+    const doc = neuesPdf({ size: "A4", margin: 60, bufferPages: true });
+    const chunks: Buffer[] = [];
+    doc.on("data",  ch => chunks.push(ch));
+    doc.on("error", reject);
+    doc.on("end",   () => resolve(Buffer.concat(chunks)));
+
+    const y0 = doc.y;
+    const textBreite = logoBuffer ? 350 : BREITE;
+    doc.fontSize(14).font("Helvetica-Bold").fillColor("#111827")
+       .text(pdfText(c.titel), RAND_LINKS, y0, { width: textBreite });
+    doc.fontSize(9).font("Helvetica").fillColor(FARBE_GRAU)
+       .text(`Themenakte  ·  ${c.status}  ·  Stand ${kurzDatum(new Date())}`, RAND_LINKS, doc.y + 2, { width: textBreite });
+    if (logoBuffer) doc.image(logoBuffer, 463, y0, { height: 38, fit: [72, 38] });
+    doc.y = Math.max(doc.y, y0 + 44);
+    doc.moveTo(RAND_LINKS, doc.y).lineTo(RAND_RECHTS, doc.y).strokeColor(layout.farbe).lineWidth(1.5).stroke();
+    doc.moveDown(0.8);
+
+    abschnittUeberschrift(doc, "Übersicht", layout);
+    const zeile = (label: string, wert: string) => {
+      if (!wert) return;
+      const y = doc.y;
+      doc.fontSize(9.5).font("Helvetica-Bold").fillColor("#111827").text(label, RAND_LINKS, y, { width: 130 });
+      doc.font("Helvetica").text(pdfText(wert), RAND_LINKS + 130, y, { width: BREITE - 130 });
+      doc.y = Math.max(doc.y, y + 14) + 2;
+    };
+    zeile("Vertraulichkeit", c.vertraulichkeit);
+    zeile("Zuständig", c.zustaendige.join(", ") || "–");
+    zeile("Projektteam", c.team.join(", "));
+    zeile("Nächster Schritt", [c.naechsterSchritt, c.naechsterTermin ? `bis ${kurzDatum(c.naechsterTermin)}` : null].filter(Boolean).join(" – "));
+    zeile("Worum es geht", c.beschreibung ?? "");
+    doc.moveDown(0.8);
+
+    abschnittUeberschrift(doc, `Verlauf (${c.eintraege.length})`, layout);
+    if (c.eintraege.length === 0) {
+      doc.fontSize(9).font("Helvetica").fillColor(FARBE_GRAU).text("Noch keine Einträge.", RAND_LINKS, doc.y);
+    }
+    for (const e of c.eintraege) {
+      if (doc.y > 700) doc.addPage();
+      const y = doc.y;
+      doc.fontSize(8).font("Helvetica").fillColor(FARBE_GRAU).text(zeitpunkt(e.zeit), RAND_LINKS, y, { width: 80 });
+      doc.fontSize(9).font(e.automatisch ? "Helvetica-Oblique" : "Helvetica-Bold").fillColor(e.automatisch ? FARBE_GRAU : "#111827")
+         .text(pdfText(e.kopf), RAND_LINKS + 85, y, { width: BREITE - 85 });
+      if (e.text) {
+        doc.fontSize(9).font("Helvetica").fillColor("#374151").text(pdfText(e.text), RAND_LINKS + 85, doc.y + 1, { width: BREITE - 85 });
+      }
+      doc.y = Math.max(doc.y, y + 12) + 6;
+      doc.moveTo(RAND_LINKS, doc.y - 3).lineTo(RAND_RECHTS, doc.y - 3).strokeColor("#f3f4f6").lineWidth(0.5).stroke();
+    }
+
+    const seiten = (doc as any).bufferedPageRange().count;
+    for (let i = 0; i < seiten; i++) {
+      doc.switchToPage(i);
+      const y = 760;
+      doc.moveTo(RAND_LINKS, y).lineTo(RAND_RECHTS, y).strokeColor("#e5e7eb").lineWidth(0.5).stroke();
+      doc.fontSize(7.5).font("Helvetica").fillColor(FARBE_GRAU)
+         .text(`${pdfText(c.titel)}  ·  ${c.vertraulichkeit}  ·  Seite ${i + 1} von ${seiten}`, RAND_LINKS, y + 5, { width: BREITE, lineBreak: false });
+    }
+    doc.end();
+  });
+}

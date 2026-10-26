@@ -379,7 +379,7 @@ function ToolbarButton({
 }
 
 // ── Dokument-Picker ───────────────────────────────────────────────
-function DokumentPickerModal({
+export function DokumentPickerModal({
   onEinfuegen, onSchliessen,
 }: {
   onEinfuegen: (attrs: DokumentReferenzAttrs) => void;

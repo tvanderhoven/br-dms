@@ -9,6 +9,7 @@ import { startEingangWorker } from "./workers/eingang.worker.js";
 import { startBenachrichtigungWorker } from "./workers/benachrichtigung.worker.js";
 import { starteWatchFolder } from "./services/watchfolder.service.js";
 import { erstAdminAnlegen } from "./lib/erst-admin.js";
+import { backlogUebernehmen } from "./lib/themenakte.js";
 import { konfigPruefen } from "./lib/konfigPruefen.js";
 import { baueApp } from "./app.js";
 
@@ -25,6 +26,9 @@ const app = await baueApp();
 
 // ── Erster Admin (nur bei leerer Benutzertabelle) ─────────────────
 await erstAdminAnlegen();
+
+// ── Karten des alten Themen-Backlogs einmalig als Themenakten übernehmen ──
+await backlogUebernehmen().catch(err => console.error("[Themenakte] Übernahme des Backlogs fehlgeschlagen:", err));
 
 // ── Worker & Services ─────────────────────────────────────────────
 startDeletionWorker(process.env.NODE_ENV !== "production");

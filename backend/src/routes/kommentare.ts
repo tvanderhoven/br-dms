@@ -10,6 +10,10 @@
  *
  * GET    /api/dokumente/:dokumentId/kommentare – Alle Kommentare zu Dokument
  * POST   /api/dokumente/:dokumentId/kommentare – Kommentar zu Dokument hinzufügen
+ *
+ * GET    /api/themenakte/:id/eintraege/:eid/kommentare       – Rückfragen zu einem Beitrag der Themenakte
+ * POST   /api/themenakte/:id/eintraege/:eid/kommentare       – (wer in die Akte schreiben darf)
+ * DELETE /api/themenakte/:id/eintraege/:eid/kommentare/:kid
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
@@ -17,6 +21,9 @@ import prisma from "../lib/prisma.js";
 import { dokumentZugriffPruefen } from "../lib/vertraulich.js";
 import { authenticate } from "../middleware/auth.js";
 import { kommentarMelden } from "../lib/kommentarBenachrichtigung.js";
+import { darfSchreiben, sichtbaresThema } from "../lib/themenakte.js";
+import { erfordert } from "../middleware/rbac.js";
+import { Role } from "@prisma/client";
 
 const KOMMENTAR_SELECT = {
   id: true,
@@ -273,6 +280,64 @@ export async function kommentarRouten(app: FastifyInstance): Promise<void> {
 
       await prisma.kommentar.delete({ where: { id: kid } });
 
+      return reply.send({ nachricht: "Kommentar gelöscht" });
+    }
+  );
+
+  // ── Kommentare an Beiträgen der Themenakte ─────────────────────
+  // Rückfragen gehören neben die Akte, nicht hinein: in die PDF-Chronik kommen nur die Beiträge
+  const beitragOder404 = async (request: FastifyRequest, reply: FastifyReply, schreiben: boolean) => {
+    const { id, eid } = request.params as { id: string; eid: string };
+    const thema = await sichtbaresThema(id, request.benutzer);
+    const eintrag = thema && await prisma.themaEintrag.findFirst({ where: { id: eid, themaId: thema.id }, select: { id: true } });
+    if (!thema || !eintrag) { reply.status(404).send({ fehler: "Beitrag nicht gefunden" }); return null; }
+    if (schreiben && !(await darfSchreiben(thema, request.benutzer))) { reply.status(403).send({ fehler: "Keine Schreibrechte" }); return null; }
+    return eintrag;
+  };
+  const themaLesen = { preHandler: [authenticate, erfordert(Role.ERSATZMITGLIED)] };
+
+  app.get(
+    "/themenakte/:id/eintraege/:eid/kommentare",
+    themaLesen,
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const eintrag = await beitragOder404(request, reply, false);
+      if (!eintrag) return reply;
+      return reply.send(await prisma.kommentar.findMany({
+        where: { themaEintragId: eintrag.id }, select: KOMMENTAR_SELECT, orderBy: { erstelltAm: "asc" },
+      }));
+    }
+  );
+
+  app.post(
+    "/themenakte/:id/eintraege/:eid/kommentare",
+    themaLesen,
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { inhalt, inhaltJson } = request.body as { inhalt: string; inhaltJson?: object };
+      if (!inhalt || inhalt.trim().length === 0) return reply.status(400).send({ fehler: "inhalt ist erforderlich" });
+      const eintrag = await beitragOder404(request, reply, true);
+      if (!eintrag) return reply;
+      const kommentar = await prisma.kommentar.create({
+        data: { inhalt, inhaltJson: inhaltJson ?? undefined, themaEintragId: eintrag.id, autorId: request.benutzer.sub },
+        select: KOMMENTAR_SELECT,
+      });
+      await kommentarMelden({ themaEintragId: eintrag.id }, request.benutzer.sub, inhaltJson);
+      return reply.status(201).send(kommentar);
+    }
+  );
+
+  app.delete(
+    "/themenakte/:id/eintraege/:eid/kommentare/:kid",
+    themaLesen,
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const eintrag = await beitragOder404(request, reply, false);
+      if (!eintrag) return reply;
+      const { kid } = request.params as { kid: string };
+      const kommentar = await prisma.kommentar.findFirst({ where: { id: kid, themaEintragId: eintrag.id } });
+      if (!kommentar) return reply.status(404).send({ fehler: "Kommentar nicht gefunden" });
+      if (kommentar.autorId !== request.benutzer.sub && !["ADMIN", "VORSITZ", "STELLVERTRETER"].includes(request.benutzer.rolle)) {
+        return reply.status(403).send({ fehler: "Keine Berechtigung zum Löschen" });
+      }
+      await prisma.kommentar.delete({ where: { id: kid } });
       return reply.send({ nachricht: "Kommentar gelöscht" });
     }
   );

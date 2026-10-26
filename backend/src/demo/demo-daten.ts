@@ -23,7 +23,7 @@ import {
   AbwesenheitsGrund,
   Prisma, Role, Geschlecht, Kategorie, FristTyp, SitzungStatus, TopStatus,
   AnwesenheitsStatus, Beschaeftigungsart, BVStatus, SchulungsStatus,
-  KummerkastenStatus, AufgabenStatus, KanbanStatus, Prioritaet, AufgabeTyp, AuditAktion,
+  KummerkastenStatus, AufgabenStatus, Prioritaet, AufgabeTyp, AuditAktion, ThemaStatus, ThemaEintragArt,
   WahlArt, WahlVerfahren, KostenArt, KostenStatus,
 } from "@prisma/client";
 import prisma from "../lib/prisma.js";
@@ -1198,22 +1198,41 @@ async function main() {
   ];
   await prisma.aufgabe.createMany({ data: aufgaben.map(a => ({ typ: AufgabeTyp.AUFGABE, ...a, erstelltAm: tage(-zahl(3, 20)) })) });
 
-  const themen: [string, KanbanStatus, string, Prioritaet][] = [
-    ["Neue BV Schichtarbeit verhandeln", KanbanStatus.IN_BEARBEITUNG, stv, Prioritaet.HOCH],
-    ["Prämienregelung Produktion", KanbanStatus.IN_BEARBEITUNG, vorsitz, Prioritaet.HOCH],
-    ["Nachbesserung BV Mobiles Arbeiten (Pauschale)", KanbanStatus.BACKLOG, user["a.schulte"], Prioritaet.MITTEL],
-    ["Ruhezonen Werk 2 (aus GBU Psyche)", KanbanStatus.BACKLOG, user["k.lehmann"], Prioritaet.MITTEL],
-    ["E-Bike-Leasing für Beschäftigte", KanbanStatus.BACKLOG, user["m.yilmaz"], Prioritaet.NIEDRIG],
-    ["KI-Einsatz im Vertrieb – Rahmen-BV prüfen", KanbanStatus.BACKLOG, user["a.wiese"], Prioritaet.MITTEL],
-    ["Überdachte Fahrradstellplätze Werk 1 (Antrag Betriebsversammlung)", KanbanStatus.BACKLOG, user["d.meyer"], Prioritaet.NIEDRIG],
-    ["Arbeitskreis psychische Belastung einrichten", KanbanStatus.ERLEDIGT, vorsitz, Prioritaet.MITTEL],
+  // Themenakten (ehemals Themen-Backlog): Kopf, Zuständige und ein paar Beiträge
+  const themen: [string, ThemaStatus, string, string | null][] = [
+    ["Neue BV Schichtarbeit verhandeln", ThemaStatus.IN_VERHANDLUNG, stv, "Gegenentwurf an die Personalleitung schicken"],
+    ["Prämienregelung Produktion", ThemaStatus.IN_VERHANDLUNG, vorsitz, "Zahlen der Controlling-Abteilung anfordern"],
+    ["Nachbesserung BV Mobiles Arbeiten (Pauschale)", ThemaStatus.OFFEN, user["a.schulte"], null],
+    ["Ruhezonen Werk 2 (aus GBU Psyche)", ThemaStatus.OFFEN, user["k.lehmann"], null],
+    ["E-Bike-Leasing für Beschäftigte", ThemaStatus.RUHT, user["m.yilmaz"], null],
+    ["KI-Einsatz im Vertrieb – Rahmen-BV prüfen", ThemaStatus.OFFEN, user["a.wiese"], null],
+    ["Überdachte Fahrradstellplätze Werk 1 (Antrag Betriebsversammlung)", ThemaStatus.OFFEN, user["d.meyer"], null],
+    ["Arbeitskreis psychische Belastung einrichten", ThemaStatus.ABGESCHLOSSEN, vorsitz, null],
   ];
-  await prisma.aufgabe.createMany({
-    data: themen.map(([titel, status, zu, prio]) => ({
-      titel, kanbanStatus: status, prioritaet: prio, zugewiesenAnId: zu, erstelltVonId: vorsitz,
-      erledigt: status === KanbanStatus.ERLEDIGT, erledigtAm: status === KanbanStatus.ERLEDIGT ? tage(-40) : null,
-      erstelltAm: tage(-zahl(20, 120)),
-    })),
+  const themaIds: string[] = [];
+  for (const [titel, status, zu, schritt] of themen) {
+    const t = await prisma.thema.create({
+      data: {
+        titel, status, naechsterSchritt: schritt, naechsterTermin: schritt ? tage(zahl(5, 20)) : null,
+        abgeschlossenAm: status === ThemaStatus.ABGESCHLOSSEN ? tage(-40) : null,
+        erstelltVonId: vorsitz, erstelltAm: tage(-zahl(20, 120)),
+        beteiligte: { create: { benutzerId: zu, zustaendig: true } },
+      },
+    });
+    themaIds.push(t.id);
+  }
+  const text = (t: string) => ({ inhalt: t, inhaltJson: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: t }] }] } });
+  await prisma.themaEintrag.createMany({
+    data: [
+      { themaId: themaIds[0], art: ThemaEintragArt.GESPRAECHSVERMERK, autorId: stv, erstelltAm: tage(-30), angeheftet: true,
+        ...text("Gespräch mit der Personalleitung: Arbeitgeber will Wechselschicht ab Q2, Zuschläge sollen gleich bleiben. Wir bestehen auf Mitbestimmung bei der Schichtplanung (§ 87 Abs. 1 Nr. 2).") },
+      { themaId: themaIds[0], art: ThemaEintragArt.RECHERCHE, autorId: user["a.schulte"], erstelltAm: tage(-21),
+        ...text("Muster-BV der Gewerkschaft zu Schichtarbeit liegt vor, Abschnitt Ruhezeiten passt gut als Vorlage.") },
+      { themaId: themaIds[0], art: ThemaEintragArt.IDEE_FRAGE, autorId: vorsitz, erstelltAm: tage(-9),
+        ...text("Sollen wir Sachverständige nach § 80 Abs. 3 hinzuziehen? Dafür bräuchten wir einen Beschluss.") },
+      { themaId: themaIds[1], art: ThemaEintragArt.NOTIZ, autorId: vorsitz, erstelltAm: tage(-14),
+        ...text("Beschwerden aus der Spätschicht: Prämie wird bei Krankheit gekürzt.") },
+    ],
   });
 
   const projekt = await prisma.aufgabe.create({

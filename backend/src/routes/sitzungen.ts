@@ -24,7 +24,7 @@
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { SitzungStatus, TopStatus, AuditAktion, Role, SitzungScanTyp } from "@prisma/client";
+import { SitzungStatus, TopStatus, AuditAktion, Role, SitzungScanTyp, ThemaVertraulichkeit } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { rundnachrichtFilter } from "../lib/adminZugriff.js";
 import { authenticate } from "../middleware/auth.js";
@@ -35,6 +35,7 @@ import { siehtKeineVertraulichenTops, topSichtbar, topSichtbarFilter, topZugriff
 import { darfProtokollieren } from "../lib/protokollfuehrung.js";
 import { sitzungAnlegen } from "../lib/sitzungAnlegen.js";
 import { benachrichtigen, sitzungLink } from "../lib/benachrichtigung.js";
+import { sichtbaresThema } from "../lib/themenakte.js";
 
 const datumText = (d: Date) => d.toLocaleDateString("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric" });
 
@@ -77,6 +78,7 @@ const TOP_SELECT = {
   vertraulich: true,
   externAusgeschlossen: true,
   einladungTitel: true,
+  themaId:       true,   // nur die ID – Titel und Inhalt der Akte zeigt /api/themenakte nach eigener Prüfung
   erstelltAm:    true,
   aktualisiertAm: true,
   _count: { select: { kommentare: true } },
@@ -634,9 +636,13 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
         return reply.status(409).send({ fehler: "TOPs können nur in Sitzungen im Status ENTWURF hinzugefügt werden" });
       }
 
-      const { titel, inhalt, inhaltsJson, vertraulich, einladungTitel, externAusgeschlossen } =
-        request.body as { titel: string; inhalt?: string; inhaltsJson?: object; vertraulich?: boolean; einladungTitel?: string | null; externAusgeschlossen?: boolean };
+      const { titel, inhalt, inhaltsJson, vertraulich, einladungTitel, externAusgeschlossen, themaId } =
+        request.body as { titel: string; inhalt?: string; inhaltsJson?: object; vertraulich?: boolean; einladungTitel?: string | null; externAusgeschlossen?: boolean; themaId?: string };
       if (!titel) return reply.status(400).send({ fehler: "titel ist ein Pflichtfeld" });
+
+      // „Als TOP vormerken“ aus der Themenakte – ein vertrauliches Thema wird ein vertraulicher TOP
+      const thema = themaId ? await sichtbaresThema(themaId, request.benutzer) : null;
+      if (themaId && !thema) return reply.status(404).send({ fehler: "Thema nicht gefunden" });
 
       const naechsteNummer = (sitzung.tops[0]?.nummer ?? 0) + 1;
 
@@ -648,12 +654,14 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
           inhalt:      inhalt ?? null,
           inhaltsJson: inhaltsJson ?? undefined,
           status:      TopStatus.OFFEN,
-          vertraulich: vertraulich ?? false,
+          vertraulich: vertraulich ?? (thema ? thema.vertraulichkeit !== ThemaVertraulichkeit.ALLE : false),
           externAusgeschlossen: externAusgeschlossen ?? false,
           einladungTitel: einladungTitel?.trim().slice(0, 300) || null,
+          themaId:     thema?.id ?? null,
         },
         select: TOP_SELECT,
       });
+      if (thema) await prisma.thema.update({ where: { id: thema.id }, data: { aktualisiertAm: new Date() } });
 
       return reply.status(201).send(top);
     }

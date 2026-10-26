@@ -12,6 +12,8 @@
  * PUT  /api/einstellungen/feiertage     – festlegen (VORSITZ)
  * GET  /api/einstellungen/eingang-mails – Sofortmail (Fristsachen) / stündliche Sammelmail an/aus, HR-Adresse
  * PUT  /api/einstellungen/eingang-mails – umschalten (VORSITZ)
+ * GET  /api/einstellungen/themen-loeschfrist – Jahre nach „abgeschlossen“, bis eine Themenakte gelöscht wird
+ * PUT  /api/einstellungen/themen-loeschfrist – festlegen (VORSITZ; 0 = nie automatisch)
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
@@ -25,6 +27,7 @@ import { Kategorie, Role, Geschlecht, AuditAktion } from "@prisma/client";
 import { adminHatInhaltszugriff, ADMIN_INHALTSZUGRIFF } from "../lib/adminZugriff.js";
 import { ALLE_KATEGORIEN, STANDARD_AUFBEWAHRUNG_TAGE } from "../lib/kategorien.js";
 import { MAIL_ABSENDER_NAME, MAIL_ABSENDER_ADRESSE, MAIL_SIGNATUR } from "../lib/mailer.js";
+import { THEMEN_LOESCHFRIST_JAHRE, THEMEN_LOESCHFRIST_STANDARD } from "../lib/themenakte.js";
 import { EINLADUNG_DETAIL, einladungDetailStandard, istEinladungDetail } from "../lib/einladungDetail.js";
 import { ermittleBackupSaetze } from "../lib/backups.js";
 import { zweiFaktorRichtlinie, ZWEI_FAKTOR_MODUS, ZWEI_FAKTOR_PFLICHT } from "../lib/zweiFaktor.js";
@@ -617,6 +620,35 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
         });
       }
       return reply.send({ sofortmail: await sofortmailAktiv(), sammelmail: await sammelmailAktiv(), hrAdresse: await hrAdresse() });
+    }
+  );
+
+  // ── Löschfrist abgeschlossener Themenakten (lib/themenakte.ts, Lösch-Worker 02:00) ──
+  const themenLoeschfrist = async () => {
+    const e = await prisma.systemEinstellung.findUnique({ where: { schluessel: THEMEN_LOESCHFRIST_JAHRE } });
+    const n = e ? Number(e.wert) : THEMEN_LOESCHFRIST_STANDARD;
+    return Number.isInteger(n) && n >= 0 ? n : THEMEN_LOESCHFRIST_STANDARD;
+  };
+
+  app.get(
+    "/themen-loeschfrist",
+    { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
+    async (_request: FastifyRequest, reply: FastifyReply) => reply.send({ jahre: await themenLoeschfrist() })
+  );
+
+  app.put<{ Body: { jahre: number } }>(
+    "/themen-loeschfrist",
+    {
+      preValidation: [authenticate, erfordert(Role.VORSITZ)],
+      schema: { body: { type: "object", required: ["jahre"], properties: { jahre: { type: "integer", minimum: 0, maximum: 30 } } } },
+    },
+    async (request, reply) => {
+      await prisma.systemEinstellung.upsert({
+        where:  { schluessel: THEMEN_LOESCHFRIST_JAHRE },
+        update: { wert: String(request.body.jahre) },
+        create: { schluessel: THEMEN_LOESCHFRIST_JAHRE, wert: String(request.body.jahre) },
+      });
+      return reply.send({ jahre: await themenLoeschfrist() });
     }
   );
 

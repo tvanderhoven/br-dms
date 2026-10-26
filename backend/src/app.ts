@@ -36,6 +36,7 @@ import { ressourcenRouten } from "./routes/ressourcen.js";
 import { auditRouten } from "./routes/audit.js";
 import { einladungRouten } from "./routes/einladung.js";
 import { beschlussRegisterRouten } from "./routes/beschlussregister.js";
+import { themenakteRouten } from "./routes/themenakte.js";
 import { abwesenheitRouten, verfuegbarkeitRouten } from "./routes/abwesenheiten.js";
 import { fristenRouten } from "./routes/fristen.js";
 import { wahlRouten } from "./routes/wahlen.js";
@@ -138,6 +139,7 @@ export async function baueApp(optionen: AppOptionen = {}): Promise<FastifyInstan
   await app.register(vorlagenRouten,     { prefix: "/api/vorlagen" });
   await app.register(sucheRouten,        { prefix: "/api" });
   await app.register(themenRouten,       { prefix: "/api" });
+  await app.register(themenakteRouten,   { prefix: "/api/themenakte" });
   await app.register(einstellungenRouten,{ prefix: "/api/einstellungen" });
   await app.register(wissenRouten,       { prefix: "/api/wissen" });
   await app.register(ressourcenRouten,   { prefix: "/api/ressourcen" });

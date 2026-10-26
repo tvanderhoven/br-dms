@@ -289,6 +289,31 @@ export const api = {
     loeschen:    (id: string) => request<{ nachricht: string }>(`/api/aufgaben/${id}`, { method: "DELETE" }),
   },
 
+  themenakte: {
+    liste:      () => request<ThemaListeEintrag[]>("/api/themenakte"),
+    einzel:     (id: string) => request<ThemaDetail>(`/api/themenakte/${id}`),
+    erstellen:  (data: { titel: string; beschreibung?: string; status?: ThemaStatus; vertraulichkeit?: ThemaVertraulichkeit }) =>
+      request<{ id: string; titel: string }>("/api/themenakte", { method: "POST", body: JSON.stringify(data) }),
+    aendern:    (id: string, data: Partial<{
+      titel: string; beschreibung: string | null; status: ThemaStatus; naechsterSchritt: string | null; naechsterTermin: string | null;
+      beteiligte: { benutzerId: string; zustaendig: boolean }[]; vertraulichkeit: ThemaVertraulichkeit; nurTeam: boolean;
+    }>) => request<{ ok: boolean }>(`/api/themenakte/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    loeschen:   (id: string) => request<{ ok: boolean }>(`/api/themenakte/${id}`, { method: "DELETE" }),
+    verlauf:    (id: string) => request<ThemaVerlauf>(`/api/themenakte/${id}/verlauf`),
+    beitrag:    (id: string, data: { art: ThemaEintragArt; inhalt: string; inhaltJson: object | null; bezugId?: string | null }) =>
+      request<{ id: string }>(`/api/themenakte/${id}/eintraege`, { method: "POST", body: JSON.stringify(data) }),
+    anheften:   (id: string, eid: string, angeheftet: boolean) =>
+      request<{ ok: boolean }>(`/api/themenakte/${id}/eintraege/${eid}`, { method: "PATCH", body: JSON.stringify({ angeheftet }) }),
+    verknuepfen: (id: string, typ: ThemaVerknuepfung, zielId: string) =>
+      request<{ ok: boolean }>(`/api/themenakte/${id}/verknuepfungen`, { method: "POST", body: JSON.stringify({ typ, zielId }) }),
+    loesen:     (id: string, typ: ThemaVerknuepfung, zielId: string) =>
+      request<{ ok: boolean }>(`/api/themenakte/${id}/verknuepfungen/${typ}/${zielId}`, { method: "DELETE" }),
+    chronikUrl: (id: string) => `${BASE}/api/themenakte/${id}/chronik`,
+    loeschfrist:          () => request<{ jahre: number }>("/api/einstellungen/themen-loeschfrist"),
+    loeschfristSpeichern: (jahre: number) =>
+      request<{ jahre: number }>("/api/einstellungen/themen-loeschfrist", { method: "PUT", body: JSON.stringify({ jahre }) }),
+  },
+
   sitzungen: {
     liste: () => request<SitzungListItem[]>("/api/sitzungen"),
     einzel: (id: string) => request<Sitzung>(`/api/sitzungen/${id}`),
@@ -309,7 +334,7 @@ export const api = {
     abschliessen: (id: string) =>
       request<Sitzung>(`/api/sitzungen/${id}/abschliessen`, { method: "POST" }),
     sitzungspaketUrl: (id: string) => `${BASE}/api/sitzungen/${id}/sitzungspaket`,
-    topHinzufuegen: (id: string, data: { titel: string; inhalt?: string; inhaltsJson?: object; vertraulich?: boolean; einladungTitel?: string | null; externAusgeschlossen?: boolean }) =>
+    topHinzufuegen: (id: string, data: { titel: string; inhalt?: string; inhaltsJson?: object; vertraulich?: boolean; einladungTitel?: string | null; externAusgeschlossen?: boolean; themaId?: string }) =>
       request<TOP>(`/api/sitzungen/${id}/tops`, { method: "POST", body: JSON.stringify(data) }),
     topAktualisieren: (id: string, topId: string, data: Partial<{ titel: string; inhalt: string; inhaltsJson: object; ergebnis: string; ergebnisJson: object; topStatus: TopStatus; vertraulich: boolean; einladungTitel: string | null; externAusgeschlossen: boolean }>) =>
       request<TOP>(`/api/sitzungen/${id}/tops/${topId}`, { method: "PATCH", body: JSON.stringify(data) }),
@@ -811,6 +836,55 @@ export interface KummerkastenEintrag {
   bearbeitetAm?: string | null;
   erstelltAm: string;
 }
+
+// ── Themenakte (Backend: routes/themenakte.ts, lib/themenakte.ts) ──
+export type ThemaStatus = "OFFEN" | "IN_VERHANDLUNG" | "RUHT" | "ABGESCHLOSSEN";
+export type ThemaVertraulichkeit = "ALLE" | "BETRIEBSRAT" | "VORSITZ";
+export type ThemaEintragArt = "NOTIZ" | "GESPRAECHSVERMERK" | "IDEE_FRAGE" | "RECHERCHE";
+export type ThemaVerknuepfung = "DOKUMENT" | "TOP" | "AUFGABE" | "BV";
+
+export const THEMA_STATUS_LABEL: Record<ThemaStatus, string> = {
+  OFFEN: "Offen", IN_VERHANDLUNG: "In Verhandlung", RUHT: "Ruht", ABGESCHLOSSEN: "Abgeschlossen",
+};
+export const THEMA_VERTRAULICHKEIT_LABEL: Record<ThemaVertraulichkeit, string> = {
+  ALLE: "Alle (auch Ersatzmitglieder)", BETRIEBSRAT: "Nur ordentliche Mitglieder", VORSITZ: "Nur Vorsitz und Stellvertretung",
+};
+export const THEMA_EINTRAG_LABEL: Record<ThemaEintragArt, string> = {
+  NOTIZ: "Notiz", GESPRAECHSVERMERK: "Gesprächsvermerk", IDEE_FRAGE: "Idee / Frage", RECHERCHE: "Recherche",
+};
+
+export interface ThemaBeteiligung { zustaendig: boolean; benutzer: { id: string; name: string } }
+
+export interface ThemaListeEintrag {
+  id: string; titel: string; beschreibung: string | null; status: ThemaStatus;
+  vertraulichkeit: ThemaVertraulichkeit; nurTeam: boolean;
+  naechsterSchritt: string | null; naechsterTermin: string | null;
+  erstelltAm: string; letzteAktivitaet: string;
+  beteiligte: ThemaBeteiligung[];
+  _count: { eintraege: number };
+}
+
+export interface ThemaDetail extends Omit<ThemaListeEintrag, "_count" | "letzteAktivitaet"> {
+  erstelltVon: { id: string; name: string };
+  dokumente: { id: string; titel: string; alias: string | null; kategorie: string; vertraulich: boolean; erstelltAm: string }[];
+  tops: { id: string; nummer: number; titel: string; vertraulich: boolean; sitzung: { id: string; titel: string; sitzungsdatum: string; status: SitzungStatus } }[];
+  aufgaben: { id: string; titel: string; erledigt: boolean; faelligAm: string | null; zugewiesenAn: { id: string; name: string } | null }[];
+  betriebsvereinbarungen: { id: string; titel: string; status: string; abschlussdatum: string }[];
+  rechte: { schreiben: boolean; verwalten: boolean };
+}
+
+export interface ThemaBeitrag {
+  id: string; art: ThemaEintragArt; inhalt: string; inhaltJson: object | null; angeheftet: boolean; erstelltAm: string;
+  autor: { id: string; name: string };
+  bezug: { id: string; art: ThemaEintragArt; erstelltAm: string; autor: { id: string; name: string } } | null;
+  _count: { kommentare: number };
+}
+
+export interface ThemaAutoEintrag {
+  automatisch: true; zeit: string; art: "DOKUMENT" | "FRIST" | "TOP" | "BESCHLUSS" | "AUFGABE" | "BV"; text: string; link: string | null;
+}
+
+export interface ThemaVerlauf { beitraege: ThemaBeitrag[]; automatisch: ThemaAutoEintrag[] }
 
 export interface Aufgabe {
   id: string;
@@ -1323,6 +1397,7 @@ export interface TOP {
   spontan: boolean;
   vertraulich: boolean;
   einladungTitel?: string | null;   // neutraler Titel für Einladungsmail und Kalendertermin
+  themaId?: string | null;          // Themenakte, zu der der TOP gehört („Als TOP vormerken“)
   externAusgeschlossen?: boolean;   // „Externe verlässt den Raum“ (Paket 4)
   dokumente: TopDokumentInfo[];
   _count?: { kommentare: number };

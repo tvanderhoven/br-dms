@@ -1887,6 +1887,11 @@ export default function Einstellungen() {
         </div>
       )}
 
+      {/* Löschfrist abgeschlossener Themenakten (Lösch-Worker, lib/themenakte.ts) */}
+      {tab === "fristen" && meineRolle && ["ADMIN", "VORSITZ", "STELLVERTRETER"].includes(meineRolle) && (
+        <ThemenLoeschfristBox />
+      )}
+
       {/* Feiertage für die Fristberechnung (§ 193 BGB) – Systemeinstellung, kein Inhalt */}
       {tab === "fristen" && meineRolle && ["ADMIN", "VORSITZ", "STELLVERTRETER"].includes(meineRolle) && (
         <FeiertageBox />
@@ -2293,6 +2298,61 @@ function EingangMailsBox() {
       {fehler && (
         <div className="px-6 py-3 bg-red-50 border-t border-red-100 text-red-700 text-sm">{fehler}</div>
       )}
+    </div>
+  );
+}
+
+// ── Löschfrist der Themenakten ───────────────────────────────────────
+
+function ThemenLoeschfristBox() {
+  const [jahre, setJahre]   = useState<number | null>(null);
+  const [eingabe, setEingabe] = useState("");
+  const [gespeichert, setGespeichert] = useState(false);
+  const [fehler, setFehler] = useState("");
+
+  useEffect(() => {
+    api.themenakte.loeschfrist().then(r => { setJahre(r.jahre); setEingabe(String(r.jahre)); }).catch(e => setFehler(e instanceof Error ? e.message : "Fehler"));
+  }, []);
+
+  async function speichern() {
+    setFehler("");
+    try {
+      const r = await api.themenakte.loeschfristSpeichern(Number(eingabe));
+      setJahre(r.jahre);
+      setGespeichert(true);
+    } catch (e) {
+      setFehler(e instanceof Error ? e.message : "Fehler");
+    }
+  }
+
+  const gueltig = /^\d+$/.test(eingabe) && Number(eingabe) <= 30;
+  return (
+    <div className="mt-6 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-100">
+        <h2 className="font-semibold text-gray-800">Themenakten</h2>
+        <p className="text-sm text-gray-500 mt-0.5">
+          Abgeschlossene Themen werden samt Beiträgen gelöscht, wenn sie so viele Jahre abgeschlossen sind.
+          Verknüpfte Dokumente, TOPs und Aufgaben bleiben – für sie gelten ihre eigenen Fristen. 0 = nie automatisch.
+        </p>
+      </div>
+      <div className="px-6 py-3 flex flex-wrap items-center gap-2">
+        <input
+          type="number" min={0} max={30} value={eingabe}
+          onChange={e => { setEingabe(e.target.value); setGespeichert(false); }}
+          className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          aria-label="Jahre nach Abschluss"
+        />
+        <span className="text-sm text-gray-600">Jahre nach „abgeschlossen“</span>
+        <button
+          onClick={speichern}
+          disabled={jahre === null || !gueltig || Number(eingabe) === jahre}
+          className="flex items-center gap-1.5 bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+        >
+          <Save size={14} /> Speichern
+        </button>
+        {gespeichert && <span className="text-xs text-green-700">✓ Gespeichert</span>}
+      </div>
+      {fehler && <div className="px-6 py-3 bg-red-50 border-t border-red-100 text-red-700 text-sm">{fehler}</div>}
     </div>
   );
 }

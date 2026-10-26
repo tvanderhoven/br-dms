@@ -47,7 +47,30 @@ enum Geschlecht {
   WEIBLICH
 }
 
-// Für Themen-Backlog (Kanban-Board in der Aufgaben-Ansicht). Optional/nullable,
+// Themenakte (lib/themenakte.ts): roter Faden über Wochen und Monate
+enum ThemaStatus {
+  OFFEN
+  IN_VERHANDLUNG
+  RUHT
+  ABGESCHLOSSEN
+}
+
+// Gleiche drei Stufen wie bei Dokumenten (lib/vertraulich.ts)
+enum ThemaVertraulichkeit {
+  ALLE          // alle mit Inhaltszugriff, auch Ersatzmitglieder
+  BETRIEBSRAT   // ordentliche Mitglieder, nicht Ersatzmitglieder
+  VORSITZ       // nur Vorsitz und Stellvertretung
+}
+
+enum ThemaEintragArt {
+  NOTIZ
+  GESPRAECHSVERMERK
+  IDEE_FRAGE
+  RECHERCHE
+}
+
+// Früher Themen-Backlog (Kanban-Board in der Aufgaben-Ansicht), seit der Themenakte
+// nur noch für die Übernahme alter Einträge (lib/themenakte.ts, backlogUebernehmen). Optional/nullable,
 // da normale Aufgaben weiterhin nur über "erledigt" laufen und nicht am Board teilnehmen.
 enum KanbanStatus {
   BACKLOG
@@ -170,6 +193,7 @@ enum NachrichtTyp {
 // Benachrichtigungen (Roadmap Paket 2, lib/benachrichtigung.ts): jede entsteht als
 // interne Nachricht; bleibt sie ungelesen, geht nach 15 Minuten eine E-Mail raus
 enum BenachrichtigungArt {
+  THEMA_BEITRAG
   AUFGABE_ZUGEWIESEN
   AUFGABE_FAELLIG
   ERSATZ_GELADEN
@@ -228,6 +252,9 @@ enum AuditAktion {
   BV_ERSTELLT
   BV_AKTUALISIERT
   BV_GELOESCHT
+  THEMA_ERSTELLT
+  THEMA_GEAENDERT
+  THEMA_GELOESCHT
   EINSTELLUNG_GEAENDERT
   SITZUNG_SCAN_HOCHGELADEN
   SITZUNG_SCAN_GELOESCHT
@@ -327,6 +354,9 @@ model Benutzer {
   passwortResets        PasswortReset[]
   erstellteAufgaben     Aufgabe[]       @relation("AufgabeErstellt")
   zugewieseneAufgaben   Aufgabe[]       @relation("AufgabeZugewiesen")
+  themenErstellt        Thema[]            @relation("ThemaErstellt")
+  themenBeteiligt       ThemaBeteiligter[]
+  themaEintraege        ThemaEintrag[]     @relation("ThemaEintragAutor")
   wissenEintraege        WissensEintrag[] @relation("WissensErstelltVon")
   ressourcen             Ressource[]      @relation("RessourceErstellt")
   betriebsvereinbarungenErstellt Betriebsvereinbarung[] @relation("BVErstellt")
@@ -429,10 +459,82 @@ model Aufgabe {
   topId           String?      @map("top_id")
   top             TOP?         @relation(fields: [topId], references: [id], onDelete: SetNull)
 
+  themaId         String?      @map("thema_id")
+  thema           Thema?       @relation(fields: [themaId], references: [id], onDelete: SetNull)
+
   erstelltAm      DateTime     @default(now()) @map("erstellt_am")
   aktualisiertAm  DateTime     @updatedAt @map("aktualisiert_am")
 
   @@map("aufgaben")
+}
+
+// ================================================================
+//  THEMENAKTE (Roadmap: Themenakte mit Verlauf, lib/themenakte.ts)
+// ================================================================
+
+model Thema {
+  id               String               @id @default(uuid())
+  titel            String
+  beschreibung     String?              // kurz, worum es geht
+  status           ThemaStatus          @default(OFFEN)
+  vertraulichkeit  ThemaVertraulichkeit @default(ALLE)
+  // Projektteam: true = nur Beteiligte (und Vorsitz/Stellvertretung) schreiben
+  nurTeam          Boolean              @default(false) @map("nur_team")
+  naechsterSchritt String?              @map("naechster_schritt")
+  naechsterTermin  DateTime?            @map("naechster_termin")
+  // Löschfrist läuft ab hier (Einstellung themen.loeschfrist_jahre)
+  abgeschlossenAm  DateTime?            @map("abgeschlossen_am")
+
+  erstelltVonId    String               @map("erstellt_von_id")
+  erstelltVon      Benutzer             @relation("ThemaErstellt", fields: [erstelltVonId], references: [id])
+
+  beteiligte       ThemaBeteiligter[]
+  eintraege        ThemaEintrag[]
+  tops             TOP[]
+  dokumente        Dokument[]
+  aufgaben         Aufgabe[]
+  betriebsvereinbarungen Betriebsvereinbarung[]
+
+  erstelltAm       DateTime             @default(now()) @map("erstellt_am")
+  aktualisiertAm   DateTime             @updatedAt @map("aktualisiert_am")
+
+  @@index([status])
+  @@map("themen")
+}
+
+// Zuständige und Projektteam
+model ThemaBeteiligter {
+  themaId     String   @map("thema_id")
+  thema       Thema    @relation(fields: [themaId], references: [id], onDelete: Cascade)
+  benutzerId  String   @map("benutzer_id")
+  benutzer    Benutzer @relation(fields: [benutzerId], references: [id], onDelete: Cascade)
+  zustaendig  Boolean  @default(false)
+
+  @@id([themaId, benutzerId])
+  @@index([benutzerId])
+  @@map("thema_beteiligte")
+}
+
+// Beitrag in der Akte – nicht veränderbar (wie ein Protokoll), Korrektur nur als
+// neuer Beitrag mit Bezug. Anheften ist keine inhaltliche Änderung.
+model ThemaEintrag {
+  id          String          @id @default(uuid())
+  themaId     String          @map("thema_id")
+  thema       Thema           @relation(fields: [themaId], references: [id], onDelete: Cascade)
+  art         ThemaEintragArt @default(NOTIZ)
+  inhalt      String                         // Plaintext (Suche, PDF)
+  inhaltJson  Json?           @map("inhalt_json")
+  angeheftet  Boolean         @default(false)
+  bezugId     String?         @map("bezug_id")
+  bezug       ThemaEintrag?   @relation("EintragBezug", fields: [bezugId], references: [id], onDelete: SetNull)
+  bezogen     ThemaEintrag[]  @relation("EintragBezug")
+  autorId     String          @map("autor_id")
+  autor       Benutzer        @relation("ThemaEintragAutor", fields: [autorId], references: [id])
+  kommentare  Kommentar[]
+  erstelltAm  DateTime        @default(now()) @map("erstellt_am")
+
+  @@index([themaId, erstelltAm])
+  @@map("thema_eintraege")
 }
 
 // ================================================================
@@ -470,6 +572,9 @@ model Dokument {
   // Ablage im Ordnerbaum (zusätzlich zur Kategorie); null = ohne Ordner
   ordnerId       String?       @map("ordner_id")
   ordner         Ordner?       @relation(fields: [ordnerId], references: [id], onDelete: SetNull)
+
+  themaId        String?       @map("thema_id")
+  thema          Thema?        @relation(fields: [themaId], references: [id], onDelete: SetNull)
 
   // Nur bei E-Mails (.eml/.msg): Von, An, Cc, Datum, Betreff, Anhangliste (lib/email.ts)
   emailKopf      Json?         @map("email_kopf")
@@ -1008,6 +1113,9 @@ model TOP {
   beschluesse    Beschluss[]
   kommentare     Kommentar[]
   themen         Aufgabe[]       // Backlog-Themen, die in diesen TOP übernommen wurden
+  // Themenakte, zu der dieser TOP gehört ("Als TOP vormerken")
+  themaId        String?         @map("thema_id")
+  thema          Thema?          @relation(fields: [themaId], references: [id], onDelete: SetNull)
 
   erstelltAm     DateTime  @default(now()) @map("erstellt_am")
   aktualisiertAm DateTime  @updatedAt @map("aktualisiert_am")
@@ -1231,7 +1339,7 @@ model Kommentar {
   autorId    String    @map("autor_id")
   autor      Benutzer  @relation("KommentarAutor", fields: [autorId], references: [id], onDelete: Cascade)
 
-  // Genau eines der drei Felder ist gesetzt
+  // Genau eines der Felder sitzungId/topId/dokumentId/themaEintragId ist gesetzt
   sitzungId  String?   @map("sitzung_id")
   sitzung    Sitzung?  @relation(fields: [sitzungId], references: [id], onDelete: Cascade)
 
@@ -1241,12 +1349,16 @@ model Kommentar {
   dokumentId String?   @map("dokument_id")
   dokument   Dokument? @relation(fields: [dokumentId], references: [id], onDelete: Cascade)
 
+  themaEintragId String?       @map("thema_eintrag_id")
+  themaEintrag   ThemaEintrag? @relation(fields: [themaEintragId], references: [id], onDelete: Cascade)
+
   erstelltAm     DateTime @default(now()) @map("erstellt_am")
   aktualisiertAm DateTime @updatedAt @map("aktualisiert_am")
 
   @@index([sitzungId, erstelltAm])
   @@index([topId, erstelltAm])
   @@index([dokumentId, erstelltAm])
+  @@index([themaEintragId, erstelltAm])
   @@map("kommentare")
 }
 
@@ -1627,6 +1739,9 @@ model Betriebsvereinbarung {
 
   dokumentId      String?   @map("dokument_id")
   dokument        Dokument? @relation(fields: [dokumentId], references: [id], onDelete: SetNull)
+
+  themaId         String?   @map("thema_id")
+  thema           Thema?    @relation(fields: [themaId], references: [id], onDelete: SetNull)
 
   erstelltVonId   String    @map("erstellt_von_id")
   erstelltVon     Benutzer  @relation("BVErstellt", fields: [erstelltVonId], references: [id])

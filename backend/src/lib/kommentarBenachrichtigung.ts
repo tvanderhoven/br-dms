@@ -13,8 +13,9 @@ import { Role } from "@prisma/client";
 import prisma from "./prisma.js";
 import { darfDokumentSehen, topSichtbar } from "./vertraulich.js";
 import { benachrichtigen, dokumentLink, sitzungLink } from "./benachrichtigung.js";
+import { themaSichtbarFilter } from "./themenakte.js";
 
-export type KommentarZiel = { sitzungId: string } | { topId: string } | { dokumentId: string };
+export type KommentarZiel = { sitzungId: string } | { topId: string } | { dokumentId: string } | { themaEintragId: string };
 
 /** IDs aller erwähnten Personen im Tiptap-JSON */
 export function erwaehntePersonen(json: unknown): string[] {
@@ -34,7 +35,7 @@ interface ZielInfo {
   link:       string;
   sitzungId:  string | null;
   /** Darf diese Person das Objekt sehen? */
-  sichtbar:   (b: { id: string; rolle: Role }) => boolean;
+  sichtbar:   (b: { id: string; rolle: Role }) => boolean | Promise<boolean>;
 }
 
 async function zielLaden(ziel: KommentarZiel): Promise<ZielInfo | null> {
@@ -52,6 +53,15 @@ async function zielLaden(ziel: KommentarZiel): Promise<ZielInfo | null> {
     return {
       titel: `TOP ${t.nummer} „${t.titel}“`, link: sitzungLink(t.sitzungId), sitzungId: t.sitzungId,
       sichtbar: b => b.rolle !== Role.EXTERN && topSichtbar(t, b.rolle),
+    };
+  }
+  if ("themaEintragId" in ziel) {
+    const e = await prisma.themaEintrag.findUnique({ where: { id: ziel.themaEintragId }, select: { thema: { select: { id: true, titel: true } } } });
+    if (!e) return null;
+    return {
+      titel: `einem Beitrag zum Thema „${e.thema.titel}“`, link: `/themenakte/${e.thema.id}`, sitzungId: null,
+      sichtbar: async b => !([Role.JAV, Role.SBV, Role.EXTERN] as Role[]).includes(b.rolle)
+        && (await prisma.thema.count({ where: { id: e.thema.id, ...themaSichtbarFilter({ sub: b.id, rolle: b.rolle }) } })) > 0,
     };
   }
   const d = await prisma.dokument.findUnique({
@@ -89,7 +99,8 @@ export async function kommentarMelden(ziel: KommentarZiel, autorId: string, inha
       where:  { id: { in: [...erwaehnt, ...antwort] }, aktiv: true },
       select: { id: true, rolle: true },
     });
-    const sichtbar = new Set(personen.filter(info.sichtbar).map(p => p.id));
+    const sichtbar = new Set<string>();
+    for (const p of personen) if (await info.sichtbar(p)) sichtbar.add(p.id);
 
     await benachrichtigen({
       art: "ERWAEHNUNG", empfaengerIds: erwaehnt.filter(id => sichtbar.has(id)), ausloeserId: autorId,

@@ -16,6 +16,7 @@
  */
 
 import { PrismaClient, DokumentStatus, AuditAktion } from "@prisma/client";
+import { abgelaufeneThemenLoeschen } from "../lib/themenakte.js";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { secureDelete } from "../lib/encryption.js";
@@ -256,6 +257,12 @@ export function startDeletionWorker(sofortAusfuehren = false): void {
       await worker.run().catch((err) =>
         console.error("[DeletionWorker] Unbehandelter Fehler:", err)
       );
+      // Abgeschlossene Themenakten nach Ablauf der Löschfrist (lib/themenakte.ts)
+      const themen = await abgelaufeneThemenLoeschen().catch((err) => {
+        console.error("[DeletionWorker] Themenakten:", err);
+        return 0;
+      });
+      if (themen) console.log(`[DeletionWorker] ${themen} abgeschlossene Themenakte(n) nach Ablauf der Löschfrist gelöscht`);
     },
     { timezone: "Europe/Berlin" }
   );

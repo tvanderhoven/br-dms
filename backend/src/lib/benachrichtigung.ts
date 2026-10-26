@@ -32,12 +32,15 @@ export const BENACHRICHTIGUNG_LABEL: Record<BenachrichtigungArt, string> = {
   ERWAEHNUNG:             "Erwähnung in einem Kommentar",
   KOMMENTAR_ANTWORT:      "Neuer Kommentar, wo du mitdiskutierst",
   KUMMERKASTEN:           "Neuer Kummerkasten-Eintrag",
+  THEMA_BEITRAG:          "Neuer Beitrag in einem meiner Themen",
 };
 
 /** Welche Arten eine Rolle überhaupt bekommen kann (für "Mein Konto" und als Schutz beim Anlegen) */
 export function artenFuerRolle(rolle: Role): BenachrichtigungArt[] {
   const alle = Object.keys(BENACHRICHTIGUNG_LABEL) as BenachrichtigungArt[];
   if (rolle === Role.EXTERN) return [BenachrichtigungArt.PROTOKOLLFUEHRUNG];
+  // Themenakte erreichen JAV und SBV (noch) nicht
+  if (rolle === Role.JAV || rolle === Role.SBV) alle.splice(alle.indexOf(BenachrichtigungArt.THEMA_BEITRAG), 1);
   return alle.filter(a => a !== BenachrichtigungArt.KUMMERKASTEN || rolle === Role.VORSITZ || rolle === Role.STELLVERTRETER);
 }
 
