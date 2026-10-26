@@ -10,6 +10,9 @@
  * POST   /api/konto/zwei-faktor/bestaetigen – ersten Code prüfen, liefert Wiederherstellungscodes
  * POST   /api/konto/zwei-faktor/neue-codes  – neue Wiederherstellungscodes (Code aus der App)
  * DELETE /api/konto/zwei-faktor             – abschalten (Passwort; nicht bei Pflicht)
+ * GET    /api/konto/benachrichtigungen      – Stufe je Ereignis (aus / nur im System / mit E-Mail)
+ * PUT    /api/konto/benachrichtigungen      – Stufen speichern
+ * POST   /api/konto/aktiv                   – "zuletzt aktiv" für den Mail-Rückfall (nur intern)
  *
  * Alle Routen arbeiten nur am eigenen Konto (request.benutzer.sub) und sind für jede
  * Rolle offen – auch JAV/SBV und den Admin ohne Inhaltszugriff (middleware/auth.ts).
@@ -23,6 +26,7 @@ import { verifyPassword } from "../lib/password.js";
 import { istEmailAdresse } from "../lib/emailAdresse.js";
 import { sendeEmailGeaendertHinweis } from "../lib/mailer.js";
 import { anmeldeTokenErneuern } from "../lib/anmeldeToken.js";
+import { aktivMelden, artenFuerRolle, BENACHRICHTIGUNG_LABEL, stufeLesen } from "../lib/benachrichtigung.js";
 import {
   anmeldeCodePruefen, einrichtungAbschliessen, einrichtungStarten, istPflicht,
   neueWiederherstellungscodes, ZWEI_FAKTOR_LEEREN, zweiFaktorRichtlinie,
@@ -75,6 +79,49 @@ export async function kontoRouten(app: FastifyInstance): Promise<void> {
         restCodes: zweiFaktorWiederherstellung.length,
       },
     });
+  });
+
+  // ── Benachrichtigungen (lib/benachrichtigung.ts) ───────────────
+  app.get("/benachrichtigungen", login, async (request, reply) => {
+    const b = await prisma.benutzer.findUnique({
+      where:  { id: request.benutzer.sub },
+      select: { rolle: true, benachrichtigungen: true },
+    });
+    if (!b) return reply.status(404).send({ fehler: "Benutzer nicht gefunden" });
+    return reply.send({
+      mailVerfuegbar: !!process.env.SMTP_HOST,
+      arten: artenFuerRolle(b.rolle).map(art => ({
+        art, label: BENACHRICHTIGUNG_LABEL[art], stufe: stufeLesen(b.benachrichtigungen, art),
+      })),
+    });
+  });
+
+  app.put<{ Body: { stufen: Record<string, string> } }>(
+    "/benachrichtigungen",
+    {
+      ...login,
+      schema: {
+        body: {
+          type: "object", required: ["stufen"],
+          properties: {
+            stufen: { type: "object", additionalProperties: { type: "string", enum: ["AUS", "SYSTEM", "EMAIL"] } },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const b = await prisma.benutzer.findUnique({ where: { id: request.benutzer.sub }, select: { rolle: true } });
+      if (!b) return reply.status(404).send({ fehler: "Benutzer nicht gefunden" });
+      const erlaubt = artenFuerRolle(b.rolle) as string[];
+      const stufen = Object.fromEntries(Object.entries(request.body.stufen).filter(([art]) => erlaubt.includes(art)));
+      await prisma.benutzer.update({ where: { id: request.benutzer.sub }, data: { benachrichtigungen: stufen } });
+      return reply.send({ ok: true });
+    }
+  );
+
+  app.post("/aktiv", login, async (request, reply) => {
+    await aktivMelden(request.benutzer.sub);
+    return reply.status(204).send();
   });
 
   // ── PATCH /einladung-email ─────────────────────────────────────

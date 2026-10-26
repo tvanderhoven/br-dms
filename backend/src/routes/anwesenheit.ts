@@ -7,12 +7,13 @@
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { AnwesenheitsStatus, Role } from "@prisma/client";
+import { AnwesenheitsStatus, Role, SitzungStatus } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { ermittleErsatzVorschlag } from "../lib/ersatzVorschlag.js";
 import { vergleicheNachMitgliederSortierung } from "../lib/mitgliederSortierung.js";
+import { benachrichtigen, sitzungLink } from "../lib/benachrichtigung.js";
 
 const ANWESENHEIT_SELECT = {
   id: true,
@@ -98,7 +99,7 @@ export async function anwesenheitRouten(app: FastifyInstance): Promise<void> {
 
       const sitzung = await prisma.sitzung.findUnique({
         where: { id },
-        select: { id: true },
+        select: { id: true, titel: true, sitzungsdatum: true, status: true },
       });
 
       if (!sitzung) {
@@ -108,6 +109,10 @@ export async function anwesenheitRouten(app: FastifyInstance): Promise<void> {
       const benutzer = await prisma.benutzer.findUnique({
         where: { id: benutzerId },
         select: { id: true, aktiv: true, rolle: true },
+      });
+      const vorher = await prisma.anwesenheit.findUnique({
+        where:  { sitzungId_benutzerId: { sitzungId: id, benutzerId } },
+        select: { status: true, vertretungFuerId: true },
       });
 
       // Admin und externe Protokollführung gehören nicht zum Gremium – keine Ladung, keine Anwesenheit
@@ -139,6 +144,21 @@ export async function anwesenheitRouten(app: FastifyInstance): Promise<void> {
         },
         select: ANWESENHEIT_SELECT,
       });
+
+      // Ladung als Ersatzmitglied – nur vor der Sitzung; wer in der Sitzung nachträglich
+      // als Ersatz eingetragen wird, sitzt schon im Raum
+      const neuGeladen = status === AnwesenheitsStatus.ERSATZ_FUER
+        && (vorher?.status !== AnwesenheitsStatus.ERSATZ_FUER || vorher.vertretungFuerId !== vertretungFuerId);
+      const vorDerSitzung = sitzung.status === SitzungStatus.ENTWURF || sitzung.status === SitzungStatus.TAGESORDNUNG_FIXIERT;
+      if (neuGeladen && vorDerSitzung) {
+        const datum = sitzung.sitzungsdatum.toLocaleDateString("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric" });
+        await benachrichtigen({
+          art: "ERSATZ_GELADEN", empfaengerIds: [benutzerId], ausloeserId: request.benutzer.sub,
+          sitzungId: id, link: sitzungLink(id),
+          betreff: `Ladung als Ersatzmitglied: ${sitzung.titel}`,
+          inhalt:  `Du bist als Ersatzmitglied zur Sitzung „${sitzung.titel}“ am ${datum} geladen.`,
+        });
+      }
 
       return reply.status(201).send(anwesenheit);
     }

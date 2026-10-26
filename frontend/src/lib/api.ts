@@ -187,6 +187,11 @@ export const api = {
       request<{ wiederherstellungscodes: string[] }>("/api/konto/zwei-faktor/neue-codes", { method: "POST", body: JSON.stringify({ code }) }),
     zweiFaktorAbschalten: (passwort: string) =>
       request<{ ok: boolean }>("/api/konto/zwei-faktor", { method: "DELETE", body: JSON.stringify({ passwort }) }),
+    benachrichtigungen: () => request<BenachrichtigungEinstellungen>("/api/konto/benachrichtigungen"),
+    benachrichtigungenSpeichern: (stufen: Partial<Record<BenachrichtigungArt, BenachrichtigungStufe>>) =>
+      request<{ ok: boolean }>("/api/konto/benachrichtigungen", { method: "PUT", body: JSON.stringify({ stufen }) }),
+    /** "Zuletzt aktiv" – nur intern für den Mail-Rückfall, für niemanden sichtbar */
+    aktiv: () => request<void>("/api/konto/aktiv", { method: "POST" }),
   },
 
   dokumente: {
@@ -1579,9 +1584,22 @@ export interface Nachricht {
   absender?: { id: string; name: string; email: string };
   sitzung?: { id: string; titel: string; sitzungsdatum: string };
   pdfDateiname?: string;
+  /** Benachrichtigung (Backend: lib/benachrichtigung.ts) – Art und Ziel in der App */
+  art?: BenachrichtigungArt | null;
+  link?: string | null;
   gelesen: boolean;
   gelesenAm?: string;
   erstelltAm: string;
+}
+
+export type BenachrichtigungArt =
+  | "AUFGABE_ZUGEWIESEN" | "AUFGABE_FAELLIG" | "ERSATZ_GELADEN" | "PROTOKOLL_UNTERSCHRIFT"
+  | "PROTOKOLLFUEHRUNG" | "ERWAEHNUNG" | "KOMMENTAR_ANTWORT" | "KUMMERKASTEN";
+export type BenachrichtigungStufe = "AUS" | "SYSTEM" | "EMAIL";
+
+export interface BenachrichtigungEinstellungen {
+  mailVerfuegbar: boolean;
+  arten: { art: BenachrichtigungArt; label: string; stufe: BenachrichtigungStufe }[];
 }
 
 export interface NachrichtGesendet extends Nachricht {

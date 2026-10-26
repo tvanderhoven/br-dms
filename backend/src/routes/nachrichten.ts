@@ -25,6 +25,8 @@ const NACHRICHT_SELECT = {
     select: { id: true, titel: true, sitzungsdatum: true },
   },
   pdfDateiname: true,
+  art: true,
+  link: true,
   gelesen: true,
   gelesenAm: true,
   erstelltAm: true,

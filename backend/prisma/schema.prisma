@@ -167,6 +167,19 @@ enum NachrichtTyp {
   SYSTEM
 }
 
+// Benachrichtigungen (Roadmap Paket 2, lib/benachrichtigung.ts): jede entsteht als
+// interne Nachricht; bleibt sie ungelesen, geht nach 15 Minuten eine E-Mail raus
+enum BenachrichtigungArt {
+  AUFGABE_ZUGEWIESEN
+  AUFGABE_FAELLIG
+  ERSATZ_GELADEN
+  PROTOKOLL_UNTERSCHRIFT
+  PROTOKOLLFUEHRUNG
+  ERWAEHNUNG
+  KOMMENTAR_ANTWORT
+  KUMMERKASTEN
+}
+
 enum AuditAktion {
   LOGIN
   LOGOUT
@@ -292,6 +305,11 @@ model Benutzer {
   wahlReihenfolge Int?        @map("wahl_reihenfolge")
 
   letzterLogin    DateTime? @map("letzter_login")
+  // Nur intern für den Mail-Rückfall der Benachrichtigungen, nie für andere sichtbar
+  // (kein Online-Status, vgl. § 87 Abs. 1 Nr. 6) – siehe lib/benachrichtigung.ts
+  zuletztAktiv    DateTime? @map("zuletzt_aktiv")
+  // Je BenachrichtigungArt "AUS" | "SYSTEM" | "EMAIL"; fehlt eine Art, gilt "EMAIL"
+  benachrichtigungen Json?  @map("benachrichtigungen")
   erstelltAm      DateTime  @default(now()) @map("erstellt_am")
   aktualisiertAm  DateTime  @updatedAt @map("aktualisiert_am")
 
@@ -1186,10 +1204,18 @@ model Nachricht {
   gelesen      Boolean      @default(false)
   gelesenAm    DateTime?    @map("gelesen_am")
 
+  // Benachrichtigung (lib/benachrichtigung.ts): Art, Ziel in der App und ab wann
+  // die Rückfall-Mail fällig ist (null = keine Mail vorgesehen)
+  art            BenachrichtigungArt?
+  link           String?
+  mailFaelligAb  DateTime?    @map("mail_faellig_ab")
+  mailGesendetAm DateTime?    @map("mail_gesendet_am")
+
   erstelltAm   DateTime     @default(now()) @map("erstellt_am")
 
   @@index([empfaengerId, gelesen, erstelltAm])
   @@index([sitzungId])
+  @@index([mailFaelligAb])
   @@map("nachrichten")
 }
 

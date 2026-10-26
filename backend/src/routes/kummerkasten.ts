@@ -8,9 +8,10 @@
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { KummerkastenStatus } from "@prisma/client";
+import { KummerkastenStatus, Role } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
+import { benachrichtigen } from "../lib/benachrichtigung.js";
 
 const EINTRAG_SELECT = {
   id:              true,
@@ -72,6 +73,16 @@ export async function kummerkastenRouten(app: FastifyInstance): Promise<void> {
           nachricht:    nachricht.trim(),
           absenderName: absenderName?.trim() || null,
         },
+      });
+
+      // Ohne Text des Anliegens – der steht nur in der Kummerkasten-Verwaltung
+      const vorsitz = await prisma.benutzer.findMany({
+        where: { aktiv: true, rolle: { in: [Role.VORSITZ, Role.STELLVERTRETER] } }, select: { id: true },
+      });
+      await benachrichtigen({
+        art: "KUMMERKASTEN", empfaengerIds: vorsitz.map(v => v.id), link: "/kummerkasten-verwaltung",
+        betreff: "Neuer Eintrag im Kummerkasten",
+        inhalt:  "Im Kummerkasten ist ein neues Anliegen eingegangen.",
       });
 
       return reply.status(201).send({ ok: true });

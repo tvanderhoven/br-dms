@@ -1,6 +1,7 @@
 import { useEffect, useState, FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  Mail, Send, Trash2, Loader2, PenSquare, X, Users, User, ChevronDown, ChevronUp,
+  Mail, Send, Trash2, Loader2, PenSquare, X, Users, User, ChevronDown, ChevronUp, ArrowRight,
 } from "lucide-react";
 import { api, Nachricht, NachrichtGesendet, Benutzer, formatDatum } from "../lib/api";
 
@@ -19,6 +20,7 @@ const TYP_LABEL: Record<string, string> = {
 };
 
 export default function Posteingang() {
+  const navigate = useNavigate();
   const [ansicht, setAnsicht]           = useState<Ansicht>("eingang");
   const [nachrichten, setNachrichten]   = useState<Nachricht[]>([]);
   const [gesendet, setGesendet]         = useState<NachrichtGesendet[]>([]);
@@ -142,7 +144,7 @@ export default function Posteingang() {
                       {!istGelesen && <span className="w-2 h-2 rounded-full bg-[rgb(var(--accent))] shrink-0" />}
                       {TYP_LABEL[n.typ] && (
                         <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${TYP_BADGE[n.typ]}`}>
-                          {TYP_LABEL[n.typ]}
+                          {n.art ? "Benachrichtigung" : TYP_LABEL[n.typ]}
                         </span>
                       )}
                       <span className="text-xs text-gray-400">
@@ -205,6 +207,15 @@ export default function Posteingang() {
                     <div className="bg-white rounded-xl border border-gray-200 p-4">
                       <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{n.inhalt}</p>
                     </div>
+
+                    {n.link && (
+                      <button
+                        onClick={() => navigate(n.link!)}
+                        className="mt-3 flex items-center gap-1.5 bg-[rgb(var(--accent))] hover:brightness-90 text-white text-sm font-medium px-3 py-1.5 rounded-lg"
+                      >
+                        Öffnen <ArrowRight size={14} />
+                      </button>
+                    )}
 
                     {"gelesen" in n && n.gelesenAm && (
                       <p className="text-xs text-gray-400 mt-2">

@@ -16,6 +16,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import prisma from "../lib/prisma.js";
 import { dokumentZugriffPruefen } from "../lib/vertraulich.js";
 import { authenticate } from "../middleware/auth.js";
+import { kommentarMelden } from "../lib/kommentarBenachrichtigung.js";
 
 const KOMMENTAR_SELECT = {
   id: true,
@@ -77,6 +78,7 @@ export async function kommentarRouten(app: FastifyInstance): Promise<void> {
         },
         select: KOMMENTAR_SELECT,
       });
+      await kommentarMelden({ sitzungId: id }, request.benutzer.sub, inhaltJson);
 
       return reply.status(201).send(kommentar);
     }
@@ -158,6 +160,7 @@ export async function kommentarRouten(app: FastifyInstance): Promise<void> {
         },
         select: KOMMENTAR_SELECT,
       });
+      await kommentarMelden({ topId }, request.benutzer.sub, inhaltJson);
 
       return reply.status(201).send(kommentar);
     }
@@ -240,6 +243,7 @@ export async function kommentarRouten(app: FastifyInstance): Promise<void> {
         },
         select: KOMMENTAR_SELECT,
       });
+      await kommentarMelden({ dokumentId }, request.benutzer.sub, inhaltJson);
 
       return reply.status(201).send(kommentar);
     }

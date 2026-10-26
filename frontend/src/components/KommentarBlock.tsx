@@ -1,9 +1,19 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Loader2, Send, Trash2, CheckSquare } from "lucide-react";
-import { api, Kommentar } from "../lib/api";
+import { api, Benutzer, Kommentar } from "../lib/api";
 import SitzungsEditor from "./SitzungsEditor";
 import { tiptapZuText, tiptapZuHtml } from "../lib/tiptap";
 import AufgabeUebernehmenModal from "./AufgabeUebernehmenModal";
+
+// Wer per @ erwähnt werden kann – einmal je Seitenaufruf geladen, nicht je Kommentarblock.
+// Ob die Person das Kommentierte sehen darf, prüft das Backend vor der Benachrichtigung.
+let personenAnfrage: Promise<{ id: string; name: string }[]> | null = null;
+function erwaehnbarePersonen() {
+  personenAnfrage ??= api.get<Benutzer[]>("/api/benutzer")
+    .then(b => b.filter(u => u.aktiv && u.rolle !== "ADMIN" && u.rolle !== "EXTERN").map(u => ({ id: u.id, name: u.name })))
+    .catch(() => { personenAnfrage = null; return []; });
+  return personenAnfrage;
+}
 
 export default function KommentarBlock({
   ladeUrl,
@@ -23,6 +33,9 @@ export default function KommentarBlock({
   const [laden, setLaden]               = useState(true);
   const [senden, setSenden]             = useState(false);
   const [aufgabeOffen, setAufgabeOffen] = useState<string | null>(null);
+  const [personen, setPersonen]         = useState<{ id: string; name: string }[]>();
+
+  useEffect(() => { erwaehnbarePersonen().then(p => p.length && setPersonen(p)); }, []);
 
   useEffect(() => {
     let aktiv = true;
@@ -73,6 +86,7 @@ export default function KommentarBlock({
           onChange={setInhaltJson}
           placeholder="Kommentar hinzufügen…"
           minHeight={compact ? "60px" : "80px"}
+          personen={personen}
         />
         <div className="flex justify-end">
           <button

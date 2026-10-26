@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { DokumentReferenzExtension, DokumentReferenzAttrs } from "../lib/DokumentReferenzExtension";
 import { TOPMention } from "../lib/TOPMentionExtension";
+import { PersonErwaehnungExtension } from "../lib/PersonErwaehnungExtension";
 import { api, Dokument, KATEGORIE_LABEL, TOP } from "../lib/api";
 import { dokumentInNeuemTabOeffnen } from "../lib/dokumentOeffnen";
 
@@ -32,12 +33,15 @@ interface Props {
   readonly?:  boolean;
   placeholder?: string;
   minHeight?: string;
+  /** Personen, die per @ erwähnt werden können (Kommentare) – ohne Angabe kein Knopf */
+  personen?: { id: string; name: string }[];
 }
 
 export default function SitzungsEditor({
-  content, onChange, readonly = false, placeholder = "Inhalt eingeben…", minHeight = "120px",
+  content, onChange, readonly = false, placeholder = "Inhalt eingeben…", minHeight = "120px", personen,
 }: Props) {
   const [dokPickerOffen, setDokPickerOffen] = useState(false);
+  const [personSuche, setPersonSuche]       = useState<string | null>(null);
   const [linkDialogOffen, setLinkDialogOffen] = useState(false);
   const [linkEingabe, setLinkEingabe]         = useState("");
 
@@ -67,6 +71,7 @@ export default function SitzungsEditor({
         },
       }),
       DokumentReferenzExtension,
+      PersonErwaehnungExtension,
     ],
     content:  content ?? "",
     editable: !readonly,
@@ -113,6 +118,12 @@ export default function SitzungsEditor({
     dom.addEventListener("click", handleClick, { capture: true });
     return () => dom.removeEventListener("click", handleClick, { capture: true });
   }, [editor]);
+
+  function personEinfuegen(p: { id: string; name: string }) {
+    // Erst die Suchleiste schließen, dann einfügen – sonst nimmt das Ausblenden dem Editor den Fokus
+    setPersonSuche(null);
+    setTimeout(() => editor?.chain().focus().insertPersonErwaehnung({ benutzerId: p.id, name: p.name }).run(), 0);
+  }
 
   function dokEinfuegen(attrs: DokumentReferenzAttrs) {
     editor?.chain().focus().insertDokumentReferenz(attrs).run();
@@ -232,6 +243,59 @@ export default function SitzungsEditor({
             <Link2 size={14} />
             <span className="text-xs ml-1 hidden sm:inline">Dokument</span>
           </ToolbarButton>
+
+          {personen && (
+            <ToolbarButton
+              onClick={() => setPersonSuche(personSuche === null ? "" : null)}
+              aktiv={personSuche !== null}
+              title="Person erwähnen – sie wird benachrichtigt"
+            >
+              <AtSign size={14} />
+              <span className="text-xs ml-1 hidden sm:inline">Person</span>
+            </ToolbarButton>
+          )}
+        </div>
+      )}
+
+      {/* Person erwähnen */}
+      {!readonly && personen && personSuche !== null && (
+        <div className="border-b border-accent/25 bg-accent/5">
+          <div className="flex items-center gap-2 px-3 py-1.5">
+            <AtSign size={13} className="text-accent/80 shrink-0" />
+            <input
+              autoFocus
+              value={personSuche}
+              onChange={e => setPersonSuche(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Escape") setPersonSuche(null);
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  const erste = personenGefiltert(personen, personSuche)[0];
+                  if (erste) personEinfuegen(erste);
+                }
+              }}
+              placeholder="Name suchen…"
+              className="flex-1 text-xs bg-transparent outline-hidden text-gray-700 placeholder-gray-400"
+            />
+            <button type="button" onClick={() => setPersonSuche(null)} className="text-gray-400 hover:text-gray-600">
+              <X size={13} />
+            </button>
+          </div>
+          <div className="max-h-40 overflow-y-auto">
+            {personenGefiltert(personen, personSuche).map(p => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => personEinfuegen(p)}
+                className="w-full text-left px-3 py-1 text-xs text-gray-700 hover:bg-accent/10"
+              >
+                {p.name}
+              </button>
+            ))}
+            {personenGefiltert(personen, personSuche).length === 0 && (
+              <p className="px-3 py-1 text-xs text-gray-400">Niemand gefunden</p>
+            )}
+          </div>
         </div>
       )}
 
@@ -287,6 +351,11 @@ export default function SitzungsEditor({
       )}
     </div>
   );
+}
+
+function personenGefiltert(personen: { id: string; name: string }[], suche: string) {
+  const s = suche.trim().toLowerCase();
+  return (s ? personen.filter(p => p.name.toLowerCase().includes(s)) : personen).slice(0, 8);
 }
 
 // ── Toolbar-Button ────────────────────────────────────────────────

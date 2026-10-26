@@ -34,6 +34,20 @@ import { SITZUNGSTYPEN, istBetriebsversammlung } from "../lib/sitzungstypen.js";
 import { siehtKeineVertraulichenTops, topSichtbar, topSichtbarFilter, topZugriffPruefen } from "../lib/vertraulich.js";
 import { darfProtokollieren } from "../lib/protokollfuehrung.js";
 import { sitzungAnlegen } from "../lib/sitzungAnlegen.js";
+import { benachrichtigen, sitzungLink } from "../lib/benachrichtigung.js";
+
+const datumText = (d: Date) => d.toLocaleDateString("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric" });
+
+/** Benachrichtigung „Als Protokollführung eingetragen“ (lib/benachrichtigung.ts) */
+async function protokollfuehrungMelden(sitzungId: string, ausloeserId: string): Promise<void> {
+  const s = await prisma.sitzung.findUnique({ where: { id: sitzungId }, select: { titel: true, sitzungsdatum: true, protokollfuehrerId: true } });
+  if (!s?.protokollfuehrerId) return;
+  await benachrichtigen({
+    art: "PROTOKOLLFUEHRUNG", empfaengerIds: [s.protokollfuehrerId], ausloeserId, sitzungId, link: sitzungLink(sitzungId),
+    betreff: `Protokollführung: ${s.titel}`,
+    inhalt:  `Du bist als Protokollführung für die Sitzung „${s.titel}“ am ${datumText(s.sitzungsdatum)} eingetragen.`,
+  });
+}
 import { betriebsversammlungFristAbgleichen } from "../lib/betriebsversammlungFrist.js";
 
 /** Quartals-Frist § 43 nachziehen – Fehler dürfen die eigentliche Aktion nicht scheitern lassen. */
@@ -232,6 +246,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
 
       await audit(sitzung.id, request.benutzer.sub, AuditAktion.SITZUNG_ERSTELLT, request, { titel, vorlageId, sitzungstyp });
       quartalsFristAbgleichen(sitzungstyp);
+      await protokollfuehrungMelden(sitzung.id, request.benutzer.sub);
       const sitzungMitTops = await prisma.sitzung.findUnique({ where: { id: sitzung.id }, select: SITZUNG_SELECT });
       return reply.status(201).send(sitzungMitTops);
     }
@@ -273,7 +288,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
-      const sitzung = await prisma.sitzung.findUnique({ where: { id }, select: { status: true, sitzungstyp: true } });
+      const sitzung = await prisma.sitzung.findUnique({ where: { id }, select: { status: true, sitzungstyp: true, protokollfuehrerId: true } });
       if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
 
       if (sitzung.status === SitzungStatus.PROTOKOLL_FINAL || sitzung.status === SitzungStatus.ABGESCHLOSSEN || sitzung.status === SitzungStatus.ABGESAGT) {
@@ -328,6 +343,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
 
       await audit(id, request.benutzer.sub, AuditAktion.SITZUNG_AKTUALISIERT, request);
       if (sitzungsdatum !== undefined) quartalsFristAbgleichen(aktualisiert.sitzungstyp);
+      if (protokollfuehrerId && protokollfuehrerId !== sitzung.protokollfuehrerId) await protokollfuehrungMelden(id, request.benutzer.sub);
       return reply.send(aktualisiert);
     }
   );
@@ -505,7 +521,10 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
-      const sitzung = await prisma.sitzung.findUnique({ where: { id }, select: { status: true } });
+      const sitzung = await prisma.sitzung.findUnique({
+        where:  { id },
+        select: { status: true, titel: true, sitzungstyp: true, protokollfuehrer: { select: { id: true, rolle: true } } },
+      });
       if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
 
       if (sitzung.status !== SitzungStatus.PROTOKOLL_ENTWURF) {
@@ -543,6 +562,21 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
       if (v21) {
         pdfAutomatischGenerieren(id, v21.id, "2.1", "PROTOKOLL_FINAL", v21.erstelltAm, jetzt)
           .catch(() => {});
+      }
+
+      // Zur Unterschrift (§ 34 Abs. 1): Vorsitz bzw. Stellvertretung und die Protokollführung als
+      // weiteres Mitglied – Externe unterschreiben nie (Paket 4), Betriebsversammlung ohne § 34
+      if (!istBetriebsversammlung(sitzung.sitzungstyp)) {
+        const vorsitz = await prisma.benutzer.findMany({
+          where: { aktiv: true, rolle: { in: [Role.VORSITZ, Role.STELLVERTRETER] } }, select: { id: true },
+        });
+        const pf = sitzung.protokollfuehrer;
+        await benachrichtigen({
+          art: "PROTOKOLL_UNTERSCHRIFT", sitzungId: id, link: sitzungLink(id), ausloeserId: request.benutzer.sub,
+          empfaengerIds: [...vorsitz.map(v => v.id), ...(pf && pf.rolle !== Role.EXTERN ? [pf.id] : [])],
+          betreff: `Protokoll zur Unterschrift: ${sitzung.titel}`,
+          inhalt:  `Das Protokoll der Sitzung „${sitzung.titel}“ ist finalisiert und kann unterschrieben werden (§ 34 Abs. 1).`,
+        });
       }
 
       return reply.send(aktualisiert);

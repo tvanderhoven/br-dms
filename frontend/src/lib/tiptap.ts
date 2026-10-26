@@ -4,7 +4,8 @@
 // Extrahiert Plaintext aus TipTap-JSON (für Fallback-Anzeige, Suche und PDF)
 export function tiptapZuText(json: object | null | undefined): string {
   if (!json) return "";
-  const node = json as { text?: string; content?: object[] };
+  const node = json as { type?: string; text?: string; content?: object[]; attrs?: { name?: unknown } };
+  if (node.type === "personErwaehnung") return `@${String(node.attrs?.name ?? "")}`;
   if (node.text) return node.text;
   if (!node.content) return "";
   return node.content.map(tiptapZuText).join(" ").replace(/\s+/g, " ").trim();
@@ -31,6 +32,10 @@ export function tiptapZuHtml(json: object | null | undefined): string {
       return t;
     }
     if (node.type === "hardBreak") return "<br>";
+    if (node.type === "personErwaehnung") {
+      const name = String(node.attrs?.name ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      return `<span class="text-[rgb(var(--accent))] font-medium">@${name}</span>`;
+    }
     const ch = (node.content ?? []).map(r).join("");
     switch (node.type) {
       case "paragraph":   return `<p>${ch}</p>`;

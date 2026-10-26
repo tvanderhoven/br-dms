@@ -689,15 +689,16 @@ export function handleDemoRequest(method: string, pathname: string, searchParams
 
   if (resource === "abwesenheiten") return abwesenheitAnfrage(method, id, searchParams, body);
 
+  // Kommentare an TOPs und Sitzungen: in der Demo leer, Neues wird nur angezeigt, nicht gespeichert
+  if ((resource === "tops" || resource === "sitzungen") && sub === "kommentare") {
+    if (method === "POST") return json({ id: zufallsId("demo-k"), inhalt: body.inhalt ?? "", inhaltJson: body.inhaltJson, erstelltAm: jetzt(), aktualisiertAm: jetzt(), autor: { id: F.DEMO_ME.id, name: F.DEMO_ME.name, email: F.DEMO_ME.email } });
+    return json([]);
+  }
+
   // ── Sitzungen samt TOPs, Beschlüssen, Anwesenheit und Einladung ───────
   if (resource === "sitzungen") {
     const antwort = sitzungAnfrage(method, id, sub, subId, rest, body);
     if (antwort) return antwort;
-  }
-  // Kommentare an TOPs: in der Demo leer, Neues wird nur angezeigt, nicht gespeichert
-  if (resource === "tops" && sub === "kommentare") {
-    if (method === "POST") return json({ id: zufallsId("demo-k"), inhalt: body.inhalt ?? "", inhaltJson: body.inhaltJson, erstelltAm: jetzt(), aktualisiertAm: jetzt(), autor: { id: F.DEMO_ME.id, name: F.DEMO_ME.name, email: F.DEMO_ME.email } });
-    return json([]);
   }
 
   // ── Nachrichten: „gesendet“ ist keine ID, „gelesen“ muss wirklich gespeichert werden ──

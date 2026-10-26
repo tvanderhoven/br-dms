@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Plus, Trash2, Calendar, User, Flag, X, CheckSquare, Pencil, Folder,
@@ -886,6 +886,18 @@ export default function Aufgaben() {
     const imVorhaben = vorhabenFilter && vorhabenFilter !== OHNE_VORHABEN ? { oberProjektId: vorhabenFilter } : {};
     setModal({ bearbeiten: aufgabe ?? null, vorgabe: { ...imVorhaben, ...vorgabe } });
   }
+
+  // Direktlink aus einer Benachrichtigung (/aufgaben?aufgabe=…) – öffnet die Aufgabe einmal
+  const direktGeoeffnet = useRef<string | null>(null);
+  useEffect(() => {
+    const id = suchParameter.get("aufgabe");
+    if (!id || direktGeoeffnet.current === id) return;
+    const a = aufgaben.find(x => x.id === id);
+    if (!a) return;
+    direktGeoeffnet.current = id;
+    modalOeffnen(a);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aufgaben, suchParameter]);
 
   async function speichern(form: FormState) {
     setLaden(true);

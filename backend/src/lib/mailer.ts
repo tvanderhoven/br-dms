@@ -380,6 +380,64 @@ export async function sendeEingangSammelmail(email: string, name: string, eintra
   await transporter.sendMail({ from: await absender(), to: email, ...eingangSammelmailInhalt(name, eintraege, url) });
 }
 
+// ── Benachrichtigungen, E-Mail als Rückfall (Roadmap Paket 2) ───────
+
+export interface BenachrichtigungMailEintrag {
+  art:  string;   // z. B. "Aufgabe zugewiesen" – nie Titel oder Inhalte
+  url:  string;
+  zeit: Date;
+}
+
+/**
+ * Nur Art und Link: Die Mail kann in fremd mitgelesenen Postfächern landen,
+ * die Inhalte stehen in BR-DMS (gleiche Logik wie die datensparsame Einladung).
+ */
+export function benachrichtigungMailInhalt(name: string, eintraege: BenachrichtigungMailEintrag[]): { subject: string; text: string; html: string } {
+  const h = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const zeit = (d: Date) => d.toLocaleString("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const subject = eintraege.length === 1
+    ? `BR-DMS – ${eintraege[0].art}`
+    : `BR-DMS – ${eintraege.length} neue Benachrichtigungen`;
+  const einleitung = eintraege.length === 1
+    ? "in BR-DMS wartet eine Benachrichtigung auf dich:"
+    : `in BR-DMS warten ${eintraege.length} Benachrichtigungen auf dich:`;
+  const fuss = "Automatische Nachricht von BR-DMS – nur, wenn du eine Benachrichtigung nach 15 Minuten noch nicht im System gesehen hast. Einstellen unter Mein Konto → Benachrichtigungen.";
+
+  return {
+    subject,
+    text: [
+      `Hallo ${name},`,
+      "",
+      einleitung,
+      "",
+      ...eintraege.map(e => `- ${zeit(e.zeit)} · ${e.art}: ${e.url}`),
+      "",
+      fuss,
+    ].join("\n"),
+    html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+      <div style="background:#1e3a8a;color:white;padding:16px 20px;border-radius:8px 8px 0 0">
+        <h2 style="margin:0;font-size:18px">${h(subject)}</h2>
+      </div>
+      <div style="padding:20px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
+        <p>Hallo <strong>${h(name)}</strong>,</p>
+        <p>${h(einleitung)}</p>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;font-size:14px">
+          <tbody>${eintraege.map(e => `<tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#6b7280;white-space:nowrap;vertical-align:top">${h(zeit(e.zeit))}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb"><strong>${h(e.art)}</strong></td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:right"><a href="${h(e.url)}" style="color:#1e40af">Öffnen →</a></td>
+          </tr>`).join("")}</tbody>
+        </table>
+        <p style="color:#9ca3af;font-size:11px;margin-top:20px">${h(fuss)}</p>
+      </div>
+    </div>`,
+  };
+}
+
+export async function sendeBenachrichtigungMail(email: string, name: string, eintraege: BenachrichtigungMailEintrag[]): Promise<void> {
+  await transporter.sendMail({ from: await absender(), to: email, ...benachrichtigungMailInhalt(name, eintraege) });
+}
+
 // ── Einladung zur Sitzung (Paket 4) ──────────────────────────────────
 
 const html = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");

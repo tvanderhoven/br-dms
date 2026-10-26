@@ -3,6 +3,19 @@ import { Prisma, Prioritaet, Role, Sichtbarkeit, AufgabeTyp, KanbanStatus, Aufga
 import prisma from "../lib/prisma.js";
 import { authenticate, JwtPayload } from "../middleware/auth.js";
 import { hatMindestrolle } from "../middleware/rbac.js";
+import { aufgabeLink, benachrichtigen } from "../lib/benachrichtigung.js";
+
+/** Benachrichtigung „Aufgabe zugewiesen“ – nicht an sich selbst (lib/benachrichtigung.ts) */
+async function zuweisungMelden(aufgabe: { id: string; titel: string; zugewiesenAnId: string | null }, von: JwtPayload): Promise<void> {
+  if (!aufgabe.zugewiesenAnId) return;
+  const ausloeser = await prisma.benutzer.findUnique({ where: { id: von.sub }, select: { name: true } });
+  await benachrichtigen({
+    art: "AUFGABE_ZUGEWIESEN", empfaengerIds: [aufgabe.zugewiesenAnId], ausloeserId: von.sub,
+    link:    aufgabeLink(aufgabe.id),
+    betreff: `Aufgabe zugewiesen: ${aufgabe.titel}`,
+    inhalt:  `${ausloeser?.name ?? "Jemand"} hat dir die Aufgabe „${aufgabe.titel}“ zugewiesen.`,
+  });
+}
 
 const BENUTZER_SELECT = { id: true, name: true, email: true };
 
@@ -167,6 +180,7 @@ export async function aufgabenRouten(app: FastifyInstance): Promise<void> {
         },
         include: AUFGABE_INCLUDE,
       });
+      await zuweisungMelden(aufgabe, req.benutzer);
       return reply.status(201).send(ohneFremdesPrivatesProjekt(aufgabe, req.benutzer.sub));
     }
   );
@@ -269,6 +283,7 @@ export async function aufgabenRouten(app: FastifyInstance): Promise<void> {
         data,
         include: AUFGABE_INCLUDE,
       });
+      if (aufgabe.zugewiesenAnId !== vorhanden.zugewiesenAnId) await zuweisungMelden(aufgabe, req.benutzer);
       return reply.send(ohneFremdesPrivatesProjekt(aufgabe, req.benutzer.sub));
     }
   );

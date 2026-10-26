@@ -4,8 +4,11 @@
  */
 
 import { useEffect, useState, FormEvent, ReactNode } from "react";
-import { UserCircle, ShieldCheck, KeyRound, LogOut, Loader2, Pencil, X, History, Check } from "lucide-react";
-import { api, Anmeldung, MeinKonto as Konto, ROLLE_LABEL, ZweiFaktorEinrichtung, formatDatum } from "../lib/api";
+import { UserCircle, ShieldCheck, KeyRound, LogOut, Loader2, Pencil, X, History, Check, Bell } from "lucide-react";
+import {
+  api, Anmeldung, MeinKonto as Konto, ROLLE_LABEL, ZweiFaktorEinrichtung, formatDatum,
+  BenachrichtigungEinstellungen, BenachrichtigungStufe,
+} from "../lib/api";
 import PasswortAendernModal from "../components/PasswortAendernModal";
 import { CodeFeld, Fehler, QrEinrichtung, Wiederherstellungscodes } from "../components/ZweiFaktorBausteine";
 
@@ -142,6 +145,8 @@ export default function MeinKonto() {
         </dl>
       </Karte>
 
+      <BenachrichtigungenKarte onGespeichert={() => meldung("Benachrichtigungen gespeichert.")} />
+
       {/* Anmeldungen */}
       <Karte titel="Letzte Anmeldungen" icon={<History size={16} />}>
         {anmeldungen.length === 0 ? (
@@ -186,6 +191,82 @@ export default function MeinKonto() {
       {dialog === "2fa-aus" && <ZweiFaktorAbschaltenDialog onSchliessen={() => setDialog(null)} onFertig={() => { setDialog(null); laden(); meldung("Zwei-Faktor-Anmeldung abgeschaltet."); }} />}
       {dialog === "codes" && <NeueCodesDialog onSchliessen={() => { setDialog(null); laden(); }} />}
     </div>
+  );
+}
+
+// ── Benachrichtigungen (Backend: lib/benachrichtigung.ts) ───────
+
+const STUFEN: { wert: BenachrichtigungStufe; label: string }[] = [
+  { wert: "AUS",    label: "Aus" },
+  { wert: "SYSTEM", label: "Nur im System" },
+  { wert: "EMAIL",  label: "Mit E-Mail" },
+];
+
+function BenachrichtigungenKarte({ onGespeichert }: { onGespeichert: () => void }) {
+  const [stand, setStand]       = useState<BenachrichtigungEinstellungen | null>(null);
+  const [speichern, setSpeichern] = useState<string | null>(null);
+  const [fehler, setFehler]     = useState("");
+
+  useEffect(() => {
+    api.konto.benachrichtigungen().then(setStand).catch(e => setFehler(e instanceof Error ? e.message : "Fehler"));
+  }, []);
+
+  async function aendern(art: string, stufe: BenachrichtigungStufe) {
+    if (!stand) return;
+    const arten = stand.arten.map(a => a.art === art ? { ...a, stufe } : a);
+    setSpeichern(art);
+    setFehler("");
+    try {
+      await api.konto.benachrichtigungenSpeichern(Object.fromEntries(arten.map(a => [a.art, a.stufe])));
+      setStand({ ...stand, arten });
+      onGespeichert();
+    } catch (e) {
+      setFehler(e instanceof Error ? e.message : "Fehler");
+    } finally {
+      setSpeichern(null);
+    }
+  }
+
+  return (
+    <Karte titel="Benachrichtigungen" icon={<Bell size={16} />}>
+      {!stand ? (
+        <div className="px-4 py-3 text-sm text-gray-500">
+          {fehler ? <span className="text-red-700">{fehler}</span> : <span className="flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Laden…</span>}
+        </div>
+      ) : (
+        <>
+          <dl className="divide-y divide-gray-100">
+            {stand.arten.map(a => (
+              <Zeile key={a.art} label={a.label} aktion={speichern === a.art ? <Loader2 size={14} className="animate-spin text-gray-400" /> : null}>
+                <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden" role="radiogroup" aria-label={a.label}>
+                  {STUFEN.map(st => (
+                    <button
+                      key={st.wert}
+                      type="button"
+                      role="radio"
+                      aria-checked={a.stufe === st.wert}
+                      disabled={speichern !== null}
+                      onClick={() => a.stufe !== st.wert && aendern(a.art, st.wert)}
+                      className={`px-2.5 py-1 text-xs border-l first:border-l-0 border-gray-300 disabled:opacity-60 ${
+                        a.stufe === st.wert ? "bg-[rgb(var(--accent))] text-white" : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      {st.label}
+                    </button>
+                  ))}
+                </div>
+              </Zeile>
+            ))}
+          </dl>
+          {fehler && <div className="px-4 pb-3"><Fehler text={fehler} /></div>}
+          <p className="text-xs text-gray-400 px-4 py-2 border-t border-gray-100">
+            Jede Benachrichtigung landet im Posteingang. „Mit E-Mail“: Hast du sie nach 15 Minuten nicht gesehen,
+            kommt eine Mail – nur mit Art und Link, ohne Inhalte, mehrere gesammelt und höchstens eine pro Stunde.
+            {!stand.mailVerfuegbar && " In dieser Installation ist kein Mailserver eingerichtet – es bleibt beim Posteingang."}
+          </p>
+        </>
+      )}
+    </Karte>
   );
 }
 

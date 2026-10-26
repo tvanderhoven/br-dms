@@ -141,9 +141,10 @@ export default function Dokumente() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ordner]);
 
-  // Highlight aus Suche übernehmen
+  // Highlight aus Suche übernehmen – oder aus einem Direktlink (/dokumente?dokument=…, Benachrichtigungen)
   useEffect(() => {
-    const id = (location.state as any)?.markiere as string | undefined;
+    const id = ((location.state as any)?.markiere as string | undefined)
+      ?? new URLSearchParams(location.search).get("dokument") ?? undefined;
     if (!id) return;
     setAuswahl("ALLE"); // Treffer aus der Suche kann in jedem Ordner liegen
     setMarkiertId(id);
@@ -151,7 +152,7 @@ export default function Dokumente() {
       rowRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "center" });
       setTimeout(() => setMarkiertId(null), 3000);
     }, 300);
-  }, [location.state]);
+  }, [location.state, location.search]);
 
   const ladeVersionen = useCallback(async (id: string) => {
     setVersionenLaden(true);

@@ -355,6 +355,11 @@ export default function Layout() {
 
   async function pollCounts() {
     const { rolle, ohneInhalt } = meinKonto.current;
+    // "Zuletzt aktiv" nur bei sichtbarem Tab – damit entfällt die Rückfall-Mail für
+    // Benachrichtigungen, die man hier schon gesehen hat. Bleibt intern, kein Online-Status.
+    if (document.visibilityState === "visible" && rolle && rolle !== "EXTERN") {
+      api.konto.aktiv().catch(() => {});
+    }
     // Eingang ist nur für Vorsitz/Stellvertreter/Admin – für alle anderen Rollen
     // gar nicht erst abfragen (sonst nur unnötige 403-Fehler im Netzwerk-Log)
     if (rolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(rolle) && !ohneInhalt) {
