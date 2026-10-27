@@ -342,7 +342,8 @@ function GeschaeftsordnungModal({
             )}
             <div className="flex gap-2">
               <select value={neueDokumentId} onChange={e => setNeueDokumentId(e.target.value)}
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]">
+                className="flex-1 min-w-0 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] truncate"
+                title={neueDokumentId ? dokumente.find(d => d.id === neueDokumentId)?.titel : "– Dokument wählen –"}>
                 <option value="">– Dokument wählen –</option>
                 {dokumente
                   .filter(d => !dokumentIds.includes(d.id))
@@ -357,7 +358,7 @@ function GeschaeftsordnungModal({
                   }
                 }}
                 disabled={!neueDokumentId}
-                className="px-3 py-2 text-sm font-medium text-white hover:brightness-90 disabled:opacity-50 rounded-lg flex items-center gap-1 shrink-0"
+                className="px-4 py-2 text-sm font-medium text-white hover:brightness-90 disabled:opacity-50 rounded-lg flex items-center gap-1 shrink-0 whitespace-nowrap"
                 style={{ backgroundColor: "rgb(var(--accent))" }}
               >
                 <Plus size={14} /> Hinzufügen
