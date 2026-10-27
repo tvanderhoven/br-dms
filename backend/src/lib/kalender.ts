@@ -20,7 +20,7 @@ export interface KalenderTermin {
   beginn:       Date;           // Ortszeit in den UTC-Feldern
   ort:          string | null;
   beschreibung: string;
-  url:          string;
+  url?:         string;         // ohne Link (z. B. Gast-Einladung) entfällt URL
 }
 
 const ZEITZONE = [
@@ -96,7 +96,7 @@ export function kalenderDatei(t: KalenderTermin): string {
     `SUMMARY:${text(t.titel)}`,
     ...(t.ort ? [`LOCATION:${text(t.ort)}`] : []),
     `DESCRIPTION:${text(t.beschreibung)}`,
-    `URL:${t.url}`,
+    ...(t.url ? [`URL:${t.url}`] : []),
     "STATUS:CONFIRMED",
     "TRANSP:OPAQUE",
     "BEGIN:VALARM",

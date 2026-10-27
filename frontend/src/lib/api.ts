@@ -319,8 +319,22 @@ export const api = {
     einzel: (id: string) => request<Sitzung>(`/api/sitzungen/${id}`),
     erstellen: (data: { titel: string; sitzungsdatum: string; ort?: string; sitzungstyp?: string; notizen?: string; vorlageId?: string; gremiumId?: string | null }) =>
       request<Sitzung>("/api/sitzungen", { method: "POST", body: JSON.stringify(data) }),
-    aktualisieren: (id: string, data: Partial<{ titel: string; sitzungsdatum: string; ort: string; sitzungstyp: string; notizen: string; teilnehmerzahl: number | null; gremiumId: string | null; protokollfuehrerId: string | null }>) =>
+    aktualisieren: (id: string, data: Partial<{ titel: string; sitzungsdatum: string; ort: string; sitzungstyp: string; notizen: string; teilnehmerzahl: number | null; gremiumId: string | null; protokollfuehrerId: string | null; form: SitzungForm; einwahlLink: string | null; widerspruchBis: string | null }>) =>
       request<Sitzung>(`/api/sitzungen/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    // Sitzung per Video/Telefon (§ 30 Abs. 2, Backend: routes/videoSitzung.ts)
+    video: (id: string) => request<VideoStand>(`/api/sitzungen/${id}/video`),
+    widersprechen: (id: string) => request<unknown>(`/api/sitzungen/${id}/widerspruch`, { method: "POST" }),
+    widerspruchZuruecknehmen: (id: string) => request<unknown>(`/api/sitzungen/${id}/widerspruch`, { method: "DELETE" }),
+    teilnahmeBestaetigen: (id: string) => request<{ bestaetigtAm: string }>(`/api/sitzungen/${id}/teilnahme-bestaetigen`, { method: "POST" }),
+    // Gäste je TOP (Backend: routes/gaeste.ts)
+    gastHinzufuegen: (id: string, topId: string, data: GastEingabe) =>
+      request<TopGast>(`/api/sitzungen/${id}/tops/${topId}/gaeste`, { method: "POST", body: JSON.stringify(data) }),
+    gastAktualisieren: (id: string, topId: string, gastId: string, data: Partial<GastEingabe & { anwesend: boolean }>) =>
+      request<TopGast>(`/api/sitzungen/${id}/tops/${topId}/gaeste/${gastId}`, { method: "PATCH", body: JSON.stringify(data) }),
+    gastLoeschen: (id: string, topId: string, gastId: string) =>
+      request<{ nachricht: string }>(`/api/sitzungen/${id}/tops/${topId}/gaeste/${gastId}`, { method: "DELETE" }),
+    gastEinladen: (id: string, topId: string, gastId: string, zusatz: string) =>
+      request<TopGast>(`/api/sitzungen/${id}/tops/${topId}/gaeste/${gastId}/einladen`, { method: "POST", body: JSON.stringify({ zusatz }) }),
     absagen: (id: string) =>
       request<{ nachricht: string }>(`/api/sitzungen/${id}`, { method: "DELETE" }),
     fixieren: (id: string) =>
@@ -1400,9 +1414,64 @@ export interface TOP {
   themaId?: string | null;          // Themenakte, zu der der TOP gehört („Als TOP vormerken“)
   externAusgeschlossen?: boolean;   // „Externe verlässt den Raum“ (Paket 4)
   dokumente: TopDokumentInfo[];
+  gaeste?: TopGast[];               // Gäste ohne Konto (Roadmap Paket 5)
   _count?: { kommentare: number };
   erstelltAm: string;
   aktualisiertAm: string;
+}
+
+// ── Gäste je TOP (Backend: routes/gaeste.ts) ──
+export type GastFunktion = "ARBEITGEBER" | "GEWERKSCHAFT" | "SACHVERSTAENDIGER" | "AUSKUNFTSPERSON" | "SONSTIGE";
+
+export const GAST_FUNKTION_LABEL: Record<GastFunktion, string> = {
+  ARBEITGEBER:       "Arbeitgeber (§ 29 Abs. 4)",
+  GEWERKSCHAFT:      "Gewerkschaft (§ 31)",
+  SACHVERSTAENDIGER: "Sachverständige/r (§ 80 Abs. 3)",
+  AUSKUNFTSPERSON:   "Auskunftsperson (§ 80 Abs. 2)",
+  SONSTIGE:          "Sonstiger Gast",
+};
+
+export interface GastEingabe {
+  name: string;
+  funktion: GastFunktion;
+  organisation?: string | null;
+  email?: string | null;
+}
+
+export interface TopGast extends GastEingabe {
+  id: string;
+  anwesend: boolean;
+  eingeladenAm?: string | null;
+}
+
+// ── Sitzung per Video/Telefon (§ 30 Abs. 2 BetrVG, Backend: lib/videoSitzung.ts) ──
+export type SitzungForm = "PRAESENZ" | "ZUSCHALTUNG" | "VIDEO";
+export type Teilnahmeart = "VOR_ORT" | "VIDEO" | "TELEFON";
+
+export const SITZUNG_FORM_LABEL: Record<SitzungForm, string> = {
+  PRAESENZ:    "Präsenzsitzung",
+  ZUSCHALTUNG: "Präsenz mit Zuschaltung",
+  VIDEO:       "Reine Video-/Telefonsitzung",
+};
+
+export const TEILNAHMEART_LABEL: Record<Teilnahmeart, string> = {
+  VOR_ORT: "vor Ort",
+  VIDEO:   "per Video",
+  TELEFON: "per Telefon",
+};
+
+export interface VideoStand {
+  form: SitzungForm;
+  einwahlLink: string | null;
+  widerspruchBis: string | null;
+  regeln: { goVorhanden: boolean; erlaubt: boolean; nichtVertraulich: boolean; bedingungen: string | null; beschlossenAm: string | null };
+  widerspruch: {
+    anzahl: number; sollStaerke: number; schwelle: number; gesperrt: boolean;
+    offen: boolean; darf: boolean; eigenerAm: string | null;
+    namen: { name: string; am: string }[];
+  };
+  meineTeilnahme: { teilnahmeart: Teilnahmeart; bestaetigtAm: string | null } | null;
+  bestaetigungen: { name: string; teilnahmeart: Teilnahmeart; bestaetigtAm: string | null }[];
 }
 
 // Scans unterschriebener Nachweise (Backend: routes/sitzungScans.ts)
@@ -1460,6 +1529,9 @@ export interface Sitzung {
   gremium?: { id: string; name: string } | null;
   erstelltVon?: { id: string; name: string };
   protokollfuehrer?: { id: string; name: string; rolle: Rolle } | null;   // Paket 3
+  form?: SitzungForm;                     // § 30 Abs. 2 (Roadmap Paket 6)
+  einwahlLink?: string | null;
+  widerspruchBis?: string | null;
   versionen: SitzungVersion[];
   tops: TOP[];
   scans: SitzungScan[];
@@ -1670,7 +1742,7 @@ export interface Nachricht {
 export type BenachrichtigungArt =
   | "AUFGABE_ZUGEWIESEN" | "AUFGABE_FAELLIG" | "ERSATZ_GELADEN" | "PROTOKOLL_UNTERSCHRIFT"
   | "PROTOKOLLFUEHRUNG" | "ERWAEHNUNG" | "KOMMENTAR_ANTWORT" | "KUMMERKASTEN" | "THEMA_BEITRAG"
-  | "FRIST_EINGANG" | "EINGANG";
+  | "FRIST_EINGANG" | "EINGANG" | "VIDEO_WIDERSPRUCH" | "TEILNAHME_BESTAETIGEN";
 export type BenachrichtigungStufe = "AUS" | "SYSTEM" | "EMAIL";
 
 export interface BenachrichtigungEinstellungen {
@@ -2093,6 +2165,9 @@ export interface Geschaeftsordnung {
     top: { nummer: number; titel: string; sitzung: { titel: string } };
   } | null;
   goMehrheitErreicht?: boolean | null;
+  videoErlaubt: boolean;               // § 30 Abs. 2 Nr. 1 (Roadmap Paket 6)
+  videoNichtVertraulich: boolean;
+  videoBedingungen?: string | null;
   erstelltAm: string;
   aktualisiertAm: string;
 }
@@ -2102,6 +2177,9 @@ export interface GeschaeftsordnungErstellen {
   bemerkung?: string;
   dokumentId?: string | null;
   beschlussId?: string | null;
+  videoErlaubt?: boolean;
+  videoNichtVertraulich?: boolean;
+  videoBedingungen?: string | null;
 }
 
 export interface Gremium {

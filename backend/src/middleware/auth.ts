@@ -47,6 +47,7 @@ const EXTERN_SITZUNGSROUTEN: { methoden: string[]; muster: RegExp }[] = [
   { methoden: ["GET", "POST"],            muster: /^\/api\/sitzungen\/([^/]+)\/blocks$/ },
   { methoden: ["PATCH", "DELETE"],        muster: /^\/api\/sitzungen\/([^/]+)\/blocks\/[^/]+$/ },
   { methoden: ["PATCH"],                  muster: /^\/api\/sitzungen\/([^/]+)\/tops\/[^/]+$/ },
+  { methoden: ["PATCH"],                  muster: /^\/api\/sitzungen\/([^/]+)\/tops\/[^/]+\/gaeste\/[^/]+$/ },
   { methoden: ["GET"],                    muster: /^\/api\/sitzungen\/([^/]+)\/tops\/[^/]+\/(beschluesse|abstimmung)$/ },
 ];
 const EXTERN_ZUGRIFF_ENDET: SitzungStatus[] = [SitzungStatus.PROTOKOLL_FINAL, SitzungStatus.ABGESCHLOSSEN, SitzungStatus.ABGESAGT];

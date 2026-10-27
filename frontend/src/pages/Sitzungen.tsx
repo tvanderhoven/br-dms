@@ -8,13 +8,13 @@ import {
   Send, ClipboardList, Download, MessageSquare, Zap, Pencil, RefreshCw, BookmarkPlus, Tag, CheckSquare, Folder, Wallet, MoreHorizontal, Copy, Timer,
   Users, Inbox, ListPlus,
   Mail, AlertTriangle,
-  FolderOpen,
+  FolderOpen, UserPlus,
 } from "lucide-react";
 import {
   api, Sitzung, SitzungListItem, SitzungStatus, TOP, TopStatus, Dokument, Mitarbeiter, Abteilung, Rolle,
   TOP_STATUS_LABEL, KATEGORIE_LABEL, SITZUNGSTYP_LABEL, KummerkastenEintrag, SitzungScan, SitzungScanTyp,
   istBetriebsversammlung, sitzungStatusLabel, formatDatum,
-  AnhoerungVorgangAntwort, AnhoerungArt, ANHOERUNG_ART_LABEL, gruendeFuerArt, LadungPruefung, Benutzer,
+  AnhoerungVorgangAntwort, AnhoerungArt, ANHOERUNG_ART_LABEL, gruendeFuerArt, LadungPruefung, Benutzer, TopGast,
 } from "../lib/api";
 import { useZeitmodelle, zeitmodellVorschlag } from "../lib/useZeitmodelle";
 import { useEntgelt } from "../lib/useEntgelt";
@@ -25,6 +25,8 @@ import BeschlussBlock from "../components/BeschlussBlock";
 import KommentarBlock from "../components/KommentarBlock";
 import AufgabeUebernehmenModal from "../components/AufgabeUebernehmenModal";
 import EinberufungsantragKarte from "../components/EinberufungsantragKarte";
+import { GastModal, TopGaesteListe } from "../components/TopGaeste";
+import VideoSitzungKarte from "../components/VideoSitzungKarte";
 import { tiptapZuText, tiptapZuHtml, textZuTiptap } from "../lib/tiptap";
 import { dokumentInNeuemTabOeffnen } from "../lib/dokumentOeffnen";
 
@@ -941,6 +943,11 @@ function SitzungDetail({
         </div>
       )}
 
+      {/* Sitzung per Video/Telefon (§ 30 Abs. 2) */}
+      {!istBV && sitzung.status !== "ABGESAGT" && (
+        <VideoSitzungKarte sitzung={sitzung} meineRolle={meineRolle} onAktualisieren={onAktualisieren} />
+      )}
+
       <SitzungScanKarte sitzung={sitzung} meineRolle={meineRolle} onAktualisieren={onAktualisieren} />
       <SitzungAbschliessenKarte sitzung={sitzung} meineRolle={meineRolle} onAktualisieren={onAktualisieren} />
 
@@ -1011,6 +1018,7 @@ function SitzungDetail({
                 imEntwurf={imEntwurf}
                 imProtokoll={imProtokoll}
                 kannRetroaktivUebertragen={kannRetroaktivUebertragen}
+                darfGaesteVerwalten={meineRolle === "VORSITZ" || meineRolle === "STELLVERTRETER"}
                 istErster={idx === 0}
                 istLetzter={idx === sitzung.tops.length - 1}
                 onBearbeiten={() => setTopModal({ top })}
@@ -1050,6 +1058,7 @@ function SitzungDetail({
             sitzungId={sitzung.id}
             readonly={sitzung.status === "PROTOKOLL_FINAL" || sitzung.status === "ABGESCHLOSSEN"}
             vorSitzung={sitzung.status === "ENTWURF" || sitzung.status === "TAGESORDNUNG_FIXIERT"}
+            zuschaltung={(sitzung.form ?? "PRAESENZ") !== "PRAESENZ"}
             onGeaendert={() => setLadungStand(n => n + 1)}
           />
         </div>
@@ -1105,7 +1114,7 @@ function SitzungDetail({
 // ── TOP-Zeile ─────────────────────────────────────────────────────
 function TopZeile({
   top, sitzungId, sitzungTitel, sitzungsdatum, sitzungStatus, istBV, readonly, imEntwurf, imProtokoll, kannRetroaktivUebertragen,
-  istErster, istLetzter,
+  darfGaesteVerwalten, istErster, istLetzter,
   onBearbeiten, onLoeschen, onVerschiebenHoch, onVerschiebenRunter, onZiehenStart, onZiehenEnde,
   onDokumentVerknuepfen, onDokumentEntknuepfen, onAktualisieren,
 }: {
@@ -1119,6 +1128,7 @@ function TopZeile({
   imEntwurf: boolean;
   imProtokoll: boolean;
   kannRetroaktivUebertragen: boolean;
+  darfGaesteVerwalten: boolean;
   istErster: boolean;
   istLetzter: boolean;
   onBearbeiten: () => void;
@@ -1154,6 +1164,7 @@ function TopZeile({
   const [aufgabeModal, setAufgabeModal]         = useState(false);
   const [gehaltModal, setGehaltModal]           = useState(false);
   const [antragModal, setAntragModal]           = useState(false);
+  const [gastModal, setGastModal]               = useState<{ gast?: TopGast } | null>(null);
   const [mehrOffen, setMehrOffen]               = useState(false);
   const mehrRef     = useRef<HTMLDivElement>(null);
   const mehrMenuRef = useRef<HTMLDivElement>(null);
@@ -1356,6 +1367,21 @@ function TopZeile({
             </div>
           )}
 
+          {/* Gäste ohne Konto (Roadmap Paket 5) */}
+          {!istBV && (top.gaeste?.length ?? 0) > 0 && (
+            <TopGaesteListe
+              sitzungId={sitzungId}
+              topId={top.id}
+              gaeste={top.gaeste!}
+              verwalten={darfGaesteVerwalten}
+              vorSitzung={sitzungStatus === "ENTWURF" || sitzungStatus === "TAGESORDNUNG_FIXIERT"}
+              imProtokoll={imProtokoll}
+              readonly={readonly}
+              onBearbeiten={gast => setGastModal({ gast })}
+              onAktualisieren={onAktualisieren}
+            />
+          )}
+
           {/* Verknüpfte Dokumente */}
           {top.dokumente.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -1552,6 +1578,14 @@ function TopZeile({
                     <Download size={14} className="text-green-600" /> Auszug als PDF
                   </button>
                 )}
+                {!istBV && !readonly && darfGaesteVerwalten && (
+                  <button
+                    onClick={() => { setGastModal({}); setMehrOffen(false); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 text-left"
+                  >
+                    <UserPlus size={14} className="text-[rgb(var(--accent))]" /> Gast eintragen
+                  </button>
+                )}
                 {!readonly && (imEntwurf || top.spontan) && (
                   <button
                     onClick={() => { onDokumentVerknuepfen(); setMehrOffen(false); }}
@@ -1626,6 +1660,16 @@ function TopZeile({
           sitzungTitel={sitzungTitel}
           sitzungsdatum={sitzungsdatum}
           onSchliessen={() => setAntragModal(false)}
+        />
+      )}
+      {gastModal && (
+        <GastModal
+          sitzungId={sitzungId}
+          topId={top.id}
+          topNummer={top.nummer}
+          gast={gastModal.gast}
+          onSchliessen={() => setGastModal(null)}
+          onErfolg={() => { setGastModal(null); onAktualisieren(); }}
         />
       )}
       {gehaltModal && (

@@ -14,6 +14,7 @@ import { istBetriebsversammlung } from "../lib/sitzungstypen.js";
 import { KATEGORIE_LABEL } from "../lib/kategorien.js";
 import { gruendeFuerArt, gruendeNormalisieren } from "../lib/anhoerungGruende.js";
 import prisma from "../lib/prisma.js";
+import { PROTOKOLL_VERMERK } from "../lib/videoSitzung.js";
 
 // ── Typen (Subset aus Prisma) ─────────────────────────────────────
 interface PdfBeschluss {
@@ -47,6 +48,7 @@ interface PdfTop {
   beschluesse?: PdfBeschluss[];
   kommentare?:  PdfKommentar[];
   dokumente: { dokument: { titel: string; kategorie: string; aktenzeichen?: string | null } }[];
+  gaeste?:    PdfGast[];
   abstimmung?: {
     rechtsgrundlage: string;
     fragestellung:   string;
@@ -63,7 +65,21 @@ interface PdfAnwesenheit {
   status:  string;
   benutzer: { name: string; rolle: string };
   vertretungFuer?: { name: string } | null;
+  teilnahmeart?: string;                 // VOR_ORT | VIDEO | TELEFON (§ 30 Abs. 2)
+  teilnahmeBestaetigtAm?: Date | null;   // Bestätigung in Textform (§ 34 Abs. 1)
 }
+
+// Gast am TOP ohne Konto (Roadmap Paket 5)
+interface PdfGast { name: string; funktion: string; organisation?: string | null; anwesend: boolean }
+
+const GAST_FUNKTION_PDF: Record<string, string> = {
+  ARBEITGEBER: "Arbeitgeber", GEWERKSCHAFT: "Gewerkschaft", SACHVERSTAENDIGER: "Sachverständige/r",
+  AUSKUNFTSPERSON: "Auskunftsperson", SONSTIGE: "Gast",
+};
+const gastText = (g: PdfGast) => pdfText(`${g.name} (${[GAST_FUNKTION_PDF[g.funktion] ?? g.funktion, g.organisation].filter(Boolean).join(", ")})`);
+
+const zugeschaltet = (a: PdfAnwesenheit) => a.teilnahmeart === "VIDEO" || a.teilnahmeart === "TELEFON";
+const TEILNAHME_PDF: Record<string, string> = { VIDEO: "per Video", TELEFON: "per Telefon" };
 
 interface PdfSitzung {
   titel:        string;
@@ -342,7 +358,8 @@ export async function pdfGenerieren(
       teilnahmeAbschnitt(doc, sitzung.teilnehmerzahl ?? null, layout);
     } else if (mitProtokoll && sitzung.anwesenheiten && sitzung.anwesenheiten.length > 0) {
       doc.moveDown(0.5);
-      anwesenheitAbschnitt(doc, sitzung.anwesenheiten, layout);
+      const gaeste = sitzung.tops.flatMap(t => (t.gaeste ?? []).filter(g => g.anwesend).map(g => ({ ...g, topNummer: t.nummer })));
+      anwesenheitAbschnitt(doc, sitzung.anwesenheiten, gaeste, layout);
     }
 
     // ── Notizen ──────────────────────────────────────────────────
@@ -792,7 +809,10 @@ function zeitstempelSiegel(doc: InstanceType<typeof PDFDocument>, finalisiertAm:
 }
 
 // ── Anwesenheits-Abschnitt im Protokoll ──────────────────────────
-function anwesenheitAbschnitt(doc: InstanceType<typeof PDFDocument>, anwesenheiten: PdfAnwesenheit[], layout: ProtokollLayout) {
+function anwesenheitAbschnitt(
+  doc: InstanceType<typeof PDFDocument>, anwesenheiten: PdfAnwesenheit[],
+  gaeste: (PdfGast & { topNummer: number })[], layout: ProtokollLayout,
+) {
   if (doc.y > 580) doc.addPage();
   abschnittUeberschrift(doc, "Anwesenheit", layout);
 
@@ -814,10 +834,20 @@ function anwesenheitAbschnitt(doc: InstanceType<typeof PDFDocument>, anwesenheit
       let n = pdfText(a.benutzer.name);
       if (a.status === "ERSATZ_FUER" && a.vertretungFuer) n += ` (Vtg. f. ${pdfText(a.vertretungFuer.name)})`;
       const rolle = rolleLabel(a.benutzer.rolle);
-      return rolle ? `${n} (${rolle})` : n;
+      if (rolle) n += ` (${rolle})`;
+      return zugeschaltet(a) ? `${n} – ${TEILNAHME_PDF[a.teilnahmeart!]}` : n;
     });
     doc.fontSize(9).font("Helvetica").fillColor("#111827")
        .text(namen.join(", "), RAND_LINKS + 12, doc.y, { width: BREITE - 12 });
+    doc.moveDown(0.4);
+  }
+
+  if (gaeste.length > 0) {
+    doc.fontSize(8).font("Helvetica-Bold").fillColor(FARBE_GRAU)
+       .text(`Gäste (${gaeste.length}):`, RAND_LINKS, doc.y);
+    doc.moveDown(0.2);
+    doc.fontSize(9).font("Helvetica").fillColor("#111827")
+       .text(gaeste.map(g => `${gastText(g)} zu TOP ${g.topNummer}`).join(", "), RAND_LINKS + 12, doc.y, { width: BREITE - 12 });
     doc.moveDown(0.4);
   }
 
@@ -828,6 +858,26 @@ function anwesenheitAbschnitt(doc: InstanceType<typeof PDFDocument>, anwesenheit
     const namen = entschuldigt.map(a => pdfText(a.benutzer.name));
     doc.fontSize(9).font("Helvetica").fillColor(FARBE_GRAU)
        .text(namen.join(", "), RAND_LINKS + 12, doc.y, { width: BREITE - 12 });
+    doc.moveDown(0.4);
+  }
+
+  // § 30 Abs. 2 / § 34 Abs. 1 BetrVG: Vermerk und die Bestätigungen der Zugeschalteten als Anlage
+  const zugeschaltete = anwesend.filter(zugeschaltet);
+  if (zugeschaltete.length > 0) {
+    doc.fontSize(8.5).font("Helvetica-Oblique").fillColor("#374151")
+       .text(pdfText(PROTOKOLL_VERMERK), RAND_LINKS, doc.y, { width: BREITE });
+    doc.moveDown(0.6);
+    if (doc.y > 640) doc.addPage();
+    doc.fontSize(8).font("Helvetica-Bold").fillColor(FARBE_GRAU)
+       .text("Anlage: Bestätigung der Teilnahme per Video/Telefon (§ 34 Abs. 1 BetrVG)", RAND_LINKS, doc.y);
+    doc.moveDown(0.2);
+    for (const a of zugeschaltete) {
+      const bestaetigt = a.teilnahmeBestaetigtAm
+        ? `bestätigt in BR-DMS am ${a.teilnahmeBestaetigtAm.toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" })} Uhr`
+        : "noch nicht bestätigt";
+      doc.fontSize(9).font("Helvetica").fillColor(a.teilnahmeBestaetigtAm ? "#111827" : FARBE_FEHLER)
+         .text(`${pdfText(a.benutzer.name)} (${TEILNAHME_PDF[a.teilnahmeart!]}): ${bestaetigt}`, RAND_LINKS + 12, doc.y, { width: BREITE - 12 });
+    }
     doc.moveDown(0.4);
   }
 }
@@ -971,11 +1021,13 @@ export interface AnwesenheitsMitglied {
   rolle:               string;
   status?:             string | null;  // ANWESEND | ABWESEND_ENTSCHULDIGT | ABWESEND_UNENTSCHULDIGT | ERSATZ_FUER
   vertretungFuerName?: string | null;
+  teilnahmeart?:       string | null;  // VIDEO/TELEFON: unterschreibt nicht, bestätigt in Textform (§ 34 Abs. 1)
 }
 
 export async function anwesenheitslistePdfGenerieren(
   sitzung:    { titel: string; sitzungsdatum: Date; ort?: string | null; sitzungstyp: string },
   mitglieder: AnwesenheitsMitglied[],
+  gaeste:     (PdfGast & { topNummer: number })[] = [],
 ): Promise<Buffer> {
   const layout     = await layoutLaden();
   const logoBuffer = layout.logo_pfad
@@ -1123,9 +1175,14 @@ export async function anwesenheitslistePdfGenerieren(
       doc.fontSize(7).font("Helvetica").fillColor("#374151")
          .text("Entsch.", COL_STATUS + 52, cbY + 1, { width: 30 });
 
-      // Unterschriftslinie – bis zum rechten Rand
-      doc.moveTo(COL_UNTER, rowY + 20).lineTo(RAND_RECHTS, rowY + 20)
-         .strokeColor("#9ca3af").lineWidth(0.5).stroke();
+      // Unterschriftslinie – bis zum rechten Rand; Zugeschaltete bestätigen stattdessen in Textform
+      if (istAnwesend && (m.teilnahmeart === "VIDEO" || m.teilnahmeart === "TELEFON")) {
+        doc.fontSize(7).font("Helvetica-Oblique").fillColor(layout.farbe)
+           .text(`${TEILNAHME_PDF[m.teilnahmeart]} – Bestätigung in Textform`, COL_UNTER, rowY + 6, { width: RAND_RECHTS - COL_UNTER });
+      } else {
+        doc.moveTo(COL_UNTER, rowY + 20).lineTo(RAND_RECHTS, rowY + 20)
+           .strokeColor("#9ca3af").lineWidth(0.5).stroke();
+      }
 
       doc.y = rowY + 26;
     }
@@ -1144,7 +1201,9 @@ export async function anwesenheitslistePdfGenerieren(
        .text("Externe Gäste / Sonstige Anwesende:", RAND_LINKS, doc.y);
     doc.moveDown(0.4);
 
-    for (let i = 0; i < 4; i++) {
+    // Eingetragene Gäste der TOPs (Roadmap Paket 5) vorbelegt, dazu mindestens zwei freie Zeilen
+    const zeilen = Math.max(4, gaeste.length + 2);
+    for (let i = 0; i < zeilen; i++) {
       if (doc.y > 650) { doc.addPage(); doc.y = 60; }
       const rowY = doc.y;
       if (i % 2 === 0) doc.rect(RAND_LINKS, rowY - 2, BREITE, 26).fill("#f9fafb");
@@ -1152,11 +1211,22 @@ export async function anwesenheitslistePdfGenerieren(
       doc.fontSize(8).font("Helvetica").fillColor(FARBE_GRAU)
          .text(`${nr + i + 1}.`, COL_NR, rowY + 4, { width: 18 });
 
-      // Leere Linie für Name
-      doc.moveTo(COL_NAME, rowY + 20).lineTo(COL_NAME + 165, rowY + 20)
-         .strokeColor("#9ca3af").lineWidth(0.5).stroke();
-      doc.fontSize(7).fillColor(FARBE_GRAU)
-         .text("Name, Funktion", COL_NAME, rowY + 22, { width: 165 });
+      const gast = gaeste[i];
+      if (gast) {
+        doc.fontSize(9).font("Helvetica-Bold").fillColor("#111827")
+           .text(pdfText(gast.name), COL_NAME, rowY + 4, { width: 175, height: 11, ellipsis: true });
+        doc.fontSize(7.5).font("Helvetica").fillColor(FARBE_GRAU)
+           .text([GAST_FUNKTION_PDF[gast.funktion] ?? gast.funktion, gast.organisation].filter(Boolean).map(t => pdfText(t)).join(", "),
+             COL_ROLLE, rowY + 3, { width: 95, height: 9, ellipsis: true });
+        doc.fontSize(8).font("Helvetica-Bold").fillColor(layout.farbe)
+           .text(`zu TOP ${gast.topNummer}`, COL_ROLLE, rowY + 11, { width: 95 });
+      } else {
+        // Leere Linie für Name
+        doc.moveTo(COL_NAME, rowY + 20).lineTo(COL_NAME + 165, rowY + 20)
+           .strokeColor("#9ca3af").lineWidth(0.5).stroke();
+        doc.fontSize(7).fillColor(FARBE_GRAU)
+           .text("Name, Funktion", COL_NAME, rowY + 22, { width: 165 });
+      }
 
       // Checkboxen (leer)
       const cbY = rowY + 4;

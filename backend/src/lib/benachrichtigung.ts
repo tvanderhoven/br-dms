@@ -35,6 +35,8 @@ export const BENACHRICHTIGUNG_LABEL: Record<BenachrichtigungArt, string> = {
   FRIST_EINGANG:          "Fristsache im Dokumenteneingang (§ 99, § 102, § 87)",
   EINGANG:                "Neues Dokument im Dokumenteneingang",
   THEMA_BEITRAG:          "Neuer Beitrag in einem meiner Themen",
+  VIDEO_WIDERSPRUCH:      "Widerspruch gegen die Zuschaltung per Video/Telefon",
+  TEILNAHME_BESTAETIGEN:  "Teilnahme per Video/Telefon bestätigen (§ 34)",
 };
 
 const NUR_VORSITZ_ARTEN: BenachrichtigungArt[] = [BenachrichtigungArt.KUMMERKASTEN, BenachrichtigungArt.FRIST_EINGANG, BenachrichtigungArt.EINGANG];

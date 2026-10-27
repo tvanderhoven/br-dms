@@ -119,7 +119,14 @@ export default function GeschaeftsordnungSeite() {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 text-gray-600">{g.bemerkung ?? "–"}</td>
+                  <td className="px-4 py-2.5 text-gray-600">
+                    {g.bemerkung ?? "–"}
+                    {g.videoErlaubt && (
+                      <span className="block text-xs text-gray-400 mt-0.5" title={g.videoBedingungen ?? undefined}>
+                        Video/Telefon erlaubt{g.videoNichtVertraulich ? ", nicht bei vertraulichen TOPs" : ""}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-2.5">
                     {g.dokument ? (
                       <button
@@ -180,6 +187,10 @@ function GeschaeftsordnungModal({
   const [beschlossenAm, setBeschlossenAm] = useState(eintrag?.beschlossenAm?.slice(0, 10) ?? new Date().toISOString().slice(0, 10));
   const [bemerkung, setBemerkung]         = useState(eintrag?.bemerkung ?? "");
   const [dokumentId, setDokumentId]       = useState(eintrag?.dokumentId ?? "");
+  // § 30 Abs. 2 Nr. 1 BetrVG: Teilnahme per Video/Telefon (Roadmap Paket 6)
+  const [videoErlaubt, setVideoErlaubt]   = useState(eintrag?.videoErlaubt ?? false);
+  const [videoNichtVertraulich, setVideoNichtVertraulich] = useState(eintrag?.videoNichtVertraulich ?? false);
+  const [videoBedingungen, setVideoBedingungen] = useState(eintrag?.videoBedingungen ?? "");
   const [dokumente, setDokumente]         = useState<Dokument[]>([]);
   const [laden, setLaden]                 = useState(false);
   const [fehler, setFehler]               = useState("");
@@ -209,6 +220,9 @@ function GeschaeftsordnungModal({
         ...(modus === "beschluss" ? { beschlussId } : { beschlossenAm, beschlussId: null }),
         bemerkung: bemerkung.trim() || undefined,
         dokumentId: dokumentId || null,
+        videoErlaubt,
+        videoNichtVertraulich: videoErlaubt && videoNichtVertraulich,
+        videoBedingungen: videoErlaubt ? videoBedingungen.trim() || null : null,
       };
       if (eintrag) await api.geschaeftsordnung.aktualisieren(eintrag.id, daten);
       else         await api.geschaeftsordnung.erstellen(daten);
@@ -294,6 +308,31 @@ function GeschaeftsordnungModal({
               placeholder="z.B. löst die Fassung vom ... ab"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
           </div>
+
+          <fieldset className="border border-gray-200 rounded-lg px-3 py-2 space-y-2">
+            <legend className="text-sm font-medium text-gray-700 px-1">Sitzung per Video/Telefon (§ 30 Abs. 2 BetrVG)</legend>
+            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+              <input type="checkbox" checked={videoErlaubt} onChange={e => setVideoErlaubt(e.target.checked)}
+                className="rounded-sm border-gray-300 text-[rgb(var(--accent))]" />
+              Teilnahme per Video-/Telefonkonferenz erlaubt
+            </label>
+            {videoErlaubt && (
+              <>
+                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <input type="checkbox" checked={videoNichtVertraulich} onChange={e => setVideoNichtVertraulich(e.target.checked)}
+                    className="rounded-sm border-gray-300 text-[rgb(var(--accent))]" />
+                  Nicht bei vertraulichen TOPs
+                </label>
+                <textarea rows={2} value={videoBedingungen} onChange={e => setVideoBedingungen(e.target.value)}
+                  placeholder="Weitere Bedingungen laut Geschäftsordnung, z. B. nur in begründeten Fällen, Kamera an"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y" />
+              </>
+            )}
+            <p className="text-xs text-gray-400">
+              Ohne diese Regel finden alle Sitzungen in Präsenz statt. Die Präsenzsitzung hat Vorrang; widerspricht ein Viertel der
+              Mitglieder, gilt das für die einzelne Sitzung nicht.
+            </p>
+          </fieldset>
 
           {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
 

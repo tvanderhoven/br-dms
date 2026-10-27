@@ -4,20 +4,26 @@
  * GET    /api/sitzungen/:id/anwesenheit        – Anwesenheitsliste abrufen
  * POST   /api/sitzungen/:id/anwesenheit        – Eintrag erstellen/aktualisieren
  * DELETE /api/sitzungen/:id/anwesenheit/:uid   – Eintrag löschen
+ *
+ * Teilnahmeart (§ 30 Abs. 2 BetrVG, lib/videoSitzung.ts): vor Ort, per Video oder per Telefon –
+ * zugeschaltet nur, wenn die Form der Sitzung es vorsieht und kein Viertel widersprochen hat.
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { AnwesenheitsStatus, Role, SitzungStatus } from "@prisma/client";
+import { AnwesenheitsStatus, Role, SitzungStatus, Teilnahmeart } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { ermittleErsatzVorschlag } from "../lib/ersatzVorschlag.js";
 import { vergleicheNachMitgliederSortierung } from "../lib/mitgliederSortierung.js";
 import { benachrichtigen, sitzungLink } from "../lib/benachrichtigung.js";
+import { istTeilnahmeart, istZugeschaltet, teilnahmeBestaetigungAnfordern, zuschaltungGesperrt } from "../lib/videoSitzung.js";
 
 const ANWESENHEIT_SELECT = {
   id: true,
   status: true,
+  teilnahmeart: true,
+  teilnahmeBestaetigtAm: true,
   vertretungFuer: {
     select: { id: true, name: true },
   },
@@ -91,10 +97,11 @@ export async function anwesenheitRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
-      const { benutzerId, status, vertretungFuerId } = request.body as {
+      const { benutzerId, status, vertretungFuerId, teilnahmeart } = request.body as {
         benutzerId: string;
         status: AnwesenheitsStatus;
         vertretungFuerId?: string;
+        teilnahmeart?: Teilnahmeart;
       };
 
       const sitzung = await prisma.sitzung.findUnique({
@@ -112,7 +119,7 @@ export async function anwesenheitRouten(app: FastifyInstance): Promise<void> {
       });
       const vorher = await prisma.anwesenheit.findUnique({
         where:  { sitzungId_benutzerId: { sitzungId: id, benutzerId } },
-        select: { status: true, vertretungFuerId: true },
+        select: { status: true, vertretungFuerId: true, teilnahmeart: true },
       });
 
       // Admin und externe Protokollführung gehören nicht zum Gremium – keine Ladung, keine Anwesenheit
@@ -125,6 +132,20 @@ export async function anwesenheitRouten(app: FastifyInstance): Promise<void> {
         return reply.status(400).send({ fehler: "vertretungFuerId erforderlich für Ersatzmitglied" });
       }
 
+      if (teilnahmeart !== undefined && !istTeilnahmeart(teilnahmeart)) {
+        return reply.status(400).send({ fehler: "Unbekannte Teilnahmeart" });
+      }
+      // Wer abwesend ist, ist auch nicht zugeschaltet
+      const art = status === AnwesenheitsStatus.ANWESEND || status === AnwesenheitsStatus.ERSATZ_FUER
+        ? teilnahmeart ?? vorher?.teilnahmeart ?? Teilnahmeart.VOR_ORT
+        : Teilnahmeart.VOR_ORT;
+      if (istZugeschaltet(art) && art !== vorher?.teilnahmeart) {
+        const grund = await zuschaltungGesperrt(id);
+        if (grund) return reply.status(409).send({ fehler: grund });
+      }
+      // Bestätigung gilt nur für die Teilnahmeart, die bestätigt wurde
+      const bestaetigungZuruecksetzen = art !== vorher?.teilnahmeart ? { teilnahmeBestaetigtAm: null } : {};
+
       const anwesenheit = await prisma.anwesenheit.upsert({
         where: {
           sitzungId_benutzerId: {
@@ -135,12 +156,15 @@ export async function anwesenheitRouten(app: FastifyInstance): Promise<void> {
         update: {
           status,
           vertretungFuerId: vertretungFuerId ?? null,
+          teilnahmeart: art,
+          ...bestaetigungZuruecksetzen,
         },
         create: {
           sitzungId: id,
           benutzerId: benutzerId,
           status,
           vertretungFuerId: vertretungFuerId ?? null,
+          teilnahmeart: art,
         },
         select: ANWESENHEIT_SELECT,
       });
@@ -158,6 +182,11 @@ export async function anwesenheitRouten(app: FastifyInstance): Promise<void> {
           betreff: `Ladung als Ersatzmitglied: ${sitzung.titel}`,
           inhalt:  `Du bist als Ersatzmitglied zur Sitzung „${sitzung.titel}“ am ${datum} geladen.`,
         });
+      }
+
+      // Nach der Sitzung als zugeschaltet eingetragen → an die Bestätigung (§ 34 Abs. 1) erinnern
+      if (istZugeschaltet(art) && art !== vorher?.teilnahmeart && sitzung.status === SitzungStatus.PROTOKOLL_ENTWURF) {
+        await teilnahmeBestaetigungAnfordern(id, benutzerId, request.benutzer.sub);
       }
 
       return reply.status(201).send(anwesenheit);

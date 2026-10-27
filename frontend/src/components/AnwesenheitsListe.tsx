@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { api, Benutzer, Verfuegbarkeit, ABWESENHEITS_GRUND_LABEL } from "../lib/api";
-import { CheckCircle, XCircle, HelpCircle, UserCheck, UserPlus, CalendarOff, AlertTriangle, Wand2 } from "lucide-react";
+import { api, Benutzer, Verfuegbarkeit, ABWESENHEITS_GRUND_LABEL, Teilnahmeart, TEILNAHMEART_LABEL } from "../lib/api";
+import { CheckCircle, XCircle, HelpCircle, UserCheck, UserPlus, CalendarOff, AlertTriangle, Wand2, Video } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export type AnwesenheitsStatus = "ANWESEND" | "ABWESEND_ENTSCHULDIGT" | "ABWESEND_UNENTSCHULDIGT" | "ERSATZ_FUER";
@@ -10,6 +10,8 @@ interface Anwesenheit {
   status: AnwesenheitsStatus;
   vertretungFuer?: { id: string; name: string } | null;
   benutzer: { id: string; name: string; rolle: string };
+  teilnahmeart?: Teilnahmeart;              // § 30 Abs. 2 (Roadmap Paket 6)
+  teilnahmeBestaetigtAm?: string | null;    // § 34 Abs. 1
 }
 
 interface ListItem {
@@ -57,10 +59,12 @@ interface Props {
   readonly?: boolean;
   // Sitzung hat noch nicht stattgefunden: Liste dient der Ladung (Verhinderung, Ersatz)
   vorSitzung?: boolean;
+  // Form der Sitzung erlaubt Zuschaltung per Video/Telefon (§ 30 Abs. 2) – dann je Person die Teilnahmeart
+  zuschaltung?: boolean;
   onGeaendert?: () => void;
 }
 
-export default function AnwesenheitsListe({ sitzungId, readonly = false, vorSitzung = false, onGeaendert }: Props) {
+export default function AnwesenheitsListe({ sitzungId, readonly = false, vorSitzung = false, zuschaltung = false, onGeaendert }: Props) {
   const label = vorSitzung ? STATUS_LABEL_VORAB : STATUS_LABEL;
   const [liste,          setListe]          = useState<ListItem[]>([]);
   const [isLaden,        setIsLaden]        = useState(true);
@@ -110,13 +114,14 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false, vorSitz
     }
   }
 
-  async function setStatus(benutzerId: string, status: AnwesenheitsStatus, vertretungFuerId?: string) {
+  async function setStatus(benutzerId: string, status: AnwesenheitsStatus, vertretungFuerId?: string, teilnahmeart?: Teilnahmeart) {
     setSpeichern(benutzerId);
     try {
       await api.post(`/api/sitzungen/${sitzungId}/anwesenheit`, {
         benutzerId,
         status,
         vertretungFuerId,
+        teilnahmeart,
       });
       ladeDaten();
       onGeaendert?.();
@@ -213,6 +218,7 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false, vorSitz
   }
 
   const anwesend = liste.filter(l => l.anwesenheit?.status === "ANWESEND").length;
+  const zugeschaltet = liste.filter(l => l.anwesenheit && l.anwesenheit.teilnahmeart && l.anwesenheit.teilnahmeart !== "VOR_ORT").length;
   const kommen   = anwesend + liste.filter(l => l.anwesenheit?.status === "ERSATZ_FUER").length;
   // verhindertes Mitglied → Name des geladenen Ersatzes
   const vertretenDurch = new Map(
@@ -293,6 +299,12 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false, vorSitz
                       <span className="ml-1 text-[rgb(var(--accent))]">· Ersatz: {vertretenDurch.get(item.benutzer.id)}</span>
                     )}
                   </p>
+                  {item.anwesenheit?.teilnahmeart && item.anwesenheit.teilnahmeart !== "VOR_ORT" && !vorSitzung && (
+                    <span className={`mt-0.5 inline-flex items-center gap-1 text-[11px] rounded px-1.5 py-0.5 border ${item.anwesenheit.teilnahmeBestaetigtAm ? "bg-green-50 text-green-700 border-green-200" : "bg-amber-50 text-amber-800 border-amber-200"}`}>
+                      <Video size={11} />
+                      {item.anwesenheit.teilnahmeBestaetigtAm ? "Teilnahme bestätigt" : "Bestätigung (§ 34) offen"}
+                    </span>
+                  )}
                   {kalenderVon.get(item.benutzer.id) && (
                     <KalenderMarke eintrag={kalenderVon.get(item.benutzer.id)!} konflikt={konfliktIds.has(item.benutzer.id)} />
                   )}
@@ -312,6 +324,19 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false, vorSitz
                       </button>
                     )}
 
+                    {zuschaltung && (item.anwesenheit?.status === "ANWESEND" || item.anwesenheit?.status === "ERSATZ_FUER") && (
+                      <select
+                        value={item.anwesenheit.teilnahmeart ?? "VOR_ORT"}
+                        onChange={e => setStatus(item.benutzer.id, item.anwesenheit!.status, item.anwesenheit!.vertretungFuer?.id, e.target.value as Teilnahmeart)}
+                        disabled={speichern === item.benutzer.id}
+                        title="Teilnahme vor Ort oder zugeschaltet (§ 30 Abs. 2 BetrVG)"
+                        className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] disabled:opacity-50"
+                      >
+                        {(Object.keys(TEILNAHMEART_LABEL) as Teilnahmeart[]).map(t => (
+                          <option key={t} value={t}>{TEILNAHMEART_LABEL[t]}</option>
+                        ))}
+                      </select>
+                    )}
                     <select
                       value={item.anwesenheit?.status ?? ""}
                       onChange={e => onStatusChange(item, e.target.value as AnwesenheitsStatus | "")}
@@ -328,7 +353,10 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false, vorSitz
                 )}
 
                 {readonly && item.anwesenheit && (
-                  <span className="text-xs text-gray-500">{label[item.anwesenheit.status]}</span>
+                  <span className="text-xs text-gray-500">
+                    {label[item.anwesenheit.status]}
+                    {item.anwesenheit.teilnahmeart && item.anwesenheit.teilnahmeart !== "VOR_ORT" && ` · ${TEILNAHMEART_LABEL[item.anwesenheit.teilnahmeart]}`}
+                  </span>
                 )}
               </div>
 
@@ -408,6 +436,12 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false, vorSitz
             <UserCheck size={12} className="text-[rgb(var(--accent))]" />
             Ersatz: {liste.filter(l => l.anwesenheit?.status === "ERSATZ_FUER").length}
           </span>
+          {zugeschaltet > 0 && (
+            <span className="flex items-center gap-1" title="Zählen nach § 33 Abs. 1 BetrVG als anwesend">
+              <Video size={12} className="text-[rgb(var(--accent))]" />
+              Zugeschaltet: {zugeschaltet}
+            </span>
+          )}
         </div>
       </div>
     </div>

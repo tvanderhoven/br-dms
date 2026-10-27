@@ -24,7 +24,7 @@
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { SitzungStatus, TopStatus, AuditAktion, Role, SitzungScanTyp, ThemaVertraulichkeit } from "@prisma/client";
+import { SitzungStatus, TopStatus, AuditAktion, Role, SitzungScanTyp, ThemaVertraulichkeit, SitzungForm, Teilnahmeart } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { rundnachrichtFilter } from "../lib/adminZugriff.js";
 import { authenticate } from "../middleware/auth.js";
@@ -36,6 +36,7 @@ import { darfProtokollieren } from "../lib/protokollfuehrung.js";
 import { sitzungAnlegen } from "../lib/sitzungAnlegen.js";
 import { benachrichtigen, sitzungLink } from "../lib/benachrichtigung.js";
 import { sichtbaresThema } from "../lib/themenakte.js";
+import { istSitzungForm, videoRegeln, teilnahmeBestaetigungAnfordern } from "../lib/videoSitzung.js";
 
 const datumText = (d: Date) => d.toLocaleDateString("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric" });
 
@@ -78,6 +79,11 @@ const TOP_SELECT = {
   vertraulich: true,
   externAusgeschlossen: true,
   einladungTitel: true,
+  // Gäste je TOP (Roadmap Paket 5) – mit dem TOP gefiltert, wer den TOP nicht sieht, sieht auch die Gäste nicht
+  gaeste: {
+    orderBy: { erstelltAm: "asc" as const },
+    select:  { id: true, name: true, funktion: true, organisation: true, email: true, anwesend: true, eingeladenAm: true },
+  },
   themaId:       true,   // nur die ID – Titel und Inhalt der Akte zeigt /api/themenakte nach eigener Prüfung
   erstelltAm:    true,
   aktualisiertAm: true,
@@ -109,6 +115,9 @@ const SITZUNG_SELECT = {
   status:       true,
   notizen:      true,
   teilnehmerzahl: true,
+  form:         true,
+  einwahlLink:  true,
+  widerspruchBis: true,
   erstelltAm:   true,
   aktualisiertAm: true,
   gremium:      { select: { id: true, name: true } },
@@ -297,11 +306,32 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
         return reply.status(409).send({ fehler: "Finalisierte Sitzungen können nicht bearbeitet werden" });
       }
 
-      const { titel, sitzungsdatum, ort, sitzungstyp, notizen, teilnehmerzahl: tzEingabe, gremiumId, protokollfuehrerId } =
+      const { titel, sitzungsdatum, ort, sitzungstyp, notizen, teilnehmerzahl: tzEingabe, gremiumId, protokollfuehrerId,
+              form, einwahlLink, widerspruchBis } =
         request.body as Partial<{
           titel: string; sitzungsdatum: string; ort: string; sitzungstyp: string; notizen: string;
           teilnehmerzahl: number | null; gremiumId: string | null; protokollfuehrerId: string | null;
+          form: SitzungForm; einwahlLink: string | null; widerspruchBis: string | null;
         }>;
+
+      // Sitzung per Video/Telefon (§ 30 Abs. 2): nur, wenn die Geschäftsordnung es erlaubt
+      if (form !== undefined) {
+        if (!istSitzungForm(form)) return reply.status(400).send({ fehler: "Unbekannte Form der Sitzung" });
+        if (form !== SitzungForm.PRAESENZ) {
+          if (istBetriebsversammlung(sitzungstyp ?? sitzung.sitzungstyp)) {
+            return reply.status(400).send({ fehler: "Die Betriebsversammlung findet als Präsenzversammlung statt" });
+          }
+          if (!(await videoRegeln()).erlaubt) {
+            return reply.status(409).send({ fehler: "Die Geschäftsordnung sieht keine Teilnahme per Video/Telefon vor (§ 30 Abs. 2 Nr. 1 BetrVG)" });
+          }
+        }
+      }
+      if (einwahlLink && !/^https?:\/\/\S+$/.test(einwahlLink.trim())) {
+        return reply.status(400).send({ fehler: "Der Einwahllink muss mit http:// oder https:// beginnen" });
+      }
+      if (widerspruchBis && Number.isNaN(new Date(widerspruchBis).getTime())) {
+        return reply.status(400).send({ fehler: "Ungültige Widerspruchsfrist" });
+      }
 
       if (sitzungstyp !== undefined) {
         if (!SITZUNGSTYPEN.includes(sitzungstyp)) {
@@ -339,9 +369,19 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
           ...(teilnehmerzahl !== undefined && { teilnehmerzahl }),
           ...(gremiumId    !== undefined && { gremiumId }),
           ...(protokollfuehrerId !== undefined && { protokollfuehrerId: protokollfuehrerId || null }),
+          ...(form         !== undefined && { form }),
+          ...(einwahlLink  !== undefined && { einwahlLink: einwahlLink?.trim() || null }),
+          ...(widerspruchBis !== undefined && { widerspruchBis: widerspruchBis ? new Date(widerspruchBis) : null }),
         },
         select: SITZUNG_SELECT,
       });
+      // Zurück zur Präsenzsitzung: niemand bleibt als zugeschaltet stehen
+      if (form === SitzungForm.PRAESENZ) {
+        await prisma.anwesenheit.updateMany({
+          where: { sitzungId: id, teilnahmeart: { not: Teilnahmeart.VOR_ORT } },
+          data:  { teilnahmeart: Teilnahmeart.VOR_ORT, teilnahmeBestaetigtAm: null },
+        });
+      }
 
       await audit(id, request.benutzer.sub, AuditAktion.SITZUNG_AKTUALISIERT, request);
       if (sitzungsdatum !== undefined) quartalsFristAbgleichen(aktualisiert.sitzungstyp);
@@ -513,6 +553,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
       });
 
       await audit(id, request.benutzer.sub, AuditAktion.SITZUNG_PROTOKOLL_GESTARTET, request);
+      await teilnahmeBestaetigungAnfordern(id, null, request.benutzer.sub);
       return reply.send(aktualisiert);
     }
   );

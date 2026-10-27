@@ -23,6 +23,8 @@ import { sitzungspaketRouten } from "./routes/sitzungspaket.js";
 import { nachrichtenRouten } from "./routes/nachrichten.js";
 import { kommentarRouten } from "./routes/kommentare.js";
 import { anwesenheitRouten } from "./routes/anwesenheit.js";
+import { gaesteRouten } from "./routes/gaeste.js";
+import { videoSitzungRouten } from "./routes/videoSitzung.js";
 import { protocolRouten } from "./routes/protocol.js";
 import { beschlussRouten } from "./routes/beschluesse.js";
 import { aufgabenRouten } from "./routes/aufgaben.js";
@@ -129,6 +131,8 @@ export async function baueApp(optionen: AppOptionen = {}): Promise<FastifyInstan
   await app.register(nachrichtenRouten,{ prefix: "/api/nachrichten" });
   await app.register(kommentarRouten,  { prefix: "/api" });
   await app.register(anwesenheitRouten,{ prefix: "/api/sitzungen" });
+  await app.register(gaesteRouten,     { prefix: "/api/sitzungen" });
+  await app.register(videoSitzungRouten,{ prefix: "/api/sitzungen" });
   await app.register(einladungRouten,   { prefix: "/api/sitzungen" });
   await app.register(verfuegbarkeitRouten, { prefix: "/api/sitzungen" });
   await app.register(abwesenheitRouten,    { prefix: "/api/abwesenheiten" });

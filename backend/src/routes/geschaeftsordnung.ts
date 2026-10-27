@@ -11,6 +11,9 @@
  * optional mit einem finalisierten Beschluss verknüpfbar, dessen Ja-Stimmen gegen die zum
  * Zeitpunkt der Abstimmung eingefrorene Soll-Stärke geprüft werden (nur Warnung, kein Blocker,
  * damit ältere/papierne Fassungen ohne Systembeschluss weiter erfassbar bleiben).
+ *
+ * Je Fassung außerdem die Regeln für die Teilnahme per Video/Telefon (§ 30 Abs. 2 Nr. 1,
+ * lib/videoSitzung.ts): erlaubt ja/nein, optional nicht bei vertraulichen TOPs, Freitext für Bedingungen.
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
@@ -20,18 +23,33 @@ import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { istGeschaeftsordnungsMehrheit } from "../lib/beschlussfaehigkeit.js";
 
-interface NeueGeschaeftsordnung {
+interface VideoFelder {
+  videoErlaubt?:          boolean;
+  videoNichtVertraulich?: boolean;
+  videoBedingungen?:      string | null;
+}
+
+interface NeueGeschaeftsordnung extends VideoFelder {
   beschlossenAm?: string;
   bemerkung?:     string;
   dokumentId?:    string;
   beschlussId?:   string;
 }
 
-interface GeschaeftsordnungUpdate {
+interface GeschaeftsordnungUpdate extends VideoFelder {
   beschlossenAm?: string;
   bemerkung?:     string | null;
   dokumentId?:    string | null;
   beschlussId?:   string | null;
+}
+
+/** Nur gesetzte Felder übernehmen; „nicht bei vertraulichen TOPs“ ergibt nur mit Zuschaltung Sinn */
+function videoDaten(b: VideoFelder) {
+  return {
+    ...(b.videoErlaubt !== undefined ? { videoErlaubt: !!b.videoErlaubt } : {}),
+    ...(b.videoNichtVertraulich !== undefined ? { videoNichtVertraulich: !!b.videoNichtVertraulich && b.videoErlaubt !== false } : {}),
+    ...(b.videoBedingungen !== undefined ? { videoBedingungen: b.videoBedingungen?.trim().slice(0, 4000) || null } : {}),
+  };
 }
 
 const DOKUMENT_SELECT  = { id: true, titel: true, dateiname: true };
@@ -103,6 +121,7 @@ export async function geschaeftsordnungRouten(app: FastifyInstance): Promise<voi
           bemerkung:     bemerkung?.trim() || null,
           dokumentId:    dokumentId || null,
           beschlussId:   beschlussId || null,
+          ...videoDaten(request.body),
           erstelltVonId: request.benutzer.sub,
         },
         include: { dokument: { select: DOKUMENT_SELECT }, beschluss: { select: BESCHLUSS_SELECT } },
@@ -157,6 +176,7 @@ export async function geschaeftsordnungRouten(app: FastifyInstance): Promise<voi
           ...(bemerkung   !== undefined ? { bemerkung: bemerkung?.trim() || null } : {}),
           ...(dokumentId  !== undefined ? { dokumentId: dokumentId || null } : {}),
           ...(beschlussId !== undefined ? { beschlussId: beschlussId || null } : {}),
+          ...videoDaten(request.body),
         },
         include: { dokument: { select: DOKUMENT_SELECT }, beschluss: { select: BESCHLUSS_SELECT } },
       });

@@ -47,7 +47,7 @@ function geschwaerzteFassung<S extends NonNullable<Awaited<ReturnType<typeof sit
       ...t,
       titel: "[geschwärzt – vertraulicher Tagesordnungspunkt]",
       inhalt: null, inhaltsJson: null, ergebnis: null, ergebnisJson: null,
-      dokumente: [], beschluesse: [], kommentare: [], abstimmung: null,
+      dokumente: [], beschluesse: [], kommentare: [], abstimmung: null, gaeste: [],
     }),
   };
 }
@@ -67,6 +67,8 @@ async function sitzungFuerPdf(id: string) {
       anwesenheiten: {
         select: {
           status:         true,
+          teilnahmeart:   true,
+          teilnahmeBestaetigtAm: true,
           benutzer:       { select: { id: true, name: true, rolle: true } },
           vertretungFuer: { select: { name: true } },
         },
@@ -84,6 +86,10 @@ async function sitzungFuerPdf(id: string) {
           status:      true,
           vertraulich: true,
           externAusgeschlossen: true,
+          gaeste: {
+            orderBy: { erstelltAm: "asc" as const },
+            select:  { name: true, funktion: true, organisation: true, anwesend: true },
+          },
           dokumente: {
             select: {
               dokument: { select: { titel: true, kategorie: true, aktenzeichen: true } },
@@ -162,9 +168,15 @@ export async function pdfRouten(app: FastifyInstance): Promise<void> {
         select: {
           benutzerId:     true,
           status:         true,
+          teilnahmeart:   true,
           vertretungFuer: { select: { name: true } },
         },
       });
+      const gaeste = (await prisma.topGast.findMany({
+        where:   { top: { sitzungId: id } },
+        orderBy: [{ top: { nummer: "asc" } }, { erstelltAm: "asc" }],
+        select:  { name: true, funktion: true, organisation: true, anwesend: true, top: { select: { nummer: true } } },
+      })).map(g => ({ ...g, topNummer: g.top.nummer }));
 
       const anwesenheitMap = new Map(anwesenheiten.map(a => [a.benutzerId, a]));
 
@@ -174,9 +186,10 @@ export async function pdfRouten(app: FastifyInstance): Promise<void> {
         rolle:             b.rolle,
         status:            anwesenheitMap.get(b.id)?.status ?? null,
         vertretungFuerName: anwesenheitMap.get(b.id)?.vertretungFuer?.name ?? null,
+        teilnahmeart:      anwesenheitMap.get(b.id)?.teilnahmeart ?? null,
       }));
 
-      const buffer = await anwesenheitslistePdfGenerieren(sitzung, mitglieder);
+      const buffer = await anwesenheitslistePdfGenerieren(sitzung, mitglieder, gaeste);
       const dateiname = `anwesenheitsliste-${sitzung.titel.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, "-")}.pdf`;
 
       return reply

@@ -176,6 +176,30 @@ enum AnwesenheitsStatus {
   ERSATZ_FUER
 }
 
+// § 30 Abs. 2 BetrVG (Roadmap Paket 6): PRAESENZ = nur vor Ort · ZUSCHALTUNG = Präsenz mit
+// Zuschaltung per Video/Telefon · VIDEO = reine Video-/Telefonsitzung
+enum SitzungForm {
+  PRAESENZ
+  ZUSCHALTUNG
+  VIDEO
+}
+
+enum Teilnahmeart {
+  VOR_ORT
+  VIDEO
+  TELEFON
+}
+
+// Gäste je TOP (Roadmap Paket 5): Arbeitgeber (§ 29 Abs. 4), Gewerkschaft (§ 31),
+// Sachverständige (§ 80 Abs. 3), Auskunftspersonen (§ 80 Abs. 2 S. 4)
+enum GastFunktion {
+  ARBEITGEBER
+  GEWERKSCHAFT
+  SACHVERSTAENDIGER
+  AUSKUNFTSPERSON
+  SONSTIGE
+}
+
 enum Stimme {
   JA
   NEIN
@@ -204,6 +228,8 @@ enum BenachrichtigungArt {
   KUMMERKASTEN
   FRIST_EINGANG
   EINGANG
+  VIDEO_WIDERSPRUCH
+  TEILNAHME_BESTAETIGEN
 }
 
 enum AuditAktion {
@@ -327,6 +353,7 @@ model Benutzer {
   verschwiegenheitMimeTyp      String?   @map("verschwiegenheit_mime_typ")
   protokollGefuehrt Sitzung[]                     @relation("SitzungProtokollfuehrer")
   vertretungErhalten Anwesenheit[]              @relation("VertretungErhalten")
+  sitzungWidersprueche SitzungWiderspruch[]
 
   // Wahlergebnis der letzten BR-Wahl (einmalig aus dem Wahlprotokoll übertragen) –
   // Basis für den automatischen Ersatzmitglieder-Nachrück-Vorschlag inkl. Quoten-Warnung.
@@ -829,6 +856,13 @@ model Sitzung {
   protokollfuehrerId String?   @map("protokollfuehrer_id")
   protokollfuehrer   Benutzer? @relation("SitzungProtokollfuehrer", fields: [protokollfuehrerId], references: [id], onDelete: SetNull)
 
+  // Sitzung per Video/Telefon (§ 30 Abs. 2 BetrVG, Roadmap Paket 6, lib/videoSitzung.ts): Form nur
+  // anders als Präsenz, wenn die aktuelle Geschäftsordnung es erlaubt; Widerspruchsfrist bestimmt der Vorsitz
+  form           SitzungForm   @default(PRAESENZ)
+  einwahlLink    String?       @map("einwahl_link")
+  widerspruchBis DateTime?     @map("widerspruch_bis")
+  widersprueche  SitzungWiderspruch[]
+
   erstelltAm     DateTime      @default(now()) @map("erstellt_am")
   aktualisiertAm DateTime      @updatedAt @map("aktualisiert_am")
 
@@ -1070,11 +1104,50 @@ model Anwesenheit {
   vertretungFuerId String?          @map("vertretung_fuer_id")
   vertretungFuer  Benutzer?         @relation("VertretungErhalten", fields: [vertretungFuerId], references: [id], onDelete: SetNull)
 
+  // § 30 Abs. 2 / § 33 Abs. 1 BetrVG: Zugeschaltete gelten als anwesend; nach § 34 Abs. 1 bestätigen
+  // sie ihre Teilnahme in Textform (hier per Klick, Zeitpunkt als Anlage ins Protokoll-PDF)
+  teilnahmeart    Teilnahmeart       @default(VOR_ORT)
+  teilnahmeBestaetigtAm DateTime?    @map("teilnahme_bestaetigt_am")
+
   erstelltAm      DateTime           @default(now()) @map("erstellt_am")
   aktualisiertAm  DateTime           @updatedAt @map("aktualisiert_am")
 
   @@unique([sitzungId, benutzerId])
   @@map("anwesenheiten")
+}
+
+// Widerspruch gegen die Zuschaltung per Video/Telefon (§ 30 Abs. 2 Nr. 2 BetrVG): ab einem Viertel
+// der Mitglieder ist die Zuschaltung für diese Sitzung gesperrt (lib/videoSitzung.ts)
+model SitzungWiderspruch {
+  id         String   @id @default(uuid())
+  sitzungId  String   @map("sitzung_id")
+  sitzung    Sitzung  @relation(fields: [sitzungId], references: [id], onDelete: Cascade)
+  benutzerId String   @map("benutzer_id")
+  benutzer   Benutzer @relation(fields: [benutzerId], references: [id], onDelete: Cascade)
+  erstelltAm DateTime @default(now()) @map("erstellt_am")
+
+  @@unique([sitzungId, benutzerId])
+  @@map("sitzung_widersprueche")
+}
+
+// Gast am TOP ohne Konto (Roadmap Paket 5): erscheint bei der Anwesenheit im Protokoll und bekommt
+// auf Wunsch eine Mail mit Termin und nur seinem TOP (routes/gaeste.ts)
+model TopGast {
+  id           String       @id @default(uuid())
+  topId        String       @map("top_id")
+  top          TOP          @relation(fields: [topId], references: [id], onDelete: Cascade)
+  name         String
+  funktion     GastFunktion
+  organisation String?
+  email        String?
+  // Im Protokoll: false = eingeladen, aber nicht erschienen
+  anwesend     Boolean      @default(true)
+  eingeladenAm DateTime?    @map("eingeladen_am")
+  erstelltAm     DateTime   @default(now()) @map("erstellt_am")
+  aktualisiertAm DateTime   @updatedAt @map("aktualisiert_am")
+
+  @@index([topId])
+  @@map("top_gaeste")
 }
 
 model TOP {
@@ -1111,6 +1184,7 @@ model TOP {
   einladungTitel String?   @map("einladung_titel")
 
   dokumente      TopDokument[]
+  gaeste         TopGast[]
   abstimmung     Abstimmung?
   beschluesse    Beschluss[]
   kommentare     Kommentar[]
@@ -1772,6 +1846,12 @@ model Geschaeftsordnung {
 
   dokumentId     String?   @map("dokument_id")
   dokument       Dokument? @relation(fields: [dokumentId], references: [id], onDelete: SetNull)
+
+  // § 30 Abs. 2 Nr. 1 BetrVG: Voraussetzungen für die Teilnahme per Video/Telefon legt die
+  // Geschäftsordnung fest, unter Sicherung des Vorrangs der Präsenzsitzung (lib/videoSitzung.ts)
+  videoErlaubt          Boolean @default(false) @map("video_erlaubt")
+  videoNichtVertraulich Boolean @default(false) @map("video_nicht_vertraulich")
+  videoBedingungen      String? @map("video_bedingungen")
 
   erstelltVonId  String   @map("erstellt_von_id")
   erstelltVon    Benutzer @relation("GeschaeftsordnungErstellt", fields: [erstelltVonId], references: [id])

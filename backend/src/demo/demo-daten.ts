@@ -889,8 +889,14 @@ async function main() {
       kopf: `Beschlossen in der Sitzung vom ${fmt(beschlossenAm)} (§ 36 BetrVG)`,
       abschnitte, erstelltAm: tage(2, beschlossenAm), vonId: vorsitz, tags: ["Geschäftsordnung"],
     });
+    // Fassung 2026 regelt die Teilnahme per Video (§ 2) – als Einstellung für die Sitzungsform (Paket 6)
+    const mitVideo = beschlossenAm.getUTCFullYear() === 2026;
     await prisma.geschaeftsordnung.create({
-      data: { beschlossenAm, bemerkung, dokumentId: d.id, erstelltVonId: vorsitz },
+      data: {
+        beschlossenAm, bemerkung, dokumentId: d.id, erstelltVonId: vorsitz,
+        videoErlaubt: mitVideo, videoNichtVertraulich: mitVideo,
+        videoBedingungen: mitVideo ? "Präsenz ist der Regelfall; Zuschaltung nur mit Kamera und aus einem Raum ohne Mithörende." : null,
+      },
     });
   }
 

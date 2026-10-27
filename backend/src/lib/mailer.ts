@@ -350,6 +350,7 @@ export interface EinladungMail {
   unterschrift:    string;            // z. B. "Sabine Kröger, Vorsitzende"
   zusatz:          string | null;     // freier Text dieses Versands (z. B. Meeting-Link)
   signatur:        string | null;     // feste Signatur aus den Einstellungen
+  video?:          string[] | null;   // Form, Einwahllink, Widerspruchsfrist (§ 30 Abs. 2, lib/videoSitzung.ts)
 }
 
 // Text → HTML: escapen, Zeilenumbrüche erhalten, Links anklickbar machen
@@ -389,6 +390,7 @@ export async function sendeEinladung(m: EinladungMail): Promise<void> {
     `Termin: ${datum}, ${zeit} Uhr`,
     ...(m.ort ? [`Ort:    ${m.ort}`] : []),
     ...(ersatz ? ["", ersatz] : []),
+    ...(m.video?.length ? ["", ...m.video] : []),
     ...(m.zusatz ? ["", m.zusatz] : []),
     "",
     ...(m.tops
@@ -425,6 +427,7 @@ export async function sendeEinladung(m: EinladungMail): Promise<void> {
         ${m.ort ? `<tr><td style="padding:2px 12px 2px 0;color:#6b7280">Ort</td><td>${html(m.ort)}</td></tr>` : ""}
       </table>
       ${ersatz ? `<p style="background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:8px 12px">${html(ersatz)}</p>` : ""}
+      ${m.video?.length ? `<p style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:8px 12px">${m.video.map(textAlsHtml).join("<br>")}</p>` : ""}
       ${m.zusatz ? `<p style="background:#f3f4f6;border-radius:6px;padding:8px 12px">${textAlsHtml(m.zusatz)}</p>` : ""}
       ${topsHtml}
       <p>${m.anhang ? "Die Tagesordnung liegt als PDF bei. " : ""}${m.kalender ? `Mit der Datei „${html(m.kalender.dateiname)}“ übernimmst du den Termin in deinen Kalender. ` : ""}<a href="${html(m.sitzungUrl)}">Sitzung in BR-DMS öffnen</a></p>
@@ -435,6 +438,76 @@ export async function sendeEinladung(m: EinladungMail): Promise<void> {
     attachments: [
       ...(m.anhang ? [{ filename: m.anhang.dateiname, path: m.anhang.pfad }] : []),
       ...(m.kalender ? [{ filename: m.kalender.dateiname, content: m.kalender.inhalt, contentType: "text/calendar; charset=utf-8; method=PUBLISH" }] : []),
+    ],
+  });
+}
+
+// ── Einladung eines Gasts zu seinem TOP (Roadmap Paket 5) ────────────
+
+export interface GastEinladungMail {
+  an:            string;
+  name:          string;
+  sitzungTitel:  string;
+  sitzungsdatum: Date;
+  ort:           string | null;
+  top:           { nummer: number; titel: string };
+  kalender:      { dateiname: string; inhalt: string };
+  unterschrift:  string;
+  zusatz:        string | null;
+  signatur:      string | null;
+}
+
+/**
+ * Gäste haben kein Konto: Die Mail nennt nur Termin, Ort und ihren eigenen TOP – keinen Link
+ * in BR-DMS und nicht die übrige Tagesordnung. Wirft bei Fehlern.
+ */
+export async function sendeGastEinladung(m: GastEinladungMail): Promise<void> {
+  const datum = m.sitzungsdatum.toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "long", year: "numeric", timeZone: "UTC" });
+  const zeit  = m.sitzungsdatum.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
+  const topText = `TOP ${m.top.nummer}: ${m.top.titel}`;
+
+  const text = [
+    `Guten Tag ${m.name},`,
+    "",
+    "der Betriebsrat lädt Sie zu folgendem Tagesordnungspunkt seiner Sitzung ein:",
+    "",
+    topText,
+    "",
+    `Termin: ${datum}, ${zeit} Uhr`,
+    ...(m.ort ? [`Ort:    ${m.ort}`] : []),
+    ...(m.zusatz ? ["", m.zusatz] : []),
+    "",
+    "Die Sitzungen des Betriebsrats sind nicht öffentlich (§ 30 Abs. 1 BetrVG). Sie nehmen nur an diesem Tagesordnungspunkt teil; "
+      + "den genauen Zeitpunkt innerhalb der Sitzung stimmen wir bei Bedarf mit Ihnen ab.",
+    `Mit der Datei „${m.kalender.dateiname}“ übernehmen Sie den Termin in Ihren Kalender.`,
+    "",
+    "Mit freundlichen Grüßen",
+    m.unterschrift,
+    ...(m.signatur ? ["", "-- ", m.signatur] : []),
+  ].join("\n");
+
+  await transporter.sendMail({
+    from:    await absender(),
+    to:      m.an,
+    subject: `Einladung zur Betriebsratssitzung am ${m.sitzungsdatum.toLocaleDateString("de-DE", { timeZone: "UTC" })}`,
+    text,
+    html: `<div style="font-family:sans-serif;max-width:640px;margin:0 auto;color:#111827">
+      <p>Guten Tag ${html(m.name)},</p>
+      <p>der Betriebsrat lädt Sie zu folgendem Tagesordnungspunkt seiner Sitzung ein:</p>
+      <p style="background:#f3f4f6;border-radius:6px;padding:8px 12px"><strong>${html(topText)}</strong></p>
+      <table style="border-collapse:collapse;margin:12px 0">
+        <tr><td style="padding:2px 12px 2px 0;color:#6b7280">Termin</td><td><strong>${html(datum)}, ${zeit} Uhr</strong></td></tr>
+        ${m.ort ? `<tr><td style="padding:2px 12px 2px 0;color:#6b7280">Ort</td><td>${html(m.ort)}</td></tr>` : ""}
+      </table>
+      ${m.zusatz ? `<p style="background:#f3f4f6;border-radius:6px;padding:8px 12px">${textAlsHtml(m.zusatz)}</p>` : ""}
+      <p style="color:#6b7280;font-size:13px">Die Sitzungen des Betriebsrats sind nicht öffentlich (§ 30 Abs. 1 BetrVG). Sie nehmen nur an diesem
+        Tagesordnungspunkt teil; den genauen Zeitpunkt innerhalb der Sitzung stimmen wir bei Bedarf mit Ihnen ab.</p>
+      <p>Mit der Datei „${html(m.kalender.dateiname)}“ übernehmen Sie den Termin in Ihren Kalender.</p>
+      <p>Mit freundlichen Grüßen<br>${html(m.unterschrift)}</p>
+      ${m.signatur ? `<p style="color:#6b7280;font-size:13px;border-top:1px solid #e5e7eb;padding-top:8px">${textAlsHtml(m.signatur)}</p>` : ""}
+    </div>`,
+    attachments: [
+      { filename: m.kalender.dateiname, content: m.kalender.inhalt, contentType: "text/calendar; charset=utf-8; method=PUBLISH" },
     ],
   });
 }

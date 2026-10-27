@@ -17,7 +17,7 @@
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import fs from "node:fs/promises";
-import { AnwesenheitsStatus, AuditAktion, EinladungDetail, Role, SitzungStatus } from "@prisma/client";
+import { AnwesenheitsStatus, AuditAktion, EinladungDetail, Role, SitzungForm, SitzungStatus } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
@@ -26,6 +26,36 @@ import { istBetriebsversammlung } from "../lib/sitzungstypen.js";
 import { kalenderDatei } from "../lib/kalender.js";
 import { einladungDetailStandard, einladungInhalt, istEinladungDetail } from "../lib/einladungDetail.js";
 import { ladungPruefen } from "../lib/ladungPruefen.js";
+import { SITZUNG_FORM_LABEL, widerspruchStand } from "../lib/videoSitzung.js";
+
+const fristText = (d: Date) => d.toLocaleString("de-DE", {
+  timeZone: "UTC", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+});
+
+/**
+ * Zeilen zur Sitzung per Video/Telefon (§ 30 Abs. 2) für die Einladungsmail – null bei Präsenz.
+ * Widersprechen können nur Mitglieder (und geladene Ersatzmitglieder), nicht JAV/SBV.
+ */
+function videoZeilen(
+  s: { form: SitzungForm; einwahlLink: string | null; widerspruchBis: Date | null },
+  gesperrt: boolean, darfWidersprechen: boolean, sitzungUrl: string,
+): string[] | null {
+  if (s.form === SitzungForm.PRAESENZ) return null;
+  const zeilen = [`Form: ${SITZUNG_FORM_LABEL[s.form]} (§ 30 Abs. 2 BetrVG).`];
+  if (gesperrt) {
+    zeilen.push("Mindestens ein Viertel der Mitglieder hat der Zuschaltung widersprochen – die Teilnahme ist nur vor Ort möglich.");
+    return zeilen;
+  }
+  if (s.form === SitzungForm.ZUSCHALTUNG) zeilen.push("Vorrang hat die Teilnahme vor Ort.");
+  if (s.einwahlLink) zeilen.push(`Einwahl: ${s.einwahlLink}`);
+  if (darfWidersprechen) {
+    zeilen.push(s.widerspruchBis
+      ? `Wer der Teilnahme per Video/Telefon widersprechen will, kann das bis ${fristText(s.widerspruchBis)} Uhr in BR-DMS tun: ${sitzungUrl}`
+      : `Wer der Teilnahme per Video/Telefon widersprechen will, kann das in BR-DMS tun: ${sitzungUrl}`);
+  }
+  zeilen.push("Bitte nimm, wenn du zugeschaltet bist, an einem Ort teil, an dem niemand mithören kann. Die Sitzung wird nicht aufgezeichnet.");
+  return zeilen;
+}
 
 const ROLLE_LABEL: Record<string, string> = {
   VORSITZ: "Vorsitz", STELLVERTRETER: "Stellv. Vorsitz", MITGLIED: "Mitglied",
@@ -108,6 +138,7 @@ export async function einladungRouten(app: FastifyInstance): Promise<void> {
         where:  { id },
         select: {
           titel: true, sitzungsdatum: true, ort: true, status: true, sitzungstyp: true,
+          form: true, einwahlLink: true, widerspruchBis: true,
           tops: { orderBy: { nummer: "asc" }, select: { nummer: true, titel: true, einladungTitel: true, vertraulich: true } },
           versionen: {
             where:   { typ: "TAGESORDNUNG_FIXIERT" },
@@ -147,6 +178,7 @@ export async function einladungRouten(app: FastifyInstance): Promise<void> {
       // Neue Fixierung (z. B. verschobener Termin) → höhere SEQUENCE, Kalender aktualisiert den Termin
       const sequenz  = await prisma.sitzungVersion.count({ where: { sitzungId: id, typ: "TAGESORDNUNG_FIXIERT" } });
       const signatur = (await prisma.systemEinstellung.findUnique({ where: { schluessel: MAIL_SIGNATUR } }))?.wert.trim() || null;
+      const zuschaltungGesperrt = sitzung.form !== SitzungForm.PRAESENZ && (await widerspruchStand(id)).gesperrt;
 
       const ergebnisse: { benutzerId: string; name: string; adresse: string; erfolgreich: boolean; fehler: string | null }[] = [];
       for (const e of empfaenger) {
@@ -163,7 +195,11 @@ export async function einladungRouten(app: FastifyInstance): Promise<void> {
             titel:        sitzung.titel,
             beginn:       sitzung.sitzungsdatum,
             ort:          sitzung.ort,
-            beschreibung: [...(tops ? ["Tagesordnung:", ...tops.map(t => `${t.nummer}. ${t.titel}`), ""] : []), `In BR-DMS: ${sitzungUrl}`].join("\n"),
+            beschreibung: [
+              ...(tops ? ["Tagesordnung:", ...tops.map(t => `${t.nummer}. ${t.titel}`), ""] : []),
+              ...(sitzung.einwahlLink && sitzung.form !== SitzungForm.PRAESENZ && !zuschaltungGesperrt ? [`Einwahl: ${sitzung.einwahlLink}`, ""] : []),
+              `In BR-DMS: ${sitzungUrl}`,
+            ].join("\n"),
             url:          sitzungUrl,
           }),
         };
@@ -183,6 +219,7 @@ export async function einladungRouten(app: FastifyInstance): Promise<void> {
             unterschrift,
             zusatz,
             signatur,
+            video:         videoZeilen(sitzung, zuschaltungGesperrt, !istEingeschraenkt, sitzungUrl),
           });
         } catch (err) {
           fehler = err instanceof Error ? err.message : String(err);
