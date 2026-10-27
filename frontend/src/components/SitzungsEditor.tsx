@@ -6,10 +6,11 @@
  * - Listen: Aufzählung, Nummeriert
  * - Highlight (für Beschlüsse)
  * - Dokument-Referenz einfügen (custom Extension)
+ * - Personen erwähnen: per Knopf oder durch Tippen von @ (Namensliste am Cursor)
  * - Readonly-Modus für fixierte Versionen
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -33,7 +34,7 @@ interface Props {
   readonly?:  boolean;
   placeholder?: string;
   minHeight?: string;
-  /** Personen, die per @ erwähnt werden können (Kommentare) – ohne Angabe kein Knopf */
+  /** Personen, die per @ erwähnt werden können – ohne Angabe weder Knopf noch @-Vorschlag */
   personen?: { id: string; name: string }[];
 }
 
@@ -44,6 +45,12 @@ export default function SitzungsEditor({
   const [personSuche, setPersonSuche]       = useState<string | null>(null);
   const [linkDialogOffen, setLinkDialogOffen] = useState(false);
   const [linkEingabe, setLinkEingabe]         = useState("");
+  // @-Vorschlag: gewählter Eintrag und die Stelle, an der er per Escape abgewiesen wurde
+  const [atIndex, setAtIndex]               = useState(0);
+  const [atAbgewiesen, setAtAbgewiesen]     = useState<number | null>(null);
+  // Der Tastatur-Handler des Editors entsteht nur einmal – er liest den aktuellen Stand über diese Referenz
+  const atRef = useRef<{ treffer: { id: string; name: string }[]; index: number; von: number; bis: number } | null>(null);
+  const atWaehlenRef = useRef<(p: { id: string; name: string }) => void>(() => {});
 
   const editor = useEditor({
     extensions: [
@@ -77,6 +84,17 @@ export default function SitzungsEditor({
     editable: !readonly,
     // Tiptap 3 rendert sonst nicht bei jeder Änderung neu – die Werkzeugleiste (isActive) bliebe stehen
     shouldRerenderOnTransaction: true,
+    editorProps: {
+      handleKeyDown: (_view, e) => {
+        const at = atRef.current;
+        if (!at) return false;
+        if (e.key === "ArrowDown") { e.preventDefault(); setAtIndex(i => (i + 1) % at.treffer.length); return true; }
+        if (e.key === "ArrowUp")   { e.preventDefault(); setAtIndex(i => (i - 1 + at.treffer.length) % at.treffer.length); return true; }
+        if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); atWaehlenRef.current(at.treffer[at.index]); return true; }
+        if (e.key === "Escape")    { setAtAbgewiesen(at.von); return true; }
+        return false;
+      },
+    },
     onUpdate: ({ editor }) => {
       onChange?.(editor.getJSON());
     },
@@ -164,6 +182,32 @@ export default function SitzungsEditor({
   }
 
   if (!editor) return null;
+
+  // @-Autovervollständigung: Text vor dem Cursor lautet "…@Suchtext" (@ am Anfang oder nach Leerzeichen)
+  let atPos: { von: number; bis: number; links: number; oben: number } | null = null;
+  let atTreffer: { id: string; name: string }[] = [];
+  const { selection } = editor.state;
+  if (!readonly && personen && editor.isFocused && selection.empty) {
+    const vorCursor = selection.$from.parent.textBetween(0, selection.$from.parentOffset, undefined, "\ufffc");
+    const m = /(^|\s)@([^@\s][^@]{0,29}|)$/.exec(vorCursor);
+    if (m) {
+      const bis = selection.from;
+      const von = bis - m[2].length - 1;
+      atTreffer = personenGefiltert(personen, m[2]);
+      if (atTreffer.length > 0 && atAbgewiesen !== von) {
+        const c = editor.view.coordsAtPos(bis);
+        atPos = { von, bis, links: c.left, oben: c.bottom + 4 };
+      }
+    }
+  }
+  const atIdx = Math.min(atIndex, Math.max(atTreffer.length - 1, 0));
+  atRef.current = atPos ? { treffer: atTreffer, index: atIdx, von: atPos.von, bis: atPos.bis } : null;
+  atWaehlenRef.current = p => {
+    const at = atRef.current;
+    if (!at) return;
+    editor.chain().focus().deleteRange({ from: at.von, to: at.bis }).insertPersonErwaehnung({ benutzerId: p.id, name: p.name }).run();
+    setAtIndex(0);
+  };
 
   return (
     <div className={`border rounded-lg overflow-hidden ${readonly ? "border-gray-100 bg-gray-50" : "border-gray-300 bg-white"}`}>
@@ -341,6 +385,27 @@ export default function SitzungsEditor({
           [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left
           [&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none"
       />
+
+      {/* @-Vorschlag am Cursor */}
+      {atPos && (
+        <div
+          style={{ position: "fixed", left: atPos.links, top: atPos.oben }}
+          className="z-50 w-56 max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-md shadow-lg py-1"
+        >
+          {atTreffer.map((p, i) => (
+            <button
+              key={p.id}
+              type="button"
+              // mousedown statt click: der Editor soll den Fokus behalten
+              onMouseDown={e => { e.preventDefault(); atWaehlenRef.current(p); }}
+              onMouseEnter={() => setAtIndex(i)}
+              className={`w-full text-left px-3 py-1 text-xs text-gray-700 ${i === atIdx ? "bg-accent/10" : ""}`}
+            >
+              {p.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Dokument-Picker Modal */}
       {dokPickerOffen && (
