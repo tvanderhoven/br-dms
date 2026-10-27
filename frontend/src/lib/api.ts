@@ -566,6 +566,8 @@ export const api = {
     erstellen:     (data: GeschaeftsordnungErstellen) => request<Geschaeftsordnung>("/api/geschaeftsordnung", { method: "POST", body: JSON.stringify(data) }),
     aktualisieren: (id: string, data: Partial<GeschaeftsordnungErstellen>) => request<Geschaeftsordnung>(`/api/geschaeftsordnung/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     loeschen:      (id: string) => request<{ ok: boolean }>(`/api/geschaeftsordnung/${id}`, { method: "DELETE" }),
+    dokumentHinzufuegen: (id: string, dokumentId: string) => request<Geschaeftsordnung>(`/api/geschaeftsordnung/${id}/dokumente`, { method: "POST", body: JSON.stringify({ dokumentId }) }),
+    dokumentEntfernen:   (id: string, dokumentId: string) => request<Geschaeftsordnung>(`/api/geschaeftsordnung/${id}/dokumente/${dokumentId}`, { method: "DELETE" }),
   },
 
   gremien: {

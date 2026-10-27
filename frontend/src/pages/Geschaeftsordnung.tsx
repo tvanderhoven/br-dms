@@ -222,16 +222,39 @@ function GeschaeftsordnungModal({
     setFehler("");
     setLaden(true);
     try {
-      const daten = {
-        ...(modus === "beschluss" ? { beschlussId } : { beschlossenAm, beschlussId: null }),
-        bemerkung: bemerkung.trim() || undefined,
-        dokumentIds,
-        videoErlaubt,
-        videoNichtVertraulich: videoErlaubt && videoNichtVertraulich,
-        videoBedingungen: videoErlaubt ? videoBedingungen.trim() || null : null,
-      };
-      if (eintrag) await api.geschaeftsordnung.aktualisieren(eintrag.id, daten);
-      else         await api.geschaeftsordnung.erstellen(daten);
+      if (eintrag) {
+        // Update: nur Basis-Daten
+        await api.geschaeftsordnung.aktualisieren(eintrag.id, {
+          ...(modus === "beschluss" ? { beschlussId } : { beschlossenAm, beschlussId: null }),
+          bemerkung: bemerkung.trim() || undefined,
+          videoErlaubt,
+          videoNichtVertraulich: videoErlaubt && videoNichtVertraulich,
+          videoBedingungen: videoErlaubt ? videoBedingungen.trim() || null : null,
+        });
+
+        // Dokumente: alte entfernen, neue hinzufügen
+        const alteDoks = eintrag.dokumente?.map(d => d.id) ?? [];
+        for (const dId of alteDoks) {
+          if (!dokumentIds.includes(dId)) {
+            await api.geschaeftsordnung.dokumentEntfernen(eintrag.id, dId);
+          }
+        }
+        for (const dId of dokumentIds) {
+          if (!alteDoks.includes(dId)) {
+            await api.geschaeftsordnung.dokumentHinzufuegen(eintrag.id, dId);
+          }
+        }
+      } else {
+        // Create: alles im Body
+        await api.geschaeftsordnung.erstellen({
+          ...(modus === "beschluss" ? { beschlussId } : { beschlossenAm, beschlussId: null }),
+          bemerkung: bemerkung.trim() || undefined,
+          dokumentIds,
+          videoErlaubt,
+          videoNichtVertraulich: videoErlaubt && videoNichtVertraulich,
+          videoBedingungen: videoErlaubt ? videoBedingungen.trim() || null : null,
+        });
+      }
       onErfolg();
     } catch (err) {
       setFehler(err instanceof Error ? err.message : "Fehler beim Speichern");
@@ -242,13 +265,13 @@ function GeschaeftsordnungModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
-        <div className="flex items-center justify-between mb-5">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between mb-5 p-6 border-b border-gray-100 shrink-0">
           <h2 className="text-lg font-bold text-gray-900">{eintrag ? "Fassung bearbeiten" : "Neue Fassung"}</h2>
           <button onClick={onSchliessen} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
 
-        <form onSubmit={speichern} className="space-y-4">
+        <form onSubmit={speichern} className="space-y-4 overflow-y-auto flex-1 p-6">
           <div className="flex gap-4 text-sm">
             <label className="flex items-center gap-1.5">
               <input type="radio" checked={modus === "beschluss"} onChange={() => setModus("beschluss")} /> Aus Beschluss
@@ -382,20 +405,20 @@ function GeschaeftsordnungModal({
           </fieldset>
 
           {fehler && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{fehler}</div>}
-
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onSchliessen}
-              className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
-              Abbrechen
-            </button>
-            <button type="submit" disabled={laden}
-              className="flex-1 hover:brightness-90 disabled:opacity-60 text-white py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-              style={{ backgroundColor: "rgb(var(--accent))" }}>
-              {laden && <Loader2 size={14} className="animate-spin" />}
-              {eintrag ? "Speichern" : "Erstellen"}
-            </button>
-          </div>
         </form>
+
+        <div className="flex gap-3 p-6 border-t border-gray-100 bg-gray-50 shrink-0">
+          <button type="button" onClick={onSchliessen}
+            className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
+            Abbrechen
+          </button>
+          <button type="submit" onClick={() => document.querySelector('form')?.dispatchEvent(new Event('submit', { bubbles: true }))} disabled={laden}
+            className="flex-1 hover:brightness-90 disabled:opacity-60 text-white py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+            style={{ backgroundColor: "rgb(var(--accent))" }}>
+            {laden && <Loader2 size={14} className="animate-spin" />}
+            {eintrag ? "Speichern" : "Erstellen"}
+          </button>
+        </div>
       </div>
     </div>
   );
