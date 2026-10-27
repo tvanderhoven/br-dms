@@ -317,59 +317,57 @@ function GeschaeftsordnungModal({
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Dokumente (Paket)</label>
-            <div className="space-y-2">
-              {dokumentIds.length > 0 && (
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2">
-                  {dokumentIds.map(dId => {
-                    const doc = dokumente.find(d => d.id === dId) || eintrag?.dokumente?.find(d => d.id === dId);
-                    return (
-                      <div key={dId} className="flex items-center justify-between text-sm">
-                        <span className="text-gray-700 flex items-center gap-1">
-                          <FileText size={13} /> {doc?.titel ?? "Dokument"}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setDokumentIds(prev => prev.filter(id => id !== dId))}
-                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              <div className="flex gap-2">
-                <select value={neueDokumentId} onChange={e => setNeueDokumentId(e.target.value)}
-                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]">
-                  <option value="">– Dokument wählen –</option>
-                  {dokumente
-                    .filter(d => !dokumentIds.includes(d.id))
-                    .map(d => <option key={d.id} value={d.id}>{d.titel}</option>)}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (neueDokumentId && !dokumentIds.includes(neueDokumentId)) {
-                      setDokumentIds(prev => [...prev, neueDokumentId]);
-                      setNeueDokumentId("");
-                    }
-                  }}
-                  disabled={!neueDokumentId}
-                  className="px-3 py-2 text-sm font-medium text-white hover:brightness-90 disabled:opacity-50 rounded-lg flex items-center gap-1"
-                  style={{ backgroundColor: "rgb(var(--accent))" }}
-                >
-                  <Plus size={14} /> Hinzufügen
-                </button>
+          <div className="flex flex-col gap-2">
+            <label className="block text-sm font-medium text-gray-700">Dokumente (Paket)</label>
+            {dokumentIds.length > 0 && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2 max-h-32 overflow-y-auto">
+                {dokumentIds.map(dId => {
+                  const doc = dokumente.find(d => d.id === dId) || eintrag?.dokumente?.find(d => d.id === dId);
+                  return (
+                    <div key={dId} className="flex items-center justify-between text-sm">
+                      <span className="text-gray-700 flex items-center gap-1 truncate">
+                        <FileText size={13} className="shrink-0" /> <span className="truncate">{doc?.titel ?? "Dokument"}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setDokumentIds(prev => prev.filter(id => id !== dId))}
+                        className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded shrink-0"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
-              {dokumente.length === 0 && (
-                <p className="text-xs text-gray-400">
-                  Kein Dokument mit Kategorie „Geschäftsordnung" gefunden – erst in Dokumente hochladen.
-                </p>
-              )}
+            )}
+            <div className="flex gap-2">
+              <select value={neueDokumentId} onChange={e => setNeueDokumentId(e.target.value)}
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]">
+                <option value="">– Dokument wählen –</option>
+                {dokumente
+                  .filter(d => !dokumentIds.includes(d.id))
+                  .map(d => <option key={d.id} value={d.id}>{d.titel}</option>)}
+              </select>
+              <button
+                type="button"
+                onClick={() => {
+                  if (neueDokumentId && !dokumentIds.includes(neueDokumentId)) {
+                    setDokumentIds(prev => [...prev, neueDokumentId]);
+                    setNeueDokumentId("");
+                  }
+                }}
+                disabled={!neueDokumentId}
+                className="px-3 py-2 text-sm font-medium text-white hover:brightness-90 disabled:opacity-50 rounded-lg flex items-center gap-1 shrink-0"
+                style={{ backgroundColor: "rgb(var(--accent))" }}
+              >
+                <Plus size={14} /> Hinzufügen
+              </button>
             </div>
+            {dokumente.length === 0 && (
+              <p className="text-xs text-gray-400">
+                Kein Dokument mit Kategorie „Geschäftsordnung" gefunden – erst in Dokumente hochladen.
+              </p>
+            )}
           </div>
 
           <div>
