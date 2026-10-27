@@ -12,7 +12,7 @@
  */
 
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { AuditAktion, GastFunktion, Role, SitzungStatus } from "@prisma/client";
+import { AuditAktion, GastFunktion, Role, SitzungForm, SitzungStatus } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
@@ -22,6 +22,7 @@ import { kalenderDatei } from "../lib/kalender.js";
 import { titelInEinladung } from "../lib/einladungDetail.js";
 import { sendeGastEinladung } from "../lib/mailer.js";
 import { signaturText } from "../lib/signaturen.js";
+import { gastEinwahl, istEinwahlLink, videoLinks, widerspruchStand } from "../lib/videoSitzung.js";
 
 const ABGESCHLOSSEN: SitzungStatus[] = [SitzungStatus.PROTOKOLL_FINAL, SitzungStatus.ABGESCHLOSSEN, SitzungStatus.ABGESAGT];
 
@@ -68,7 +69,7 @@ async function topPruefen(sitzungId: string, topId: string, reply: FastifyReply)
     where:  { id: topId, sitzungId },
     select: {
       nummer: true, titel: true, einladungTitel: true,
-      sitzung: { select: { titel: true, sitzungsdatum: true, ort: true, status: true } },
+      sitzung: { select: { titel: true, sitzungsdatum: true, ort: true, status: true, form: true } },
     },
   });
   if (!top) { reply.status(404).send({ fehler: "TOP nicht gefunden" }); return null; }
@@ -147,7 +148,7 @@ export async function gaesteRouten(app: FastifyInstance): Promise<void> {
   );
 
   // ── POST /:id/tops/:topId/gaeste/:gid/einladen ───────────────────
-  app.post<{ Params: Params; Body: { zusatz?: string; signaturId?: string } }>(
+  app.post<{ Params: Params; Body: { zusatz?: string; signaturId?: string; einwahlLink?: string } }>(
     "/:id/tops/:topId/gaeste/:gid/einladen",
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request, reply) => {
@@ -167,6 +168,15 @@ export async function gaesteRouten(app: FastifyInstance): Promise<void> {
       const ich = await prisma.benutzer.findUnique({ where: { id: request.benutzer.sub }, select: { name: true, rolle: true } });
       const unterschrift = ich ? `${ich.name}, ${ROLLE_LABEL[ich.rolle] ?? "Betriebsrat"}` : "Der Betriebsrat";
       const signatur = await signaturText("gast", request.body?.signaturId);
+      // Gästelink: eigener Raum, nie der Sitzungslink der Mitglieder (lib/videoSitzung.ts)
+      const eingabe = request.body?.einwahlLink;
+      if (eingabe && !istEinwahlLink(eingabe)) {
+        return reply.status(400).send({ fehler: "Der Einwahllink muss mit http:// oder https:// beginnen" });
+      }
+      const einwahl = gastEinwahl(
+        { form: top.sitzung.form, zuschaltungGesperrt: top.sitzung.form !== SitzungForm.PRAESENZ && (await widerspruchStand(id)).gesperrt },
+        eingabe, (await videoLinks()).gaesteLink,
+      );
       // Neutraler Titel, falls gesetzt – die Mail geht an ein fremdes Postfach
       const topTitel = titelInEinladung(top);
 
@@ -186,12 +196,13 @@ export async function gaesteRouten(app: FastifyInstance): Promise<void> {
               titel:        `Betriebsrat – TOP ${top.nummer}: ${topTitel}`,
               beginn:       top.sitzung.sitzungsdatum,
               ort:          top.sitzung.ort,
-              beschreibung: `TOP ${top.nummer}: ${topTitel}`,
+              beschreibung: [`TOP ${top.nummer}: ${topTitel}`, ...(einwahl ? ["", `Einwahl: ${einwahl}`] : [])].join("\n"),
             }),
           },
           unterschrift,
           zusatz:   request.body?.zusatz?.trim().slice(0, 4000) || null,
           signatur,
+          einwahl,
         });
       } catch (err) {
         return reply.status(502).send({ fehler: `Mail konnte nicht gesendet werden: ${err instanceof Error ? err.message : String(err)}` });

@@ -70,6 +70,8 @@ function base64(obj: object): string {
   return btoa(JSON.stringify(obj));
 }
 
+let videoLinks = { sitzungLink: "https://meet.example/sitzung", gaesteLink: "https://meet.example/gaeste", goErlaubt: true };
+
 // Mail-Einstellungen der Demo (veränderbar, solange die Seite offen ist)
 let mailEinstellung = {
   absenderName: "Betriebsrat", absenderAdresse: "betriebsrat@nordwerk.example", standard: "", smtpAktiv: true, einladungDetail: "VOLLSTAENDIG",
@@ -499,7 +501,7 @@ function sitzungAnfrage(method: string, id: string | undefined, sub: string | un
           mitAnhang: (detail[bid] ?? "VOLLSTAENDIG") === "VOLLSTAENDIG", erfolgreich: true, fehler: null, versendetAm: am, versendetVon: F.DEMO_ME.name, zusatz: null,
           detail: detail[bid] ?? "VOLLSTAENDIG", abgerufenAm: bid === F.DEMO_ME.id ? am : null };
       }),
-      detailStandard: "VOLLSTAENDIG",
+      detailStandard: "VOLLSTAENDIG", form: s.form ?? "PRAESENZ", einwahlLink: s.einwahlLink ?? null,
       letzterZusatz: "", smtpAktiv: true, kannVersenden: s.status === "TAGESORDNUNG_FIXIERT",
     });
   }
@@ -777,6 +779,10 @@ export function handleDemoRequest(method: string, pathname: string, searchParams
       : mailEinstellung);
   }
   if (pathname === "/api/einstellungen/eingang-mails") return json({ hrAdresse: "", smtpAktiv: true });
+  if (pathname === "/api/einstellungen/video") {
+    if (method === "PUT") videoLinks = { ...videoLinks, sitzungLink: body.sitzungLink ?? "", gaesteLink: body.gaesteLink ?? "" };
+    return json(videoLinks);
+  }
   if (pathname === "/api/einstellungen/sicherheit") return json({ inaktivitaetMinuten: 0 });
   if (pathname === "/api/einstellungen/wahlquote") return json({ minderheitengeschlecht: null, mindestsitzeMinderheit: 0 });
   if (pathname === "/api/einstellungen/update") return json({ installiert: null, hinweis: null });

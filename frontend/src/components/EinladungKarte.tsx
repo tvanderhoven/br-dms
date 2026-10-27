@@ -232,11 +232,18 @@ export default function EinladungKarte({ sitzungId, meineRolle, aktualisierung }
                   onChange={e => setZusatz(e.target.value)}
                   rows={5}
                   autoFocus
-                  placeholder={"z. B. Einwahl per GoTo Meeting: https://meet.goto.com/123456789\noder ein Hinweis zur Sitzung"}
+                  placeholder="z. B. ein Hinweis zur Sitzung oder zur Anreise"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
                 />
                 <p className="text-xs text-gray-400 mt-1">Erscheint hervorgehoben unter Termin und Ort; Links werden anklickbar. Wird im Versandnachweis mitgespeichert.</p>
               </div>
+              {stand.form !== "PRAESENZ" && (
+                <p className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 break-all">
+                  {stand.einwahlLink
+                    ? <>Der Einwahllink steht automatisch in Mail und Kalendertermin: <span className="font-medium">{stand.einwahlLink}</span></>
+                    : <span className="text-amber-700">Für diese Sitzung ist kein Einwahllink eingetragen – bitte vorher in der Karte „Videositzung“ ergänzen.</span>}
+                </p>
+              )}
               <SignaturAuswahl signaturen={sig.signaturen} value={sig.gewaehlt} onChange={sig.setGewaehlt} standardId={sig.standard?.einladung} />
             </div>
             <div className="flex gap-3 px-6 pb-5">

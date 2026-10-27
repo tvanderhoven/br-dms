@@ -149,3 +149,30 @@ export async function teilnahmeBestaetigungAnfordern(sitzungId: string, benutzer
       + "(§ 34 Abs. 1 BetrVG) – die Bestätigung kommt als Anlage ins Protokoll.",
   });
 }
+
+// ── Standardlinks (Einstellungen → System) ──────────────────────────
+// Der Sitzungslink gilt für die Mitglieder, der Gästelink ist ein getrennter Raum: Gäste sind nur
+// bei ihrem TOP dabei und dürfen den Rest der nicht öffentlichen Sitzung (§ 30 Abs. 1) nicht hören.
+export const VIDEO_STANDARD_LINK = "video.standard_link";
+export const VIDEO_GAESTE_LINK   = "video.gaeste_link";
+
+export const istEinwahlLink = (wert: string) => /^https?:\/\/\S+$/.test(wert.trim());
+
+export async function videoLinks(): Promise<{ sitzungLink: string; gaesteLink: string }> {
+  const e = await prisma.systemEinstellung.findMany({ where: { schluessel: { in: [VIDEO_STANDARD_LINK, VIDEO_GAESTE_LINK] } } });
+  const wert = (k: string) => e.find(x => x.schluessel === k)?.wert.trim() ?? "";
+  return { sitzungLink: wert(VIDEO_STANDARD_LINK), gaesteLink: wert(VIDEO_GAESTE_LINK) };
+}
+
+/**
+ * Link in der Gästemail: nur bei virtueller Sitzung und solange die Zuschaltung nicht gesperrt ist.
+ * eingabe: undefined = Standardgästelink, "" = bewusst keiner. Nie der Sitzungslink.
+ */
+export function gastEinwahl(
+  sitzung: { form: SitzungForm; zuschaltungGesperrt: boolean },
+  eingabe: string | undefined,
+  standardGaesteLink: string,
+): string | null {
+  if (sitzung.form === SitzungForm.PRAESENZ || sitzung.zuschaltungGesperrt) return null;
+  return (eingabe ?? standardGaesteLink).trim() || null;
+}

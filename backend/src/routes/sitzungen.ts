@@ -36,7 +36,7 @@ import { darfProtokollieren } from "../lib/protokollfuehrung.js";
 import { sitzungAnlegen } from "../lib/sitzungAnlegen.js";
 import { benachrichtigen, sitzungLink } from "../lib/benachrichtigung.js";
 import { sichtbaresThema } from "../lib/themenakte.js";
-import { istSitzungForm, videoRegeln, teilnahmeBestaetigungAnfordern } from "../lib/videoSitzung.js";
+import { istSitzungForm, istEinwahlLink, videoLinks, videoRegeln, teilnahmeBestaetigungAnfordern } from "../lib/videoSitzung.js";
 
 const datumText = (d: Date) => d.toLocaleDateString("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric" });
 
@@ -299,7 +299,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
-      const sitzung = await prisma.sitzung.findUnique({ where: { id }, select: { status: true, sitzungstyp: true, protokollfuehrerId: true } });
+      const sitzung = await prisma.sitzung.findUnique({ where: { id }, select: { status: true, sitzungstyp: true, protokollfuehrerId: true, einwahlLink: true } });
       if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
 
       if (sitzung.status === SitzungStatus.PROTOKOLL_FINAL || sitzung.status === SitzungStatus.ABGESCHLOSSEN || sitzung.status === SitzungStatus.ABGESAGT) {
@@ -307,7 +307,7 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
       }
 
       const { titel, sitzungsdatum, ort, sitzungstyp, notizen, teilnehmerzahl: tzEingabe, gremiumId, protokollfuehrerId,
-              form, einwahlLink, widerspruchBis } =
+              form, einwahlLink: einwahlLinkEingabe, widerspruchBis } =
         request.body as Partial<{
           titel: string; sitzungsdatum: string; ort: string; sitzungstyp: string; notizen: string;
           teilnehmerzahl: number | null; gremiumId: string | null; protokollfuehrerId: string | null;
@@ -326,7 +326,14 @@ export async function sitzungRouten(app: FastifyInstance): Promise<void> {
           }
         }
       }
-      if (einwahlLink && !/^https?:\/\/\S+$/.test(einwahlLink.trim())) {
+      // Ohne eigenen Link gilt bei einer virtuellen Sitzung der Standardlink aus den Einstellungen –
+      // er wird hier in die Sitzung kopiert, damit später ersichtlich bleibt, was in der Einladung stand
+      let einwahlLink = einwahlLinkEingabe;
+      if (form !== undefined && form !== SitzungForm.PRAESENZ) {
+        const wirksam = einwahlLinkEingabe !== undefined ? einwahlLinkEingabe?.trim() || null : sitzung.einwahlLink;
+        if (!wirksam) einwahlLink = (await videoLinks()).sitzungLink || einwahlLinkEingabe;
+      }
+      if (einwahlLink && !istEinwahlLink(einwahlLink)) {
         return reply.status(400).send({ fehler: "Der Einwahllink muss mit http:// oder https:// beginnen" });
       }
       if (widerspruchBis && Number.isNaN(new Date(widerspruchBis).getTime())) {

@@ -27,6 +27,7 @@ import { Kategorie, Role, Geschlecht, AuditAktion } from "@prisma/client";
 import { adminHatInhaltszugriff, ADMIN_INHALTSZUGRIFF } from "../lib/adminZugriff.js";
 import { ALLE_KATEGORIEN, STANDARD_AUFBEWAHRUNG_TAGE } from "../lib/kategorien.js";
 import { MAIL_ABSENDER_NAME, MAIL_ABSENDER_ADRESSE } from "../lib/mailer.js";
+import { VIDEO_GAESTE_LINK, VIDEO_STANDARD_LINK, istEinwahlLink, videoLinks, videoRegeln } from "../lib/videoSitzung.js";
 import { signaturenLaden, signaturenPruefen, signaturenSpeichern } from "../lib/signaturen.js";
 import { THEMEN_LOESCHFRIST_JAHRE, THEMEN_LOESCHFRIST_STANDARD } from "../lib/themenakte.js";
 import { EINLADUNG_DETAIL, einladungDetailStandard, istEinladungDetail } from "../lib/einladungDetail.js";
@@ -487,6 +488,34 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
       if (signaturDaten) await signaturenSpeichern(signaturDaten.signaturen, signaturDaten.standard);
       return reply.send({ absenderName: name, absenderAdresse: adresse, ...(await signaturenAntwort()), einladungDetail: await einladungDetailStandard() });
     }
+  );
+
+  // ── Standard-Einwahllinks für Videositzungen ───────────────────────
+  // Sitzungslink: Vorbelegung, wenn eine Sitzung auf Zuschaltung/Video gestellt wird (nur wenn die
+  // Geschäftsordnung es erlaubt). Gästelink: eigener Raum für Gäste, nie der Sitzungslink.
+  app.get(
+    "/video",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (_request: FastifyRequest, reply: FastifyReply) =>
+      reply.send({ ...(await videoLinks()), goErlaubt: (await videoRegeln()).erlaubt }),
+  );
+
+  app.put<{ Body: { sitzungLink?: string; gaesteLink?: string } }>(
+    "/video",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (request, reply) => {
+      const neu = { [VIDEO_STANDARD_LINK]: (request.body?.sitzungLink ?? "").trim(), [VIDEO_GAESTE_LINK]: (request.body?.gaesteLink ?? "").trim() };
+      for (const wert of Object.values(neu)) {
+        if (wert && !istEinwahlLink(wert)) return reply.status(400).send({ fehler: "Der Einwahllink muss mit http:// oder https:// beginnen" });
+      }
+      if (neu[VIDEO_STANDARD_LINK] && neu[VIDEO_STANDARD_LINK] === neu[VIDEO_GAESTE_LINK]) {
+        return reply.status(400).send({ fehler: "Der Gästelink muss ein anderer Raum sein als der Sitzungslink, sonst hören Gäste die ganze Sitzung mit" });
+      }
+      for (const [schluessel, wert] of Object.entries(neu)) {
+        await prisma.systemEinstellung.upsert({ where: { schluessel }, update: { wert }, create: { schluessel, wert } });
+      }
+      return reply.send({ ...(await videoLinks()), goErlaubt: (await videoRegeln()).erlaubt });
+    },
   );
 
   // Für die Versanddialoge (Einladung, Gäste, Empfangsbestätigung): Signaturen zur Auswahl

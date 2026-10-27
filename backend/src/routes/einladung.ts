@@ -93,7 +93,7 @@ export async function einladungRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
-      const sitzung = await prisma.sitzung.findUnique({ where: { id }, select: { status: true, sitzungstyp: true } });
+      const sitzung = await prisma.sitzung.findUnique({ where: { id }, select: { status: true, sitzungstyp: true, form: true, einwahlLink: true } });
       if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
 
       const [empfaenger, protokoll, detailStandard] = await Promise.all([
@@ -114,6 +114,9 @@ export async function einladungRouten(app: FastifyInstance): Promise<void> {
         }),
         protokoll,
         detailStandard,
+        // Welcher Einwahllink mitgeht (Karte „Videositzung“), damit er nicht noch einmal in den Zusatz muss
+        form:         sitzung.form,
+        einwahlLink:  sitzung.einwahlLink,
         letzterZusatz: protokoll.find(p => p.zusatz)?.zusatz ?? "",   // Vorbelegung fürs nächste Mal
         smtpAktiv:    !!process.env.SMTP_HOST,
         kannVersenden: sitzung.status === SitzungStatus.TAGESORDNUNG_FIXIERT && !istBetriebsversammlung(sitzung.sitzungstyp),

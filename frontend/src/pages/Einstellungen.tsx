@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, FormEvent } from "react";
 import { Settings, Save, Loader2, RotateCcw, Users, Clock, FileText, Upload, Trash2, Palette, Download, FolderOpen, CheckCircle2, XCircle, Puzzle, Scale, RefreshCw, AlertTriangle, Edit3, Plus, Star } from "lucide-react";
-import { api, ROLLE_LABEL, ZweiFaktorRichtlinie, WatchfolderLogEintrag, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen, Rolle, ModuleKey, MODULE_KEYS, MODULE_LABEL, GesetzStatus, Geschlecht, Zeitmodell, FeiertagsEinstellung, EingangMailsEinstellung, EntgeltsystemAntwort, Amtszeit, EinladungDetail, EINLADUNG_DETAIL_LABEL, EINLADUNG_DETAIL_HINWEIS, Signatur, SignaturStandard } from "../lib/api";
+import { api, ROLLE_LABEL, ZweiFaktorRichtlinie, WatchfolderLogEintrag, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen, Rolle, ModuleKey, MODULE_KEYS, MODULE_LABEL, GesetzStatus, Geschlecht, Zeitmodell, FeiertagsEinstellung, EingangMailsEinstellung, EntgeltsystemAntwort, Amtszeit, EinladungDetail, EINLADUNG_DETAIL_LABEL, EINLADUNG_DETAIL_HINWEIS, Signatur, SignaturStandard, VideoLinks } from "../lib/api";
 import BenutzerVerwaltung from "./Benutzer";
 
 type Tab = "fristen" | "benutzer" | "protokoll" | "design" | "system" | "module" | "gesetze" | "amtsuebergabe";
@@ -1045,6 +1045,74 @@ function formatGroesse(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// ── Standard-Einwahllinks für Videositzungen (Backend: lib/videoSitzung.ts) ──
+function VideoLinksEinstellung() {
+  const [stand, setStand]       = useState<VideoLinks | null>(null);
+  const [sitzungLink, setSitzungLink] = useState("");
+  const [gaesteLink, setGaesteLink]   = useState("");
+  const [speichern, setSpeichern]     = useState(false);
+  const [gespeichert, setGespeichert] = useState(false);
+  const [fehler, setFehler]     = useState("");
+
+  useEffect(() => {
+    api.einstellungen.video().then(v => { setStand(v); setSitzungLink(v.sitzungLink); setGaesteLink(v.gaesteLink); }).catch(() => {});
+  }, []);
+
+  async function speichernKlick() {
+    setFehler(""); setSpeichern(true); setGespeichert(false);
+    try {
+      setStand(await api.einstellungen.videoSpeichern({ sitzungLink, gaesteLink }));
+      setGespeichert(true);
+      setTimeout(() => setGespeichert(false), 3000);
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Speichern fehlgeschlagen");
+    } finally {
+      setSpeichern(false);
+    }
+  }
+
+  if (!stand) return null;
+  const feld = "w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]";
+  return (
+    <div className="mt-6 bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+      <h2 className="font-semibold text-gray-800 mb-1">Videositzung: Standard-Einwahllinks</h2>
+      <p className="text-sm text-gray-500 mb-4">
+        Sie werden eingetragen, sobald eine Sitzung auf „Zuschaltung“ oder „Video“ gestellt wird; in der Sitzung bleiben sie änderbar.
+        Eine Präsenzsitzung bekommt keinen Link.
+      </p>
+      {!stand.goErlaubt && (
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+          Die Geschäftsordnung sieht derzeit keine Teilnahme per Video/Telefon vor (§ 30 Abs. 2 Nr. 1 BetrVG) – solange greifen die Links nicht.
+        </p>
+      )}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Sitzungslink (Mitglieder)</label>
+          <input value={sitzungLink} onChange={e => setSitzungLink(e.target.value)} placeholder="https://…" className={feld} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Gästelink (eigener Raum)</label>
+          <input value={gaesteLink} onChange={e => setGaesteLink(e.target.value)} placeholder="https://…" className={feld} />
+        </div>
+      </div>
+      <p className="text-xs text-gray-400 mt-2">
+        Gäste sind nur bei ihrem TOP dabei. Ihr Link muss ein anderer Raum sein als der Sitzungslink, sonst hören sie die ganze nicht öffentliche
+        Sitzung mit (§ 30 Abs. 1 BetrVG). Der Sitzungslink geht nie in eine Gästemail.
+      </p>
+      <div className="flex items-center gap-3 mt-3">
+        <button
+          onClick={speichernKlick} disabled={speichern}
+          className="flex items-center gap-1.5 bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-60 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+        >
+          {speichern && <Loader2 size={14} className="animate-spin" />} Speichern
+        </button>
+        {gespeichert && <span className="text-sm text-green-600">Gespeichert</span>}
+        {fehler && <span className="text-sm text-red-600">{fehler}</span>}
+      </div>
+    </div>
+  );
+}
+
 // ── Absender der Mails (Einladungen, Erinnerungen, Passwort-Reset) ──
 function MailAbsenderEinstellung() {
   const [name, setName]         = useState("");
@@ -1618,6 +1686,7 @@ function SystemTab() {
   return (
     <div className="space-y-4">
       {meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && <MailAbsenderEinstellung />}
+      {meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && <VideoLinksEinstellung />}
       {meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && <ZeitmodelleVerwaltung />}
       {meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle) && <EntgeltVerwaltung />}
 

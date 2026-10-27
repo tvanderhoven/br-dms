@@ -333,8 +333,8 @@ export const api = {
       request<TopGast>(`/api/sitzungen/${id}/tops/${topId}/gaeste/${gastId}`, { method: "PATCH", body: JSON.stringify(data) }),
     gastLoeschen: (id: string, topId: string, gastId: string) =>
       request<{ nachricht: string }>(`/api/sitzungen/${id}/tops/${topId}/gaeste/${gastId}`, { method: "DELETE" }),
-    gastEinladen: (id: string, topId: string, gastId: string, zusatz: string, signaturId?: string) =>
-      request<TopGast>(`/api/sitzungen/${id}/tops/${topId}/gaeste/${gastId}/einladen`, { method: "POST", body: JSON.stringify({ zusatz, signaturId }) }),
+    gastEinladen: (id: string, topId: string, gastId: string, zusatz: string, signaturId?: string, einwahlLink?: string) =>
+      request<TopGast>(`/api/sitzungen/${id}/tops/${topId}/gaeste/${gastId}/einladen`, { method: "POST", body: JSON.stringify({ zusatz, signaturId, einwahlLink }) }),
     absagen: (id: string) =>
       request<{ nachricht: string }>(`/api/sitzungen/${id}`, { method: "DELETE" }),
     fixieren: (id: string) =>
@@ -718,6 +718,9 @@ export const api = {
     mailSpeichern: (data: { absenderName: string; absenderAdresse: string; signaturen: Signatur[]; signaturStandard: SignaturStandard; einladungDetail?: EinladungDetail }) =>
       request<{ absenderName: string; absenderAdresse: string; signaturen: Signatur[]; signaturStandard: SignaturStandard; einladungDetail: EinladungDetail }>("/api/einstellungen/mail", { method: "PUT", body: JSON.stringify(data) }),
     signaturen: () => request<{ signaturen: Signatur[]; signaturStandard: SignaturStandard }>("/api/einstellungen/signaturen"),
+    video: () => request<VideoLinks>("/api/einstellungen/video"),
+    videoSpeichern: (data: { sitzungLink: string; gaesteLink: string }) =>
+      request<VideoLinks>("/api/einstellungen/video", { method: "PUT", body: JSON.stringify(data) }),
   },
 
   wahlen: {
@@ -824,6 +827,9 @@ export const api = {
 };
 
 // ── Typen ─────────────────────────────────────────────────────────
+/** Standard-Einwahllinks (Einstellungen → System); goErlaubt = Geschäftsordnung lässt Video/Zuschaltung zu */
+export interface VideoLinks { sitzungLink: string; gaesteLink: string; goErlaubt: boolean }
+
 /** Mail-Signatur (Einstellungen → System, Backend: lib/signaturen.ts) */
 export interface Signatur { id: string; name: string; text: string }
 export type SignaturArt = "einladung" | "gast" | "empfang";
@@ -1589,6 +1595,8 @@ export interface EinladungStand {
     zusatz: string | null; detail: EinladungDetail; abgerufenAm: string | null;
   }[];
   detailStandard: EinladungDetail;
+  form: SitzungForm;
+  einwahlLink: string | null;
   letzterZusatz: string;
   smtpAktiv: boolean;
   kannVersenden: boolean;

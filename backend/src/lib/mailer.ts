@@ -454,6 +454,7 @@ export interface GastEinladungMail {
   unterschrift:  string;
   zusatz:        string | null;
   signatur:      string | null;
+  einwahl:       string | null;     // Gästelink bei virtueller Sitzung (eigener Raum)
 }
 
 /**
@@ -474,6 +475,7 @@ export async function sendeGastEinladung(m: GastEinladungMail): Promise<void> {
     "",
     `Termin: ${datum}, ${zeit} Uhr`,
     ...(m.ort ? [`Ort:    ${m.ort}`] : []),
+    ...(m.einwahl ? [`Einwahl: ${m.einwahl}`, "Bitte wählen Sie sich zu dem mit uns abgestimmten Zeitpunkt ein und nehmen Sie an einem Ort teil, an dem niemand mithören kann. Das Gespräch wird nicht aufgezeichnet."] : []),
     ...(m.zusatz ? ["", m.zusatz] : []),
     "",
     "Die Sitzungen des Betriebsrats sind nicht öffentlich (§ 30 Abs. 1 BetrVG). Sie nehmen nur an diesem Tagesordnungspunkt teil; "
@@ -497,7 +499,9 @@ export async function sendeGastEinladung(m: GastEinladungMail): Promise<void> {
       <table style="border-collapse:collapse;margin:12px 0">
         <tr><td style="padding:2px 12px 2px 0;color:#6b7280">Termin</td><td><strong>${html(datum)}, ${zeit} Uhr</strong></td></tr>
         ${m.ort ? `<tr><td style="padding:2px 12px 2px 0;color:#6b7280">Ort</td><td>${html(m.ort)}</td></tr>` : ""}
+        ${m.einwahl ? `<tr><td style="padding:2px 12px 2px 0;color:#6b7280">Einwahl</td><td><a href="${html(m.einwahl)}">${html(m.einwahl)}</a></td></tr>` : ""}
       </table>
+      ${m.einwahl ? `<p style="color:#6b7280;font-size:13px">Bitte wählen Sie sich zu dem mit uns abgestimmten Zeitpunkt ein und nehmen Sie an einem Ort teil, an dem niemand mithören kann. Das Gespräch wird nicht aufgezeichnet.</p>` : ""}
       ${m.zusatz ? `<p style="background:#f3f4f6;border-radius:6px;padding:8px 12px">${textAlsHtml(m.zusatz)}</p>` : ""}
       <p style="color:#6b7280;font-size:13px">Die Sitzungen des Betriebsrats sind nicht öffentlich (§ 30 Abs. 1 BetrVG). Sie nehmen nur an diesem
         Tagesordnungspunkt teil; den genauen Zeitpunkt innerhalb der Sitzung stimmen wir bei Bedarf mit Ihnen ab.</p>

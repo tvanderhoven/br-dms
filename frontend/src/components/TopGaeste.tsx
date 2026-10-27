@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Loader2, Mail, Pencil, Trash2, UserRound, X } from "lucide-react";
 import { SignaturAuswahl, useSignaturen } from "./SignaturAuswahl";
 import { api, GAST_FUNKTION_LABEL, GastFunktion, TopGast } from "../lib/api";
@@ -92,10 +92,11 @@ export function TopGaesteListe({
         <GastEinladenModal
           gast={einladung}
           onSchliessen={() => setEinladung(null)}
-          onSenden={(zusatz, signaturId) => {
+          sitzungId={sitzungId}
+          onSenden={(zusatz, signaturId, einwahlLink) => {
             const g = einladung;
             setEinladung(null);
-            ausfuehren(g.id, () => api.sitzungen.gastEinladen(sitzungId, topId, g.id, zusatz, signaturId));
+            ausfuehren(g.id, () => api.sitzungen.gastEinladen(sitzungId, topId, g.id, zusatz, signaturId, einwahlLink));
           }}
         />
       )}
@@ -104,13 +105,24 @@ export function TopGaesteListe({
 }
 
 // Einladung an einen Gast: Zusatztext und Signatur je Versand wählbar
-function GastEinladenModal({ gast, onSchliessen, onSenden }: {
+function GastEinladenModal({ gast, sitzungId, onSchliessen, onSenden }: {
   gast: TopGast;
+  sitzungId: string;
   onSchliessen: () => void;
-  onSenden: (zusatz: string, signaturId: string) => void;
+  onSenden: (zusatz: string, signaturId: string, einwahlLink?: string) => void;
 }) {
   const [zusatz, setZusatz] = useState("");
   const sig = useSignaturen("gast");
+  // Gästelink (eigener Raum) nur bei virtueller Sitzung und solange die Zuschaltung nicht gesperrt ist
+  const [virtuell, setVirtuell] = useState(false);
+  const [link, setLink]         = useState("");
+  const [sitzungLink, setSitzungLink] = useState("");
+  useEffect(() => {
+    Promise.all([api.sitzungen.video(sitzungId), api.einstellungen.video()])
+      .then(([v, l]) => { setVirtuell(v.form !== "PRAESENZ" && !v.widerspruch.gesperrt); setLink(l.gaesteLink); setSitzungLink(v.einwahlLink ?? l.sitzungLink); })
+      .catch(() => {});
+  }, [sitzungId]);
+  const gleich = !!link.trim() && link.trim() === sitzungLink.trim();
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
@@ -130,12 +142,30 @@ function GastEinladenModal({ gast, onSchliessen, onSenden }: {
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
             />
           </div>
+          {virtuell && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Einwahllink für den Gast</label>
+              <input
+                value={link} onChange={e => setLink(e.target.value)} placeholder="https://… (leer = ohne Link)"
+                className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Ein eigener Raum nur für Gäste – Standard unter Einstellungen → System. Mit dem Sitzungslink der Mitglieder
+                würde der Gast die ganze nicht öffentliche Sitzung mithören.
+              </p>
+              {gleich && (
+                <p className="mt-1 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                  Das ist der Sitzungslink der Mitglieder – bitte einen eigenen Gästelink eintragen.
+                </p>
+              )}
+            </div>
+          )}
           <SignaturAuswahl signaturen={sig.signaturen} value={sig.gewaehlt} onChange={sig.setGewaehlt} standardId={sig.standard?.gast} />
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onSchliessen} className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Abbrechen</button>
             <button
-              type="button" onClick={() => onSenden(zusatz, sig.gewaehlt)}
-              className="flex-1 px-4 py-2 text-sm bg-[rgb(var(--accent))] hover:brightness-90 text-white rounded-lg flex items-center justify-center gap-2"
+              type="button" disabled={gleich} onClick={() => onSenden(zusatz, sig.gewaehlt, virtuell ? link : undefined)}
+              className="flex-1 px-4 py-2 text-sm bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-50 text-white rounded-lg flex items-center justify-center gap-2"
             >
               <Mail size={14} /> Senden
             </button>
