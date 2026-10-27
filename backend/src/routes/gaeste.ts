@@ -20,7 +20,8 @@ import { istEmailAdresse } from "../lib/emailAdresse.js";
 import { topZugriffPruefen } from "../lib/vertraulich.js";
 import { kalenderDatei } from "../lib/kalender.js";
 import { titelInEinladung } from "../lib/einladungDetail.js";
-import { MAIL_SIGNATUR, sendeGastEinladung } from "../lib/mailer.js";
+import { sendeGastEinladung } from "../lib/mailer.js";
+import { signaturText } from "../lib/signaturen.js";
 
 const ABGESCHLOSSEN: SitzungStatus[] = [SitzungStatus.PROTOKOLL_FINAL, SitzungStatus.ABGESCHLOSSEN, SitzungStatus.ABGESAGT];
 
@@ -146,7 +147,7 @@ export async function gaesteRouten(app: FastifyInstance): Promise<void> {
   );
 
   // ── POST /:id/tops/:topId/gaeste/:gid/einladen ───────────────────
-  app.post<{ Params: Params; Body: { zusatz?: string } }>(
+  app.post<{ Params: Params; Body: { zusatz?: string; signaturId?: string } }>(
     "/:id/tops/:topId/gaeste/:gid/einladen",
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request, reply) => {
@@ -165,7 +166,7 @@ export async function gaesteRouten(app: FastifyInstance): Promise<void> {
 
       const ich = await prisma.benutzer.findUnique({ where: { id: request.benutzer.sub }, select: { name: true, rolle: true } });
       const unterschrift = ich ? `${ich.name}, ${ROLLE_LABEL[ich.rolle] ?? "Betriebsrat"}` : "Der Betriebsrat";
-      const signatur = (await prisma.systemEinstellung.findUnique({ where: { schluessel: MAIL_SIGNATUR } }))?.wert.trim() || null;
+      const signatur = await signaturText("gast", request.body?.signaturId);
       // Neutraler Titel, falls gesetzt – die Mail geht an ein fremdes Postfach
       const topTitel = titelInEinladung(top);
 

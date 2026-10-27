@@ -12,7 +12,8 @@ import { AuditAktion, DokumentStatus } from "@prisma/client";
 import prisma from "./prisma.js";
 import { KATEGORIE_LABEL } from "./kategorien.js";
 import { istEmailAdresse } from "./emailAdresse.js";
-import { MAIL_SIGNATUR, sendeEmpfangsbestaetigung } from "./mailer.js";
+import { sendeEmpfangsbestaetigung } from "./mailer.js";
+import { signaturenLaden, signaturText } from "./signaturen.js";
 
 export const EINGANG_HR_ADRESSE = "eingang.hr_adresse";
 
@@ -77,22 +78,26 @@ async function ladeDokument(dokumentId: string) {
 }
 
 /** Vorbelegung für den Dialog: Empfänger aus den Einstellungen, Text-Vorschlag */
-export async function vorbelegung(dokumentId: string, benutzerId: string) {
+export async function vorbelegung(dokumentId: string, benutzerId: string, signaturId?: string) {
   const dok = await ladeDokument(dokumentId);
-  const [ich, signatur, an] = await Promise.all([
+  const [ich, signatur, an, { signaturen, standard }] = await Promise.all([
     prisma.benutzer.findUniqueOrThrow({ where: { id: benutzerId }, select: { name: true, rolle: true } }),
-    prisma.systemEinstellung.findUnique({ where: { schluessel: MAIL_SIGNATUR } }),
+    signaturText("empfang", signaturId),
     hrAdresse(),
+    signaturenLaden(),
   ]);
   return {
     an,
+    // Signaturen zur Auswahl im Dialog; ausgewählt ist die Standardsignatur für Empfangsbestätigungen
+    signaturen,
+    signaturId: signaturId ?? standard.empfang,
     ...entwurf({
       titel:                  dok.alias ?? dok.titel,
       kategorie:              KATEGORIE_LABEL[dok.kategorie],
       zugangAm:               dok.zugangAm,
       unterlagenVollstaendig: dok.unterlagenVollstaendig,
       absender:               ich,
-      signatur:               signatur?.wert.trim() || null,
+      signatur,
     }),
     gesendetAm: dok.empfangsbestaetigungAm,
     gesendetAn: dok.empfangsbestaetigungAn,

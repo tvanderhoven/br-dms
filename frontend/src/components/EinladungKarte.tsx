@@ -5,6 +5,7 @@
  */
 import { useEffect, useState } from "react";
 import { Mail, Send, Loader2, CheckCircle, XCircle, Clock, ChevronDown, ChevronRight, X, Eye } from "lucide-react";
+import { SignaturAuswahl, useSignaturen } from "./SignaturAuswahl";
 import { api, Rolle, EinladungStand, EinladungDetail, EINLADUNG_DETAIL_LABEL, EINLADUNG_DETAIL_HINWEIS, Verfuegbarkeit } from "../lib/api";
 
 const ROLLE_LABEL: Record<string, string> = {
@@ -30,6 +31,7 @@ export default function EinladungKarte({ sitzungId, meineRolle, aktualisierung }
   const [dialog, setDialog]     = useState<{ benutzerIds?: string[]; namen: string[] } | null>(null);
   const [zusatz, setZusatz]     = useState("");
   const [detail, setDetail]     = useState<EinladungDetail>("VOLLSTAENDIG");
+  const sig = useSignaturen("einladung", !!dialog);
 
   const darfSenden = !!meineRolle && ["VORSITZ", "STELLVERTRETER", "ADMIN"].includes(meineRolle);
 
@@ -52,7 +54,7 @@ export default function EinladungKarte({ sitzungId, meineRolle, aktualisierung }
     setFehler(""); setMeldung("");
     setSendet(benutzerIds ? benutzerIds[0] : "alle");
     try {
-      const r = await api.sitzungen.einladungVersenden(sitzungId, benutzerIds, zusatz, detail);
+      const r = await api.sitzungen.einladungVersenden(sitzungId, benutzerIds, zusatz, detail, sig.gewaehlt);
       setMeldung(r.fehlgeschlagen > 0
         ? `${r.gesendet} verschickt, ${r.fehlgeschlagen} fehlgeschlagen`
         : `${r.gesendet} Einladung${r.gesendet === 1 ? "" : "en"} verschickt`);
@@ -198,8 +200,7 @@ export default function EinladungKarte({ sitzungId, meineRolle, aktualisierung }
             </div>
             <div className="px-6 py-4 space-y-3">
               <p className="text-sm text-gray-600">
-                An {dialog.namen.length === 1 ? dialog.namen[0] : `${dialog.namen.length} Geladene`} – die Signatur aus
-                Einstellungen → System kommt automatisch darunter.
+                An {dialog.namen.length === 1 ? dialog.namen[0] : `${dialog.namen.length} Geladene`}
               </p>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Inhalt der Mail</label>
@@ -236,6 +237,7 @@ export default function EinladungKarte({ sitzungId, meineRolle, aktualisierung }
                 />
                 <p className="text-xs text-gray-400 mt-1">Erscheint hervorgehoben unter Termin und Ort; Links werden anklickbar. Wird im Versandnachweis mitgespeichert.</p>
               </div>
+              <SignaturAuswahl signaturen={sig.signaturen} value={sig.gewaehlt} onChange={sig.setGewaehlt} standardId={sig.standard?.einladung} />
             </div>
             <div className="flex gap-3 px-6 pb-5">
               <button onClick={() => setDialog(null)} className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">

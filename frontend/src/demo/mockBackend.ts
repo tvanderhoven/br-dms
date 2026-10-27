@@ -70,6 +70,16 @@ function base64(obj: object): string {
   return btoa(JSON.stringify(obj));
 }
 
+// Mail-Einstellungen der Demo (veränderbar, solange die Seite offen ist)
+let mailEinstellung = {
+  absenderName: "Betriebsrat", absenderAdresse: "betriebsrat@nordwerk.example", standard: "", smtpAktiv: true, einladungDetail: "VOLLSTAENDIG",
+  signaturen: [
+    { id: "mitglieder", name: "Mitglieder", text: "Betriebsrat Nordwerk · Werk 1, Raum 104\nEinwahl: https://meet.example/123456789" },
+    { id: "gaeste", name: "Gäste", text: "Betriebsrat Nordwerk · Werk 1, Raum 104\nTel. 0123 456-78" },
+  ],
+  signaturStandard: { einladung: "mitglieder", gast: "gaeste", empfang: "gaeste" },
+};
+
 /** Nur lokal lesbar (App.tsx liest exp aus dem Payload) – keine echte Signatur, keine Serverprüfung. */
 export function fakeJwt(): string {
   const header = base64({ alg: "none", typ: "JWT" });
@@ -757,6 +767,16 @@ export function handleDemoRequest(method: string, pathname: string, searchParams
       ressourcen: true, themensammlung: true, gremien: true, kosten: true,
     });
   }
+  if (pathname === "/api/einstellungen/mail" || pathname === "/api/einstellungen/signaturen") {
+    if (method === "PUT") {
+      mailEinstellung = { ...mailEinstellung, absenderName: body.absenderName ?? "", absenderAdresse: body.absenderAdresse ?? "",
+        signaturen: body.signaturen ?? mailEinstellung.signaturen, signaturStandard: body.signaturStandard ?? mailEinstellung.signaturStandard };
+    }
+    return json(pathname.endsWith("/signaturen")
+      ? { signaturen: mailEinstellung.signaturen, signaturStandard: mailEinstellung.signaturStandard }
+      : mailEinstellung);
+  }
+  if (pathname === "/api/einstellungen/eingang-mails") return json({ hrAdresse: "", smtpAktiv: true });
   if (pathname === "/api/einstellungen/sicherheit") return json({ inaktivitaetMinuten: 0 });
   if (pathname === "/api/einstellungen/wahlquote") return json({ minderheitengeschlecht: null, mindestsitzeMinderheit: 0 });
   if (pathname === "/api/einstellungen/update") return json({ installiert: null, hinweis: null });

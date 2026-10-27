@@ -333,8 +333,8 @@ export const api = {
       request<TopGast>(`/api/sitzungen/${id}/tops/${topId}/gaeste/${gastId}`, { method: "PATCH", body: JSON.stringify(data) }),
     gastLoeschen: (id: string, topId: string, gastId: string) =>
       request<{ nachricht: string }>(`/api/sitzungen/${id}/tops/${topId}/gaeste/${gastId}`, { method: "DELETE" }),
-    gastEinladen: (id: string, topId: string, gastId: string, zusatz: string) =>
-      request<TopGast>(`/api/sitzungen/${id}/tops/${topId}/gaeste/${gastId}/einladen`, { method: "POST", body: JSON.stringify({ zusatz }) }),
+    gastEinladen: (id: string, topId: string, gastId: string, zusatz: string, signaturId?: string) =>
+      request<TopGast>(`/api/sitzungen/${id}/tops/${topId}/gaeste/${gastId}/einladen`, { method: "POST", body: JSON.stringify({ zusatz, signaturId }) }),
     absagen: (id: string) =>
       request<{ nachricht: string }>(`/api/sitzungen/${id}`, { method: "DELETE" }),
     fixieren: (id: string) =>
@@ -364,9 +364,9 @@ export const api = {
       request<{ nachricht: string }>(`/api/sitzungen/${id}/scans/${typ}`, { method: "DELETE" }),
     scanDownloadUrl: (id: string, typ: SitzungScanTyp) => `${BASE}/api/sitzungen/${id}/scans/${typ}/download`,
     einladung: (id: string) => request<EinladungStand>(`/api/sitzungen/${id}/einladung`),
-    einladungVersenden: (id: string, benutzerIds: string[] | undefined, zusatz: string, detail: EinladungDetail) =>
+    einladungVersenden: (id: string, benutzerIds: string[] | undefined, zusatz: string, detail: EinladungDetail, signaturId?: string) =>
       request<{ gesendet: number; fehlgeschlagen: number }>(`/api/sitzungen/${id}/einladung/versenden`, {
-        method: "POST", body: JSON.stringify({ ...(benutzerIds ? { benutzerIds } : {}), zusatz, detail }),
+        method: "POST", body: JSON.stringify({ ...(benutzerIds ? { benutzerIds } : {}), zusatz, detail, signaturId }),
       }),
     ladungPruefung: (id: string) => request<LadungPruefung>(`/api/sitzungen/${id}/ladung-pruefung`),
     topAuszugUrl: (sitzungId: string, topId: string) => `${BASE}/api/sitzungen/${sitzungId}/tops/${topId}/auszug`,
@@ -714,9 +714,10 @@ export const api = {
     wahlquote: () => request<{ minderheitengeschlecht: Geschlecht | null; mindestsitzeMinderheit: number }>("/api/einstellungen/wahlquote"),
     wahlquoteSpeichern: (data: { minderheitengeschlecht: Geschlecht | null; mindestsitzeMinderheit: number }) =>
       request<{ ok: boolean }>("/api/einstellungen/wahlquote", { method: "PUT", body: JSON.stringify(data) }),
-    mail: () => request<{ absenderName: string; absenderAdresse: string; signatur: string; standard: string; smtpAktiv: boolean; einladungDetail: EinladungDetail }>("/api/einstellungen/mail"),
-    mailSpeichern: (data: { absenderName: string; absenderAdresse: string; signatur: string; einladungDetail?: EinladungDetail }) =>
-      request<{ absenderName: string; absenderAdresse: string; signatur: string; einladungDetail: EinladungDetail }>("/api/einstellungen/mail", { method: "PUT", body: JSON.stringify(data) }),
+    mail: () => request<{ absenderName: string; absenderAdresse: string; signaturen: Signatur[]; signaturStandard: SignaturStandard; standard: string; smtpAktiv: boolean; einladungDetail: EinladungDetail }>("/api/einstellungen/mail"),
+    mailSpeichern: (data: { absenderName: string; absenderAdresse: string; signaturen: Signatur[]; signaturStandard: SignaturStandard; einladungDetail?: EinladungDetail }) =>
+      request<{ absenderName: string; absenderAdresse: string; signaturen: Signatur[]; signaturStandard: SignaturStandard; einladungDetail: EinladungDetail }>("/api/einstellungen/mail", { method: "PUT", body: JSON.stringify(data) }),
+    signaturen: () => request<{ signaturen: Signatur[]; signaturStandard: SignaturStandard }>("/api/einstellungen/signaturen"),
   },
 
   wahlen: {
@@ -823,6 +824,11 @@ export const api = {
 };
 
 // ── Typen ─────────────────────────────────────────────────────────
+/** Mail-Signatur (Einstellungen → System, Backend: lib/signaturen.ts) */
+export interface Signatur { id: string; name: string; text: string }
+export type SignaturArt = "einladung" | "gast" | "empfang";
+export type SignaturStandard = Record<SignaturArt, string>;   // Signatur-ID, "" = keine
+
 export interface Aktivitaet {
   id:   string;
   art:  "SITZUNG" | "THEMA" | "THEMA_BEITRAG" | "KOMMENTAR" | "DOKUMENT" | "AUFGABE" | "BV";
@@ -1027,6 +1033,7 @@ export interface Sitzungsvorschlag {
 /** Vorbelegung des Dialogs (GET /api/dokumente/:id/empfangsbestaetigung) */
 export interface EmpfangsbestaetigungEntwurf {
   an: string; betreff: string; text: string;
+  signaturen: Signatur[]; signaturId: string;   // zur Auswahl; vorgewählt = Standard für Empfangsbestätigungen
   gesendetAm: string | null; gesendetAn: string | null;
   smtpAktiv: boolean;
 }

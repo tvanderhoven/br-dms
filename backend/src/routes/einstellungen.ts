@@ -26,7 +26,8 @@ import { erfordert } from "../middleware/rbac.js";
 import { Kategorie, Role, Geschlecht, AuditAktion } from "@prisma/client";
 import { adminHatInhaltszugriff, ADMIN_INHALTSZUGRIFF } from "../lib/adminZugriff.js";
 import { ALLE_KATEGORIEN, STANDARD_AUFBEWAHRUNG_TAGE } from "../lib/kategorien.js";
-import { MAIL_ABSENDER_NAME, MAIL_ABSENDER_ADRESSE, MAIL_SIGNATUR } from "../lib/mailer.js";
+import { MAIL_ABSENDER_NAME, MAIL_ABSENDER_ADRESSE } from "../lib/mailer.js";
+import { signaturenLaden, signaturenPruefen, signaturenSpeichern } from "../lib/signaturen.js";
 import { THEMEN_LOESCHFRIST_JAHRE, THEMEN_LOESCHFRIST_STANDARD } from "../lib/themenakte.js";
 import { EINLADUNG_DETAIL, einladungDetailStandard, istEinladungDetail } from "../lib/einladungDetail.js";
 import { ermittleBackupSaetze } from "../lib/backups.js";
@@ -57,6 +58,12 @@ type ProtokollKey = keyof typeof PROTOKOLL_DEFAULTS;
 const PROTOKOLL_KEYS = Object.keys(PROTOKOLL_DEFAULTS) as ProtokollKey[];
 
 
+
+/** Signaturen samt Standard je Mailart (nicht „standard“ nennen: das ist hier die Standard-Absenderadresse) */
+async function signaturenAntwort() {
+  const { signaturen, standard } = await signaturenLaden();
+  return { signaturen, signaturStandard: standard };
+}
 
 export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
 
@@ -437,13 +444,13 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (_request: FastifyRequest, reply: FastifyReply) => {
       const e = await prisma.systemEinstellung.findMany({
-        where: { schluessel: { in: [MAIL_ABSENDER_NAME, MAIL_ABSENDER_ADRESSE, MAIL_SIGNATUR] } },
+        where: { schluessel: { in: [MAIL_ABSENDER_NAME, MAIL_ABSENDER_ADRESSE] } },
       });
       const wert = (k: string) => e.find(x => x.schluessel === k)?.wert ?? "";
       return reply.send({
         absenderName:    wert(MAIL_ABSENDER_NAME),
         absenderAdresse: wert(MAIL_ABSENDER_ADRESSE),
-        signatur:        wert(MAIL_SIGNATUR),
+        ...(await signaturenAntwort()),
         standard:        process.env.SMTP_FROM || "",   // gilt, solange keine Adresse eingetragen ist
         smtpAktiv:       !!process.env.SMTP_HOST,
         einladungDetail: await einladungDetailStandard(),
@@ -451,7 +458,7 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
     }
   );
 
-  app.put<{ Body: { absenderName?: string; absenderAdresse?: string; signatur?: string; einladungDetail?: string } }>(
+  app.put<{ Body: { absenderName?: string; absenderAdresse?: string; signaturen?: unknown; signaturStandard?: unknown; einladungDetail?: string } }>(
     "/mail",
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request, reply) => {
@@ -460,20 +467,33 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
       if (adresse && !istEmailAdresse(adresse)) {
         return reply.status(400).send({ fehler: "Ungültige Absenderadresse" });
       }
-      const signatur = (request.body.signatur ?? "").trim().slice(0, 2000);
       const { einladungDetail } = request.body;
       if (einladungDetail !== undefined && !istEinladungDetail(einladungDetail)) {
         return reply.status(400).send({ fehler: "Unbekannte Detailstufe für die Einladungsmail" });
       }
-      for (const [schluessel, wert] of [[MAIL_ABSENDER_NAME, name], [MAIL_ABSENDER_ADRESSE, adresse], [MAIL_SIGNATUR, signatur]] as const) {
+      // Signaturen nur setzen, wenn mitgeschickt
+      let signaturDaten: ReturnType<typeof signaturenPruefen> | null = null;
+      if (request.body.signaturen !== undefined) {
+        try { signaturDaten = signaturenPruefen(request.body.signaturen, request.body.signaturStandard); }
+        catch (err) { return reply.status(400).send({ fehler: err instanceof Error ? err.message : "Ungültige Signaturen" }); }
+      }
+      for (const [schluessel, wert] of [[MAIL_ABSENDER_NAME, name], [MAIL_ABSENDER_ADRESSE, adresse]] as const) {
         await prisma.systemEinstellung.upsert({ where: { schluessel }, update: { wert }, create: { schluessel, wert } });
       }
       // Nur setzen, wenn mitgeschickt – ältere Formulare kennen das Feld nicht
       if (einladungDetail !== undefined) {
         await prisma.systemEinstellung.upsert({ where: { schluessel: EINLADUNG_DETAIL }, update: { wert: einladungDetail }, create: { schluessel: EINLADUNG_DETAIL, wert: einladungDetail } });
       }
-      return reply.send({ absenderName: name, absenderAdresse: adresse, signatur, einladungDetail: await einladungDetailStandard() });
+      if (signaturDaten) await signaturenSpeichern(signaturDaten.signaturen, signaturDaten.standard);
+      return reply.send({ absenderName: name, absenderAdresse: adresse, ...(await signaturenAntwort()), einladungDetail: await einladungDetailStandard() });
     }
+  );
+
+  // Für die Versanddialoge (Einladung, Gäste, Empfangsbestätigung): Signaturen zur Auswahl
+  app.get(
+    "/signaturen",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (_request: FastifyRequest, reply: FastifyReply) => reply.send(await signaturenAntwort()),
   );
 
   // ── GET /backups – Übersicht der backup.sh-Sicherungen (nur lesend) ─

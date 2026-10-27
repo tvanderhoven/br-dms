@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
 import { Loader2, Mail, Pencil, Trash2, UserRound, X } from "lucide-react";
+import { SignaturAuswahl, useSignaturen } from "./SignaturAuswahl";
 import { api, GAST_FUNKTION_LABEL, GastFunktion, TopGast } from "../lib/api";
 
 // Gäste je TOP ohne Konto (Roadmap Paket 5, Backend: routes/gaeste.ts)
@@ -26,6 +27,7 @@ export function TopGaesteListe({
   onAktualisieren: () => void;
 }) {
   const [arbeitet, setArbeitet] = useState<string | null>(null);
+  const [einladung, setEinladung] = useState<TopGast | null>(null);
 
   async function ausfuehren(gastId: string, fn: () => Promise<unknown>) {
     setArbeitet(gastId);
@@ -37,16 +39,6 @@ export function TopGaesteListe({
     } finally {
       setArbeitet(null);
     }
-  }
-
-  function einladen(g: TopGast) {
-    const zusatz = prompt(
-      `Mail an ${g.name} (${g.email}) mit Termin und nur diesem TOP senden.\n\n` +
-      "Zusatz für die Mail (optional, z. B. ungefähre Uhrzeit des TOPs):",
-      "",
-    );
-    if (zusatz === null) return;
-    ausfuehren(g.id, () => api.sitzungen.gastEinladen(sitzungId, topId, g.id, zusatz));
   }
 
   function entfernen(g: TopGast) {
@@ -78,7 +70,7 @@ export function TopGaesteListe({
           {verwalten && !readonly && (
             <span className="flex items-center gap-0.5 ml-1">
               {vorSitzung && g.email && (
-                <button onClick={() => einladen(g)} disabled={arbeitet === g.id}
+                <button onClick={() => setEinladung(g)} disabled={arbeitet === g.id}
                   title={g.eingeladenAm ? "Einladung erneut senden" : "Einladung per Mail (Termin und nur dieser TOP)"}
                   className="p-1 text-gray-400 hover:text-[rgb(var(--accent))] hover:bg-accent/5 rounded-sm">
                   <Mail size={12} />
@@ -96,6 +88,60 @@ export function TopGaesteListe({
           )}
         </div>
       ))}
+      {einladung && (
+        <GastEinladenModal
+          gast={einladung}
+          onSchliessen={() => setEinladung(null)}
+          onSenden={(zusatz, signaturId) => {
+            const g = einladung;
+            setEinladung(null);
+            ausfuehren(g.id, () => api.sitzungen.gastEinladen(sitzungId, topId, g.id, zusatz, signaturId));
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Einladung an einen Gast: Zusatztext und Signatur je Versand wählbar
+function GastEinladenModal({ gast, onSchliessen, onSenden }: {
+  gast: TopGast;
+  onSchliessen: () => void;
+  onSenden: (zusatz: string, signaturId: string) => void;
+}) {
+  const [zusatz, setZusatz] = useState("");
+  const sig = useSignaturen("gast");
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="font-semibold text-gray-900">Gast einladen</h2>
+          <button onClick={onSchliessen} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>
+        <div className="px-6 py-4 space-y-4">
+          <p className="text-sm text-gray-600">
+            Mail an {gast.name} ({gast.email}) mit Termin und nur diesem TOP.
+          </p>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Zusatz (optional)</label>
+            <textarea
+              value={zusatz} onChange={e => setZusatz(e.target.value)} rows={3} autoFocus
+              placeholder="z. B. ungefähre Uhrzeit des TOPs"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
+            />
+          </div>
+          <SignaturAuswahl signaturen={sig.signaturen} value={sig.gewaehlt} onChange={sig.setGewaehlt} standardId={sig.standard?.gast} />
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onSchliessen} className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Abbrechen</button>
+            <button
+              type="button" onClick={() => onSenden(zusatz, sig.gewaehlt)}
+              className="flex-1 px-4 py-2 text-sm bg-[rgb(var(--accent))] hover:brightness-90 text-white rounded-lg flex items-center justify-center gap-2"
+            >
+              <Mail size={14} /> Senden
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

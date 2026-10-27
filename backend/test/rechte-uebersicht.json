@@ -89,6 +89,7 @@
   "GET /api/einstellungen/protokoll": "VORSITZ",
   "GET /api/einstellungen/protokoll/logo": "ÖFFENTLICH",
   "GET /api/einstellungen/sicherheit": "ANGEMELDET",
+  "GET /api/einstellungen/signaturen": "VORSITZ",
   "GET /api/einstellungen/system": "VORSITZ",
   "GET /api/einstellungen/themen-loeschfrist": "MITGLIED",
   "GET /api/einstellungen/update": "VORSITZ",

@@ -21,7 +21,8 @@ import { AnwesenheitsStatus, AuditAktion, EinladungDetail, Role, SitzungForm, Si
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
-import { sendeEinladung, MAIL_SIGNATUR } from "../lib/mailer.js";
+import { sendeEinladung } from "../lib/mailer.js";
+import { signaturText } from "../lib/signaturen.js";
 import { istBetriebsversammlung } from "../lib/sitzungstypen.js";
 import { kalenderDatei } from "../lib/kalender.js";
 import { einladungDetailStandard, einladungInhalt, istEinladungDetail } from "../lib/einladungDetail.js";
@@ -121,7 +122,7 @@ export async function einladungRouten(app: FastifyInstance): Promise<void> {
   );
 
   // ── POST /:id/einladung/versenden ───────────────────────────────
-  app.post<{ Params: { id: string }; Body: { benutzerIds?: string[]; zusatz?: string; detail?: EinladungDetail } }>(
+  app.post<{ Params: { id: string }; Body: { benutzerIds?: string[]; zusatz?: string; detail?: EinladungDetail; signaturId?: string } }>(
     "/:id/einladung/versenden",
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request, reply) => {
@@ -177,7 +178,7 @@ export async function einladungRouten(app: FastifyInstance): Promise<void> {
       const zusatz   = request.body?.zusatz?.trim().slice(0, 4000) || null;
       // Neue Fixierung (z. B. verschobener Termin) → höhere SEQUENCE, Kalender aktualisiert den Termin
       const sequenz  = await prisma.sitzungVersion.count({ where: { sitzungId: id, typ: "TAGESORDNUNG_FIXIERT" } });
-      const signatur = (await prisma.systemEinstellung.findUnique({ where: { schluessel: MAIL_SIGNATUR } }))?.wert.trim() || null;
+      const signatur = await signaturText("einladung", request.body?.signaturId);
       const zuschaltungGesperrt = sitzung.form !== SitzungForm.PRAESENZ && (await widerspruchStand(id)).gesperrt;
 
       const ergebnisse: { benutzerId: string; name: string; adresse: string; erfolgreich: boolean; fehler: string | null }[] = [];

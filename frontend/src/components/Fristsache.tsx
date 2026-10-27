@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { SignaturAuswahl } from "./SignaturAuswahl";
 import { AlertTriangle, CalendarClock, Check, Clock, Loader2, Send } from "lucide-react";
 import {
   api, Dokument, istEmail, KuendigungsArt, ZugangInfo, EmpfangsbestaetigungEntwurf, Sitzungsvorschlag, VorgeschlageneSitzung,
@@ -210,6 +211,15 @@ function EmpfangsbestaetigungBereich({ dok, onGesendet }: { dok: Dokument; onGes
     }
   }
 
+  // Signatur im Text austauschen: alles ab dem Trenner „-- “ wird durch die neue Signatur ersetzt
+  function signaturWechseln(id: string) {
+    if (!entwurf) return;
+    const neu = entwurf.signaturen.find(s => s.id === id)?.text.trim();
+    const grenze = entwurf.text.lastIndexOf("\n-- \n");
+    const ohne = (grenze >= 0 ? entwurf.text.slice(0, grenze) : entwurf.text).replace(/\s+$/, "");
+    setEntwurf({ ...entwurf, signaturId: id, text: neu ? `${ohne}\n\n-- \n${neu}` : ohne });
+  }
+
   async function senden() {
     if (!entwurf) return;
     setSendet(true);
@@ -269,6 +279,9 @@ function EmpfangsbestaetigungBereich({ dok, onGesendet }: { dok: Dokument; onGes
               className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
             />
           </label>
+          <SignaturAuswahl
+            signaturen={entwurf.signaturen} value={entwurf.signaturId} onChange={signaturWechseln}
+          />
           <label className="block">
             <span className="text-xs font-medium text-gray-700">Text</span>
             <textarea

@@ -14,7 +14,6 @@ export function smtpTlsOptionen(env: NodeJS.ProcessEnv = process.env): { rejectU
 
 export const MAIL_ABSENDER_NAME    = "mail.absender_name";
 export const MAIL_ABSENDER_ADRESSE = "mail.absender_adresse";
-export const MAIL_SIGNATUR         = "mail.signatur";   // unter jeder Einladung
 
 /**
  * Absender aller Mails: Einstellungen → System (z. B. "Betriebsrat" <betriebsrat@firma.de>),

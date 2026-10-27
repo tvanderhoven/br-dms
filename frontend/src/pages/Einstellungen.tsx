@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, FormEvent } from "react";
 import { Settings, Save, Loader2, RotateCcw, Users, Clock, FileText, Upload, Trash2, Palette, Download, FolderOpen, CheckCircle2, XCircle, Puzzle, Scale, RefreshCw, AlertTriangle, Edit3, Plus, Star } from "lucide-react";
-import { api, ROLLE_LABEL, ZweiFaktorRichtlinie, WatchfolderLogEintrag, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen, Rolle, ModuleKey, MODULE_KEYS, MODULE_LABEL, GesetzStatus, Geschlecht, Zeitmodell, FeiertagsEinstellung, EingangMailsEinstellung, EntgeltsystemAntwort, Amtszeit, EinladungDetail, EINLADUNG_DETAIL_LABEL, EINLADUNG_DETAIL_HINWEIS } from "../lib/api";
+import { api, ROLLE_LABEL, ZweiFaktorRichtlinie, WatchfolderLogEintrag, Aufbewahrungsregel, ProtokollEinstellungen, KATEGORIE_LABEL, DesignEinstellungen, Rolle, ModuleKey, MODULE_KEYS, MODULE_LABEL, GesetzStatus, Geschlecht, Zeitmodell, FeiertagsEinstellung, EingangMailsEinstellung, EntgeltsystemAntwort, Amtszeit, EinladungDetail, EINLADUNG_DETAIL_LABEL, EINLADUNG_DETAIL_HINWEIS, Signatur, SignaturStandard } from "../lib/api";
 import BenutzerVerwaltung from "./Benutzer";
 
 type Tab = "fristen" | "benutzer" | "protokoll" | "design" | "system" | "module" | "gesetze" | "amtsuebergabe";
@@ -1049,7 +1049,8 @@ function formatGroesse(bytes: number): string {
 function MailAbsenderEinstellung() {
   const [name, setName]         = useState("");
   const [adresse, setAdresse]   = useState("");
-  const [signatur, setSignatur] = useState("");
+  const [signaturen, setSignaturen] = useState<Signatur[]>([]);
+  const [sigStandard, setSigStandard] = useState<SignaturStandard>({ einladung: "", gast: "", empfang: "" });
   const [einladungDetail, setEinladungDetail] = useState<EinladungDetail>("VOLLSTAENDIG");
   const [standard, setStandard] = useState("");
   const [smtpAktiv, setSmtpAktiv] = useState(true);
@@ -1060,7 +1061,7 @@ function MailAbsenderEinstellung() {
 
   useEffect(() => {
     api.einstellungen.mail()
-      .then(m => { setName(m.absenderName); setAdresse(m.absenderAdresse); setSignatur(m.signatur); setEinladungDetail(m.einladungDetail ?? "VOLLSTAENDIG"); setStandard(m.standard); setSmtpAktiv(m.smtpAktiv); })
+      .then(m => { setName(m.absenderName); setAdresse(m.absenderAdresse); setSignaturen(m.signaturen); setSigStandard(m.signaturStandard); setEinladungDetail(m.einladungDetail ?? "VOLLSTAENDIG"); setStandard(m.standard); setSmtpAktiv(m.smtpAktiv); })
       .catch(() => {})
       .finally(() => setLaden(false));
   }, []);
@@ -1068,7 +1069,7 @@ function MailAbsenderEinstellung() {
   async function speichernKlick() {
     setFehler(""); setSpeichern(true); setGespeichert(false);
     try {
-      await api.einstellungen.mailSpeichern({ absenderName: name, absenderAdresse: adresse, signatur, einladungDetail });
+      await api.einstellungen.mailSpeichern({ absenderName: name, absenderAdresse: adresse, signaturen, signaturStandard: sigStandard, einladungDetail });
       setGespeichert(true);
       setTimeout(() => setGespeichert(false), 3000);
     } catch (err) {
@@ -1081,7 +1082,7 @@ function MailAbsenderEinstellung() {
   const feld = "border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]";
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-      <h2 className="font-semibold text-gray-800 mb-1">E-Mail-Absender</h2>
+      <h2 className="font-semibold text-gray-800 mb-1">E-Mail-Absender und Signaturen</h2>
       <p className="text-sm text-gray-500 mb-4">
         Von dieser Adresse gehen Einladungen, Fristen-Erinnerungen und Passwort-Links raus. Der Mailserver muss
         das SMTP-Konto für diese Adresse freigeben – das richtet die IT ein.
@@ -1098,13 +1099,65 @@ function MailAbsenderEinstellung() {
         <div className="flex items-start gap-2 flex-wrap">
           <input value={name} onChange={e => setName(e.target.value)} placeholder="Name, z. B. Betriebsrat" className={`${feld} w-56`} />
           <input type="email" value={adresse} onChange={e => setAdresse(e.target.value)} placeholder="betriebsrat@firma.de" className={`${feld} w-72`} />
-          <textarea
-            value={signatur}
-            onChange={e => setSignatur(e.target.value)}
-            rows={3}
-            placeholder={"Signatur unter Einladungen, z. B.\nBetriebsrat Nordwerk · Werk 1, Raum 104\nTel. 0123 456-78 · betriebsrat@firma.de"}
-            className={`${feld} w-full resize-y`}
-          />
+          <div className="w-full">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Signaturen</label>
+            <p className="text-xs text-gray-400 mb-2">
+              Mehrere benannte Signaturen, z. B. „Mitglieder“ mit Einwahl-Link und „Gäste“ ohne. Je Mailart gilt eine Standardsignatur;
+              beim Versand lässt sie sich wechseln oder weglassen. Systemmails (Passwort, Fristen, Benachrichtigungen) bekommen keine.
+            </p>
+            <div className="space-y-2">
+              {signaturen.map(s => (
+                <div key={s.id} className="flex items-start gap-2">
+                  <input
+                    value={s.name}
+                    onChange={e => setSignaturen(l => l.map(x => x.id === s.id ? { ...x, name: e.target.value } : x))}
+                    placeholder="Name" maxLength={60} className={`${feld} w-44 shrink-0`}
+                  />
+                  <textarea
+                    value={s.text}
+                    onChange={e => setSignaturen(l => l.map(x => x.id === s.id ? { ...x, text: e.target.value } : x))}
+                    rows={3} maxLength={2000}
+                    placeholder={"z. B. Betriebsrat Nordwerk · Werk 1, Raum 104\nTel. 0123 456-78 · betriebsrat@firma.de"}
+                    className={`${feld} flex-1 resize-y`}
+                  />
+                  <button
+                    type="button" title="Signatur löschen"
+                    onClick={() => {
+                      setSignaturen(l => l.filter(x => x.id !== s.id));
+                      setSigStandard(st => Object.fromEntries(Object.entries(st).map(([k, v]) => [k, v === s.id ? "" : v])) as SignaturStandard);
+                    }}
+                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setSignaturen(l => [...l, { id: `s-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, name: "", text: "" }])}
+              className="mt-2 flex items-center gap-1 text-xs text-[rgb(var(--accent))] hover:underline"
+            >
+              <Plus size={12} /> Signatur hinzufügen
+            </button>
+            {signaturen.length > 0 && (
+              <div className="mt-3 grid sm:grid-cols-3 gap-3">
+                {([["einladung", "Standard für Einladungen"], ["gast", "Standard für Gäste"], ["empfang", "Standard für Empfangsbestätigungen"]] as const).map(([art, label]) => (
+                  <label key={art} className="block text-xs text-gray-600">
+                    {label}
+                    <select
+                      value={sigStandard[art]}
+                      onChange={e => setSigStandard(st => ({ ...st, [art]: e.target.value }))}
+                      className={`${feld} mt-1 w-full bg-white`}
+                    >
+                      <option value="">Keine Signatur</option>
+                      {signaturen.filter(s => s.name.trim()).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="w-full">
             <label className="block text-sm font-medium text-gray-700 mb-1">Einladungsmail – Inhalt (Voreinstellung)</label>
             <select value={einladungDetail} onChange={e => setEinladungDetail(e.target.value as EinladungDetail)} className={`${feld} w-72`}>
