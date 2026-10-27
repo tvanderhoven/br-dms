@@ -51,6 +51,7 @@
   "DELETE /api/zeitmodell/:id": "MITGLIED",
   "GET /api/abteilungen": "MITGLIED",
   "GET /api/abwesenheiten": "ANGEMELDET",
+  "GET /api/aktivitaet": "ANGEMELDET",
   "GET /api/audit": "VORSITZ",
   "GET /api/aufgaben": "ANGEMELDET",
   "GET /api/auth/me": "ANGEMELDET",
