@@ -492,7 +492,7 @@ export default function Dashboard() {
               const inhalt = (
                 <>
                   <span className="min-w-0 flex-1 text-sm text-gray-700 truncate">
-                    <span className="font-medium text-gray-900">{a.von ?? "Jemand"}</span> {a.text}{" "}
+                    {a.von && <span className="font-medium text-gray-900">{a.von} </span>}{a.text}{" "}
                     <span className="text-gray-900">„{a.ziel}“</span>
                   </span>
                   <span className="shrink-0 text-xs text-gray-400" title={new Date(a.zeit).toLocaleString("de-DE")}>{vorZeit(a.zeit)}</span>

@@ -25,8 +25,8 @@ export interface Aktivitaet {
   id:     string;
   art:    AktivitaetArt;
   zeit:   Date;
-  von:    string | null;
-  text:   string;   // „hat die Sitzung … angelegt“ – der Name steht davor
+  von:    string | null;   // null = nicht bekannt, dann steht der Satz ohne Namen da
+  text:   string;          // „hat die Sitzung … angelegt“ – der Name steht davor
   ziel:   string;   // Titel des betroffenen Objekts
   link:   string | null;
 }
@@ -82,10 +82,14 @@ export async function aktivitaetRouten(app: FastifyInstance): Promise<void> {
         select: { id: true, titel: true, alias: true, erstelltAm: true, hochgeladenVon: { select: { name: true } } },
         orderBy: { erstelltAm: "desc" }, take: MAX,
       }),
+      // Neu angelegt, erledigt oder geändert (wer geändert hat, speichert die Aufgabe nicht)
       prisma.aufgabe.findMany({
-        where: { erstelltAm: neu, sichtbarkeit: "OEFFENTLICH" },
-        select: { id: true, titel: true, erstelltAm: true, erstelltVon: { select: { name: true } } },
-        orderBy: { erstelltAm: "desc" }, take: MAX,
+        where: { aktualisiertAm: neu, sichtbarkeit: "OEFFENTLICH" },
+        select: {
+          id: true, titel: true, erstelltAm: true, aktualisiertAm: true, erledigt: true, erledigtAm: true,
+          erstelltVon: { select: { name: true } },
+        },
+        orderBy: { aktualisiertAm: "desc" }, take: MAX,
       }),
       prisma.betriebsvereinbarung.findMany({
         where: { erstelltAm: neu },
@@ -111,8 +115,23 @@ export async function aktivitaetRouten(app: FastifyInstance): Promise<void> {
       }),
       ...dokumente.map(d => ({ id: `d-${d.id}`, art: "DOKUMENT" as const, zeit: d.erstelltAm, von: d.hochgeladenVon.name,
         text: "hat ein Dokument hinzugefügt", ziel: d.alias ?? d.titel, link: dokumentLink(d.id) })),
-      ...aufgaben.map(a => ({ id: `a-${a.id}`, art: "AUFGABE" as const, zeit: a.erstelltAm, von: a.erstelltVon.name,
-        text: "hat eine Aufgabe angelegt", ziel: a.titel, link: aufgabeLink(a.id) })),
+      ...aufgaben.flatMap(a => {
+        const e: Aktivitaet[] = [];
+        const link = aufgabeLink(a.id);
+        if (a.erstelltAm >= seit) {
+          e.push({ id: `a-${a.id}`, art: "AUFGABE", zeit: a.erstelltAm, von: a.erstelltVon.name,
+            text: "hat eine Aufgabe angelegt", ziel: a.titel, link });
+        }
+        if (a.erledigt && a.erledigtAm && a.erledigtAm >= seit) {
+          e.push({ id: `ae-${a.id}`, art: "AUFGABE", zeit: a.erledigtAm, von: null,
+            text: "Aufgabe erledigt:", ziel: a.titel, link });
+        } else if (a.aktualisiertAm.getTime() - a.erstelltAm.getTime() > 60_000) {
+          // nicht gleich nach dem Anlegen und nicht doppelt zum Erledigen
+          e.push({ id: `ag-${a.id}`, art: "AUFGABE", zeit: a.aktualisiertAm, von: null,
+            text: "Aufgabe geändert:", ziel: a.titel, link });
+        }
+        return e;
+      }),
       ...bvs.map(b => ({ id: `v-${b.id}`, art: "BV" as const, zeit: b.erstelltAm, von: b.erstelltVon.name,
         text: "hat eine Betriebsvereinbarung angelegt", ziel: b.titel, link: "/betriebsvereinbarungen" })),
     ];

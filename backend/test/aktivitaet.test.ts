@@ -17,6 +17,7 @@ after(async () => {
 beforeEach(async () => {
   await prisma.kommentar.deleteMany();
   await prisma.thema.deleteMany();
+  await prisma.aufgabe.deleteMany();
 });
 
 interface Eintrag { id: string; art: string; von: string | null; ziel: string; link: string | null }
@@ -62,6 +63,26 @@ describe("Aktivitäts-Feed", () => {
     for (const k of ["MITGLIED", "ERSATZMITGLIED"] as Konto[]) {
       assert.ok(!(await feed(k)).some(e => e.ziel === "Personalie"), k);
     }
+  });
+
+  test("Aufgaben: angelegt, bearbeitet und erledigt; private bleiben draußen", async () => {
+    const lang = new Date(Date.now() - 3_600_000);
+    const basis = { erstelltVonId: env.ids.VORSITZ, erstelltAm: lang, aktualisiertAm: lang };
+    await prisma.aufgabe.create({ data: { ...basis, titel: "Nur angelegt" } });
+    const b = await prisma.aufgabe.create({ data: { ...basis, titel: "Bearbeitet" } });
+    const e = await prisma.aufgabe.create({ data: { ...basis, titel: "Erledigt" } });
+    await prisma.aufgabe.create({ data: { ...basis, titel: "Privat", sichtbarkeit: "PRIVAT" } });
+    // Bearbeiten über die API, damit aktualisiertAm wirklich gesetzt wird
+    assert.equal((await anfrage(env, "VORSITZ", "PATCH", `/api/aufgaben/${b.id}`, { prioritaet: "HOCH" })).statusCode, 200);
+    assert.equal((await anfrage(env, "VORSITZ", "PATCH", `/api/aufgaben/${e.id}`, { erledigt: true })).statusCode, 200);
+
+    const eintraege = await feed("MITGLIED");
+    const text = (titel: string) => eintraege.filter(x => x.ziel === titel).map(x => x.id.split("-")[0]);
+    // neueste zuerst: die Änderung vor dem Anlegen
+    assert.deepEqual(text("Bearbeitet"), ["ag", "a"]);
+    assert.deepEqual(text("Erledigt"), ["ae", "a"]);
+    assert.deepEqual(text("Nur angelegt"), ["a"]);
+    assert.deepEqual(text("Privat"), []);
   });
 
   test("JAV, SBV und Externe kommen nicht an den Feed", async () => {
