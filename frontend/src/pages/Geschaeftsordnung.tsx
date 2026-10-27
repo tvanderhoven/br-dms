@@ -128,13 +128,18 @@ export default function GeschaeftsordnungSeite() {
                     )}
                   </td>
                   <td className="px-4 py-2.5">
-                    {g.dokument ? (
-                      <button
-                        onClick={() => dokumentOeffnen(g.dokument!.id)}
-                        className="inline-flex items-center gap-1 text-[rgb(var(--accent))] hover:underline"
-                      >
-                        <FileText size={13} /> {g.dokument.titel}
-                      </button>
+                    {g.dokumente && g.dokumente.length > 0 ? (
+                      <div className="space-y-1">
+                        {g.dokumente.map(d => (
+                          <button
+                            key={d.id}
+                            onClick={() => dokumentOeffnen(d.id)}
+                            className="block text-[rgb(var(--accent))] hover:underline text-left text-xs"
+                          >
+                            <FileText size={11} className="inline -mt-0.5 mr-1" /> {d.titel}
+                          </button>
+                        ))}
+                      </div>
                     ) : "–"}
                   </td>
                   <td className="px-4 py-2.5 text-right whitespace-nowrap">
@@ -186,12 +191,13 @@ function GeschaeftsordnungModal({
   const [beschluesse, setBeschluesse]     = useState<BeschlussRegisterEintrag[]>([]);
   const [beschlossenAm, setBeschlossenAm] = useState(eintrag?.beschlossenAm?.slice(0, 10) ?? new Date().toISOString().slice(0, 10));
   const [bemerkung, setBemerkung]         = useState(eintrag?.bemerkung ?? "");
-  const [dokumentId, setDokumentId]       = useState(eintrag?.dokumentId ?? "");
+  const [dokumentIds, setDokumentIds]     = useState<string[]>(eintrag?.dokumente?.map(d => d.id) ?? []);
   // § 30 Abs. 2 Nr. 1 BetrVG: Teilnahme per Video/Telefon (Roadmap Paket 6)
   const [videoErlaubt, setVideoErlaubt]   = useState(eintrag?.videoErlaubt ?? false);
   const [videoNichtVertraulich, setVideoNichtVertraulich] = useState(eintrag?.videoNichtVertraulich ?? false);
   const [videoBedingungen, setVideoBedingungen] = useState(eintrag?.videoBedingungen ?? "");
   const [dokumente, setDokumente]         = useState<Dokument[]>([]);
+  const [neueDokumentId, setNeueDokumentId] = useState("");
   const [laden, setLaden]                 = useState(false);
   const [fehler, setFehler]               = useState("");
 
@@ -219,7 +225,7 @@ function GeschaeftsordnungModal({
       const daten = {
         ...(modus === "beschluss" ? { beschlussId } : { beschlossenAm, beschlussId: null }),
         bemerkung: bemerkung.trim() || undefined,
-        dokumentId: dokumentId || null,
+        dokumentIds,
         videoErlaubt,
         videoNichtVertraulich: videoErlaubt && videoNichtVertraulich,
         videoBedingungen: videoErlaubt ? videoBedingungen.trim() || null : null,
@@ -289,17 +295,58 @@ function GeschaeftsordnungModal({
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Verknüpftes Dokument</label>
-            <select value={dokumentId} onChange={e => setDokumentId(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]">
-              <option value="">– keins –</option>
-              {dokumente.map(d => <option key={d.id} value={d.id}>{d.titel}</option>)}
-            </select>
-            {dokumente.length === 0 && (
-              <p className="text-xs text-gray-400 mt-1">
-                Kein Dokument mit Kategorie „Geschäftsordnung" gefunden – erst in Dokumente hochladen.
-              </p>
-            )}
+            <label className="block text-sm font-medium text-gray-700 mb-1">Dokumente (Paket)</label>
+            <div className="space-y-2">
+              {dokumentIds.length > 0 && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2">
+                  {dokumentIds.map(dId => {
+                    const doc = dokumente.find(d => d.id === dId) || eintrag?.dokumente?.find(d => d.id === dId);
+                    return (
+                      <div key={dId} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-700 flex items-center gap-1">
+                          <FileText size={13} /> {doc?.titel ?? "Dokument"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setDokumentIds(prev => prev.filter(id => id !== dId))}
+                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <select value={neueDokumentId} onChange={e => setNeueDokumentId(e.target.value)}
+                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]">
+                  <option value="">– Dokument wählen –</option>
+                  {dokumente
+                    .filter(d => !dokumentIds.includes(d.id))
+                    .map(d => <option key={d.id} value={d.id}>{d.titel}</option>)}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (neueDokumentId && !dokumentIds.includes(neueDokumentId)) {
+                      setDokumentIds(prev => [...prev, neueDokumentId]);
+                      setNeueDokumentId("");
+                    }
+                  }}
+                  disabled={!neueDokumentId}
+                  className="px-3 py-2 text-sm font-medium text-white hover:brightness-90 disabled:opacity-50 rounded-lg flex items-center gap-1"
+                  style={{ backgroundColor: "rgb(var(--accent))" }}
+                >
+                  <Plus size={14} /> Hinzufügen
+                </button>
+              </div>
+              {dokumente.length === 0 && (
+                <p className="text-xs text-gray-400">
+                  Kein Dokument mit Kategorie „Geschäftsordnung" gefunden – erst in Dokumente hochladen.
+                </p>
+              )}
+            </div>
           </div>
 
           <div>

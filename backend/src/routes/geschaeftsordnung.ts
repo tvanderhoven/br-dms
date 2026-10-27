@@ -32,15 +32,18 @@ interface VideoFelder {
 interface NeueGeschaeftsordnung extends VideoFelder {
   beschlossenAm?: string;
   bemerkung?:     string;
-  dokumentId?:    string;
+  dokumentIds?:   string[];
   beschlussId?:   string;
 }
 
 interface GeschaeftsordnungUpdate extends VideoFelder {
   beschlossenAm?: string;
   bemerkung?:     string | null;
-  dokumentId?:    string | null;
   beschlussId?:   string | null;
+}
+
+interface DokumentZuweisen {
+  dokumentId: string;
 }
 
 /** Nur gesetzte Felder übernehmen; „nicht bei vertraulichen TOPs“ ergibt nur mit Zuschaltung Sinn */
@@ -84,10 +87,20 @@ export async function geschaeftsordnungRouten(app: FastifyInstance): Promise<voi
     { preHandler: [authenticate] },
     async (_request: FastifyRequest, reply: FastifyReply) => {
       const fassungen = await prisma.geschaeftsordnung.findMany({
-        include: { dokument: { select: DOKUMENT_SELECT }, beschluss: { select: BESCHLUSS_SELECT } },
+        include: {
+          dokumente: {
+            include: { dokument: { select: DOKUMENT_SELECT } },
+            orderBy: { reihenfolge: "asc" },
+          },
+          beschluss: { select: BESCHLUSS_SELECT },
+        },
         orderBy: [{ beschlossenAm: "desc" }],
       });
-      return reply.send(fassungen.map(mitMehrheit));
+      const mitDoks = fassungen.map(f => ({
+        ...f,
+        dokumente: f.dokumente.map(gd => gd.dokument),
+      }));
+      return reply.send(mitDoks.map(mitMehrheit));
     }
   );
 
@@ -96,7 +109,7 @@ export async function geschaeftsordnungRouten(app: FastifyInstance): Promise<voi
     "/",
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request: FastifyRequest<{ Body: NeueGeschaeftsordnung }>, reply: FastifyReply) => {
-      const { beschlossenAm, bemerkung, dokumentId, beschlussId } = request.body;
+      const { beschlossenAm, bemerkung, dokumentIds = [], beschlussId } = request.body;
 
       let datum = beschlossenAm ? new Date(beschlossenAm) : null;
 
@@ -110,22 +123,43 @@ export async function geschaeftsordnungRouten(app: FastifyInstance): Promise<voi
       }
       if (!datum) return reply.status(400).send({ fehler: "beschlossenAm oder beschlussId ist ein Pflichtfeld" });
 
-      if (dokumentId) {
-        const dokument = await prisma.dokument.findUnique({ where: { id: dokumentId } });
-        if (!dokument) return reply.status(404).send({ fehler: "Dokument nicht gefunden" });
+      if (dokumentIds.length > 0) {
+        const dokumente = await prisma.dokument.findMany({
+          where: { id: { in: dokumentIds } },
+          select: { id: true },
+        });
+        if (dokumente.length !== dokumentIds.length) {
+          return reply.status(404).send({ fehler: "Ein oder mehrere Dokumente nicht gefunden" });
+        }
       }
 
       const fassung = await prisma.geschaeftsordnung.create({
         data: {
           beschlossenAm: datum,
           bemerkung:     bemerkung?.trim() || null,
-          dokumentId:    dokumentId || null,
           beschlussId:   beschlussId || null,
           ...videoDaten(request.body),
           erstelltVonId: request.benutzer.sub,
+          dokumente: {
+            create: dokumentIds.map((dokumentId, idx) => ({
+              dokumentId,
+              reihenfolge: idx,
+            })),
+          },
         },
-        include: { dokument: { select: DOKUMENT_SELECT }, beschluss: { select: BESCHLUSS_SELECT } },
+        include: {
+          dokumente: {
+            include: { dokument: { select: DOKUMENT_SELECT } },
+            orderBy: { reihenfolge: "asc" },
+          },
+          beschluss: { select: BESCHLUSS_SELECT },
+        },
       });
+
+      const mitDoks = {
+        ...fassung,
+        dokumente: fassung.dokumente.map(gd => gd.dokument),
+      };
 
       await prisma.auditLog.create({
         data: {
@@ -137,7 +171,7 @@ export async function geschaeftsordnungRouten(app: FastifyInstance): Promise<voi
         },
       }).catch(() => {});
 
-      return reply.status(201).send(mitMehrheit(fassung));
+      return reply.status(201).send(mitMehrheit(mitDoks));
     }
   );
 
@@ -147,15 +181,10 @@ export async function geschaeftsordnungRouten(app: FastifyInstance): Promise<voi
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request: FastifyRequest<{ Params: { id: string }; Body: GeschaeftsordnungUpdate }>, reply: FastifyReply) => {
       const { id } = request.params;
-      const { beschlossenAm, bemerkung, dokumentId, beschlussId } = request.body;
+      const { beschlossenAm, bemerkung, beschlussId } = request.body;
 
       const vorhandene = await prisma.geschaeftsordnung.findUnique({ where: { id } });
       if (!vorhandene) return reply.status(404).send({ fehler: "Geschäftsordnung nicht gefunden" });
-
-      if (dokumentId) {
-        const dokument = await prisma.dokument.findUnique({ where: { id: dokumentId } });
-        if (!dokument) return reply.status(404).send({ fehler: "Dokument nicht gefunden" });
-      }
 
       let datum = beschlossenAm !== undefined ? new Date(beschlossenAm) : undefined;
       if (beschlussId !== undefined && beschlussId !== null) {
@@ -174,12 +203,22 @@ export async function geschaeftsordnungRouten(app: FastifyInstance): Promise<voi
         data: {
           ...(datum !== undefined ? { beschlossenAm: datum } : {}),
           ...(bemerkung   !== undefined ? { bemerkung: bemerkung?.trim() || null } : {}),
-          ...(dokumentId  !== undefined ? { dokumentId: dokumentId || null } : {}),
           ...(beschlussId !== undefined ? { beschlussId: beschlussId || null } : {}),
           ...videoDaten(request.body),
         },
-        include: { dokument: { select: DOKUMENT_SELECT }, beschluss: { select: BESCHLUSS_SELECT } },
+        include: {
+          dokumente: {
+            include: { dokument: { select: DOKUMENT_SELECT } },
+            orderBy: { reihenfolge: "asc" },
+          },
+          beschluss: { select: BESCHLUSS_SELECT },
+        },
       });
+
+      const mitDoks = {
+        ...aktualisiert,
+        dokumente: aktualisiert.dokumente.map(gd => gd.dokument),
+      };
 
       await prisma.auditLog.create({
         data: {
@@ -191,7 +230,99 @@ export async function geschaeftsordnungRouten(app: FastifyInstance): Promise<voi
         },
       }).catch(() => {});
 
-      return reply.send(mitMehrheit(aktualisiert));
+      return reply.send(mitMehrheit(mitDoks));
+    }
+  );
+
+  // ── POST /:id/dokumente – Dokument zu Fassung hinzufügen ─────────
+  app.post<{ Params: { id: string }; Body: DokumentZuweisen }>(
+    "/:id/dokumente",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (request: FastifyRequest<{ Params: { id: string }; Body: DokumentZuweisen }>, reply: FastifyReply) => {
+      const { id } = request.params;
+      const { dokumentId } = request.body;
+
+      const fassung = await prisma.geschaeftsordnung.findUnique({ where: { id } });
+      if (!fassung) return reply.status(404).send({ fehler: "Geschäftsordnung nicht gefunden" });
+
+      const dokument = await prisma.dokument.findUnique({ where: { id: dokumentId } });
+      if (!dokument) return reply.status(404).send({ fehler: "Dokument nicht gefunden" });
+
+      const existiert = await prisma.geschaeftsordnungDokument.findUnique({
+        where: { geschaeftsordnungId_dokumentId: { geschaeftsordnungId: id, dokumentId } },
+      });
+      if (existiert) return reply.status(409).send({ fehler: "Dokument ist bereits mit dieser Fassung verknüpft" });
+
+      const maxReihenfolge = await prisma.geschaeftsordnungDokument.findFirst({
+        where: { geschaeftsordnungId: id },
+        orderBy: { reihenfolge: "desc" },
+        select: { reihenfolge: true },
+      });
+
+      await prisma.geschaeftsordnungDokument.create({
+        data: {
+          geschaeftsordnungId: id,
+          dokumentId,
+          reihenfolge: (maxReihenfolge?.reihenfolge ?? -1) + 1,
+        },
+      });
+
+      const aktualisiert = await prisma.geschaeftsordnung.findUnique({
+        where: { id },
+        include: {
+          dokumente: {
+            include: { dokument: { select: DOKUMENT_SELECT } },
+            orderBy: { reihenfolge: "asc" },
+          },
+          beschluss: { select: BESCHLUSS_SELECT },
+        },
+      });
+
+      const mitDoks = {
+        ...aktualisiert!,
+        dokumente: aktualisiert!.dokumente.map(gd => gd.dokument),
+      };
+
+      return reply.status(201).send(mitDoks);
+    }
+  );
+
+  // ── DELETE /:id/dokumente/:dokumentId – Dokument entfernen ───────
+  app.delete<{ Params: { id: string; dokumentId: string } }>(
+    "/:id/dokumente/:dokumentId",
+    { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
+    async (request: FastifyRequest<{ Params: { id: string; dokumentId: string } }>, reply: FastifyReply) => {
+      const { id, dokumentId } = request.params;
+
+      const fassung = await prisma.geschaeftsordnung.findUnique({ where: { id } });
+      if (!fassung) return reply.status(404).send({ fehler: "Geschäftsordnung nicht gefunden" });
+
+      const verknuepfung = await prisma.geschaeftsordnungDokument.findUnique({
+        where: { geschaeftsordnungId_dokumentId: { geschaeftsordnungId: id, dokumentId } },
+      });
+      if (!verknuepfung) return reply.status(404).send({ fehler: "Dokument ist nicht mit dieser Fassung verknüpft" });
+
+      await prisma.geschaeftsordnungDokument.delete({
+        where: { id: verknuepfung.id },
+      });
+
+      const aktualisiert = await prisma.geschaeftsordnung.findUnique({
+        where: { id },
+        include: {
+          dokumente: {
+            include: { dokument: { select: DOKUMENT_SELECT } },
+            orderBy: { reihenfolge: "asc" },
+          },
+          beschluss: { select: BESCHLUSS_SELECT },
+        },
+      });
+
+      const mitDoks = {
+        ...aktualisiert!,
+        dokumente: aktualisiert!.dokumente.map(gd => gd.dokument),
+      };
+
+      return reply.send(mitDoks);
     }
   );
 

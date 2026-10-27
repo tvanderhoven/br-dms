@@ -643,7 +643,7 @@ model Dokument {
   kommentare        Kommentar[]
   aufgaben          Aufgabe[]
   betriebsvereinbarungen Betriebsvereinbarung[]
-  geschaeftsordnungen    Geschaeftsordnung[]
+  geschaeftsordnungDokumente GeschaeftsordnungDokument[] @relation("GeschaeftsordnungDokumente")
   kostenposten           Kostenposten[]
   anhoerungsVorgang      AnhoerungsVorgang?
 
@@ -1844,8 +1844,8 @@ model Geschaeftsordnung {
   beschlussId    String?    @unique @map("beschluss_id")
   beschluss      Beschluss? @relation(fields: [beschlussId], references: [id], onDelete: SetNull)
 
-  dokumentId     String?   @map("dokument_id")
-  dokument       Dokument? @relation(fields: [dokumentId], references: [id], onDelete: SetNull)
+  // Mehrere Dokumente als Paket (1-zu-viele)
+  dokumente      GeschaeftsordnungDokument[]
 
   // § 30 Abs. 2 Nr. 1 BetrVG: Voraussetzungen für die Teilnahme per Video/Telefon legt die
   // Geschäftsordnung fest, unter Sicherung des Vorrangs der Präsenzsitzung (lib/videoSitzung.ts)
@@ -1861,6 +1861,23 @@ model Geschaeftsordnung {
 
   @@index([beschlossenAm])
   @@map("geschaeftsordnungen")
+}
+
+// Junction-Tabelle für Many-to-Many: Geschäftsordnung ↔ Dokumente
+model GeschaeftsordnungDokument {
+  id                    String             @id @default(uuid())
+  geschaeftsordnungId   String             @map("geschaeftsordnung_id")
+  geschaeftsordnung     Geschaeftsordnung  @relation(fields: [geschaeftsordnungId], references: [id], onDelete: Cascade)
+
+  dokumentId            String             @map("dokument_id")
+  dokument              Dokument           @relation("GeschaeftsordnungDokumente", fields: [dokumentId], references: [id], onDelete: Cascade)
+
+  reihenfolge           Int                @default(0)
+  erstelltAm            DateTime           @default(now()) @map("erstellt_am")
+
+  @@unique([geschaeftsordnungId, dokumentId])
+  @@index([dokumentId])
+  @@map("geschaeftsordnung_dokumente")
 }
 
 // ================================================================

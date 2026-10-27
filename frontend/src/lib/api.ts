@@ -2185,8 +2185,7 @@ export interface Geschaeftsordnung {
   id: string;
   beschlossenAm: string;
   bemerkung?: string | null;
-  dokumentId?: string | null;
-  dokument?: { id: string; titel: string; dateiname: string } | null;
+  dokumente?: { id: string; titel: string; dateiname: string }[];
   beschlussId?: string | null;
   beschluss?: {
     id: string; antragstext: string; jaStimmen: number; neinStimmen: number;
@@ -2204,7 +2203,7 @@ export interface Geschaeftsordnung {
 export interface GeschaeftsordnungErstellen {
   beschlossenAm?: string;
   bemerkung?: string;
-  dokumentId?: string | null;
+  dokumentIds?: string[];
   beschlussId?: string | null;
   videoErlaubt?: boolean;
   videoNichtVertraulich?: boolean;
