@@ -403,6 +403,10 @@ export const api = {
     loeschen: (id: string) => request<{ nachricht: string }>(`/api/abwesenheiten/${id}`, { method: "DELETE" }),
   },
 
+  aktivitaet: {
+    liste: () => request<Aktivitaet[]>("/api/aktivitaet"),
+  },
+
   watchfolder: {
     log: () => request<WatchfolderLogEintrag[]>("/api/watchfolder/log"),
   },
@@ -819,6 +823,16 @@ export const api = {
 };
 
 // ── Typen ─────────────────────────────────────────────────────────
+export interface Aktivitaet {
+  id:   string;
+  art:  "SITZUNG" | "THEMA" | "THEMA_BEITRAG" | "KOMMENTAR" | "DOKUMENT" | "AUFGABE" | "BV";
+  zeit: string;
+  von:  string | null;
+  text: string;
+  ziel: string;
+  link: string | null;
+}
+
 export interface ProtokollEinstellungen {
   kopfzeile:            string;
   unterzeile:           string;

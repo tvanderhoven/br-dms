@@ -766,6 +766,7 @@ export function handleDemoRequest(method: string, pathname: string, searchParams
   if (method === "GET" && pathname === "/api/suche") return json(sucheAusfuehren(searchParams.get("q") ?? ""));
 
   // ── Audit-Log: leer, nur damit die Seite nicht crasht ───────────────
+  if (pathname === "/api/aktivitaet") return json([]);
   if (pathname === "/api/audit") return json({ eintraege: [], gesamt: 0, seite: 1, seiten: 0 });
 
   // ── Dokumente: Sonderpfade vor der generischen CRUD-Logik ───────────

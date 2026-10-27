@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   AlertTriangle, Clock, CheckCircle, Circle, Inbox, CalendarDays, XCircle, ClipboardList,
-  Scale, GraduationCap, Users, Trash2, Mail,
+  Scale, GraduationCap, Users, Trash2, Mail, Activity,
 } from "lucide-react";
 import {
   api, Dokument, FristMitDokument, SitzungListItem, Aufgabe, WatchfolderLogEintrag, fristFarbe, formatDatum,
   FRIST_TYP_LABEL, fristTitel, sitzungStatusLabel, ModuleKey, Betriebsvereinbarung,
-  QualifikationsMatrix, Schulungstermin, Benutzer, Geschlecht, Nachricht,
+  QualifikationsMatrix, Schulungstermin, Benutzer, Geschlecht, Nachricht, Aktivitaet,
 } from "../lib/api";
 
 // Vorlauf, ab dem auslaufende BVs bzw. Qualifikationen auf dem Dashboard auftauchen
@@ -22,6 +22,17 @@ const PRIO_PUNKT: Record<string, string> = {
   MITTEL:  "text-amber-500",
   NIEDRIG: "text-gray-300",
 };
+
+// „vor 5 Min.“, „gestern“, sonst Datum
+function vorZeit(iso: string): string {
+  const min = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
+  if (min < 1) return "gerade eben";
+  if (min < 60) return `vor ${min} Min.`;
+  const std = Math.floor(min / 60);
+  if (std < 24) return `vor ${std} Std.`;
+  const tage = Math.floor(std / 24);
+  return tage === 1 ? "gestern" : tage < 7 ? `vor ${tage} Tagen` : formatDatum(iso);
+}
 
 const tageBis = (iso: string) => Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000);
 
@@ -102,6 +113,7 @@ export default function Dashboard() {
   const [matrix, setMatrix]       = useState<QualifikationsMatrix | null>(null);
   const [geplanteSchulungen, setGeplanteSchulungen] = useState<Schulungstermin[]>([]);
   const [benutzer, setBenutzer]   = useState<Benutzer[]>([]);
+  const [aktivitaeten, setAktivitaeten] = useState<Aktivitaet[]>([]);
   const [quote, setQuote]         = useState<{ minderheitengeschlecht: Geschlecht | null; mindestsitzeMinderheit: number } | null>(null);
   const navigate = useNavigate();
   const [laden, setLaden]         = useState(true);
@@ -126,6 +138,7 @@ export default function Dashboard() {
       setWatchLog(wlog);
       setUngeleseneNachrichten(nachr);
     }).catch(console.error).finally(() => setLaden(false));
+    api.aktivitaet.liste().then(setAktivitaeten).catch(() => {});
     api.auth.me().then(b => setIch({ id: b.id, vorname: b.name.split(" ")[0] })).catch(() => {});
 
     // "Auf einen Blick": jede Quelle einzeln, damit ein fehlendes Recht oder abgeschaltetes Modul
@@ -465,6 +478,37 @@ export default function Dashboard() {
         </div>
         </div>
       </div>
+
+      {/* ── Was hat sich getan? ───────────────────────────────────── */}
+      {aktivitaeten.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-2">
+            <Activity size={15} className="text-gray-400" />
+            <h2 className="font-semibold text-gray-900 text-sm">Was hat sich getan?</h2>
+            <span className="text-xs text-gray-400">letzte 30 Tage</span>
+          </div>
+          <ul className="divide-y divide-gray-50 max-h-96 overflow-y-auto">
+            {aktivitaeten.map(a => {
+              const inhalt = (
+                <>
+                  <span className="min-w-0 flex-1 text-sm text-gray-700 truncate">
+                    <span className="font-medium text-gray-900">{a.von ?? "Jemand"}</span> {a.text}{" "}
+                    <span className="text-gray-900">„{a.ziel}“</span>
+                  </span>
+                  <span className="shrink-0 text-xs text-gray-400" title={new Date(a.zeit).toLocaleString("de-DE")}>{vorZeit(a.zeit)}</span>
+                </>
+              );
+              return (
+                <li key={a.id}>
+                  {a.link
+                    ? <Link to={a.link} className="px-5 py-2 flex items-center gap-3 hover:bg-gray-50 transition-colors">{inhalt}</Link>
+                    : <div className="px-5 py-2 flex items-center gap-3">{inhalt}</div>}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

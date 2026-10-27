@@ -929,6 +929,33 @@ function EintragModal({
 interface GanttBalken { id: string; von: string; bis: string | null; farbe: string; titel: string; quelle?: string; }
 interface GanttZeile { id: string; name: string; abteilung: string; balken: GanttBalken[]; }
 
+// Zeitraum-Filter (Von/Bis, jeweils optional): ein Eintrag bleibt, sobald sein
+// Gültigkeitszeitraum den gewählten Bereich überschneidet (bis=null = offen).
+function ueberlapptZeitraum(e: { gueltigVon: string; gueltigBis?: string | null }, von: string, bis: string): boolean {
+  if (von && e.gueltigBis && e.gueltigBis.slice(0, 10) < von) return false;
+  if (bis && e.gueltigVon.slice(0, 10) > bis) return false;
+  return true;
+}
+
+function ZeitraumFilter({ von, bis, onVon, onBis }: {
+  von: string; bis: string; onVon: (v: string) => void; onBis: (v: string) => void;
+}) {
+  const cls = "border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))]";
+  return (
+    <div className="flex items-center gap-1.5 text-sm text-gray-600">
+      <span>Zeitraum</span>
+      <input type="date" value={von} max={bis || undefined} onChange={e => onVon(e.target.value)} className={cls} title="Gültig ab (Von)" />
+      <span>–</span>
+      <input type="date" value={bis} min={von || undefined} onChange={e => onBis(e.target.value)} className={cls} title="Gültig bis (Bis)" />
+      {(von || bis) && (
+        <button type="button" onClick={() => { onVon(""); onBis(""); }} className="text-xs text-gray-500 hover:text-accent underline">
+          zurücksetzen
+        </button>
+      )}
+    </div>
+  );
+}
+
 // Fasst überlappende/aneinander anschließende Zeiträume (z.B. mehrere
 // Mitarbeiter derselben Abteilung) zu durchgehenden Blöcken zusammen – für die
 // Abteilungs-Übersichtszeile, die zeigen soll "wann war in dieser Abteilung
@@ -953,9 +980,11 @@ function intervalleZusammenfassen(balken: GanttBalken[]): { von: number; bis: nu
   return ergebnis;
 }
 
-function PeriodenGantt({ zeilen, leerText, onBalkenDoppelklick }: {
+function PeriodenGantt({ zeilen, leerText, onBalkenDoppelklick, fensterVon, fensterBis }: {
   zeilen: GanttZeile[];
   leerText: string;
+  fensterVon?: string; // gewählter Zeitraum-Filter (YYYY-MM-DD) – begrenzt die Zeitachse
+  fensterBis?: string;
   onBalkenDoppelklick?: (balkenId: string) => void;
 }) {
   const heute = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
@@ -969,11 +998,14 @@ function PeriodenGantt({ zeilen, leerText, onBalkenDoppelklick }: {
     const fruehestes = daten.length > 0 ? Math.min(...daten) - 30 * 86_400_000 : heute.getTime() - 60 * 86_400_000;
     const spaetestes = daten.length > 0 ? Math.max(...daten) + 30 * 86_400_000 : heute.getTime() + 180 * 86_400_000;
 
-    return {
-      minDate: new Date(Math.min(fruehestes, heute.getTime() - 60 * 86_400_000)),
-      maxDate: new Date(Math.max(spaetestes, heute.getTime() + 180 * 86_400_000)),
-    };
-  }, [zeilen, heute]);
+    let min = Math.min(fruehestes, heute.getTime() - 60 * 86_400_000);
+    let max = Math.max(spaetestes, heute.getTime() + 180 * 86_400_000);
+    // Gewählter Zeitraum begrenzt die Achse (Endtag einschließlich)
+    if (fensterVon) min = new Date(fensterVon).getTime();
+    if (fensterBis) max = new Date(fensterBis).getTime() + 86_400_000;
+    if (max <= min) max = min + 30 * 86_400_000;
+    return { minDate: new Date(min), maxDate: new Date(max) };
+  }, [zeilen, heute, fensterVon, fensterBis]);
 
   const totalMs = maxDate.getTime() - minDate.getTime();
   function pct(date: Date): number {
@@ -997,7 +1029,8 @@ function PeriodenGantt({ zeilen, leerText, onBalkenDoppelklick }: {
     return result;
   }, [minDate, maxDate, totalMs]);
 
-  const heutePct = pct(heute);
+  const heuteSichtbar = heute >= minDate && heute <= maxDate;
+  const heutePct = heuteSichtbar ? pct(heute) : 0;
   const LABEL_W = 200;
   const ZEILE_H = 40;
   const GRUPPE_H = 32;
@@ -1047,9 +1080,9 @@ function PeriodenGantt({ zeilen, leerText, onBalkenDoppelklick }: {
   function zuHeuteScrollen() {
     if (!scrollRef.current) return;
     const heutePx = (heutePct / 100) * zeitachseBreite;
-    scrollRef.current.scrollLeft = Math.max(0, heutePx - 40);
+    scrollRef.current.scrollLeft = heuteSichtbar ? Math.max(0, heutePx - 40) : 0;
   }
-  useEffect(zuHeuteScrollen, [heutePct, zeitachseBreite, zeilen]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(zuHeuteScrollen, [heutePct, heuteSichtbar, zeitachseBreite, zeilen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -1097,7 +1130,7 @@ function PeriodenGantt({ zeilen, leerText, onBalkenDoppelklick }: {
                   {m.label}
                 </div>
               ))}
-              <div className="absolute top-0 h-full w-0.5 bg-red-400 z-10" style={{ left: `${heutePct}%` }} />
+              {heuteSichtbar && <div className="absolute top-0 h-full w-0.5 bg-red-400 z-10" style={{ left: `${heutePct}%` }} />}
             </div>
           </div>
 
@@ -1210,6 +1243,8 @@ function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mi
   const [nurAktive, setNurAktive] = useState(true);
   const [filterBefristung, setFilterBefristung] = useState<"" | "befristet" | "unbefristet">("");
   const [filterBeschaeftigungsart, setFilterBeschaeftigungsart] = useState<"" | Beschaeftigungsart>("");
+  const [filterVon, setFilterVon] = useState("");
+  const [filterBis, setFilterBis] = useState("");
   const { aktive: aktiveZeitmodelle } = useZeitmodelle();
   // IDs der ausgeblendeten Zeitmodelle (statt Record je bekanntem Zeitmodell,
   // weil die Menge pro Installation frei konfigurierbar ist) – standardmäßig
@@ -1272,7 +1307,8 @@ function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mi
     (!nurAktive || mitarbeiterIstAktiv(z.mitarbeiter)) &&
     (!filterBefristung || (filterBefristung === "befristet" ? z.gueltigBis !== null : z.gueltigBis === null)) &&
     (!filterBeschaeftigungsart || (z.mitarbeiter.beschaeftigungsart ?? "MITARBEITER") === filterBeschaeftigungsart) &&
-    !zeitmodelleAus.has(z.zeitmodell.id)
+    !zeitmodelleAus.has(z.zeitmodell.id) &&
+    ueberlapptZeitraum(z, filterVon, filterBis)
   );
 
   function alleUmschalten() {
@@ -1373,6 +1409,7 @@ function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mi
             <option value="">Alle Beschäftigungsarten</option>
             {ALLE_BESCHAEFTIGUNGSARTEN.map(art => <option key={art} value={art}>{BESCHAEFTIGUNGSART_LABEL[art]}</option>)}
           </select>
+          <ZeitraumFilter von={filterVon} bis={filterBis} onVon={setFilterVon} onBis={setFilterBis} />
           <div className="flex items-center gap-1 flex-wrap">
             {aktiveZeitmodelle.map(z => {
               const an = !zeitmodelleAus.has(z.id);
@@ -1426,7 +1463,7 @@ function ZeitmodellTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: Mi
           <Loader2 className="w-5 h-5 animate-spin mr-2" /> Lade…
         </div>
       ) : ansicht === "gantt" ? (
-        <PeriodenGantt zeilen={ganttZeilen} leerText="Keine Zeitmodell-Zeiträume für diese Auswahl" onBalkenDoppelklick={ganttBalkenBearbeiten} />
+        <PeriodenGantt zeilen={ganttZeilen} leerText="Keine Zeitmodell-Zeiträume für diese Auswahl" onBalkenDoppelklick={ganttBalkenBearbeiten} fensterVon={filterVon || undefined} fensterBis={filterBis || undefined} />
       ) : gefiltert.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <Clock size={40} className="mx-auto mb-3 opacity-20" />
@@ -1685,6 +1722,8 @@ function UeberstundenTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: 
   const [filterAbteilung, setFilterAbteilung]     = useState("");
   const [nurAktive, setNurAktive] = useState(true);
   const [filterBeschaeftigungsart, setFilterBeschaeftigungsart] = useState<"" | Beschaeftigungsart>("");
+  const [filterVon, setFilterVon] = useState("");
+  const [filterBis, setFilterBis] = useState("");
   const [ansicht, setAnsicht]     = useState<"tabelle" | "gantt">("tabelle");
   const [modal, setModal]         = useState(false);
   const [bearbeitet, setBearbeitet] = useState<UeberstundenEintrag | null>(null);
@@ -1719,7 +1758,8 @@ function UeberstundenTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: 
     (!filterMitarbeiter || z.mitarbeiterId === filterMitarbeiter) &&
     (!filterAbteilung || z.mitarbeiter.abteilung?.id === filterAbteilung) &&
     (!nurAktive || mitarbeiterIstAktiv(z.mitarbeiter)) &&
-    (!filterBeschaeftigungsart || (z.mitarbeiter.beschaeftigungsart ?? "MITARBEITER") === filterBeschaeftigungsart)
+    (!filterBeschaeftigungsart || (z.mitarbeiter.beschaeftigungsart ?? "MITARBEITER") === filterBeschaeftigungsart) &&
+    ueberlapptZeitraum(z, filterVon, filterBis)
   );
 
   const ganttZeilen: GanttZeile[] = useMemo(() => {
@@ -1803,6 +1843,7 @@ function UeberstundenTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: 
             <option value="">Alle Beschäftigungsarten</option>
             {ALLE_BESCHAEFTIGUNGSARTEN.map(art => <option key={art} value={art}>{BESCHAEFTIGUNGSART_LABEL[art]}</option>)}
           </select>
+          <ZeitraumFilter von={filterVon} bis={filterBis} onVon={setFilterVon} onBis={setFilterBis} />
           <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden">
             <button
               onClick={() => setAnsicht("tabelle")}
@@ -1832,7 +1873,7 @@ function UeberstundenTab({ mitarbeiterListe, abteilungen }: { mitarbeiterListe: 
           <Loader2 className="w-5 h-5 animate-spin mr-2" /> Lade…
         </div>
       ) : ansicht === "gantt" ? (
-        <PeriodenGantt zeilen={ganttZeilen} leerText="Keine Überstunden-Zeiträume für diese Auswahl" onBalkenDoppelklick={ganttBalkenBearbeiten} />
+        <PeriodenGantt zeilen={ganttZeilen} leerText="Keine Überstunden-Zeiträume für diese Auswahl" onBalkenDoppelklick={ganttBalkenBearbeiten} fensterVon={filterVon || undefined} fensterBis={filterBis || undefined} />
       ) : gefiltert.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <Timer size={40} className="mx-auto mb-3 opacity-20" />
