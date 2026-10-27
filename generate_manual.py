@@ -527,6 +527,7 @@ def build():
         "Zwei-Faktor-Anmeldung – einrichten, neue Wiederherstellungscodes erzeugen oder abschalten "
         "(nicht, wenn sie für Ihre Rolle Pflicht ist)",
         "Letzte Anmeldungen – Zeitpunkt, Browser und IP-Adresse; eine fremde Anmeldung fällt so auf",
+        "Benachrichtigungen – Für jede Art von Ereignis stellen Sie „Aus“, „Nur im System“ oder „Mit E-Mail“ ein (Kapitel 5.3)",
     ])
     pdf.bild("mein-konto", "Mein Konto (Klick auf den eigenen Namen)", hoehe_anteil=0.6)
 
@@ -541,7 +542,7 @@ def build():
     )
     pdf.bullets([
         "Schnellsuche – Ab zwei Zeichen erscheinen Treffer aus allen Bereichen; Enter öffnet die ausführliche Suche",
-        "Benachrichtigungen – Neue Dokumente, Nachrichten und Aufgaben werden als Hinweis eingeblendet",
+        "Benachrichtigungen – Jedes Ereignis, das Sie betrifft (zugewiesene Aufgabe, Erwähnung, Ladung als Ersatzmitglied …), landet als Nachricht mit Link im Postfach; was Sie wie erreicht, stellen Sie unter „Mein Konto“ ein (Kapitel 5.3)",
         "Über BR-DMS – Ganz unten in der Seitenleiste: Version, Lizenz, Support-Kontakt und „Fehler melden“",
     ])
 
@@ -582,6 +583,11 @@ def build():
         "Aufgaben ohne Zuständigkeit stehen dort als „nicht zugewiesen“",
         "Fristen – Kompakt eine Zeile je Frist: überfällige und die der nächsten 14 Tage (höchstens sechs), "
         "Resttage farbig (rot ≤ 3 Tage, gelb ≤ 7 Tage); das Häkchen erledigt eine Frist, der Link führt in den Fristenkalender",
+        "Was hat sich getan? – Der Aktivitäts-Feed der letzten 30 Tage: neue Sitzungen, Themen, Beiträge und "
+        "Kommentare, Dokumente, Aufgaben (angelegt, bearbeitet, erledigt) und Betriebsvereinbarungen, neueste zuerst, "
+        "jeweils mit Name, Titel und „vor …“. Ein Klick öffnet das Objekt. Inhalte stehen nicht im Feed, und es "
+        "erscheint nur, was Sie auch sonst sehen dürften – vertrauliche Dokumente und Themen anderer bleiben außen vor. "
+        "Der Feed fehlt bei JAV und SBV",
         "Hinweise – Erscheinen nur bei Bedarf: Dokumente, die in den nächsten 30 Tagen automatisch gelöscht werden, "
         "und fehlerhafte Watch-Folder-Dateien der letzten 7 Tage. Das vollständige Importprotokoll des "
         "Watch-Folders steht unter Einstellungen → System",
@@ -655,11 +661,15 @@ def build():
         "lässt sich der Zugang auch dann noch bestätigen oder korrigieren, wenn das Dokument den Dokumenteneingang "
         "schon verlassen hat."
     )
-    pdf.h3("Mails über den Dokumenteneingang")
+    pdf.h3("Meldungen über den Dokumenteneingang")
+    pdf.body(
+        "Neue Eingänge laufen über das Benachrichtigungssystem (Kapitel 5.3). Es gibt zwei Arten, die Vorsitz "
+        "und Stellvertretung je für sich unter „Mein Konto“ einstellen:"
+    )
     pdf.bullets([
-        "Sofortmail – Geht eine Fristsache ein, bekommen Vorsitz und Stellvertretung sofort eine Mail mit der vorläufigen Frist und der Bitte, den Zugang zu bestätigen",
-        "Stündliche Sammelmail – Alle übrigen neuen, noch ungelesenen Dokumente gesammelt zur vollen Stunde, nur wenn etwas Neues da ist",
-        "Wer ein Dokument selbst hochgeladen hat, bekommt dazu keine Mail; beide Mails lassen sich abschalten (Kapitel 9.5)",
+        "Fristsache im Dokumenteneingang (§ 99, § 102, § 87) – Meldung im Postfach und sofort eine Mail mit der vorläufigen Frist und der Bitte, den Zugang zu bestätigen",
+        "Neues Dokument im Dokumenteneingang – Meldung im Postfach; die Mail folgt nur, wenn sie nach 15 Minuten noch ungelesen ist",
+        "Wer ein Dokument selbst hochgeladen hat, wird dazu nicht benachrichtigt. Die Mail nennt nur Art und Link, nie den Inhalt",
     ])
 
     pdf.h2("3.2  Dokumentenarchiv")
@@ -889,8 +899,9 @@ def build():
     pdf.schritt(2, "Tagesordnung aufbauen",
                 "TOPs hinzufügen, per Rich-Text beschreiben, Dokumente anhängen. Die Reihenfolge ändern Sie, indem "
                 "Sie einen TOP am Punkte-Griff links an die neue Stelle ziehen; die Pfeile rechts verschieben um eine "
-                "Position. Themen aus dem Themen-Backlog lassen sich direkt als TOP übernehmen. TOPs können als "
-                "vertraulich markiert werden.")
+                "Position. In der Themenakte lässt sich ein Thema mit „Als TOP vormerken“ direkt in "
+                "eine Sitzung übernehmen. TOPs können als vertraulich markiert werden. Für die Einladungsmail und den "
+                "Kalendertermin lässt sich im Entwurf je TOP ein neutraler Titel vergeben (Schritt 5).")
     pdf.schritt(3, "Ladung und Verhinderung",
                 "Vor der Sitzung heißt die Anwesenheit „Ladung & Verhinderung“. Meldet sich ein Mitglied ab, wird es auf "
                 "„Verhindert“ gestellt; BR-DMS schlägt das nächste Ersatzmitglied laut Wahlrang vor. Auf der "
@@ -931,7 +942,9 @@ def build():
                 "In der Karte „Einladung per E-Mail“ verschickt der Vorsitz die Einladung mit der Tagesordnung als PDF an "
                 "alle Geladenen – an deren Adresse für Einladungen (z. B. br-…), sonst an die Hauptadresse. Wer später "
                 "nachgeladen wird, bekommt sie mit „An Neue senden“. Jeder Versand wird mit Zeitpunkt, Adresse und "
-                "Ergebnis protokolliert – das ist der Nachweis der Ladung. JAV und SBV erhalten keine vertraulichen TOPs. "
+                "Ergebnis protokolliert – das ist der Nachweis der Ladung. Außerdem steht dort, wann das Mitglied die "
+                "Sitzung in BR-DMS zum ersten Mal geöffnet hat (Abrufnachweis; auch im Sitzungspaket). "
+                "JAV und SBV erhalten keine vertraulichen TOPs. "
                 "Vor dem Senden öffnet sich ein Fenster für einen zusätzlichen Text, etwa den Link zu einem "
                 "Online-Meeting; er wird beim nächsten Versand für dieselbe Sitzung vorgeschlagen. Jede Einladung "
                 "bringt den Termin als Datei „Termin.ics“ mit: ein Klick darauf in Outlook oder Thunderbird trägt die "
@@ -941,6 +954,29 @@ def build():
     pdf.body(
         "Ohne eingerichteten Mailserver weist die Karte darauf hin und der Versand bleibt gesperrt "
         "(Kapitel 9.7). Neben jedem Namen steht, ob und wann die Einladung zugestellt wurde."
+    )
+    pdf.h3("Wie viel steht in der Einladungsmail?")
+    pdf.body(
+        "Mails sind kein geschützter Raum. Deshalb lässt sich die Detailstufe wählen – als Voreinstellung unter "
+        "Einstellungen → System → E-Mail-Absender (Kapitel 9.7) und bei jedem Versand im Dialog:"
+    )
+    pdf.tabelle(
+        ["Stufe", "Inhalt der Mail"],
+        [
+            ["Vollständig", "Termin, Tagesordnung als Liste und PDF, Termin als .ics-Datei"],
+            ["Nur TOP-Titel", "Termin und Tagesordnung, ohne PDF"],
+            ["Nur Link", "Nur Termin und Link zur Sitzung in BR-DMS. Das setzt voraus, dass die Mitglieder BR-DMS im "
+                         "Intranet erreichen; der Dialog weist auf § 29 Abs. 2 BetrVG hin"],
+        ],
+        (36, 134),
+    )
+    pdf.body(
+        "Der Kalendertermin folgt derselben Stufe, die gewählte Stufe steht im Versandnachweis. Mit dem "
+        "neutralen TOP-Titel (nur im Entwurf änderbar, z. B. „Personelle Einzelmaßnahme § 99“ statt eines Namens) "
+        "tauchen in Mail und Termin keine Einzelheiten auf; das PDF und BR-DMS selbst zeigen den echten Titel. "
+        "Der Einladungsdialog bietet außerdem die Signatur zur Auswahl (Kapitel 9.7). Wird später ein "
+        "Spontan-TOP angelegt, warnt der Dialog, wenn laut Versandnachweis ein Mitglied oder sein Ersatz nicht "
+        "geladen wurde."
     )
     pdf.bild("vorlagen", "Sitzungsvorlagen für wiederkehrende Tagesordnungen", hoehe_anteil=0.35)
 
@@ -963,10 +999,22 @@ def build():
         "Markieren – Textmarker, etwa um den Beschlusstext hervorzuheben",
         "Link – Weblink setzen oder entfernen",
         "Dokument – Ein Dokument aus dem Archiv suchen und als Verweis einfügen; ein Klick darauf öffnet es",
+        "@ – Beim Tippen von @ erscheint am Cursor die Liste der Personen (Pfeiltasten, Enter oder Tab übernimmt, "
+        "Escape bricht ab). Wer erwähnt wird, bekommt eine Benachrichtigung – das gilt auch in Kommentaren und in der Themenakte",
     ])
     pdf.body(
         "Jeder TOP hat außerdem eigene Kommentare für Rückfragen im Gremium; wie beim Dokument wird "
         "ein Kommentar per „Aufgabe“ zur Aufgabe. Über das Menü „…“ am TOP sind weitere Aktionen erreichbar."
+    )
+    pdf.h3("Protokollführung")
+    pdf.body(
+        "Wer protokollieren darf, legen Vorsitz und Stellvertretung in der Benutzerverwaltung mit dem Haken "
+        "„Protokollführung“ fest (z. B. eine ständige Schriftführung laut Geschäftsordnung, Kapitel 9.1). Neue "
+        "Sitzungen sind mit dieser Person vorbelegt; im Kopf der Sitzung ändern Vorsitz und Stellvertretung sie bis "
+        "zur Finalisierung. Zur Auswahl stehen die Gremiumsmitglieder und alle mit Haken. Die Person wird "
+        "benachrichtigt. Im Protokoll-PDF und auf der Unterschriftenseite steht eine zweite Unterschriftszeile "
+        "mit ihrem Namen; wer nicht zum Gremium gehört, steht nur als Vermerk da und unterschreibt nicht nach "
+        "§ 34 Abs. 1 BetrVG."
     )
     pdf.h3("Anwesenheit und Ersatzmitglieder")
     pdf.body(
@@ -974,6 +1022,39 @@ def build():
         "Fehlt ein Mitglied, schlägt BR-DMS das richtige Ersatzmitglied nach dem Wahlrang vor (§ 25 BetrVG) "
         "und warnt, wenn dadurch die Mindestsitze des Minderheitengeschlechts unterschritten würden."
     )
+    pdf.h3("Gäste am TOP")
+    pdf.body(
+        "Zu einem TOP lassen sich Gäste ohne Konto einladen – Arbeitgeber, Gewerkschaft, Sachverständige oder "
+        "Auskunftspersonen. Am TOP steht dafür „Gast einladen“ mit Name, Funktion, "
+        "Organisation, optionalem Zusatz (z. B. ungefähre Uhrzeit des TOPs), optionaler E-Mail-Adresse und "
+        "optionalem Einwahllink."
+    )
+    pdf.bullets([
+        "Im Protokoll – Der Gast steht unter Anwesenheit und auf der Anwesenheitsliste; der Haken „erschienen“ am Gast bestimmt, ob er dort aufgeführt wird",
+        "Einladung – Mit E-Mail-Adresse geht auf Wunsch eine Mail mit Termin und nur seinem TOP; ein Dialog bietet Zusatztext und Signatur an. Die Mail trägt nur den Gästelink, nie den Link der Sitzung",
+        "Sichtbarkeit – Ein Gast ist nur für die sichtbar, die auch den TOP sehen dürfen",
+    ])
+    pdf.bild("sitzung-gaeste", "Gast am TOP: Funktion, Organisation und Einladung", hoehe_anteil=0.6)
+    pdf.h3("Sitzung per Video oder Telefon (§ 30 Abs. 2 BetrVG)")
+    pdf.body(
+        "Ob und unter welchen Bedingungen Mitglieder zugeschaltet werden dürfen, regelt die Geschäftsordnung "
+        "(Kapitel 7.5). Ist das dort erlaubt, erscheint in der Sitzung die Karte „§ 30 Abs. 2 BetrVG“. Vorsitz und "
+        "Stellvertretung wählen die Form der Sitzung: Präsenzsitzung, Präsenz mit Zuschaltung oder reine "
+        "Video-/Telefonsitzung. Bei einer Zuschaltung steht der Einwahllink im Dialog; als Vorgabe wird der "
+        "Sitzungslink aus den Einstellungen übernommen (Kapitel 9.7)."
+    )
+    pdf.bullets([
+        "Widerspruch – Die Präsenzsitzung hat Vorrang. Jedes Mitglied kann der Zuschaltung innerhalb der Frist per Klick widersprechen; widerspricht mindestens ein Viertel der Mitglieder, ist die Zuschaltung gesperrt und die Sitzung findet nur vor Ort statt. Vorsitz und Stellvertretung werden bei einem Widerspruch benachrichtigt, bei der Sperre auch die Geladenen",
+        "Einladung – Link und Widerspruchsfrist stehen in der Einladungsmail. Die Sitzung darf nicht aufgezeichnet werden",
+        "Teilnahme – Je Person wird festgehalten, ob sie vor Ort, per Video oder per Telefon teilnimmt. Wer zugeschaltet ist, bestätigt seine Teilnahme (§ 34 Abs. 1 BetrVG); das Protokoll-PDF enthält diese Bestätigungen als Anlage",
+        "Vertrauliche TOPs – Schließt die Geschäftsordnung die Zuschaltung dafür aus, weist die Karte darauf hin",
+        "Im Protokollmodus lässt sich die Form bis zur Finalisierung nachtragen (ohne Widerspruchsfrist), etwa wenn jemand spontan zugeschaltet war",
+    ])
+    pdf.bild("sitzung-video", "Karte „§ 30 Abs. 2 BetrVG“ mit Form der Sitzung und Einwahllink", hoehe_anteil=0.5)
+    pdf.hinweis(
+        "Ob die konstituierende Sitzung per Video oder Telefon stattfinden darf, ist rechtlich nicht geklärt – im "
+        "Zweifel in Präsenz. Auch der Widerspruch ist eine Hilfe, kein Rechtsurteil: Maßgeblich ist, was in Ihrer "
+        "Geschäftsordnung steht.", "achtung")
     pdf.h3("Beschlüsse")
     pdf.body(
         "Pro TOP können mehrere Beschlüsse erfasst werden – jeweils mit Antragstext, Rechtsgrundlage "
@@ -1066,15 +1147,15 @@ def build():
         ["", "BR-Sitzung", "Betriebsversammlung"],
         [
             ["Anwesenheit", "Anwesenheitsliste mit Ersatz-Nachrücken", "Nur die Teilnehmerzahl"],
-            ["Beschlüsse", "Mit Abstimmung", "Keine – Anträge an den BR (§ 45) gehen ins Themen-Backlog"],
+            ["Beschlüsse", "Mit Abstimmung", "Keine – Anträge an den BR (§ 45) werden zu Themen in der Themenakte"],
             ["Tagesordnungs-PDF", "Tagesordnung", "Einladung zum Aushang (nicht öffentlich, Teilnahme gilt als Arbeitszeit)"],
             ["Protokoll-PDF", "Protokoll", "Niederschrift mit Teilnehmerzahl"],
         ],
         (34, 58, 78),
     )
     pdf.bullets([
-        "Fragen aus dem Kummerkasten – Im Entwurf übernimmt der Knopf über der Tagesordnung ausgewählte Nachrichten ohne Absendernamen als Liste in einen TOP",
-        "Antrag – Im Protokollmodus legt der Knopf am TOP einen Antrag der Versammlung als Thema im Backlog an",
+        "Fragen aus dem Kummerkasten – Im Entwurf und im Protokoll-Entwurf übernimmt der Knopf über der Tagesordnung ausgewählte Nachrichten ohne Absendernamen als Liste in einen TOP (bei fixierter Tagesordnung ist der Inhalt gesperrt)",
+        "Antrag – Im Protokollmodus legt der Knopf am TOP einen Antrag der Versammlung als Thema (Kapitel 5.2) an",
         "Quartals-Erinnerung – Ohne Versammlung im laufenden Quartal erscheint eine Frist zum Quartalsende (Kapitel 3.3)",
     ])
     pdf.bild("sitzung-betriebsversammlung", "Betriebsversammlung mit Teilnehmerzahl statt Anwesenheitsliste")
@@ -1149,13 +1230,45 @@ def build():
     pdf.hinweis(
         "Wird ein Vorhaben gelöscht, bleiben seine Aufgaben erhalten und stehen danach ohne Vorhaben da.",
         "info")
-    pdf.h2("5.2  Themen-Backlog")
+    pdf.h2("5.2  Themenakte")
     pdf.body(
-        "Im Themen-Backlog sammelt der Betriebsrat Ideen und Anliegen, bevor sie in eine Sitzung "
-        "kommen. Ein Klick übernimmt ein Thema als TOP in die nächste Sitzung. Auch Anträge aus der "
-        "Betriebsversammlung landen hier (Kapitel 4.6)."
+        "Die Themenakte ist der rote Faden für alles, was den Betriebsrat über längere Zeit beschäftigt – "
+        "eine Umstrukturierung, ein Verhandlungsthema, ein Einzelfall. Sie löst das frühere Themen-Backlog "
+        "ab; dessen Karten wurden beim Update als Themen übernommen. Ein Thema bündelt an einer Stelle, was "
+        "sonst über Dokumente, Sitzungen, Aufgaben und Vereinbarungen verstreut läge."
     )
-    pdf.bild("themen-backlog", "Themen-Backlog als Kanban-Board", hoehe_anteil=0.5)
+    pdf.h3("Kopf der Akte")
+    pdf.bullets([
+        "Status – Offen, In Verhandlung, Ruht oder Abgeschlossen",
+        "Worum es geht – Kurzbeschreibung, dazu Zuständige und Projektteam",
+        "Nächster Schritt mit Termin – Was als Nächstes zu tun ist und bis wann",
+        "Wer sieht das Thema? – Dieselben drei Stufen wie bei Dokumenten (offen, Betriebsrat, nur Vorsitz); Beteiligte sehen das Thema immer. Vertraulichkeit und Projektteam legen Vorsitz oder Stellvertretung fest, ebenso „nur Projektteam schreibt“",
+    ])
+    pdf.h3("Der Verlauf")
+    pdf.body(
+        "Der Verlauf ist eine Zeitleiste aus zwei Arten von Einträgen. Eigene Beiträge – Vermerke etwa aus "
+        "einem Gespräch mit der Personalleitung – sind wie ein Protokoll nicht nachträglich änderbar: eine "
+        "Ergänzung oder Korrektur ist ein neuer Beitrag mit Bezug auf den alten. Wichtige Beiträge lassen sich "
+        "anheften, Rückfragen laufen als Kommentare. Ein Beitrag hat eine Art – Notiz, Gesprächsvermerk, Idee/Frage oder Recherche. Dazu kommen automatische Einträge aus verknüpften "
+        "Dokumenten und Fristen, TOPs und Beschlüssen, Aufgaben und Betriebsvereinbarungen. Jede Person "
+        "sieht davon nur, was sie dort auch sonst sehen dürfte."
+    )
+    pdf.bild("themenakte", "Themenakte mit Kopf, nächstem Schritt und Verlauf")
+    pdf.bullets([
+        "Verknüpfen – Dokumente, Fristen, Aufgaben, TOPs und Betriebsvereinbarungen werden mit dem Thema verbunden; ein Klick löst die Verknüpfung wieder",
+        "Als TOP vormerken – Der TOP kommt in eine Sitzung, deren Tagesordnung noch nicht fixiert ist, und verlinkt zurück auf die Akte. Beschlossen wird in der Sitzung, nicht in der Akte",
+        "@ – Wer im Beitrag erwähnt wird und das Thema sehen darf, wird benachrichtigt; neue Beiträge melden BR-DMS außerdem an die Beteiligten",
+        "Chronik als PDF – Der ganze Verlauf in einer Datei, etwa für die Amtsübergabe (Kapitel 9.9)",
+    ])
+    pdf.bild("themen-liste", "Themenliste als Board mit den Status-Spalten", hoehe_anteil=0.55)
+    pdf.body(
+        "In der Seitenleiste steht die Liste weiterhin unter „Themen-Backlog“: ein Board mit den Spalten Offen, "
+        "In Verhandlung, Ruht und Abgeschlossen. Die Karte zeigt Titel, nächsten Schritt mit Termin, "
+        "Zuständige und die Zahl der Beiträge; mit den Pfeilen wechselt ein Thema den Status, ein Klick öffnet "
+        "die Akte. Die Suche oben findet nach Thema oder Person; ein neues Thema entsteht unter der Spalte mit "
+        "„+ Thema / Idee …“. Ist ein Thema abgeschlossen, löscht BR-DMS es nach einer einstellbaren Frist "
+        "(Standard 3 Jahre, Kapitel 9.5)."
+    )
     pdf.h2("5.3  Nachrichten")
     pdf.body(
         "Das interne Postfach verbindet die Mitglieder ohne externe Dienste. Nachrichten gehen an "
@@ -1163,6 +1276,27 @@ def build():
         "verschickt das System automatisch, auf Wunsch mit PDF-Anhang."
     )
     pdf.bild("posteingang", "Postfach mit Systemnachrichten und persönlichen Nachrichten", hoehe_anteil=0.45)
+    pdf.h3("Benachrichtigungen")
+    pdf.body(
+        "Jedes Ereignis, das Sie betrifft, entsteht als Nachricht mit Link im Postfach. Unter „Mein Konto“ → "
+        "„Benachrichtigungen“ stellen Sie für jede Art getrennt ein, wie Sie erreicht werden: „Aus“, „Nur im System“ "
+        "oder „Mit E-Mail“. Bei „Mit E-Mail“ kommt die Mail nur, wenn Sie die Meldung nach 15 Minuten noch nicht "
+        "gesehen haben und seitdem nicht in BR-DMS waren – gesammelt und höchstens eine pro Stunde. Sie nennt nur "
+        "Art und Link, nie den Inhalt. JAV, SBV und Externe ohne Postfach bekommen sie sofort."
+    )
+    pdf.tabelle(
+        ["Ereignis", "Wer"],
+        [
+            ["Aufgabe zugewiesen; Aufgabe heute fällig (7:00 Uhr)", "Zuständige Person"],
+            ["Ladung als Ersatzmitglied; als Protokollführung eingetragen; Protokoll zur Unterschrift bereit", "Betroffene Person"],
+            ["Erwähnung (@) und neuer Kommentar, wo Sie mitdiskutieren", "Nur wer das Objekt sehen darf"],
+            ["Neuer Beitrag in einem meiner Themen", "Beteiligte und Erwähnte"],
+            ["Widerspruch gegen die Zuschaltung; Teilnahme per Video/Telefon bestätigen (§ 34)", "Vorsitz bzw. Geladene"],
+            ["Neuer Kummerkasten-Eintrag; Fristsache und neues Dokument im Dokumenteneingang", "Nur Vorsitz und Stellvertretung"],
+        ],
+        (118, 52),
+    )
+    pdf.bild("mein-konto-benachrichtigungen", "Mein Konto: Stufe je Ereignis einstellen", hoehe_anteil=0.6)
     pdf.h2("5.4  Kummerkasten")
     pdf.body(
         "Der Kummerkasten ist eine öffentliche Seite ohne Anmeldung, über die Beschäftigte dem "
@@ -1413,7 +1547,8 @@ def build():
     pdf.body(
         "Zeitmodell und Überstundenregelung haben je eine eigene Historie mit echtem Gültigkeitszeitraum – "
         "von, bis oder unbefristet. Beide Reiter sind gleich aufgebaut: Filter nach Mitarbeiter, Abteilung "
-        "und Beschäftigungsart, „Nur aktive“, und die Umschaltung zwischen Tabelle und Gantt. Die "
+        "und Beschäftigungsart, ein Zeitraum-Filter (zeigt nur Einträge, die in dem gewählten Zeitraum gelten), "
+        "„Nur aktive“, und die Umschaltung zwischen Tabelle und Gantt. Die "
         "Gantt-Ansicht zeigt je Mitarbeiter einen Balken pro Zeitraum, gruppiert nach Abteilung; ein "
         "Doppelklick auf einen Balken öffnet ihn zum Bearbeiten. Eine Warnliste oben nennt Zeiträume, die in "
         "den nächsten 30 Tagen auslaufen."
@@ -1457,11 +1592,19 @@ def build():
         "markiert, ältere bleiben als Nachweis erhalten."
     )
     pdf.schritt(1, "Neue Fassung erfassen",
-                "Das PDF der beschlossenen Geschäftsordnung zuerst unter Dokumente hochladen (Kategorie "
+                "Die PDFs der beschlossenen Geschäftsordnung zuerst unter Dokumente hochladen (Kategorie "
                 "„Geschäftsordnung“, 10 Jahre Aufbewahrung).")
     pdf.schritt(2, "Im Register eintragen",
-                "„Neue Fassung“: Beschlussdatum, kurze Bemerkung (z. B. was sich geändert hat) und das "
-                "Dokument auswählen. Die bisherige Fassung rückt automatisch nach unten.")
+                "„Neue Fassung“: Beschlussdatum, kurze Bemerkung (z. B. was sich geändert hat) und die "
+                "Dokumente auswählen. Eine Fassung kann ein ganzes Paket sein – etwa die Geschäftsordnung mit "
+                "Anlagen; Dokumente lassen sich später hinzufügen oder entfernen. Die bisherige Fassung rückt "
+                "automatisch nach unten.")
+    pdf.schritt(3, "Video und Telefon regeln",
+                "Im Dialog steht der Abschnitt „Sitzung per Video/Telefon (§ 30 Abs. 2 BetrVG)“: Ist die Teilnahme "
+                "per Video- oder Telefonkonferenz erlaubt, kann die Zuschaltung bei vertraulichen TOPs ausgeschlossen "
+                "werden und die Bedingungen der Geschäftsordnung stehen im Wortlaut dabei. Nur wenn die aktuelle "
+                "Fassung die Zuschaltung erlaubt, bietet BR-DMS in der Sitzung die Form „Zuschaltung“ oder „Video“ an "
+                "(Kapitel 4.3).")
     pdf.body(
         "Lesen dürfen alle Mitglieder; anlegen, ändern und löschen nur Vorsitz und Stellvertretung. "
         "Ob der Beschluss wirksam zustande kam (Mehrheit der Mitglieder, § 36 BetrVG), prüft BR-DMS "
@@ -1562,6 +1705,7 @@ def build():
         "Deaktivieren – Zugang sperren, ohne Historie zu verlieren",
         "Passwort zurücksetzen – Durch Vorsitz oder Admin, alternativ per E-Mail-Link durch die Person selbst",
         "Adresse für Einladungen – Zweitadresse unter der E-Mail (z. B. br-name@…); leer = Hauptadresse. Angemeldet wird immer mit der Hauptadresse. Beide Adressen kann jede Person auch selbst unter „Mein Konto“ ändern",
+        "Protokollführung – Der Haken erlaubt der Person, Sitzungen zu protokollieren; sie wird bei neuen Sitzungen vorbelegt (Kapitel 4.3). Setzen können ihn Vorsitz und Stellvertretung",
         "Zwei-Faktor-Anmeldung – Ein Schild neben „Aktiv“ zeigt, wer sie eingerichtet hat (nur für Vorsitz, Stellvertretung und Admin sichtbar). „2FA reset“ entfernt sie, z. B. bei verlorenem Handy; die Person wird abgemeldet und meldet sich danach mit dem Passwort an",
     ])
 
@@ -1654,6 +1798,18 @@ def build():
         "Zeitmodell-/Überstunden-Ablauf – Monatlich am 15. um 7:00 Uhr, wenn im laufenden Monat Zeiträume auslaufen",
     ])
     pdf.body(
+        "Hinweise im Postfach, etwa zu zugewiesenen Aufgaben oder neuen Eingängen, gehören nicht hierher: Sie "
+        "stellt jede Person selbst unter „Mein Konto“ ein (Kapitel 5.3). Die früheren globalen Schalter für "
+        "Sofortmail und Sammelmail beim Dokumenteneingang gibt es nicht mehr; ausgeschaltete Schalter wurden "
+        "beim Update als persönliche Einstellung übernommen."
+    )
+    pdf.h3("Themenakten")
+    pdf.body(
+        "Ein abgeschlossenes Thema löscht BR-DMS nach einer einstellbaren Zahl von Jahren (Feld „Jahre nach "
+        "abgeschlossen“, Standard 3). Die Frist gilt für alle Themen gleich und wird erst ab dem Abschluss gezählt; "
+        "wer die Akte behalten will, speichert vorher die Chronik als PDF."
+    )
+    pdf.body(
         "Die tägliche Fristen-Erinnerung lässt sich mit dem Schalter „Automatischer Versand“ pausieren, "
         "etwa während der Betriebsferien. „Jetzt testen“ funktioniert auch im pausierten Zustand."
     )
@@ -1673,8 +1829,7 @@ def build():
         "info", "Noch kein Bundesland gewählt")
     pdf.h3("Mails über den Dokumenteneingang")
     pdf.bullets([
-        "Sofortmail bei Fristsachen – An Vorsitz und Stellvertretung, sobald eine Anhörung oder § 87-Sache eingeht",
-        "Stündliche Sammelmail – Alle übrigen neuen Eingänge zur vollen Stunde, nur wenn etwas Neues da ist; beim Wiedereinschalten kommen keine alten Eingänge nach",
+        "Meldungen über neue Eingänge – Fristsachen und übrige Dokumente stellt jede Person unter „Mein Konto“ ein (Kapitel 5.3); die früheren globalen Schalter entfallen",
         "Empfangsbestätigung an – Adresse der Personalabteilung als Voreinstellung für die Empfangsbestätigung (Kapitel 3.1); im Dialog vor dem Senden änderbar",
     ])
     pdf.bild("einstellungen-eingang-mails", "Mails über den Dokumenteneingang und Empfänger der Empfangsbestätigung", hoehe_anteil=0.63)
@@ -1699,8 +1854,10 @@ def build():
 
     pdf.h2("9.7  System")
     pdf.bild("einstellungen-system", "E-Mail-Absender und Watch-Folder", hoehe_anteil=0.6)
+    pdf.bild("einstellungen-signaturen", "Videositzung: Einwahllinks, E-Mail-Absender und Signaturen", hoehe_anteil=0.7)
     pdf.bullets([
-        "E-Mail-Absender – Name und Adresse für alle Mails (ohne Eintrag gilt SMTP_FROM) und die Signatur unter Einladungen. Ein Hinweis erscheint, solange kein Mailserver eingerichtet ist",
+        "E-Mail-Absender und Signaturen – Name und Adresse für alle Mails (ohne Eintrag gilt SMTP_FROM). Signaturen werden benannt gepflegt; je Mailart (Einladung, Gäste, Empfangsbestätigung) gilt eine Standardsignatur, die im Versanddialog gewechselt oder weggelassen werden kann. Dazu die Voreinstellung der Detailstufe für Einladungsmails (Kapitel 4.2). Ein Hinweis erscheint, solange kein Mailserver eingerichtet ist",
+        "Videositzung: Standard-Einwahllinks – Sitzungslink (für die Mitglieder) und Gästelink (eigener Raum). Der Sitzungslink wird in die Sitzung kopiert, wenn auf Zuschaltung oder Video umgestellt wird und die Geschäftsordnung es erlaubt; Gästemail und Kalendertermin der Gäste tragen nur den Gästelink (Kapitel 4.3)",
         "Zeitmodelle – Bezeichnungen, Wochenstunden und Standard der Arbeitszeitmodelle (Kapitel 7.3)",
         "Eingruppierung – Entgeltgruppen und Stufen, Vorlagen für Tarifverträge (Kapitel 7.2)",
         "Watch-Folder – Ob die Ordnerüberwachung läuft, der Basispfad, welcher Unterordner zu welcher Kategorie gehört (Kapitel 12.6) und die letzten Importe mit Fehlermeldung",
@@ -1750,7 +1907,7 @@ def build():
         [
             ["Aktive BR-Mitglieder mit E-Mail und Rolle", "Dokument-Dateien selbst (nur Titel und Metadaten im PDF)"],
             ["Aktive Dokumente nach Kategorie mit Aktenzeichen, offenen Fristen und Status", "Protokolle im Volltext"],
-            ["Beschlussregister mit Sitzung/TOP, Antrag, Ergebnis und Rechtsgrundlage", "Aufgaben, Themen-Backlog, Eingruppierung, Schulungen, BVs, Wissen, Audit-Log"],
+            ["Beschlussregister mit Sitzung/TOP, Antrag, Ergebnis und Rechtsgrundlage", "Aufgaben, Themenakten, Eingruppierung, Schulungen, BVs, Wissen, Audit-Log"],
         ],
         (85, 85),
     )
@@ -1794,6 +1951,10 @@ def build():
             ["Kummerkasten lesen und bearbeiten", j, j, j, j, n, n, j],
             ["Betriebsvereinbarungen anlegen", j, j, n, n, n, n, j],
             ["Geschäftsordnung pflegen", j, j, n, n, n, n, j],
+            ["Themenakte lesen und Beiträge schreiben (nach Vertraulichkeit)", j, j, j, v, n, n, j],
+            ["Themenakte: Vertraulichkeit und Projektteam festlegen", j, j, n, n, n, n, j],
+            ["Gäste einladen, Form der Sitzung (Video) wählen, Signaturen pflegen", j, j, n, n, n, n, j],
+            ["Aktivitäts-Feed im Dashboard", j, j, j, j, n, n, j],
             ["Kostenübersicht (§ 40) einsehen", j, j, j, v, n, n, j],
             ["Kosten eintragen und ändern", j, j, n, n, n, n, j],
             ["Gremien, Mitglieder und Fremdprotokolle verwalten", j, j, n, n, n, n, j],
@@ -2607,8 +2768,8 @@ def build():
         [
             ["Benutzer", "Benutzer, PasswortReset, AuditLog"],
             ["Dokumente", "Dokument, DokumentVersion, Frist, Kommentar"],
-            ["Sitzungen", "Sitzung, SitzungVersion, TOP, TopDokument, Anwesenheit, Beschluss, Abstimmung, ProtocolBlock, SitzungsVorlage"],
-            ["Zusammenarbeit", "Aufgabe (inkl. Vorhaben und Themen-Backlog), Nachricht, KummerkastenEintrag"],
+            ["Sitzungen", "Sitzung, SitzungVersion, TOP, TopDokument, TopGast, SitzungWiderspruch, Anwesenheit, Beschluss, Abstimmung, ProtocolBlock, SitzungsVorlage"],
+            ["Zusammenarbeit", "Aufgabe (inkl. Vorhaben), Thema, ThemaBeteiligter, ThemaEintrag, Nachricht (inkl. Benachrichtigungen), KummerkastenEintrag"],
             ["Wissen", "WissensEintrag, Ressource, GesetzParagraph"],
             ["Personal", "Mitarbeiter, Abteilung, GehaltsstufenEintrag, ZeitmodellEintrag, UeberstundenEintrag"],
             ["Weitere", "Betriebsvereinbarung, Qualifikation, Schulungstermin, SchulungsTeilnahme, "

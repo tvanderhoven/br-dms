@@ -12,7 +12,7 @@ Dashboard, Sitzungen (drei Beispielsitzungen: Entwurf, fixierte Tagesordnung,
 finales Protokoll mit Anwesenheit und Beschlüssen; PDFs und Einladungsversand
 zeigen nur einen Hinweis), Personal (36 erfundene Beschäftigte in `src/demo/personal.ts`:
 Eingruppierung mit Historie, AT-Gehälter, Zeitmodelle, Überstunden, Schulungen und
-Qualifikationsmatrix; Import aus Dateien zeigt nur einen Hinweis), Aufgaben, Themen-Backlog, Fristenkalender, Beschlussregister,
+Qualifikationsmatrix; Import aus Dateien zeigt nur einen Hinweis), Aufgaben, Themenakten (Themen-Backlog mit Verlauf), Aktivitäts-Feed im Dashboard, Fristenkalender, Beschlussregister,
 Wissensarchiv, Ressourcen, Vorlagen, Betriebsvereinbarungen, Geschäftsordnung,
 Themensammlung, Nachrichten (Postfach), Schnellsuche im Kopfbalken, der
 öffentliche Kummerkasten.

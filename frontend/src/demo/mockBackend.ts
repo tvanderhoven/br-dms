@@ -792,7 +792,15 @@ export function handleDemoRequest(method: string, pathname: string, searchParams
   if (method === "GET" && pathname === "/api/suche") return json(sucheAusfuehren(searchParams.get("q") ?? ""));
 
   // ── Audit-Log: leer, nur damit die Seite nicht crasht ───────────────
-  if (pathname === "/api/aktivitaet") return json([]);
+  if (pathname === "/api/aktivitaet") {
+    const vor = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
+    return json([
+      { id: "a1", art: "THEMA_BEITRAG", zeit: vor(95),     von: "Jonas Mustermann", text: "hat einen Beitrag geschrieben in",  ziel: "BV Mobiles Arbeiten nachverhandeln", link: "/themenakte/demo-t1" },
+      { id: "a2", art: "AUFGABE",       zeit: vor(260),    von: "Lea Fiktiv",       text: "hat die Aufgabe erledigt:",         ziel: "Rückmeldung zur Gefährdungsbeurteilung Lager einholen", link: "/aufgaben" },
+      { id: "a3", art: "SITZUNG",       zeit: vor(60 * 30), von: "Anna Beispiel",   text: "hat die Sitzung angelegt:",         ziel: "Betriebsratssitzung – Personelles und Befragung", link: "/sitzungen" },
+      { id: "a4", art: "THEMA",         zeit: vor(60 * 52), von: "Tom Platzhalter", text: "hat ein Thema angelegt:",           ziel: "Pausenraum-Umgestaltung", link: "/themenakte/demo-t2" },
+    ]);
+  }
   if (pathname === "/api/audit") return json({ eintraege: [], gesamt: 0, seite: 1, seiten: 0 });
 
   // ── Dokumente: Sonderpfade vor der generischen CRUD-Logik ───────────

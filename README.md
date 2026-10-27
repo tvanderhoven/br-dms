@@ -465,7 +465,7 @@ steht in der [`ROADMAP.md`](ROADMAP.md).
 
 ## Handbuch
 
-Das vollständige Handbuch (66 Seiten, mit Screenshots aus der Demo) liegt als PDF im Repository:  
+Das vollständige Handbuch (96 Seiten, mit Screenshots aus der Demo) liegt als PDF im Repository:  
 [`BR-DMS_Handbuch.pdf`](BR-DMS_Handbuch.pdf)
 
 Aufbau: Teil I beschreibt alle Funktionen, Teil II die Administration, Teil III die Technik (Installation, Betrieb, Backup, Datenbank). Neu erzeugen: Demo starten, `node tools/handbuch-screenshots/screenshots.mjs`, dann `python3 generate_manual.py`.

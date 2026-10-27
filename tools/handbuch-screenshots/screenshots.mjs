@@ -100,7 +100,9 @@ const AUFNAHMEN = [
   { datei: "aufgaben",         pfad: "/aufgaben?ansicht=board" },
   { datei: "aufgaben-liste",   pfad: "/aufgaben?ansicht=liste" },
   { datei: "aufgaben-zeitplan", pfad: "/aufgaben?ansicht=zeitplan" },
-  { datei: "themen-backlog",   pfad: "/themen-backlog" },
+  { datei: "themen-liste",     pfad: "/themen-backlog" },
+  // Themenakte: Thema mit Beiträgen (erste Zeile der Liste „Neue BV Schichtarbeit verhandeln“)
+  { datei: "themenakte",       pfad: "/themen-backlog", js: klickInnen("Neue BV Schichtarbeit verhandeln", "div.cursor-pointer"), warte: 3000 },
   { datei: "wahlen",           pfad: "/wahlen" },
   { datei: "wahlen-waehlerliste", pfad: "/wahlen", warte: 2500, js: `
     (() => {
@@ -159,6 +161,10 @@ const AUFNAHMEN = [
       return true;
     })()` },
   { datei: "gremium-detail",      pfad: "/gremien", js: klickInnen("Wirtschaftsausschuss", "div.cursor-pointer") },
+  // Gast am TOP (wird vorher per API angelegt, siehe vorbereiten()) und Karte „§ 30 Abs. 2 BetrVG“
+  { datei: "sitzung-gaeste",    pfad: "/sitzungen", vorher: "gast", js: [klickText("Protokoll in Bearbeitung", "tr"), zeigeText("Dr. Petra"), `(() => { window.scrollBy(0, -200); return true; })()`], warte: 2500 },
+  { datei: "sitzung-video",     pfad: "/sitzungen", js: [klickText("Tagesordnung fixiert", "tr"), klickText("Video/Telefon ermöglichen", "button"), zeigeText("Präsenzsitzung"), `(() => { window.scrollBy(0, -200); return true; })()`], warte: 2500 },
+  { datei: "einstellungen-signaturen", pfad: "/einstellungen", js: [klickText("System", "button"), zeigeText("Videositzung: Standard-Einwahllinks")], alsAdmin: false },
   { datei: "sitzung-einladung",   pfad: "/sitzungen", js: [klickText("Tagesordnung fixiert", "tr"), zeigeText("Einladung per E-Mail")], warte: 2500 },
   { datei: "sitzung-ladung-kalender", pfad: "/sitzungen", js: [klickText("Tagesordnung fixiert", "tr"), zeigeText("Ladung & Verhinderung")], warte: 3000 },
   { datei: "abwesenheiten",       pfad: "/abwesenheiten", warte: 2500 },
@@ -170,6 +176,7 @@ const AUFNAHMEN = [
       return !!b;
     })()` },
   { datei: "mein-konto",          pfad: "/konto", warte: 2500 },
+  { datei: "mein-konto-benachrichtigungen", pfad: "/konto", js: zeigeText("Benachrichtigungen"), warte: 2500 },
   { datei: "kosten",              pfad: "/kosten", warte: 2500 },
   { datei: "kosten-posten",       pfad: "/kosten", js: `(() => { const b = document.querySelector('[title="Bearbeiten"]'); if (b) b.click(); return !!b; })()`, warte: 2000 },
   { datei: "einstellungen-zwei-faktor", pfad: "/einstellungen", js: [klickText("System", "button"), zeigeText("Zwei-Faktor-Anmeldung"),
@@ -203,6 +210,23 @@ async function token(benutzer = BENUTZER) {
   });
   if (!res.ok) throw new Error(`Login fehlgeschlagen (${res.status}) – läuft die Demo?`);
   return (await res.json()).token;
+}
+
+// Beispieldaten, die die Demo nicht mitbringt: ein Gast am ersten TOP der Sitzung im Protokollmodus
+async function vorbereiten(art, jwt) {
+  if (art !== "gast") return;
+  const kopf = { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` };
+  const liste = await (await fetch(`${BASIS}/api/sitzungen`, { headers: kopf })).json();
+  const s = (liste.sitzungen ?? liste).find(x => x.status === "PROTOKOLL_IN_BEARBEITUNG" || x.status === "PROTOKOLL_ENTWURF");
+  if (!s) return console.warn("  ! keine Sitzung im Protokollmodus gefunden");
+  const detail = await (await fetch(`${BASIS}/api/sitzungen/${s.id}`, { headers: kopf })).json();
+  const top = (detail.tops ?? detail.sitzung?.tops)?.[0];
+  if (!top || top.gaeste?.length) return;
+  const res = await fetch(`${BASIS}/api/sitzungen/${s.id}/tops/${top.id}/gaeste`, {
+    method: "POST", headers: kopf,
+    body: JSON.stringify({ name: "Dr. Petra Hoffmann", funktion: "ARBEITGEBER", organisation: "Personalabteilung", zusatz: "ca. 14:30 Uhr" }),
+  });
+  if (!res.ok) console.warn(`  ! Gast anlegen fehlgeschlagen (${res.status})`);
 }
 
 async function main() {
@@ -257,6 +281,7 @@ async function main() {
     // NUR=dashboard,fristenkalender nimmt nur einzelne Bilder neu auf
     const nur = process.env.NUR?.split(",").map(x => x.trim());
     for (const a of AUFNAHMEN.filter(x => !nur || nur.includes(x.datei))) {
+      if (a.vorher) await vorbereiten(a.vorher, jwt);
       await auswerten(a.ohneLogin
         ? `localStorage.removeItem("brdms_token")`
         : `localStorage.setItem("brdms_token", ${JSON.stringify(a.alsAdmin ? adminJwt : jwt)})`);
