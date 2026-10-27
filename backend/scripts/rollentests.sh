@@ -15,6 +15,15 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
+# Die Tests brauchen dasselbe Node wie das Backend-Image (Dockerfile: Node 24). Unter sudo gilt
+# oft das alte System-Node, dann fehlt pdfjs-dist ein DOMMatrix und ein Test bricht kryptisch ab.
+NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
+if [ "$NODE_MAJOR" -lt 24 ]; then
+  echo "[rollentests] Node $(node -v 2>/dev/null || echo fehlt) gefunden, benötigt wird Node 24 oder neuer ($(command -v node || echo 'kein node im PATH'))." >&2
+  echo "[rollentests] Läuft das Skript unter sudo? Dann ohne sudo starten oder: sudo env \"PATH=\$PATH\" bash …" >&2
+  exit 1
+fi
+
 CONTAINER=""
 TMPDIR_TEST="$(mktemp -d)"
 aufraeumen() {

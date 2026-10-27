@@ -95,6 +95,8 @@ rollentests() {
     echo -e "  ${GRN}✓ Rollentests bestanden${NC}"; echo ""; rm -f "${log}"; return 0
   fi
   echo -e "  ${RED}✗ Rollentests fehlgeschlagen – Ausgabe: ${log}${NC}"
+  # Falsche Node-Version (z. B. unter sudo) gleich anzeigen, statt sie im Log suchen zu lassen
+  grep -E '^\[rollentests\] (Node|Läuft)' "${log}" | sed 's/^/    /' || true
   echo -e "    Neu starten: ${YLW}bash backend/scripts/rollentests.sh${NC}"
   echo "  Abgebrochen – ein Stand mit falschen Rechten wird nicht übertragen (bewusst überspringen: OHNE_TESTS=1)."
   exit 1
