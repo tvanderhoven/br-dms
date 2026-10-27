@@ -22,6 +22,8 @@ export default function VideoSitzungKarte({ sitzung, meineRolle, onAktualisieren
 
   const vorsitz      = meineRolle === "VORSITZ" || meineRolle === "STELLVERTRETER";
   const vorDerSitzung = sitzung.status === "ENTWURF" || sitzung.status === "TAGESORDNUNG_FIXIERT";
+  // Bis zur Finalisierung änderbar – im Protokoll lässt sich so nachtragen, dass zugeschaltet wurde
+  const formAenderbar = vorDerSitzung || sitzung.status === "PROTOKOLL_ENTWURF";
 
   function laden() {
     api.sitzungen.video(sitzung.id).then(setStand).catch(() => setStand(null));
@@ -44,7 +46,7 @@ export default function VideoSitzungKarte({ sitzung, meineRolle, onAktualisieren
   if (!stand) return null;
   const praesenz = stand.form === "PRAESENZ";
   // Präsenzsitzung ohne Möglichkeit, das zu ändern: nichts anzeigen
-  if (praesenz && !(vorsitz && vorDerSitzung && stand.regeln.erlaubt)) return null;
+  if (praesenz && !(vorsitz && formAenderbar && stand.regeln.erlaubt)) return null;
 
   const w = stand.widerspruch;
   const vertraulicheTops = sitzung.tops.filter(t => t.vertraulich);
@@ -55,7 +57,7 @@ export default function VideoSitzungKarte({ sitzung, meineRolle, onAktualisieren
         <Video size={15} className="text-[rgb(var(--accent))]" />
         <span className="font-semibold text-gray-800">{SITZUNG_FORM_LABEL[stand.form]}</span>
         {!praesenz && <span className="text-xs text-gray-500">§ 30 Abs. 2 BetrVG</span>}
-        {vorsitz && vorDerSitzung && !bearbeiten && (
+        {vorsitz && formAenderbar && !bearbeiten && (
           <button onClick={() => setBearbeiten(true)}
             className="ml-auto flex items-center gap-1 text-xs text-gray-500 hover:text-[rgb(var(--accent))]">
             <Pencil size={12} /> {praesenz ? "Video/Telefon ermöglichen" : "Ändern"}
@@ -81,11 +83,14 @@ export default function VideoSitzungKarte({ sitzung, meineRolle, onAktualisieren
               {stand.einwahlLink && (
                 <p>Einwahl: <a href={stand.einwahlLink} target="_blank" rel="noreferrer" className="text-[rgb(var(--accent))] hover:underline break-all">{stand.einwahlLink}</a></p>
               )}
-              <p>
-                Widersprüche: {w.anzahl} – ab {w.schwelle} von {w.sollStaerke} Mitgliedern ist die Zuschaltung gesperrt
-                {stand.widerspruchBis && <> · Frist bis {fristText(stand.widerspruchBis)} Uhr</>}
-              </p>
-              {stand.form === "ZUSCHALTUNG" && <p className="text-gray-500">Vorrang hat die Teilnahme vor Ort.</p>}
+              {/* Widerspruch und Vorrang betreffen nur die Zeit vor der Sitzung */}
+              {vorDerSitzung && (
+                <p>
+                  Widersprüche: {w.anzahl} – ab {w.schwelle} von {w.sollStaerke} Mitgliedern ist die Zuschaltung gesperrt
+                  {stand.widerspruchBis && <> · Frist bis {fristText(stand.widerspruchBis)} Uhr</>}
+                </p>
+              )}
+              {vorDerSitzung && stand.form === "ZUSCHALTUNG" && <p className="text-gray-500">Vorrang hat die Teilnahme vor Ort.</p>}
             </div>
           )}
 
@@ -209,10 +214,13 @@ function FormBearbeiten({ sitzung, stand, onAbbrechen, onGespeichert }: {
             <label className="block text-xs font-medium text-gray-700 mb-1">Einwahllink</label>
             <input value={link} onChange={e => setLink(e.target.value)} placeholder="https://…" className={feld} />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Widerspruch möglich bis</label>
-            <input type="datetime-local" value={frist} onChange={e => setFrist(e.target.value)} className={feld} />
-          </div>
+          {/* Nach der Sitzung gibt es nichts mehr zu widersprechen – nur noch Form und Link nachtragen */}
+          {sitzung.status !== "PROTOKOLL_ENTWURF" && (
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Widerspruch möglich bis</label>
+              <input type="datetime-local" value={frist} onChange={e => setFrist(e.target.value)} className={feld} />
+            </div>
+          )}
         </div>
       )}
       {form !== "PRAESENZ" && (

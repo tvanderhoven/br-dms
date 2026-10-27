@@ -61,10 +61,12 @@ interface Props {
   vorSitzung?: boolean;
   // Form der Sitzung erlaubt Zuschaltung per Video/Telefon (§ 30 Abs. 2) – dann je Person die Teilnahmeart
   zuschaltung?: boolean;
+  // ändert sich, wenn außerhalb der Liste etwas die Anwesenheit ändert (Widerspruch, Teilnahmebestätigung)
+  neuLaden?: number;
   onGeaendert?: () => void;
 }
 
-export default function AnwesenheitsListe({ sitzungId, readonly = false, vorSitzung = false, zuschaltung = false, onGeaendert }: Props) {
+export default function AnwesenheitsListe({ sitzungId, readonly = false, vorSitzung = false, zuschaltung = false, neuLaden = 0, onGeaendert }: Props) {
   const label = vorSitzung ? STATUS_LABEL_VORAB : STATUS_LABEL;
   const [liste,          setListe]          = useState<ListItem[]>([]);
   const [isLaden,        setIsLaden]        = useState(true);
@@ -78,7 +80,7 @@ export default function AnwesenheitsListe({ sitzungId, readonly = false, vorSitz
   const [uebernimmt,     setUebernimmt]     = useState(false);
   const [kalenderMeldung, setKalenderMeldung] = useState("");
 
-  useEffect(() => { ladeDaten(); }, [sitzungId]);
+  useEffect(() => { ladeDaten(); }, [sitzungId, neuLaden]);
 
   async function ladeDaten() {
     setIsLaden(true);

@@ -680,6 +680,8 @@ function SitzungDetail({
   const [kummerkastenModal, setKummerkastenModal] = useState(false);
   // zählt hoch, wenn die Ladung geändert wird → Einladungskarte lädt neu
   const [ladungStand, setLadungStand] = useState(0);
+  // zählt hoch nach Widerspruch/Teilnahmebestätigung → Anwesenheitsliste lädt neu
+  const [videoStand, setVideoStand] = useState(0);
   const imProtokoll = sitzung.status === "PROTOKOLL_ENTWURF";
   // Vorsitz/Stellvertretung dürfen auch nach Finalisierung noch Zeitmodell-/
   // Überstunden-/Gehaltsänderungen aus einem TOP heraus nachtragen (Erprobungsphase) –
@@ -945,7 +947,7 @@ function SitzungDetail({
 
       {/* Sitzung per Video/Telefon (§ 30 Abs. 2) */}
       {!istBV && sitzung.status !== "ABGESAGT" && (
-        <VideoSitzungKarte sitzung={sitzung} meineRolle={meineRolle} onAktualisieren={onAktualisieren} />
+        <VideoSitzungKarte sitzung={sitzung} meineRolle={meineRolle} onAktualisieren={() => { setVideoStand(n => n + 1); onAktualisieren(); }} />
       )}
 
       <SitzungScanKarte sitzung={sitzung} meineRolle={meineRolle} onAktualisieren={onAktualisieren} />
@@ -1059,6 +1061,7 @@ function SitzungDetail({
             readonly={sitzung.status === "PROTOKOLL_FINAL" || sitzung.status === "ABGESCHLOSSEN"}
             vorSitzung={sitzung.status === "ENTWURF" || sitzung.status === "TAGESORDNUNG_FIXIERT"}
             zuschaltung={(sitzung.form ?? "PRAESENZ") !== "PRAESENZ"}
+            neuLaden={videoStand}
             onGeaendert={() => setLadungStand(n => n + 1)}
           />
         </div>
