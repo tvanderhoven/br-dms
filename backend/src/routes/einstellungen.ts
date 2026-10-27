@@ -10,8 +10,8 @@
  * GET  /api/einstellungen/update        – Hinweis auf ein neues Major/Minor-Release (VORSITZ, STELLVERTRETER, ADMIN)
  * GET  /api/einstellungen/feiertage     – Bundesland + Zusatzfeiertage für die Fristberechnung
  * PUT  /api/einstellungen/feiertage     – festlegen (VORSITZ)
- * GET  /api/einstellungen/eingang-mails – Sofortmail (Fristsachen) / stündliche Sammelmail an/aus, HR-Adresse
- * PUT  /api/einstellungen/eingang-mails – umschalten (VORSITZ)
+ * GET  /api/einstellungen/eingang-mails – Adresse für die Empfangsbestätigung (HR)
+ * PUT  /api/einstellungen/eingang-mails – Adresse speichern (VORSITZ)
  * GET  /api/einstellungen/themen-loeschfrist – Jahre nach „abgeschlossen“, bis eine Themenakte gelöscht wird
  * PUT  /api/einstellungen/themen-loeschfrist – festlegen (VORSITZ; 0 = nie automatisch)
  */
@@ -35,7 +35,6 @@ import { BackupWorker } from "../workers/backup.worker.js";
 import { updateHinweis, installierteVersion } from "../lib/updateCheck.js";
 import { BUNDESLAENDER, ZUSATZ_FEIERTAGE, feiertage, istBundesland, istZusatzFeiertag } from "../lib/feiertage.js";
 import { FRISTEN_BUNDESLAND, FRISTEN_ZUSATZ_FEIERTAGE, ladeFeiertagsKalender } from "../lib/fristKalender.js";
-import { EINGANG_SAMMELMAIL_AKTIV, EINGANG_SOFORTMAIL_AKTIV, sammelmailAktiv, sofortmailAktiv } from "../lib/eingangMeldung.js";
 import { EINGANG_HR_ADRESSE, hrAdresse } from "../lib/empfangsbestaetigung.js";
 
 const STORAGE = process.env.STORAGE_PATH ?? "/data/storage";
@@ -582,22 +581,20 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
     }
   );
 
-  // ── Mails über neue Eingänge (lib/eingangMeldung.ts) ──────────────
-  // sofortmail: Fristsache eingegangen · sammelmail: stündlich alle übrigen
+  // ── Empfänger der Empfangsbestätigung (lib/empfangsbestaetigung.ts) ──
+  // Die Meldungen über neue Eingänge stellt jede Person unter "Mein Konto" ein (lib/eingangMeldung.ts)
   app.get(
     "/eingang-mails",
     { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (_request: FastifyRequest, reply: FastifyReply) => {
       return reply.send({
-        sofortmail: await sofortmailAktiv(),
-        sammelmail: await sammelmailAktiv(),
         hrAdresse:  await hrAdresse(),
         smtpAktiv:  !!process.env.SMTP_HOST,
       });
     }
   );
 
-  app.put<{ Body: { sofortmail?: boolean; sammelmail?: boolean; hrAdresse?: string } }>(
+  app.put<{ Body: { hrAdresse?: string } }>(
     "/eingang-mails",
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request, reply) => {
@@ -611,15 +608,7 @@ export async function einstellungenRouten(app: FastifyInstance): Promise<void> {
           create: { schluessel: EINGANG_HR_ADRESSE, wert: adresse },
         });
       }
-      for (const [schluessel, wert] of [[EINGANG_SOFORTMAIL_AKTIV, body.sofortmail], [EINGANG_SAMMELMAIL_AKTIV, body.sammelmail]] as const) {
-        if (typeof wert !== "boolean") continue;
-        await prisma.systemEinstellung.upsert({
-          where:  { schluessel },
-          update: { wert: String(wert) },
-          create: { schluessel, wert: String(wert) },
-        });
-      }
-      return reply.send({ sofortmail: await sofortmailAktiv(), sammelmail: await sammelmailAktiv(), hrAdresse: await hrAdresse() });
+      return reply.send({ hrAdresse: await hrAdresse() });
     }
   );
 

@@ -14,7 +14,7 @@ import { berechneFristende } from "../lib/fristRechner.js";
 import { ladeFeiertagsKalender } from "../lib/fristKalender.js";
 import { FRIST_DAUER_AB_ZUGANG } from "../lib/fristen.js";
 import { zugangVorschlag } from "../lib/zugang.js";
-import { meldeFristsache } from "../lib/eingangMeldung.js";
+import { meldeEingang } from "../lib/eingangMeldung.js";
 import { Readable as ReadableStrom } from "node:stream";
 import { EMAIL_MIME, EmailInhalt, emailFormat, emailKopf, emailLesen, emailVolltext } from "../lib/email.js";
 
@@ -164,11 +164,10 @@ export async function verarbeiteDokument(opts: PipelineOptionen) {
   });
 
   const istAnhang = !!metadata.quelleDokumentId;
-  if (!istAnhang && await fristenAnlegen(docId, kategorie, metadata.kuendigungsArt, zugangVorschlag(new Date(), email?.datum))) {
-    // Fristsache: Vorsitz/Stellvertretung sofort informieren – im Hintergrund,
-    // damit ein langsamer Mailserver den Import nicht aufhält
-    void meldeFristsache(docId).catch(err => console.error("[Eingang] Sofortmail:", err));
-  }
+  if (!istAnhang) await fristenAnlegen(docId, kategorie, metadata.kuendigungsArt, zugangVorschlag(new Date(), email?.datum));
+  // Vorsitz/Stellvertretung informieren (Fristsache sofort) – im Hintergrund,
+  // damit ein langsamer Mailserver den Import nicht aufhält
+  if (!istAnhang) void meldeEingang(docId);
 
   if (!istAnhang && (kategorie === Kategorie.ANHOERUNG_99 || kategorie === Kategorie.ANHOERUNG_102)) {
     await prisma.anhoerungsVorgang.create({

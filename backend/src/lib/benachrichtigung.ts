@@ -32,8 +32,18 @@ export const BENACHRICHTIGUNG_LABEL: Record<BenachrichtigungArt, string> = {
   ERWAEHNUNG:             "Erwähnung in einem Kommentar",
   KOMMENTAR_ANTWORT:      "Neuer Kommentar, wo du mitdiskutierst",
   KUMMERKASTEN:           "Neuer Kummerkasten-Eintrag",
+  FRIST_EINGANG:          "Fristsache im Dokumenteneingang (§ 99, § 102, § 87)",
+  EINGANG:                "Neues Dokument im Dokumenteneingang",
   THEMA_BEITRAG:          "Neuer Beitrag in einem meiner Themen",
 };
+
+const NUR_VORSITZ_ARTEN: BenachrichtigungArt[] = [BenachrichtigungArt.KUMMERKASTEN, BenachrichtigungArt.FRIST_EINGANG, BenachrichtigungArt.EINGANG];
+
+/**
+ * Fristsachen warten nicht 15 Minuten: Bei § 99/§ 102 zählt jeder Tag, die Mail geht sofort raus –
+ * auch wenn die Person gerade in BR-DMS ist, und ohne die Stunden-Sperre (siehe mailRueckfallSenden).
+ */
+const SOFORT_ARTEN: BenachrichtigungArt[] = [BenachrichtigungArt.FRIST_EINGANG];
 
 /** Welche Arten eine Rolle überhaupt bekommen kann (für "Mein Konto" und als Schutz beim Anlegen) */
 export function artenFuerRolle(rolle: Role): BenachrichtigungArt[] {
@@ -41,7 +51,8 @@ export function artenFuerRolle(rolle: Role): BenachrichtigungArt[] {
   if (rolle === Role.EXTERN) return [BenachrichtigungArt.PROTOKOLLFUEHRUNG];
   // Themenakte erreichen JAV und SBV (noch) nicht
   if (rolle === Role.JAV || rolle === Role.SBV) alle.splice(alle.indexOf(BenachrichtigungArt.THEMA_BEITRAG), 1);
-  return alle.filter(a => a !== BenachrichtigungArt.KUMMERKASTEN || rolle === Role.VORSITZ || rolle === Role.STELLVERTRETER);
+  // Kummerkasten und Dokumenteneingang betreffen nur Vorsitz und Stellvertretung
+  return alle.filter(a => !NUR_VORSITZ_ARTEN.includes(a) || rolle === Role.VORSITZ || rolle === Role.STELLVERTRETER);
 }
 
 /** Rollen ohne Posteingang – dort ist die Mail der einzige Weg */
@@ -93,7 +104,7 @@ export async function benachrichtigen(e: BenachrichtigungEingabe, jetzt = new Da
       const stufe = stufeLesen(b.benachrichtigungen, e.art);
       if (stufe === "AUS") continue;
       const mailFaelligAb = stufe === "EMAIL"
-        ? (OHNE_POSTEINGANG.includes(b.rolle) ? jetzt : new Date(jetzt.getTime() + MAIL_WARTEZEIT_MS))
+        ? (OHNE_POSTEINGANG.includes(b.rolle) || SOFORT_ARTEN.includes(e.art) ? jetzt : new Date(jetzt.getTime() + MAIL_WARTEZEIT_MS))
         : null;
       daten.push({
         betreff:      e.betreff,
@@ -164,7 +175,7 @@ export async function mailRueckfallSenden(
   const jePerson = new Map<string, typeof faellig>();
   for (const n of faellig) {
     const p = n.empfaenger;
-    const warDa = !OHNE_POSTEINGANG.includes(p.rolle) && p.zuletztAktiv != null && p.zuletztAktiv > n.erstelltAm;
+    const warDa = !SOFORT_ARTEN.includes(n.art!) && !OHNE_POSTEINGANG.includes(p.rolle) && p.zuletztAktiv != null && p.zuletztAktiv > n.erstelltAm;
     if (n.gelesen || !p.aktiv || warDa) { entfallen.push(n.id); continue; }
     jePerson.set(p.id, [...(jePerson.get(p.id) ?? []), n]);
   }
@@ -180,13 +191,15 @@ export async function mailRueckfallSenden(
       orderBy: { mailGesendetAm: "desc" },
       select:  { mailGesendetAm: true },
     });
-    if (letzte?.mailGesendetAm && jetzt.getTime() - letzte.mailGesendetAm.getTime() < MAIL_ABSTAND_MS) continue;
+    const mitSofort = nachrichten.some(n => SOFORT_ARTEN.includes(n.art!));
+    if (!mitSofort && letzte?.mailGesendetAm && jetzt.getTime() - letzte.mailGesendetAm.getTime() < MAIL_ABSTAND_MS) continue;
 
     const p = nachrichten[0].empfaenger;
     const eintraege = nachrichten.map(n => ({
       art:  BENACHRICHTIGUNG_LABEL[n.art!],
       url:  `${appUrl}${n.link ?? "/posteingang"}`,
       zeit: n.erstelltAm,
+      sofort: SOFORT_ARTEN.includes(n.art!),
     }));
     try {
       await senden(p.email, p.name, eintraege);

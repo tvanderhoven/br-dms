@@ -179,7 +179,7 @@ Beim Umsetzen gleich mitnehmen:
   für Verhinderte das Ersatzmitglied braucht eine erfolgreiche Einladung, sonst rote Warnung (keine Sperre).
   „Rechtzeitig“ beurteilt weiter der Mensch.
 - ✓ **Mit Paket 2 (erledigt 26.10.2026):** Mehrere ungelesene Benachrichtigungen als **eine Sammelmail**,
-  höchstens eine pro Stunde. Offen: Fristsachen- und Eingangsmails in dasselbe System überführen.
+  höchstens eine pro Stunde. **Eingangsmeldungen erledigt 27.10.2026:** Fristsachen (`FRIST_EINGANG`, Mail sofort, auch bei Anwesenheit und ohne Stunden-Sperre) und übrige Eingänge (`EINGANG`, Mail nach 15 Minuten ungelesen) laufen über dasselbe System, einstellbar je Person unter „Mein Konto“ (`lib/eingangMeldung.ts`); die globalen Schalter unter Einstellungen und der Stunden-Worker entfallen, die Mail nennt nur Art und Link (keine Titel mehr).
 - ✓ **Mit Paket 4 (erledigt 24.10.2026):** **Geschwärztes Protokoll** – JAV/SBV bekommen bei Sitzungen mit
   vertraulichen TOPs das Protokoll-PDF als geschwärzte Fassung (TOP-Nummer bleibt, Titel/Inhalt/Beschlüsse fehlen,
   Hinweis unter der Überschrift), frisch erzeugt und nicht gespeichert (`routes/pdf.ts`, `geschwaerzteFassung`).

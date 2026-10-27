@@ -660,7 +660,7 @@ export const api = {
     fristenErinnerungSpeichern: (aktiv: boolean) =>
       request<{ ok: boolean }>("/api/einstellungen/fristen-erinnerung", { method: "PUT", body: JSON.stringify({ aktiv }) }),
     eingangMails: () => request<EingangMailsEinstellung>("/api/einstellungen/eingang-mails"),
-    eingangMailsSpeichern: (data: { sofortmail?: boolean; sammelmail?: boolean; hrAdresse?: string }) =>
+    eingangMailsSpeichern: (data: { hrAdresse?: string }) =>
       request<Omit<EingangMailsEinstellung, "smtpAktiv">>("/api/einstellungen/eingang-mails", { method: "PUT", body: JSON.stringify(data) }),
     feiertage: () => request<FeiertagsEinstellung>("/api/einstellungen/feiertage"),
     feiertageSpeichern: (bundesland: string | null, zusatz: string[]) =>
@@ -1669,7 +1669,8 @@ export interface Nachricht {
 
 export type BenachrichtigungArt =
   | "AUFGABE_ZUGEWIESEN" | "AUFGABE_FAELLIG" | "ERSATZ_GELADEN" | "PROTOKOLL_UNTERSCHRIFT"
-  | "PROTOKOLLFUEHRUNG" | "ERWAEHNUNG" | "KOMMENTAR_ANTWORT" | "KUMMERKASTEN";
+  | "PROTOKOLLFUEHRUNG" | "ERWAEHNUNG" | "KOMMENTAR_ANTWORT" | "KUMMERKASTEN" | "THEMA_BEITRAG"
+  | "FRIST_EINGANG" | "EINGANG";
 export type BenachrichtigungStufe = "AUS" | "SYSTEM" | "EMAIL";
 
 export interface BenachrichtigungEinstellungen {
@@ -2215,10 +2216,8 @@ export interface WissensEintragErstellen {
 }
 
 // ── Module (Admin-Ein/Ausschalter) ──────────────────────────────────
-/** Mails über neue Eingänge + Empfänger der Empfangsbestätigung (Backend: lib/eingangMeldung.ts) */
+/** Empfänger der Empfangsbestätigung (Backend: lib/empfangsbestaetigung.ts) */
 export interface EingangMailsEinstellung {
-  sofortmail: boolean;
-  sammelmail: boolean;
   hrAdresse:  string;
   smtpAktiv:  boolean;
 }

@@ -1897,7 +1897,7 @@ export default function Einstellungen() {
         <FeiertageBox />
       )}
 
-      {/* Mails über den Dokumenteneingang: Sofortmail (Fristsachen) + stündliche Sammelmail (Issue #25/#26) */}
+      {/* Dokumenteneingang: Adresse für die Empfangsbestätigung (Issue #25/#26) */}
       {tab === "fristen" && meineRolle && ["ADMIN", "VORSITZ", "STELLVERTRETER"].includes(meineRolle) && (
         <EingangMailsBox />
       )}
@@ -2176,28 +2176,12 @@ function ModuleTab() {
   );
 }
 
-// ── Mails über den Dokumenteneingang ──────────────────────────────────────────
-// Sofortmail: Anhörung (§ 99/§ 102) oder § 87-Sache eingegangen – nicht erst mit
-// der Fristen-Erinnerung um 07:00 Uhr. Sammelmail: stündlich alle übrigen neuen
-// Eingänge, nur wenn etwas da ist (Backend: lib/eingangMeldung.ts).
-type EingangMailArt = "sofortmail" | "sammelmail";
-
-const EINGANG_MAILS: { art: EingangMailArt; titel: string; text: string }[] = [
-  {
-    art:   "sofortmail",
-    titel: "Sofortmail bei Fristsachen",
-    text:  "Geht eine Anhörung (§ 99, § 102) oder eine § 87-Sache ein, kommt sofort eine Mail mit der vorläufigen Frist und der Bitte, den Zugang im Dokumenteneingang zu bestätigen.",
-  },
-  {
-    art:   "sammelmail",
-    titel: "Stündliche Sammelmail",
-    text:  "Alle übrigen neuen Dokumente im Dokumenteneingang, gesammelt zur vollen Stunde – nur wenn etwas Neues da ist. Bereits gelesene Dokumente fehlen darin.",
-  },
-];
+// ── Empfangsbestätigung: Adresse der Personalabteilung ────────────────────────
+// Die Meldungen über neue Eingänge (Fristsachen sofort, übrige gesammelt) stellt jede Person
+// unter "Mein Konto" → Benachrichtigungen ein (Backend: lib/eingangMeldung.ts).
 
 function EingangMailsBox() {
   const [stand, setStand]           = useState<EingangMailsEinstellung | null>(null);
-  const [umschaltet, setUmschaltet] = useState<EingangMailArt | null>(null);
   const [hrAdresse, setHrAdresse]   = useState("");
   const [hrGespeichert, setHrGespeichert] = useState(false);
   const [fehler, setFehler]         = useState("");
@@ -2220,26 +2204,14 @@ function EingangMailsBox() {
     }
   }
 
-  async function umschalten(art: EingangMailArt) {
-    if (!stand) return;
-    setUmschaltet(art);
-    setFehler("");
-    try {
-      const r = await api.einstellungen.eingangMailsSpeichern({ [art]: !stand[art] });
-      setStand({ ...stand, ...r });
-    } catch (err) {
-      setFehler(err instanceof Error ? err.message : "Fehler beim Umschalten");
-    } finally {
-      setUmschaltet(null);
-    }
-  }
-
   return (
     <div className="mt-6 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-100">
-        <h2 className="font-semibold text-gray-800">Mails über den Dokumenteneingang</h2>
+        <h2 className="font-semibold text-gray-800">Dokumenteneingang</h2>
         <p className="text-sm text-gray-500 mt-0.5">
-          An Vorsitz und Stellvertretung. Wer ein Dokument selbst hochgeladen hat, bekommt dazu keine Mail.
+          Vorsitz und Stellvertretung werden über neue Eingänge benachrichtigt: Fristsachen sofort, übrige Dokumente
+          gesammelt, wenn sie nach 15 Minuten noch ungelesen sind. Jede Person stellt das unter „Mein Konto“ →
+          Benachrichtigungen selbst ein.
         </p>
         {stand && !stand.smtpAktiv && (
           <p className="flex items-start gap-1.5 text-xs text-amber-700 mt-2">
@@ -2248,28 +2220,7 @@ function EingangMailsBox() {
           </p>
         )}
       </div>
-      {EINGANG_MAILS.map(({ art, titel, text }) => (
-        <div key={art} className="px-6 py-3 border-b border-gray-100 last:border-b-0 flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-gray-800">{titel}</p>
-            <p className="text-xs text-gray-500 mt-0.5">{text}</p>
-          </div>
-          <button
-            onClick={() => umschalten(art)}
-            disabled={!stand || umschaltet !== null}
-            role="switch"
-            aria-checked={stand?.[art] ?? false}
-            aria-label={titel}
-            title={stand?.[art] ? "Aktiv – klicken zum Abschalten" : "Aus – klicken zum Aktivieren"}
-            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-60 ${
-              stand?.[art] ? "bg-[rgb(var(--accent))]" : "bg-gray-300"
-            }`}
-          >
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${stand?.[art] ? "translate-x-6" : "translate-x-1"}`} />
-          </button>
-        </div>
-      ))}
-      <div className="px-6 py-3 border-t border-gray-100 bg-gray-50">
+      <div className="px-6 py-3 bg-gray-50">
         <label className="block">
           <span className="text-sm font-medium text-gray-800">Empfangsbestätigung an</span>
           <span className="block text-xs text-gray-500 mt-0.5">
