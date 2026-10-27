@@ -893,7 +893,10 @@ async function main() {
     const mitVideo = beschlossenAm.getUTCFullYear() === 2026;
     await prisma.geschaeftsordnung.create({
       data: {
-        beschlossenAm, bemerkung, dokumentId: d.id, erstelltVonId: vorsitz,
+        beschlossenAm, bemerkung, erstelltVonId: vorsitz,
+        dokumente: {
+          create: [{ dokumentId: d.id, reihenfolge: 0 }],
+        },
         videoErlaubt: mitVideo, videoNichtVertraulich: mitVideo,
         videoBedingungen: mitVideo ? "Präsenz ist der Regelfall; Zuschaltung nur mit Kamera und aus einem Raum ohne Mithörende." : null,
       },
