@@ -253,7 +253,7 @@ Personalabteilung aktuelle Listen; der Import gleicht über die PNR ab und korri
 
 ## Bekannte Kleinigkeiten
 
-- Betriebsversammlung: Fragen aus dem Kummerkasten werden nur im Entwurf übernommen (danach ist der TOP-Inhalt fixiert).
+- Betriebsversammlung: Fragen aus dem Kummerkasten lassen sich im Entwurf und in der Niederschrift (Protokoll-Entwurf) übernehmen, nicht dazwischen (fixierte Tagesordnung = Einladung ist raus, TOP-Inhalt gesperrt).
 
 ## Arbeitsweise
 

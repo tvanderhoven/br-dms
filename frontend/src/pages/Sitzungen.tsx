@@ -954,10 +954,10 @@ function SitzungDetail({
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
           <h2 className="font-semibold text-gray-800 text-sm">Tagesordnungspunkte ({sitzung.tops.length})</h2>
           <div className="flex items-center gap-2">
-            {istBV && imEntwurf && sitzung.tops.length > 0 && (
+            {istBV && (imEntwurf || imProtokoll) && sitzung.tops.length > 0 && (
               <button
                 onClick={() => setKummerkastenModal(true)}
-                title="Fragen aus dem Kummerkasten in einen TOP übernehmen"
+                title={imProtokoll ? "Fragen aus dem Kummerkasten, die in der Versammlung behandelt wurden, in einen TOP der Niederschrift übernehmen" : "Fragen aus dem Kummerkasten in einen TOP übernehmen"}
                 className="flex items-center gap-1 text-gray-500 hover:text-[rgb(var(--accent))] text-sm font-medium mr-2"
               >
                 <Inbox size={15} /> Fragen aus dem Kummerkasten
