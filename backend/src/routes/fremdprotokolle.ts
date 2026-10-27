@@ -14,14 +14,13 @@
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { createWriteStream } from "node:fs";
-import { pipeline } from "node:stream/promises";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { AuditAktion, Role } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { fremdprotokollVertraulichFilter } from "../lib/vertraulich.js";
+import { multipartLesen } from "../lib/multipartLesen.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { encryptFile, decryptFile, secureDelete } from "../lib/encryption.js";
@@ -81,19 +80,22 @@ export async function fremdprotokolleRouten(app: FastifyInstance): Promise<void>
     "/",
     { preHandler: [authenticate, erfordert(Role.VORSITZ)] },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const data = await request.file();
+      // Felder und Datei unabhängig von ihrer Reihenfolge im Request lesen (Issue #30)
+      const upload = await multipartLesen(request, path.join(STORAGE, "tmp"));
+      reply.raw.once("close", () => { void upload.aufraeumen(); });
+      const data = upload.datei;
       if (!data) return reply.status(400).send({ fehler: "Keine Datei übermittelt" });
 
       if (!ERLAUBTE_MIMETYPEN.includes(data.mimetype)) {
         return reply.status(400).send({ fehler: "Nur PDF, JPG, PNG, DOCX oder DOCM erlaubt" });
       }
 
-      const fields      = data.fields as Record<string, { value: string }>;
-      const gremiumId   = fields.gremiumId?.value;
-      const datum       = fields.datum?.value;
-      const titel       = fields.titel?.value?.trim();
-      const bemerkung   = fields.bemerkung?.value?.trim() ?? undefined;
-      const vertraulich = fields.vertraulich?.value === "true";
+      const fields      = upload.felder;
+      const gremiumId   = fields.gremiumId;
+      const datum       = fields.datum;
+      const titel       = fields.titel?.trim();
+      const bemerkung   = fields.bemerkung?.trim() ?? undefined;
+      const vertraulich = fields.vertraulich === "true";
 
       if (!gremiumId || !datum || !titel) {
         return reply.status(400).send({ fehler: "gremiumId, datum und titel sind Pflichtfelder" });
@@ -108,17 +110,11 @@ export async function fremdprotokolleRouten(app: FastifyInstance): Promise<void>
       }
 
       const id      = randomUUID();
-      const tmpPfad = path.join(STORAGE, "tmp", `${id}.tmp`);
+      const tmpPfad = data.pfad;
       const encName = `${id}.enc`;
       const encPfad = path.join(STORAGE, REL_PFAD, encName);
 
-      await fs.mkdir(path.join(STORAGE, "tmp"), { recursive: true });
       await fs.mkdir(path.join(STORAGE, REL_PFAD), { recursive: true });
-
-      await pipeline(data.file as any, createWriteStream(tmpPfad)).catch(async (err) => {
-        await fs.unlink(tmpPfad).catch(() => {});
-        throw err;
-      });
 
       const stat = await fs.stat(tmpPfad);
 

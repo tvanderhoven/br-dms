@@ -22,8 +22,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { Kategorie, DokumentStatus, AuditAktion, Role, SitzungStatus } from "@prisma/client";
 import { Readable } from "node:stream";
-import { createWriteStream } from "node:fs";
-import { pipeline } from "node:stream/promises";
+import { createReadStream } from "node:fs";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import { decryptFile, encryptFile } from "../lib/encryption.js";
@@ -33,6 +32,7 @@ import { dokumentVertraulichFilter, darfDokumentSehen, dokumentZugriffPruefen } 
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { verarbeiteDokument, anhangAblegen, UngueltigeEmailError } from "../services/dokument-pipeline.service.js";
+import { multipartLesen } from "../lib/multipartLesen.js";
 import { emailFormat, emailLesen, istEmailMime, EmailFormat, EMAIL_MIME } from "../lib/email.js";
 import { type KuendigungsArt, ZugangFehler, zugangBestaetigen, zugangVorschau } from "../lib/zugang.js";
 import { sitzungsvorschlag } from "../lib/sitzungsvorschlag.js";
@@ -214,7 +214,10 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
     "/",
     { preHandler: [authenticate, erfordert(Role.MITGLIED)] },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const data = await request.file();
+      // Felder und Datei unabhängig von ihrer Reihenfolge im Request lesen (Issue #30)
+      const upload = await multipartLesen(request, path.join(STORAGE, "tmp"));
+      try {
+      const data = upload.datei;
       if (!data) return reply.status(400).send({ fehler: "Keine Datei übermittelt" });
 
       const erlaubt = [
@@ -228,14 +231,14 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
         return reply.status(400).send({ fehler: "Nur PDF, DOCX, DOCM, XLSX und E-Mails (EML, MSG) erlaubt" });
       }
 
-      const fields         = data.fields as Record<string, { value: string }>;
-      const titel          = fields.titel?.value?.trim();
-      const kategorieStr   = fields.kategorie?.value as Kategorie;
-      const aktenzeichen   = fields.aktenzeichen?.value?.trim() ?? undefined;
-      const vertraulich    = fields.vertraulich?.value === "true";
-      const vertraulichFuerMitglieder = vertraulich && fields.vertraulichFuerMitglieder?.value === "true";
-      const ordnerId       = fields.ordnerId?.value || undefined;
-      const kuendigungsArtStr = fields.kuendigungsArt?.value;
+      const fields         = upload.felder;
+      const titel          = fields.titel?.trim();
+      const kategorieStr   = fields.kategorie as Kategorie;
+      const aktenzeichen   = fields.aktenzeichen?.trim() ?? undefined;
+      const vertraulich    = fields.vertraulich === "true";
+      const vertraulichFuerMitglieder = vertraulich && fields.vertraulichFuerMitglieder === "true";
+      const ordnerId       = fields.ordnerId || undefined;
+      const kuendigungsArtStr = fields.kuendigungsArt;
       const kuendigungsArt = kuendigungsArtStr === "ORDENTLICH" || kuendigungsArtStr === "AUSSERORDENTLICH"
         ? kuendigungsArtStr : undefined;
 
@@ -243,14 +246,14 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
       if ((!titel && !istEmail) || !kategorieStr || !Object.values(Kategorie).includes(kategorieStr)) {
         return reply.status(400).send({ fehler: "titel und kategorie sind Pflichtfelder" });
       }
-      const anhaengeAblegen = fields.anhaengeAblegen?.value === "true";
+      const anhaengeAblegen = fields.anhaengeAblegen === "true";
       if (ordnerId && !(await prisma.ordner.findUnique({ where: { id: ordnerId }, select: { id: true } }))) {
         return reply.status(400).send({ fehler: "Ordner nicht gefunden" });
       }
 
       try {
         const dokument = await verarbeiteDokument({
-          stream:            data.file as any,
+          stream:            createReadStream(data.pfad) as any,
           originalDateiname: data.filename,
           mimetype:          data.mimetype,
           userId:            request.benutzer.sub,
@@ -262,6 +265,9 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
       } catch (err) {
         if (err instanceof UngueltigeEmailError) return reply.status(400).send({ fehler: err.message });
         throw err;
+      }
+      } finally {
+        await upload.aufraeumen();
       }
     }
   );
@@ -979,25 +985,20 @@ export async function dokumentRouten(app: FastifyInstance): Promise<void> {
         return reply.status(403).send({ fehler: "Vertrauliches Dokument" });
       }
 
-      const data = await request.file();
+      // Felder und Datei unabhängig von ihrer Reihenfolge im Request lesen (Issue #30)
+      const upload = await multipartLesen(request, path.join(STORAGE, "tmp"));
+      const data = upload.datei;
       if (!data) return reply.status(400).send({ fehler: "Keine Datei übermittelt" });
 
-      const fields = data.fields as Record<string, { value: string }>;
-      const aenderungsnotiz = fields.aenderungsnotiz?.value?.trim() || null;
+      const aenderungsnotiz = upload.felder.aenderungsnotiz?.trim() || null;
 
       const versionId = randomUUID();
-      const tmpPfad   = path.join(STORAGE, "tmp", `${versionId}.tmp`);
+      const tmpPfad   = data.pfad;
       const relPfad   = "versionen";
       const encName   = `${versionId}.enc`;
       const encPfad   = path.join(STORAGE, relPfad, encName);
 
-      await fs.mkdir(path.join(STORAGE, "tmp"), { recursive: true });
       await fs.mkdir(path.join(STORAGE, relPfad), { recursive: true });
-
-      await pipeline(data.file as any, createWriteStream(tmpPfad)).catch(async (err) => {
-        await fs.unlink(tmpPfad).catch(() => {});
-        throw err;
-      });
 
       const stat = await fs.stat(tmpPfad);
 

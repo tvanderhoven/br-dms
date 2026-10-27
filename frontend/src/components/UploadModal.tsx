@@ -73,10 +73,11 @@ export default function UploadModal({ ordner, startOrdnerId, onSchliessen, onErf
     setFehler("");
     setLaden(true);
     try {
+      // Metadaten zuerst, die Datei zuletzt – so stehen die Felder auch für Server bereit, die den Upload streamen
       const form = new FormData();
-      form.append("file", datei);
       if (istVersion && versionVonId) {
         if (aenderungsnotiz) form.append("aenderungsnotiz", aenderungsnotiz);
+        form.append("file", datei);
         await api.dokumente.versionHochladen(versionVonId, form);
       } else {
         form.append("titel", titel);
@@ -88,6 +89,7 @@ export default function UploadModal({ ordner, startOrdnerId, onSchliessen, onErf
         form.append("vertraulichFuerMitglieder", String(stufe.vertraulichFuerMitglieder));
         if (ordnerId) form.append("ordnerId", ordnerId);
         if (istMail) form.append("anhaengeAblegen", String(anhaengeAblegen));
+        form.append("file", datei);
         await api.dokumente.upload(form);
       }
       onErfolg();

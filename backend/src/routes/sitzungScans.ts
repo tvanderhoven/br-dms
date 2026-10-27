@@ -8,12 +8,10 @@
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { SitzungScanTyp, AuditAktion, Role } from "@prisma/client";
-import { createWriteStream } from "node:fs";
-import { pipeline } from "node:stream/promises";
-import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import prisma from "../lib/prisma.js";
+import { multipartLesen } from "../lib/multipartLesen.js";
 import { sitzungsdateiZugriffPruefen } from "../lib/vertraulich.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
@@ -56,15 +54,17 @@ export async function sitzungScanRouten(app: FastifyInstance): Promise<void> {
       });
       if (!sitzung) return reply.status(404).send({ fehler: "Sitzung nicht gefunden" });
 
-      const data = await request.file();
+      // Felder und Datei unabhängig von ihrer Reihenfolge im Request lesen (Issue #30)
+      const upload = await multipartLesen(request, path.join(STORAGE, "tmp"));
+      reply.raw.once("close", () => { void upload.aufraeumen(); });
+      const data = upload.datei;
       if (!data) return reply.status(400).send({ fehler: "Keine Datei übermittelt" });
 
       if (!ERLAUBTE_MIMETYPEN.includes(data.mimetype)) {
         return reply.status(400).send({ fehler: "Nur PDF, JPG oder PNG erlaubt" });
       }
 
-      const fields = data.fields as Record<string, { value: string }>;
-      const ziel   = fields.ziel?.value;
+      const ziel   = upload.felder.ziel;
 
       if (ziel !== "ANWESENHEITSLISTE" && ziel !== "PROTOKOLL_UNTERSCHRIFTEN" && ziel !== "BEIDE") {
         return reply.status(400).send({ fehler: "ziel muss ANWESENHEITSLISTE, PROTOKOLL_UNTERSCHRIFTEN oder BEIDE sein" });
@@ -79,14 +79,7 @@ export async function sitzungScanRouten(app: FastifyInstance): Promise<void> {
         if (fehler) return reply.status(409).send({ fehler });
       }
 
-      const tmpId   = randomUUID();
-      const tmpPfad = path.join(STORAGE, "tmp", `${tmpId}.tmp`);
-      await fs.mkdir(path.join(STORAGE, "tmp"), { recursive: true });
-
-      await pipeline(data.file as any, createWriteStream(tmpPfad)).catch(async (err) => {
-        await fs.unlink(tmpPfad).catch(() => {});
-        throw err;
-      });
+      const tmpPfad = data.pfad;
 
       try {
         for (const typ of ziele) {

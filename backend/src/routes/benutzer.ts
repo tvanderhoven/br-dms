@@ -11,16 +11,15 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { Role, AuditAktion, Geschlecht } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 import prisma from "../lib/prisma.js";
+import { multipartLesen } from "../lib/multipartLesen.js";
 import { istEmailAdresse } from "../lib/emailAdresse.js";
 import { hashPassword } from "../lib/password.js";
 import { ZWEI_FAKTOR_LEEREN } from "../lib/zweiFaktor.js";
 import { authenticate } from "../middleware/auth.js";
 import { erfordert } from "../middleware/rbac.js";
 import { istTechnikAdmin } from "../lib/adminZugriff.js";
-import { createWriteStream } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { pipeline } from "node:stream/promises";
 import { decryptFile, encryptFile } from "../lib/encryption.js";
 
 const STORAGE    = process.env.STORAGE_PATH ?? "/data/storage";
@@ -262,25 +261,23 @@ export async function benutzerRouten(app: FastifyInstance): Promise<void> {
       const benutzer = await prisma.benutzer.findUnique({ where: { id }, select: { id: true, email: true, rolle: true, verschwiegenheitPfad: true } });
       if (!benutzer) return reply.status(404).send({ fehler: "Benutzer nicht gefunden" });
 
-      const data = await request.file();
+      // Felder und Datei unabhängig von ihrer Reihenfolge im Request lesen (Issue #30)
+      const upload = await multipartLesen(request, path.join(STORAGE, "tmp"));
+      reply.raw.once("close", () => { void upload.aufraeumen(); });
+      const data = upload.datei;
       if (!data) return reply.status(400).send({ fehler: "Bitte den Scan der unterschriebenen Erklärung hochladen" });
-      const fields = data.fields as Record<string, { value?: string } | undefined>;
-      if (fields.bestaetigt?.value !== "true") {
-        data.file.resume();
+      if (upload.felder.bestaetigt !== "true") {
         return reply.status(400).send({ fehler: "Bitte bestätigen, dass die Verschwiegenheitserklärung unterschrieben vorliegt" });
       }
       if (!ERKLAERUNG_MIME.includes(data.mimetype)) {
-        data.file.resume();
         return reply.status(400).send({ fehler: "Nur PDF, PNG oder JPG" });
       }
 
       const encName = `${id}.enc`;
-      const tmpPfad = path.join(STORAGE, "tmp", `verschwiegenheit-${id}.tmp`);
-      await fs.mkdir(path.join(STORAGE, "tmp"), { recursive: true });
+      const tmpPfad = data.pfad;
       await fs.mkdir(path.join(STORAGE, REL_VERSCHWIEGENHEIT), { recursive: true });
       try {
-        await pipeline(data.file, createWriteStream(tmpPfad));
-        if (data.file.truncated) return reply.status(413).send({ fehler: "Datei zu groß" });
+        if (data.abgeschnitten) return reply.status(413).send({ fehler: "Datei zu groß" });
         await encryptFile({ sourcePath: tmpPfad, destPath: path.join(STORAGE, REL_VERSCHWIEGENHEIT, encName), masterKey: MASTER_KEY, documentId: id });
       } finally {
         await fs.unlink(tmpPfad).catch(() => {});
