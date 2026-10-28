@@ -531,6 +531,7 @@ export default function Dokumente() {
                 : "Keine Dokumente gefunden"}
             </div>
           ) : (
+            <>
             <table className="w-full text-sm table-fixed">
               <TabellenKopf spalten={spalten} defs={SPALTEN} />
               <tbody className="divide-y divide-gray-50">
@@ -741,6 +742,7 @@ export default function Dokumente() {
                 </button>
               </div>
             )}
+            </>
           )}
         </div>
 
