@@ -86,6 +86,7 @@ export default function Dokumente() {
   const [markiertId, setMarkiertId]       = useState<string | null>(null);
   const [versionen, setVersionen]         = useState<DokumentVersion[]>([]);
   const [versionenLaden, setVersionenLaden] = useState(false);
+  const [gezeigtAnzahl, setGezeigtAnzahl] = useState(20);
 
   const [vorgang, setVorgang]             = useState<AnhoerungVorgangAntwort | null>(null);
   const [vorgangLaden, setVorgangLaden]   = useState(false);
@@ -198,6 +199,11 @@ export default function Dokumente() {
       finally { setVorschauLaden(false); }
     }
   }, []);
+
+  // Pagination: Anzahl zurücksetzen wenn Filter sich ändern
+  useEffect(() => {
+    setGezeigtAnzahl(20);
+  }, [suche, kategorieFilter, gremiumFilter, auswahl]);
 
   function oeffneNachId(id: string) {
     const d = dokumente.find(x => x.id === id);
@@ -548,7 +554,7 @@ export default function Dokumente() {
                     </td>
                   </tr>
                 ))}
-                {gefiltert.map(d => {
+                {gefiltert.slice(0, gezeigtAnzahl).map(d => {
                   const istMarkiert  = d.id === markiertId;
                   const istGewählt   = d.id === vorschau?.id;
                   // Zelle je Spalte – Reihenfolge, Breite und Sichtbarkeit kommen aus useSpalten
@@ -724,6 +730,17 @@ export default function Dokumente() {
                 })}
               </tbody>
             </table>
+            {gezeigtAnzahl < gefiltert.length && (
+              <div className="flex justify-center border-t border-gray-100 p-4 bg-gray-50">
+                <button
+                  onClick={() => setGezeigtAnzahl(prev => prev + 20)}
+                  className="px-4 py-2 text-sm font-medium text-white hover:brightness-90 rounded-lg flex items-center gap-2"
+                  style={{ backgroundColor: "rgb(var(--accent))" }}
+                >
+                  Weitere 20 laden ({gezeigtAnzahl} / {gefiltert.length})
+                </button>
+              </div>
+            )}
           )}
         </div>
 
