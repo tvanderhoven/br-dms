@@ -741,8 +741,7 @@ export default function Dokumente() {
                 </button>
               </div>
             )}
-          )
-        }
+          )}
         </div>
 
         {/* Modals */}
