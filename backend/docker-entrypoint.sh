@@ -30,7 +30,7 @@ for datei in prisma/data-migrations/*.sql; do
 done
 
 echo "[entrypoint] Schema-Sync (prisma db push)..."
-su-exec ${PUID}:${PGID} npx prisma db push --skip-generate --accept-data-loss
+su-exec ${PUID}:${PGID} npx prisma db push --skip-generate
 
 echo "[entrypoint] Starte Server..."
 exec su-exec ${PUID}:${PGID} node dist/index.js
