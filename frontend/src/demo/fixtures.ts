@@ -525,15 +525,20 @@ export const DEMO_KOSTEN = [
 // "A2B3C4" kann man auf /kummerkasten/ticket ausprobieren.
 export const DEMO_KUMMERKASTEN = [
   { id: "demo-kk1", nachricht: "In der Halle 2 zieht es seit dem Umbau stark – im Winter kaum auszuhalten. Kann der BR das beim Arbeitsschutz ansprechen?",
-    absenderName: null, status: "NEU", notiz: null, antwort: null, antwortAm: null, hatRueckkanal: true, ticketCode: "A2B3C4",
+    absenderName: null, status: "NEU", notiz: null, nachrichten: [], hatRueckkanal: true, offeneRueckfrage: false, ticketCode: "A2B3C4",
     bearbeitetVon: null, bearbeitetAm: null, erstelltAm: tag(-2) },
   { id: "demo-kk2", nachricht: "Die Schichtpläne kommen oft erst am Freitag für die nächste Woche. Gibt es dazu eine Regel?",
     absenderName: "Kolleg:in aus der Montage", status: "IN_BEARBEITUNG", notiz: "Thema für die nächste Sitzung (§ 87 Abs. 1 Nr. 2) vorgemerkt.",
-    antwort: "Danke für den Hinweis! Wir haben das Thema für die nächste BR-Sitzung vorgemerkt – Schichtpläne sind mitbestimmungspflichtig (§ 87 Abs. 1 Nr. 2 BetrVG).",
-    antwortAm: tag(-5), hatRueckkanal: true, ticketCode: "X7Y8Z9",
+    nachrichten: [
+      { id: "demo-kn1", absender: "BETRIEBSRAT", bearbeitetVon: { id: "demo-u2", name: "Jonas Mustermann" }, erstelltAm: tag(-5),
+        text: "Danke für den Hinweis! Wir haben das Thema für die nächste BR-Sitzung vorgemerkt – Schichtpläne sind mitbestimmungspflichtig (§ 87 Abs. 1 Nr. 2 BetrVG)." },
+      { id: "demo-kn2", absender: "EINREICHER", bearbeitetVon: null, erstelltAm: tag(-1),
+        text: "Super, danke! Wisst ihr schon, wann das besprochen wird?" },
+    ],
+    hatRueckkanal: true, offeneRueckfrage: true, ticketCode: "X7Y8Z9",
     bearbeitetVon: { id: "demo-u2", name: "Jonas Mustermann" }, bearbeitetAm: tag(-5), erstelltAm: tag(-9) },
   { id: "demo-kk3", nachricht: "Danke für die neue Gleitzeitregelung – klappt super!",
-    absenderName: null, status: "ERLEDIGT", notiz: "Im Team geteilt.", antwort: null, antwortAm: null, hatRueckkanal: false,
+    absenderName: null, status: "ERLEDIGT", notiz: "Im Team geteilt.", nachrichten: [], hatRueckkanal: false, offeneRueckfrage: false,
     bearbeitetVon: { id: "demo-u1", name: "Anna Beispiel" },
     bearbeitetAm: tag(-40), erstelltAm: tag(-42) },
 ];

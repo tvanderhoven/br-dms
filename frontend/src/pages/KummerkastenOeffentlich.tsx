@@ -101,7 +101,9 @@ export default function KummerkastenOeffentlich() {
                 <p className="text-xs text-gray-500 leading-relaxed">
                   <strong>Jetzt notieren</strong> – der Code wird nur dieses eine Mal angezeigt und kann
                   nicht wiederhergestellt werden. Damit kannst du jederzeit anonym nachsehen, ob der
-                  Betriebsrat geantwortet hat. Eine Benachrichtigung gibt es nicht.
+                  Betriebsrat geantwortet hat, und Rückfragen stellen. Behandle ihn wie ein Passwort:
+                  Wer den Code kennt, kann das Gespräch lesen. Eine Benachrichtigung gibt es nicht –
+                  schau selbst nach.
                 </p>
                 <div className="mt-3 flex flex-col sm:flex-row gap-2">
                   <button

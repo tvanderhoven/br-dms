@@ -37,6 +37,7 @@ const OEFFENTLICH = new Set([
   "POST /api/auth/passwort-reset",
   "POST /api/kummerkasten",                 // anonymer Kummerkasten, rate-limited
   "POST /api/kummerkasten/ticket",          // Rückkanal per Ticket-Code, rate-limited
+  "POST /api/kummerkasten/ticket/nachricht", // Rückfrage per Ticket-Code, rate-limited
   "GET /api/einstellungen/design",          // Farben schon für die Login-Seite
   "GET /api/einstellungen/protokoll/logo",  // als <img> eingebunden, ohne Token
 ]);

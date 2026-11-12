@@ -873,25 +873,49 @@ export function handleDemoRequest(method: string, pathname: string, searchParams
   // In der Demo liegt der Code im Klartext am Eintrag (kein Sicherheitsthema,
   // nichts ist echt); das echte Backend speichert nur einen HMAC.
   if (resource === "kummerkasten") {
+    const zumCode = () => {
+      const gesucht = String(body.code ?? "").toUpperCase().replace(/[^0-9A-Z]/g, "");
+      return db.kummerkasten.find(x => x.ticketCode === gesucht);
+    };
+    // Öffentliche Sicht: ursprüngliche Nachricht als erste Blase, dann der Verlauf (ohne BR-Namen)
+    const ansicht = (e: Eintrag) => ({
+      status: e.status, erstelltAm: e.erstelltAm,
+      nachrichten: [
+        { absender: "EINREICHER", text: e.nachricht, erstelltAm: e.erstelltAm },
+        ...e.nachrichten.map((n: Eintrag) => ({ absender: n.absender, text: n.text, erstelltAm: n.erstelltAm })),
+      ],
+    });
     if (method === "POST" && !id) {
       const alphabet = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
       const ticketCode = Array.from({ length: 6 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join("");
       db.kummerkasten.unshift({
         id: zufallsId("demo-kk"), nachricht: body.nachricht ?? "", absenderName: body.absenderName ?? null,
-        status: "NEU", notiz: null, antwort: null, antwortAm: null, hatRueckkanal: true, ticketCode,
+        status: "NEU", notiz: null, nachrichten: [], hatRueckkanal: true, offeneRueckfrage: false, ticketCode,
         bearbeitetVon: null, bearbeitetAm: null, erstelltAm: jetzt(),
       });
       return json({ ok: true, ticketCode }, 201);
     }
-    if (method === "POST" && id === "ticket") {
-      const gesucht = String(body.code ?? "").toUpperCase().replace(/[^0-9A-Z]/g, "");
-      const e = db.kummerkasten.find(x => x.ticketCode === gesucht);
-      if (!e) return json({ fehler: "Kein Eintrag zu diesem Code gefunden" }, 404);
-      return json({ status: e.status, erstelltAm: e.erstelltAm, antwort: e.antwort ?? null, antwortAm: e.antwortAm ?? null });
+    if (method === "POST" && id === "ticket" && !sub) {
+      const e = zumCode();
+      return e ? json(ansicht(e)) : json({ fehler: "Kein Eintrag zu diesem Code gefunden" }, 404);
     }
-    if (method === "PATCH" && id) {
+    if (method === "POST" && id === "ticket" && sub === "nachricht") {
+      const e = zumCode();
+      if (!e) return json({ fehler: "Kein Eintrag zu diesem Code gefunden" }, 404);
+      e.nachrichten.push({ id: zufallsId("demo-kn"), absender: "EINREICHER", text: String(body.text ?? ""), erstelltAm: jetzt(), bearbeitetVon: null });
+      if (e.status === "ERLEDIGT") e.status = "IN_BEARBEITUNG";
+      e.offeneRueckfrage = true;
+      return json(ansicht(e), 201);
+    }
+    if (method === "POST" && id && sub === "nachrichten") {
       const e = db.kummerkasten.find(x => x.id === id);
-      if (e && body.antwort !== undefined) e.antwortAm = body.antwort ? jetzt() : null;
+      if (!e) return json({ fehler: "Eintrag nicht gefunden" }, 404);
+      e.nachrichten.push({
+        id: zufallsId("demo-kn"), absender: "BETRIEBSRAT", text: String(body.text ?? ""), erstelltAm: jetzt(),
+        bearbeitetVon: { id: F.DEMO_ME.id, name: F.DEMO_ME.name },
+      });
+      e.offeneRueckfrage = false;
+      return json(e, 201);
     }
     // Liste/PATCH/DELETE weiter über das generische CRUD unten
   }

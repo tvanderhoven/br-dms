@@ -790,12 +790,18 @@ export const api = {
     // Öffentlich, kein Login nötig – wird von der Public-Seite genutzt
     einreichen: (data: { nachricht: string; absenderName?: string; webseite?: string }) =>
       request<{ ok: boolean; ticketCode?: string }>("/api/kummerkasten", { method: "POST", body: JSON.stringify(data) }),
-    // Öffentlich: Status/Antwort zum Ticket-Code – Code im Body, nie in der URL
+    // Öffentlich: Verlauf zum Ticket-Code – Code im Body, nie in der URL
     ticket: (code: string) =>
       request<KummerkastenTicket>("/api/kummerkasten/ticket", { method: "POST", body: JSON.stringify({ code }) }),
+    // Öffentlich: Rückfrage des Einreichers; liefert den aktualisierten Verlauf
+    ticketNachricht: (code: string, text: string) =>
+      request<KummerkastenTicket>("/api/kummerkasten/ticket/nachricht", { method: "POST", body: JSON.stringify({ code, text }) }),
     liste: () => request<KummerkastenEintrag[]>("/api/kummerkasten"),
-    aktualisieren: (id: string, data: Partial<{ status: KummerkastenStatus; notiz: string | null; antwort: string | null }>) =>
+    aktualisieren: (id: string, data: Partial<{ status: KummerkastenStatus; notiz: string | null }>) =>
       request<KummerkastenEintrag>(`/api/kummerkasten/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    // BR antwortet dem Einreicher; liefert den aktualisierten Eintrag
+    antworten: (id: string, text: string) =>
+      request<KummerkastenEintrag>(`/api/kummerkasten/${id}/nachrichten`, { method: "POST", body: JSON.stringify({ text }) }),
     loeschen: (id: string) => request<{ ok: boolean }>(`/api/kummerkasten/${id}`, { method: "DELETE" }),
   },
 
@@ -871,26 +877,38 @@ export type KanbanStatus = "BACKLOG" | "IN_BEARBEITUNG" | "ERLEDIGT";
 export type AufgabenStatus = "NEU" | "IN_BEARBEITUNG" | "AUF_HOLD" | "ERLEDIGT";
 export type KummerkastenStatus = "NEU" | "IN_BEARBEITUNG" | "ERLEDIGT";
 
+export type KummerkastenAbsender = "EINREICHER" | "BETRIEBSRAT";
+
+/** Eine Blase im Verlauf; bearbeitetVon (wer im BR geschrieben hat) sieht nur der BR, nie der Einreicher */
+export interface KummerkastenNachricht {
+  id?: string;
+  absender: KummerkastenAbsender;
+  text: string;
+  erstelltAm: string;
+  bearbeitetVon?: { id: string; name: string } | null;
+}
+
 export interface KummerkastenEintrag {
   id: string;
   nachricht: string;
   absenderName?: string | null;
   status: KummerkastenStatus;
   notiz?: string | null;
-  antwort?: string | null;
-  antwortAm?: string | null;
+  /** Verlauf ohne die ursprüngliche Nachricht (die steht oben in "nachricht") */
+  nachrichten: KummerkastenNachricht[];
   hatRueckkanal?: boolean;
+  /** Der Einreicher hat zuletzt geschrieben – der BR ist am Zug */
+  offeneRueckfrage?: boolean;
   bearbeitetVon?: { id: string; name: string } | null;
   bearbeitetAm?: string | null;
   erstelltAm: string;
 }
 
-/** Öffentliche Sicht auf einen Eintrag per Ticket-Code – bewusst ohne Originalnachricht */
+/** Öffentliche Sicht per Ticket-Code: der komplette Verlauf, erste Blase ist die ursprüngliche Nachricht */
 export interface KummerkastenTicket {
   status: KummerkastenStatus;
   erstelltAm: string;
-  antwort: string | null;
-  antwortAm: string | null;
+  nachrichten: KummerkastenNachricht[];
 }
 
 // ── Themenakte (Backend: routes/themenakte.ts, lib/themenakte.ts) ──

@@ -16,8 +16,6 @@ BEGIN
     WHERE table_schema = 'public' AND table_name = 'kummerkasten_eintraege'
   ) THEN
     ALTER TABLE "kummerkasten_eintraege" ADD COLUMN IF NOT EXISTS "ticket_code_hash" TEXT;
-    ALTER TABLE "kummerkasten_eintraege" ADD COLUMN IF NOT EXISTS "antwort" TEXT;
-    ALTER TABLE "kummerkasten_eintraege" ADD COLUMN IF NOT EXISTS "antwort_am" TIMESTAMP(3);
     CREATE UNIQUE INDEX IF NOT EXISTS "kummerkasten_eintraege_ticket_code_hash_key"
       ON "kummerkasten_eintraege"("ticket_code_hash");
   END IF;

@@ -392,6 +392,7 @@ model Benutzer {
   geschaeftsordnungenErstellt Geschaeftsordnung[] @relation("GeschaeftsordnungErstellt")
   schulungenErstellt     Schulungstermin[] @relation("SchulungErstellt")
   kummerkastenBearbeitet KummerkastenEintrag[]
+  kummerkastenNachrichten KummerkastenNachricht[] @relation("KummerkastenNachrichtVon")
   sitzungScansHochgeladen SitzungScan[]    @relation("SitzungScanHochgeladen")
   fremdprotokolleHochgeladen Fremdprotokoll[] @relation("FremdprotokollHochgeladenVon")
   gremienMitgliedschaften GremiumMitglied[]
@@ -2008,10 +2009,9 @@ model KummerkastenEintrag {
   // wer Datenbank oder Backup liest, kann damit keine fremden Tickets abrufen.
   // Null bei Einträgen von vor der Einführung.
   ticketCodeHash  String?            @unique @map("ticket_code_hash")
-  // Antwort des BR an den Einreicher – über den Ticket-Code ohne Login abrufbar,
-  // im Gegensatz zur internen Notiz
-  antwort         String?
-  antwortAm       DateTime?          @map("antwort_am")
+  // Gesprächsverlauf mit dem Einreicher (Rückfragen und Antworten); die ursprüngliche
+  // Nachricht steht oben in "nachricht" und ist die erste Blase des Verlaufs
+  nachrichten     KummerkastenNachricht[]
 
   bearbeitetVonId String?            @map("bearbeitet_von_id")
   bearbeitetVon   Benutzer?          @relation(fields: [bearbeitetVonId], references: [id], onDelete: SetNull)
@@ -2020,6 +2020,31 @@ model KummerkastenEintrag {
   erstelltAm      DateTime           @default(now()) @map("erstellt_am")
 
   @@map("kummerkasten_eintraege")
+}
+
+enum KummerkastenAbsender {
+  EINREICHER
+  BETRIEBSRAT
+}
+
+// Eine Blase im anonymen Verlauf eines Kummerkasten-Tickets. Der Einreicher schreibt
+// ohne Login über seinen Ticket-Code, der BR aus der Verwaltung.
+model KummerkastenNachricht {
+  id              String               @id @default(uuid())
+  eintragId       String               @map("eintrag_id")
+  eintrag         KummerkastenEintrag  @relation(fields: [eintragId], references: [id], onDelete: Cascade)
+  absender        KummerkastenAbsender
+  text            String
+
+  // Welches BR-Mitglied geschrieben hat – nur intern, dem Einreicher erscheint
+  // immer nur "Betriebsrat". Bei Nachrichten des Einreichers null.
+  bearbeitetVonId String?              @map("bearbeitet_von_id")
+  bearbeitetVon   Benutzer?            @relation("KummerkastenNachrichtVon", fields: [bearbeitetVonId], references: [id], onDelete: SetNull)
+
+  erstelltAm      DateTime             @default(now()) @map("erstellt_am")
+
+  @@index([eintragId, erstelltAm])
+  @@map("kummerkasten_nachrichten")
 }
 
 // ================================================================

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { MailPlus, Trash2, User, Loader2 } from "lucide-react";
+import { MailPlus, Trash2, User, Loader2, Send } from "lucide-react";
 import { api, KummerkastenEintrag, KummerkastenStatus, formatDatum } from "../lib/api";
 
 const STATUS_LABEL: Record<KummerkastenStatus, string> = {
@@ -15,13 +15,35 @@ const STATUS_STYLE: Record<KummerkastenStatus, string> = {
 
 type FilterTyp = "offen" | "alle";
 
-function EintragKarte({ eintrag, onAktualisieren, onLoeschen }: {
+function zeitpunkt(iso: string): string {
+  return new Date(iso).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function EintragKarte({ eintrag, onAktualisieren, onAntworten, onLoeschen }: {
   eintrag: KummerkastenEintrag;
-  onAktualisieren: (id: string, daten: Partial<{ status: KummerkastenStatus; notiz: string | null; antwort: string | null }>) => void;
+  onAktualisieren: (id: string, daten: Partial<{ status: KummerkastenStatus; notiz: string | null }>) => void;
+  onAntworten: (id: string, text: string) => Promise<void>;
   onLoeschen: (id: string) => void;
 }) {
   const [notiz, setNotiz] = useState(eintrag.notiz ?? "");
-  const [antwort, setAntwort] = useState(eintrag.antwort ?? "");
+  const [entwurf, setEntwurf] = useState("");
+  const [sendet, setSendet] = useState(false);
+  const [sendeFehler, setSendeFehler] = useState("");
+
+  async function antworten() {
+    const text = entwurf.trim();
+    if (!text || sendet) return;
+    setSendeFehler("");
+    setSendet(true);
+    try {
+      await onAntworten(eintrag.id, text);
+      setEntwurf("");
+    } catch (err) {
+      setSendeFehler(err instanceof Error ? err.message : "Senden fehlgeschlagen");
+    } finally {
+      setSendet(false);
+    }
+  }
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
@@ -31,6 +53,11 @@ function EintragKarte({ eintrag, onAktualisieren, onLoeschen }: {
           {eintrag.absenderName || "Anonym"}
           <span className="text-gray-300">·</span>
           {formatDatum(eintrag.erstelltAm)}
+          {eintrag.offeneRueckfrage && (
+            <span className="ml-1 text-xs font-medium px-2 py-0.5 rounded-full border bg-red-50 text-red-700 border-red-200">
+              Neue Rückfrage
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <select
@@ -69,19 +96,57 @@ function EintragKarte({ eintrag, onAktualisieren, onLoeschen }: {
       </div>
 
       {eintrag.hatRueckkanal ? (
-        <div className="mt-3">
-          <label className="block text-xs font-medium text-gray-500 mb-1">
-            Antwort an den Absender – abrufbar über seinen Ticket-Code
-            {eintrag.antwortAm && <span className="text-gray-400"> · zuletzt {formatDatum(eintrag.antwortAm)}</span>}
-          </label>
+        <div className="mt-3 pt-3 border-t border-gray-100">
+          <div className="text-xs font-medium text-gray-500 mb-2">
+            Gespräch mit dem Absender – er sieht es über seinen Ticket-Code und liest nur „Betriebsrat“
+          </div>
+
+          {/* Die ursprüngliche Nachricht steht oben; hier nur, was danach kam */}
+          {eintrag.nachrichten.length > 0 && (
+            <div className="space-y-2 mb-3">
+              {eintrag.nachrichten.map((n, i) => {
+                const vomBr = n.absender === "BETRIEBSRAT";
+                return (
+                  <div key={n.id ?? i} className={`flex flex-col ${vomBr ? "items-end" : "items-start"}`}>
+                    <div
+                      className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap break-words ${
+                        vomBr
+                          ? "bg-[rgb(var(--accent))]/10 text-gray-900 rounded-br-md"
+                          : "bg-gray-100 text-gray-900 border border-gray-200 rounded-bl-md"
+                      }`}
+                    >
+                      {n.text}
+                    </div>
+                    <span className="text-[11px] text-gray-400 mt-1 px-1">
+                      {vomBr ? (n.bearbeitetVon?.name ?? "Betriebsrat") : "Absender"} · {zeitpunkt(n.erstelltAm)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           <textarea
-            value={antwort}
-            onChange={e => setAntwort(e.target.value)}
-            onBlur={() => { if (antwort !== (eintrag.antwort ?? "")) onAktualisieren(eintrag.id, { antwort: antwort || null }); }}
+            value={entwurf}
+            onChange={e => setEntwurf(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) void antworten(); }}
             rows={2}
-            placeholder="Der Absender sieht diese Antwort, wenn er sein Ticket abruft…"
+            maxLength={2000}
+            placeholder="Dem Absender antworten oder nachfragen…"
             className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
           />
+          {sendeFehler && <p className="text-xs text-red-600 mt-1">{sendeFehler}</p>}
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <span className="text-[11px] text-gray-400">Der Absender wird nicht benachrichtigt und muss selbst nachsehen.</span>
+            <button
+              onClick={() => void antworten()}
+              disabled={sendet || !entwurf.trim()}
+              className="flex items-center gap-1.5 bg-[rgb(var(--accent))] hover:brightness-90 disabled:opacity-50 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+            >
+              {sendet ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+              Antworten
+            </button>
+          </div>
         </div>
       ) : (
         <p className="mt-3 text-xs text-gray-400">
@@ -108,8 +173,13 @@ export default function KummerkastenVerwaltung() {
     }
   }
 
-  async function aktualisieren(id: string, daten: Partial<{ status: KummerkastenStatus; notiz: string | null; antwort: string | null }>) {
+  async function aktualisieren(id: string, daten: Partial<{ status: KummerkastenStatus; notiz: string | null }>) {
     const aktualisiert = await api.kummerkasten.aktualisieren(id, daten);
+    setEintraege(e => e.map(x => x.id === id ? aktualisiert : x));
+  }
+
+  async function antworten(id: string, text: string) {
+    const aktualisiert = await api.kummerkasten.antworten(id, text);
     setEintraege(e => e.map(x => x.id === id ? aktualisiert : x));
   }
 
@@ -168,7 +238,7 @@ export default function KummerkastenVerwaltung() {
       ) : (
         <div className="space-y-3">
           {gefiltert.map(e => (
-            <EintragKarte key={e.id} eintrag={e} onAktualisieren={aktualisieren} onLoeschen={loeschen} />
+            <EintragKarte key={e.id} eintrag={e} onAktualisieren={aktualisieren} onAntworten={antworten} onLoeschen={loeschen} />
           ))}
         </div>
       )}

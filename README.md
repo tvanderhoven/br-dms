@@ -75,7 +75,7 @@ nicht ausschließen lassen, bleiben unberührt.
 - **Schulungsverwaltung & Qualifikationsmatrix** – Schulungstermine mit Teilnehmerverwaltung (Ort, Anbieter, Kosten, Status); Qualifikationsmatrix (Mitarbeiter × Qualifikation) wird automatisch aus den Terminen abgeleitet, inkl. Ablaufüberwachung bei zeitlich befristeten Qualifikationen (z.B. Ersthelfer)
 - **Wissensarchiv** *(abschaltbar)* – Erfahrungen und Beschlüsse strukturiert ablegen, Sachverhalt UND Lösung als Rich-Text, Kategorien/Tags, Herkunft (manuell oder aus Protokoll übernommen)
 - **Ressourcen** *(abschaltbar)* – Kuratierte Linksammlung (Gesetz/KI-Werkzeug/Behörde/Vorlage/Sonstiges) mit Tags und automatisch geladenem Favicon der Zielseite
-- **Kummerkasten** – Öffentliches, anonymes Formular ohne Login (Rate-Limit, Honeypot gegen Bots) sowie interne Bearbeitungsansicht mit Status und nur intern sichtbarer Notiz
+- **Kummerkasten** – Öffentliches, anonymes Formular ohne Login (Rate-Limit, Honeypot gegen Bots) sowie interne Bearbeitungsansicht mit Status und nur intern sichtbarer Notiz. Anonymer Rückkanal: Wer etwas einreicht, bekommt einmalig einen 6-stelligen Ticket-Code und kann damit ohne Login den Verlauf lesen und Rückfragen stellen; der BR antwortet aus der Verwaltung (der Einreicher sieht nur „Betriebsrat“). Es gibt bewusst keine Benachrichtigung an den Einreicher – er schaut selbst nach; der Code wird nur als HMAC gespeichert
 - **Gesetzestexte** – Monatlich automatisch aktualisierte Paragraphen-Datenbank (BetrVG, KSchG u.a.), durchsuchbar über die globale Suche und als Popup-Ansicht
 
 ### Fristen & Suche
