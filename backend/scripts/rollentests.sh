@@ -59,6 +59,12 @@ export STORAGE_PATH="$TMPDIR_TEST/storage"
 export BACKUP_PATH="$TMPDIR_TEST/backups"
 mkdir -p "$STORAGE_PATH" "$BACKUP_PATH"
 
+echo "[rollentests] Daten-Migrationen (gleiche Reihenfolge wie docker-entrypoint.sh) …"
+for datei in prisma/data-migrations/*.sql; do
+  [ -f "$datei" ] || continue
+  npx prisma db execute --file "$datei" --schema prisma/schema.prisma >/dev/null
+done
+
 echo "[rollentests] Schema anlegen …"
 npx prisma db push --skip-generate --accept-data-loss >/dev/null
 
