@@ -22,3 +22,6 @@ frontend/src/buildinfo.json
 # Lokale Backups, gehören nicht ins Repo
 backups/
 backups.zip
+
+# Interne Präsentationen mit echten Firmen-/Infrastrukturdetails, nicht für Git
+praesentation-intern/
