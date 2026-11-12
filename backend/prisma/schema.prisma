@@ -494,6 +494,15 @@ model Aufgabe {
   erstelltAm      DateTime     @default(now()) @map("erstellt_am")
   aktualisiertAm  DateTime     @updatedAt @map("aktualisiert_am")
 
+  // PostgreSQL indiziert Fremdschlüssel-Spalten nicht automatisch – ohne diese
+  // Indizes scannt jede Sichtbarkeits-Abfrage und jedes SetNull die ganze Tabelle
+  @@index([zugewiesenAnId])
+  @@index([erstelltVonId])
+  @@index([oberProjektId])
+  @@index([dokumentId])
+  @@index([topId])
+  @@index([themaId])
+  @@index([erledigt, faelligAm])
   @@map("aufgaben")
 }
 
@@ -650,6 +659,10 @@ model Dokument {
   @@index([deleteAt, status])
   @@index([kategorie, status])
   @@index([ordnerId])
+  // Trigram-Indizes für die globale Suche (ILIKE '%…%'); brauchen die Extension
+  // pg_trgm, die prisma/data-migrations/2026-11-12_pg_trgm.sql vor dem db push anlegt
+  @@index([textinhalt(ops: raw("gin_trgm_ops"))], type: Gin, map: "dokumente_textinhalt_trgm_idx")
+  @@index([titel(ops: raw("gin_trgm_ops")), alias(ops: raw("gin_trgm_ops")), aktenzeichen(ops: raw("gin_trgm_ops")), beschreibung(ops: raw("gin_trgm_ops"))], type: Gin, map: "dokumente_meta_trgm_idx")
   @@map("dokumente")
 }
 
