@@ -38,6 +38,7 @@ import { betriebsversammlungFristAbgleichen } from "../lib/betriebsversammlungFr
 import { wahlFristenAbgleichen } from "../lib/wahlFristen.js";
 import { sitzungAnlegen } from "../lib/sitzungAnlegen.js";
 import { schulungskostenAbgleichen } from "../lib/kosten.js";
+import { kummerkastenRueckkanalDemo } from "./kummerkasten-demo.js";
 import { alleGesetzeAktualisieren } from "../services/gesetze.service.js";
 import { berechneFristende } from "../lib/fristRechner.js";
 import { ladeFeiertagsKalender } from "../lib/fristKalender.js";
@@ -1371,6 +1372,8 @@ async function main() {
       { nachricht: "Mein Vorgesetzter ruft regelmäßig nach Feierabend an. Ist das erlaubt?", status: KummerkastenStatus.NEU, erstelltAm: tage(-1) },
     ],
   });
+  // Anliegen mit Ticket-Code und Gesprächsverlauf (anonymer Rückkanal)
+  await kummerkastenRueckkanalDemo();
 
   // ── Fristen ohne Dokument (Wahl, Betriebsversammlung, Erinnerungen) ──
   await prisma.frist.createMany({

@@ -1292,7 +1292,7 @@ def build():
             ["Erwähnung (@) und neuer Kommentar, wo Sie mitdiskutieren", "Nur wer das Objekt sehen darf"],
             ["Neuer Beitrag in einem meiner Themen", "Beteiligte und Erwähnte"],
             ["Widerspruch gegen die Zuschaltung; Teilnahme per Video/Telefon bestätigen (§ 34)", "Vorsitz bzw. Geladene"],
-            ["Neuer Kummerkasten-Eintrag; Fristsache und neues Dokument im Dokumenteneingang", "Nur Vorsitz und Stellvertretung"],
+            ["Neuer Kummerkasten-Eintrag und neue Rückfrage im Kummerkasten; Fristsache und neues Dokument im Dokumenteneingang", "Nur Vorsitz und Stellvertretung"],
         ],
         (118, 52),
     )
@@ -1305,10 +1305,33 @@ def build():
         "Betriebsversammlung lassen sich Einträge als Fragen in die Tagesordnung übernehmen (Kapitel 4.6)."
     )
     pdf.bild("kummerkasten-oeffentlich", "Öffentliches Formular (ohne Login erreichbar)", ausschnitt="voll")
-    pdf.bild("kummerkasten-verwaltung", "Interne Bearbeitung der Kummerkasten-Einträge", hoehe_anteil=0.55)
     pdf.hinweis(
         "Das Formular speichert keine IP-Adresse und keinen Benutzerbezug. Gegen automatisierte "
         "Einsendungen schützen eine Mengenbegrenzung und ein unsichtbares Prüffeld.", "info", "Anonymität")
+
+    pdf.h3("Anonymer Rückkanal per Ticket-Code")
+    pdf.body(
+        "Nach dem Absenden zeigt die Seite einmalig einen 6-stelligen Ticket-Code (z. B. K7F-3XH) und einen "
+        "Abruf-Link. Mit dem Code kann die einreichende Person – ohne Anmeldung und ohne E-Mail-Adresse – "
+        "jederzeit nachsehen, ob der Betriebsrat geantwortet hat, und Rückfragen stellen. Das Gespräch "
+        "erscheint wie ein Chat: Die eigenen Nachrichten stehen rechts, die des Betriebsrats links."
+    )
+    pdf.bullets([
+        "Antworten – In der Kummerkasten-Verwaltung steht unter jedem Eintrag mit Ticket-Code das Gespräch mit einem Antwortfeld (Strg + Enter sendet). Die einreichende Person sieht nur „Betriebsrat“, nie den Namen des Antwortenden und nie die interne Notiz; der Betriebsrat sieht intern, wer geschrieben hat",
+        "Neue Rückfrage – Schreibt die einreichende Person zuletzt, trägt der Eintrag das Kennzeichen „Neue Rückfrage“, und Vorsitz und Stellvertretung werden benachrichtigt (ohne Text). Eine Rückfrage zu einem erledigten Anliegen öffnet es wieder (Status „In Bearbeitung“)",
+        "Keine Benachrichtigung an die einreichende Person – das würde eine Kontaktadresse voraussetzen und die Anonymität aufheben. Sie schaut selbst nach; die Ticket-Seite aktualisiert sich bei geöffnetem Fenster jede Minute",
+        "Grenzen – Eine Nachricht darf höchstens 2000 Zeichen lang sein, ein Ticket höchstens 50 Nachrichten enthalten. Eintrag löschen entfernt den Verlauf mit; der Code führt danach ins Leere",
+        "Eintrag ohne Ticket-Code – Anliegen, die vor Einführung der Ticket-Codes eingingen, haben keinen Rückkanal (die Verwaltung weist darauf hin)",
+    ])
+    pdf.bild("kummerkasten-ticket", "Ticket-Seite: Gespräch mit dem Betriebsrat (Aufruf mit Code, ohne Login)",
+             ausschnitt="mitte", vertikal=(0.08, 0.97), waagerecht=(0.28, 0.72))
+    pdf.bild("kummerkasten-verwaltung", "Interne Bearbeitung: Gespräch mit der einreichenden Person", hoehe_anteil=0.78)
+    pdf.hinweis(
+        "Der Ticket-Code wird nur als verschlüsselter Prüfwert (HMAC) gespeichert – auch wer die Datenbank oder "
+        "ein Backup liest, kann damit keine Tickets abrufen; verloren gegangene Codes lassen sich nicht "
+        "wiederherstellen. Wer den Code kennt, kann das Gespräch lesen: Er ist wie ein Passwort zu behandeln. "
+        "Der Abruf ist mengenbegrenzt, der Code steht im Link hinter dem „#“ und gelangt dadurch nie in "
+        "Server-Protokolle.", "info", "Datenschutz des Rückkanals")
 
     pdf.h2("5.5  Wahlen (Betriebsrat und JAV)")
     pdf.body(
@@ -2769,7 +2792,7 @@ def build():
             ["Benutzer", "Benutzer, PasswortReset, AuditLog"],
             ["Dokumente", "Dokument, DokumentVersion, Frist, Kommentar"],
             ["Sitzungen", "Sitzung, SitzungVersion, TOP, TopDokument, TopGast, SitzungWiderspruch, Anwesenheit, Beschluss, Abstimmung, ProtocolBlock, SitzungsVorlage"],
-            ["Zusammenarbeit", "Aufgabe (inkl. Vorhaben), Thema, ThemaBeteiligter, ThemaEintrag, Nachricht (inkl. Benachrichtigungen), KummerkastenEintrag"],
+            ["Zusammenarbeit", "Aufgabe (inkl. Vorhaben), Thema, ThemaBeteiligter, ThemaEintrag, Nachricht (inkl. Benachrichtigungen), KummerkastenEintrag, KummerkastenNachricht (Verlauf des Rückkanals)"],
             ["Wissen", "WissensEintrag, Ressource, GesetzParagraph"],
             ["Personal", "Mitarbeiter, Abteilung, GehaltsstufenEintrag, ZeitmodellEintrag, UeberstundenEintrag"],
             ["Weitere", "Betriebsvereinbarung, Qualifikation, Schulungstermin, SchulungsTeilnahme, "

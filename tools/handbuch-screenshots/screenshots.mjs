@@ -196,6 +196,8 @@ const AUFNAHMEN = [
   { datei: "einstellungen-gesetze",    pfad: "/einstellungen", js: klickText("Gesetzestexte", "button"), alsAdmin: true },
   { datei: "einstellungen-amtsuebergabe", pfad: "/einstellungen", js: klickText("Amtsübergabe", "button") },
   { datei: "kummerkasten-oeffentlich", pfad: "/kummerkasten", ohneLogin: true },
+  // Ticket-Seite (anonymer Rückkanal) mit dem festen Demo-Code aus backend/src/demo/kummerkasten-demo.ts
+  { datei: "kummerkasten-ticket", pfad: "/kummerkasten/ticket#K7F3XH", ohneLogin: true, warte: 2500 },
   { datei: "login",            pfad: "/login", ohneLogin: true },
 ];
 
