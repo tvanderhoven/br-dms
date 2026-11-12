@@ -26,6 +26,7 @@ import Fristenkalender from "./pages/Fristenkalender";
 import Gehaltstabelle from "./pages/Gehaltstabelle";
 import MitarbeiterUebersicht from "./pages/MitarbeiterUebersicht";
 import KummerkastenOeffentlich from "./pages/KummerkastenOeffentlich";
+import KummerkastenTicket from "./pages/KummerkastenTicket";
 import KummerkastenVerwaltung from "./pages/KummerkastenVerwaltung";
 import Betriebsvereinbarungen from "./pages/Betriebsvereinbarungen";
 import Gremien from "./pages/Gremien";
@@ -66,6 +67,7 @@ export default function App() {
       {/* Öffentlich, kein Login, kein Layout – Startseite für die Belegschaft */}
       <Route path="/"                   element={<KummerkastenOeffentlich />} />
       <Route path="/kummerkasten"       element={<KummerkastenOeffentlich />} />
+      <Route path="/kummerkasten/ticket" element={<KummerkastenTicket />} />
       <Route path="/login"              element={<Login />} />
       <Route path="/passwort-vergessen" element={<PasswortVergessen />} />
       <Route path="/passwort-reset"     element={<PasswortReset />} />

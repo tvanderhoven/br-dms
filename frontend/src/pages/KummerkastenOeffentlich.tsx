@@ -1,8 +1,12 @@
 import { useState, FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, Loader2, Lock } from "lucide-react";
+import { CheckCircle2, Copy, Loader2, Lock, Ticket } from "lucide-react";
 import { api } from "../lib/api";
 import BrDmsLogo from "../components/BrDmsLogo";
+
+function codeAnzeige(code: string): string {
+  return `${code.slice(0, 3)}-${code.slice(3)}`;
+}
 
 // ── Öffentliche Kummerkasten-Seite ──────────────────────────────────
 // Bewusst KEIN Login, KEIN App-Layout/Sidebar – komplett eigenständige
@@ -15,6 +19,8 @@ export default function KummerkastenOeffentlich() {
   const [senden, setSenden] = useState(false);
   const [fehler, setFehler] = useState("");
   const [gesendet, setGesendet] = useState(false);
+  const [ticketCode, setTicketCode] = useState("");
+  const [kopiert, setKopiert] = useState(false);
 
   async function absenden(e: FormEvent) {
     e.preventDefault();
@@ -22,11 +28,12 @@ export default function KummerkastenOeffentlich() {
     setFehler("");
     setSenden(true);
     try {
-      await api.kummerkasten.einreichen({
+      const antwort = await api.kummerkasten.einreichen({
         nachricht: nachricht.trim(),
         absenderName: absenderName.trim() || undefined,
         webseite: webseite || undefined,
       });
+      setTicketCode(antwort.ticketCode ?? "");
       setGesendet(true);
     } catch (err) {
       setFehler(err instanceof Error ? err.message : "Senden fehlgeschlagen. Bitte später erneut versuchen.");
@@ -75,10 +82,53 @@ export default function KummerkastenOeffentlich() {
           </p>
 
         {gesendet ? (
-          <div className="text-center py-6">
-            <CheckCircle2 className="text-green-600 mx-auto mb-3" size={40} />
-            <p className="font-medium text-gray-900">Danke, dein Anliegen wurde übermittelt.</p>
-            <p className="text-sm text-gray-500 mt-1">Der Betriebsrat sieht sich das an.</p>
+          <div className="py-6">
+            <div className="text-center">
+              <CheckCircle2 className="text-green-600 mx-auto mb-3" size={40} />
+              <p className="font-medium text-gray-900">Danke, dein Anliegen wurde übermittelt.</p>
+              <p className="text-sm text-gray-500 mt-1">Der Betriebsrat sieht sich das an.</p>
+            </div>
+
+            {ticketCode && (
+              <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                  <Ticket size={16} className="text-brand-red" />
+                  Dein Ticket-Code
+                </div>
+                <div className="text-center font-mono text-2xl font-semibold tracking-widest text-gray-900 select-all py-2">
+                  {codeAnzeige(ticketCode)}
+                </div>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  <strong>Jetzt notieren</strong> – der Code wird nur dieses eine Mal angezeigt und kann
+                  nicht wiederhergestellt werden. Damit kannst du jederzeit anonym nachsehen, ob der
+                  Betriebsrat geantwortet hat. Eine Benachrichtigung gibt es nicht.
+                </p>
+                <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(`${window.location.origin}/kummerkasten/ticket#${ticketCode}`);
+                        setKopiert(true);
+                        setTimeout(() => setKopiert(false), 2500);
+                      } catch {
+                        /* Zwischenablage nicht verfügbar – Code steht ja sichtbar da */
+                      }
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 border border-gray-300 bg-white hover:bg-gray-100 text-gray-800 text-sm font-medium py-2 px-3 rounded-lg transition-colors"
+                  >
+                    <Copy size={14} />
+                    {kopiert ? "Link kopiert!" : "Abruf-Link kopieren"}
+                  </button>
+                  <Link
+                    to={`/kummerkasten/ticket#${ticketCode}`}
+                    className="flex-1 text-center bg-brand-red hover:brightness-90 text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors"
+                  >
+                    Zur Ticket-Seite
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <form onSubmit={absenden} className="space-y-4">
@@ -150,6 +200,10 @@ export default function KummerkastenOeffentlich() {
         )}
 
         <p className="text-center text-sm text-gray-500 mt-6">
+          Schon ein Anliegen eingereicht?{" "}
+          <Link to="/kummerkasten/ticket" className="font-medium text-gray-900 hover:underline">Stand mit Ticket-Code abrufen</Link>
+        </p>
+        <p className="text-center text-sm text-gray-500 mt-2">
           Für BR-Mitglieder:{" "}
           <Link to="/login" className="font-medium text-gray-900 hover:underline">Anmelden</Link>
         </p>

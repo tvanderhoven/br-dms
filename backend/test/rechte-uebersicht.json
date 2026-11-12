@@ -255,6 +255,7 @@
   "POST /api/konto/zwei-faktor/start": "ANGEMELDET",
   "POST /api/kosten": "VORSITZ",
   "POST /api/kummerkasten": "ÖFFENTLICH",
+  "POST /api/kummerkasten/ticket": "ÖFFENTLICH",
   "POST /api/mitarbeiter": "MITGLIED",
   "POST /api/mitarbeiter/import": "VORSITZ",
   "POST /api/nachrichten": "ANGEMELDET",

@@ -17,10 +17,11 @@ type FilterTyp = "offen" | "alle";
 
 function EintragKarte({ eintrag, onAktualisieren, onLoeschen }: {
   eintrag: KummerkastenEintrag;
-  onAktualisieren: (id: string, daten: Partial<{ status: KummerkastenStatus; notiz: string | null }>) => void;
+  onAktualisieren: (id: string, daten: Partial<{ status: KummerkastenStatus; notiz: string | null; antwort: string | null }>) => void;
   onLoeschen: (id: string) => void;
 }) {
   const [notiz, setNotiz] = useState(eintrag.notiz ?? "");
+  const [antwort, setAntwort] = useState(eintrag.antwort ?? "");
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
@@ -66,6 +67,27 @@ function EintragKarte({ eintrag, onAktualisieren, onLoeschen }: {
           className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y bg-gray-50"
         />
       </div>
+
+      {eintrag.hatRueckkanal ? (
+        <div className="mt-3">
+          <label className="block text-xs font-medium text-gray-500 mb-1">
+            Antwort an den Absender – abrufbar über seinen Ticket-Code
+            {eintrag.antwortAm && <span className="text-gray-400"> · zuletzt {formatDatum(eintrag.antwortAm)}</span>}
+          </label>
+          <textarea
+            value={antwort}
+            onChange={e => setAntwort(e.target.value)}
+            onBlur={() => { if (antwort !== (eintrag.antwort ?? "")) onAktualisieren(eintrag.id, { antwort: antwort || null }); }}
+            rows={2}
+            placeholder="Der Absender sieht diese Antwort, wenn er sein Ticket abruft…"
+            className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-[rgb(var(--accent))] resize-y"
+          />
+        </div>
+      ) : (
+        <p className="mt-3 text-xs text-gray-400">
+          Kein Rückkanal – dieser Eintrag wurde eingereicht, bevor es Ticket-Codes gab.
+        </p>
+      )}
     </div>
   );
 }
@@ -86,7 +108,7 @@ export default function KummerkastenVerwaltung() {
     }
   }
 
-  async function aktualisieren(id: string, daten: Partial<{ status: KummerkastenStatus; notiz: string | null }>) {
+  async function aktualisieren(id: string, daten: Partial<{ status: KummerkastenStatus; notiz: string | null; antwort: string | null }>) {
     const aktualisiert = await api.kummerkasten.aktualisieren(id, daten);
     setEintraege(e => e.map(x => x.id === id ? aktualisiert : x));
   }

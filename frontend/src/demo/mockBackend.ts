@@ -869,6 +869,33 @@ export function handleDemoRequest(method: string, pathname: string, searchParams
     db.zeitmodelle.forEach(z => { if (z.id !== id) z.standard = false; });
   }
 
+  // ── Kummerkasten: anonymer Rückkanal per Ticket-Code ────────────────
+  // In der Demo liegt der Code im Klartext am Eintrag (kein Sicherheitsthema,
+  // nichts ist echt); das echte Backend speichert nur einen HMAC.
+  if (resource === "kummerkasten") {
+    if (method === "POST" && !id) {
+      const alphabet = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+      const ticketCode = Array.from({ length: 6 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join("");
+      db.kummerkasten.unshift({
+        id: zufallsId("demo-kk"), nachricht: body.nachricht ?? "", absenderName: body.absenderName ?? null,
+        status: "NEU", notiz: null, antwort: null, antwortAm: null, hatRueckkanal: true, ticketCode,
+        bearbeitetVon: null, bearbeitetAm: null, erstelltAm: jetzt(),
+      });
+      return json({ ok: true, ticketCode }, 201);
+    }
+    if (method === "POST" && id === "ticket") {
+      const gesucht = String(body.code ?? "").toUpperCase().replace(/[^0-9A-Z]/g, "");
+      const e = db.kummerkasten.find(x => x.ticketCode === gesucht);
+      if (!e) return json({ fehler: "Kein Eintrag zu diesem Code gefunden" }, 404);
+      return json({ status: e.status, erstelltAm: e.erstelltAm, antwort: e.antwort ?? null, antwortAm: e.antwortAm ?? null });
+    }
+    if (method === "PATCH" && id) {
+      const e = db.kummerkasten.find(x => x.id === id);
+      if (e && body.antwort !== undefined) e.antwortAm = body.antwort ? jetzt() : null;
+    }
+    // Liste/PATCH/DELETE weiter über das generische CRUD unten
+  }
+
   // ── Generische Ressourcen-CRUD für alles andere Bekannte ────────────
   if (resource && db[resource] !== undefined) {
     return genericCrud(db[resource], method, id, body, resource);

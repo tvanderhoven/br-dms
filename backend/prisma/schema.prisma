@@ -2003,6 +2003,16 @@ model KummerkastenEintrag {
   status          KummerkastenStatus @default(NEU)
   notiz           String?            // interne BR-Notiz, für den Absender nie sichtbar
 
+  // Rückkanal: 6-stelliger Ticket-Code, den der Einreicher beim Absenden einmalig
+  // angezeigt bekommt. Nur als HMAC gespeichert (lib/kummerkastenTicket.ts) –
+  // wer Datenbank oder Backup liest, kann damit keine fremden Tickets abrufen.
+  // Null bei Einträgen von vor der Einführung.
+  ticketCodeHash  String?            @unique @map("ticket_code_hash")
+  // Antwort des BR an den Einreicher – über den Ticket-Code ohne Login abrufbar,
+  // im Gegensatz zur internen Notiz
+  antwort         String?
+  antwortAm       DateTime?          @map("antwort_am")
+
   bearbeitetVonId String?            @map("bearbeitet_von_id")
   bearbeitetVon   Benutzer?          @relation(fields: [bearbeitetVonId], references: [id], onDelete: SetNull)
   bearbeitetAm    DateTime?          @map("bearbeitet_am")

@@ -789,9 +789,12 @@ export const api = {
   kummerkasten: {
     // Öffentlich, kein Login nötig – wird von der Public-Seite genutzt
     einreichen: (data: { nachricht: string; absenderName?: string; webseite?: string }) =>
-      request<{ ok: boolean }>("/api/kummerkasten", { method: "POST", body: JSON.stringify(data) }),
+      request<{ ok: boolean; ticketCode?: string }>("/api/kummerkasten", { method: "POST", body: JSON.stringify(data) }),
+    // Öffentlich: Status/Antwort zum Ticket-Code – Code im Body, nie in der URL
+    ticket: (code: string) =>
+      request<KummerkastenTicket>("/api/kummerkasten/ticket", { method: "POST", body: JSON.stringify({ code }) }),
     liste: () => request<KummerkastenEintrag[]>("/api/kummerkasten"),
-    aktualisieren: (id: string, data: Partial<{ status: KummerkastenStatus; notiz: string | null }>) =>
+    aktualisieren: (id: string, data: Partial<{ status: KummerkastenStatus; notiz: string | null; antwort: string | null }>) =>
       request<KummerkastenEintrag>(`/api/kummerkasten/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     loeschen: (id: string) => request<{ ok: boolean }>(`/api/kummerkasten/${id}`, { method: "DELETE" }),
   },
@@ -874,9 +877,20 @@ export interface KummerkastenEintrag {
   absenderName?: string | null;
   status: KummerkastenStatus;
   notiz?: string | null;
+  antwort?: string | null;
+  antwortAm?: string | null;
+  hatRueckkanal?: boolean;
   bearbeitetVon?: { id: string; name: string } | null;
   bearbeitetAm?: string | null;
   erstelltAm: string;
+}
+
+/** Öffentliche Sicht auf einen Eintrag per Ticket-Code – bewusst ohne Originalnachricht */
+export interface KummerkastenTicket {
+  status: KummerkastenStatus;
+  erstelltAm: string;
+  antwort: string | null;
+  antwortAm: string | null;
 }
 
 // ── Themenakte (Backend: routes/themenakte.ts, lib/themenakte.ts) ──
