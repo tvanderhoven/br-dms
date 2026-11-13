@@ -7,6 +7,45 @@ import { api, Nachricht, NachrichtGesendet, Benutzer, formatDatum } from "../lib
 
 type Ansicht = "eingang" | "gesendet";
 
+// ── Zeitliche Gruppierung ("Heute", "Diese Woche", "Dieser Monat", je Monat) ──
+function startDesTages(d: Date): Date {
+  const r = new Date(d);
+  r.setHours(0, 0, 0, 0);
+  return r;
+}
+function startDerWoche(d: Date): Date {
+  const r = startDesTages(d);
+  const diffZuMontag = (r.getDay() + 6) % 7;
+  r.setDate(r.getDate() - diffZuMontag);
+  return r;
+}
+function gruppenSchluessel(datum: Date, jetzt: Date): { key: string; label: string } {
+  if (startDesTages(datum).getTime() === startDesTages(jetzt).getTime()) {
+    return { key: "heute", label: "Heute" };
+  }
+  if (startDerWoche(datum).getTime() === startDerWoche(jetzt).getTime()) {
+    return { key: "woche", label: "Diese Woche" };
+  }
+  if (datum.getFullYear() === jetzt.getFullYear() && datum.getMonth() === jetzt.getMonth()) {
+    return { key: "monat", label: "Dieser Monat" };
+  }
+  return {
+    key: `${datum.getFullYear()}-${datum.getMonth()}`,
+    label: datum.toLocaleDateString("de-DE", { month: "long", year: "numeric" }),
+  };
+}
+function gruppiereNachNachrichten<T extends { erstelltAm: string }>(liste: T[]): { key: string; label: string; items: T[] }[] {
+  const jetzt = new Date();
+  const gruppen: { key: string; label: string; items: T[] }[] = [];
+  for (const n of liste) {
+    const { key, label } = gruppenSchluessel(new Date(n.erstelltAm), jetzt);
+    let g = gruppen.find(g => g.key === key);
+    if (!g) { g = { key, label, items: [] }; gruppen.push(g); }
+    g.items.push(n);
+  }
+  return gruppen;
+}
+
 const TYP_BADGE: Record<string, string> = {
   NORMAL:       "",
   TAGESORDNUNG: "bg-amber-100 text-amber-700",
@@ -27,6 +66,7 @@ export default function Posteingang() {
   const [ausgeklappt, setAusgeklappt]   = useState<string | null>(null);
   const [laden, setLaden]               = useState(true);
   const [composeOffen, setComposeOffen] = useState(false);
+  const [gruppenOffen, setGruppenOffen] = useState<Record<string, boolean>>({});
 
   useEffect(() => { ladeAlles(); }, []);
 
@@ -60,6 +100,7 @@ export default function Posteingang() {
 
   const liste    = ansicht === "eingang" ? nachrichten : gesendet;
   const ungelesen = nachrichten.filter(n => !n.gelesen).length;
+  const gruppen   = gruppiereNachNachrichten(liste);
 
   return (
     <div className="p-6">
@@ -124,8 +165,25 @@ export default function Posteingang() {
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {liste.map(n => {
+        <div className="space-y-5">
+          {gruppen.map((g, i) => {
+            const gruppeOffen = g.key in gruppenOffen ? gruppenOffen[g.key] : i === 0;
+            return (
+              <div key={g.key}>
+                <button
+                  onClick={() => setGruppenOffen(prev => ({ ...prev, [g.key]: !gruppeOffen }))}
+                  className="w-full flex items-center gap-2 mb-2 group"
+                >
+                  {gruppeOffen
+                    ? <ChevronUp className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                    : <ChevronDown className="w-3.5 h-3.5 text-gray-400 shrink-0" />}
+                  <span className="text-sm font-semibold text-gray-600">{g.label}</span>
+                  <span className="text-xs text-gray-400">({g.items.length})</span>
+                  <div className="flex-1 border-t border-gray-200" />
+                </button>
+                {gruppeOffen && (
+                  <div className="space-y-2">
+                    {g.items.map(n => {
             const istGelesen = "gelesen" in n ? n.gelesen : true;
             const offen      = ausgeklappt === n.id;
             const datum      = new Date(n.erstelltAm).toLocaleString("de-DE", {
@@ -222,6 +280,11 @@ export default function Posteingang() {
                         Gelesen am {new Date(n.gelesenAm).toLocaleString("de-DE")}
                       </p>
                     )}
+                  </div>
+                )}
+              </div>
+                    );
+                  })}
                   </div>
                 )}
               </div>
