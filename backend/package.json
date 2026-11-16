@@ -21,9 +21,9 @@
     "@fastify/multipart": "^10.1.6",
     "@fastify/rate-limit": "^11.2.1",
     "@kenjiuno/msgreader": "^1.29.0",
-    "@prisma/client": "^5.14.0",
+    "@prisma/client": "^7.10.1",
     "adm-zip": "^0.6.1",
-    "chokidar": "^5.0.0",
+    "chokidar": "^6.0.0",
     "fastify": "^5.12.5",
     "mailparser": "^3.9.37",
     "node-cron": "^4.6.0",
@@ -40,7 +40,7 @@
     "@types/pdf-parse": "^1.1.5",
     "@types/pdfkit": "^0.17.7",
     "@types/qrcode": "^1.5.6",
-    "prisma": "^5.14.0",
+    "prisma": "^7.10.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   }
