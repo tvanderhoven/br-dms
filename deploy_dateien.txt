@@ -13,6 +13,7 @@ backend/Dockerfile
 backend/docker-entrypoint.sh
 backend/package.json
 backend/package-lock.json
+backend/prisma.config.ts
 backend/tsconfig.json
 
 frontend/src *
