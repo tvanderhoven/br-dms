@@ -9,7 +9,8 @@ WORKDIR /build
 COPY package.json package-lock.json* ./
 RUN npm install
 
-COPY tsconfig.json ./
+COPY tsconfig.json   ./
+COPY prisma.config.ts ./
 COPY src            ./src
 COPY prisma         ./prisma
 
@@ -28,6 +29,7 @@ COPY --from=builder /build/node_modules/.prisma  ./node_modules/.prisma
 COPY --from=builder /build/node_modules/@prisma  ./node_modules/@prisma
 COPY --from=builder /build/dist                  ./dist
 COPY prisma                                       ./prisma
+COPY prisma.config.ts                             ./prisma.config.ts
 
 RUN mkdir -p /data/storage /data/logs
 
