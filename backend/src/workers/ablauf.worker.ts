@@ -7,6 +7,7 @@
  * jeden Monats.
  */
 
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, Role } from "@prisma/client";
 import cron from "node-cron";
 import { sendeAblaufZusammenfassung, AblaufEintrag } from "../lib/mailer.js";
@@ -28,7 +29,7 @@ const ZEITMODELL_INCLUDE = {
 };
 
 export class AblaufWorker {
-  private readonly prisma = new PrismaClient();
+  private readonly prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 
   async run(): Promise<AblaufWorkerErgebnis> {
     console.log(`[AblaufWorker] Start: ${new Date().toISOString()}`);

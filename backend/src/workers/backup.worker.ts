@@ -6,6 +6,7 @@
  * Läuft montags um 07:00 Uhr.
  */
 
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, Role } from "@prisma/client";
 import cron from "node-cron";
 import { ermittleBackupSaetze } from "../lib/backups.js";
@@ -31,7 +32,7 @@ function ermittleWarnung(pfadLesbar: boolean, saetze: { zeitpunkt: Date; vollsta
 }
 
 export class BackupWorker {
-  private readonly prisma = new PrismaClient();
+  private readonly prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 
   async run(): Promise<BackupWorkerErgebnis> {
     console.log(`[BackupWorker] Start: ${new Date().toISOString()}`);

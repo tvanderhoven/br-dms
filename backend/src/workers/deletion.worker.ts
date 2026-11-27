@@ -15,6 +15,7 @@
  * sie sind für die DSGVO-Nachweispflicht erforderlich.
  */
 
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, DokumentStatus, AuditAktion } from "@prisma/client";
 import { abgelaufeneThemenLoeschen } from "../lib/themenakte.js";
 import path from "node:path";
@@ -56,7 +57,7 @@ export class DeletionWorker {
   private readonly batchGroesse: number;
 
   constructor(opts?: { batchGroesse?: number }) {
-    this.prisma       = new PrismaClient();
+    this.prisma       = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
     this.storagePath  = process.env.STORAGE_PATH ?? "/data/storage";
     this.batchGroesse = opts?.batchGroesse ?? 50;
   }

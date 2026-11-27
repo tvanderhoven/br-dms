@@ -26,11 +26,11 @@ echo "[entrypoint] Daten-Migration (ist_zeitarbeiter -> beschaeftigungsart, fall
 for datei in prisma/data-migrations/*.sql; do
   [ -f "$datei" ] || continue
   echo "[entrypoint]   -> $datei"
-  su-exec ${PUID}:${PGID} npx prisma db execute --file "$datei" --schema prisma/schema.prisma
+  su-exec ${PUID}:${PGID} npx prisma db execute --file "$datei"
 done
 
 echo "[entrypoint] Schema-Sync (prisma db push)..."
-su-exec ${PUID}:${PGID} npx prisma db push --skip-generate
+su-exec ${PUID}:${PGID} npx prisma db push
 
 echo "[entrypoint] Starte Server..."
 exec su-exec ${PUID}:${PGID} node dist/index.js
