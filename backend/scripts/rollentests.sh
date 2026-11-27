@@ -62,11 +62,11 @@ mkdir -p "$STORAGE_PATH" "$BACKUP_PATH"
 echo "[rollentests] Daten-Migrationen (gleiche Reihenfolge wie docker-entrypoint.sh) …"
 for datei in prisma/data-migrations/*.sql; do
   [ -f "$datei" ] || continue
-  npx prisma db execute --file "$datei" --schema prisma/schema.prisma >/dev/null
+  npx prisma db execute --file "$datei" >/dev/null
 done
 
 echo "[rollentests] Schema anlegen …"
-npx prisma db push --skip-generate --accept-data-loss >/dev/null
+npx prisma db push --accept-data-loss >/dev/null
 
 echo "[rollentests] Typprüfung …"
 npx tsc -p test/tsconfig.json

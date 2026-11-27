@@ -6,6 +6,7 @@
  * (der allererste Import eines Gesetzes zählt nicht als "Änderung").
  */
 
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, Role, NachrichtTyp } from "@prisma/client";
 import cron from "node-cron";
 import { alleGesetzeAktualisieren, GesetzAktualisierenErgebnis } from "../services/gesetze.service.js";
@@ -17,7 +18,7 @@ export interface GesetzeWorkerErgebnis {
 }
 
 export class GesetzeWorker {
-  private readonly prisma = new PrismaClient();
+  private readonly prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 
   async run(): Promise<GesetzeWorkerErgebnis> {
     console.log(`[GesetzeWorker] Start: ${new Date().toISOString()}`);

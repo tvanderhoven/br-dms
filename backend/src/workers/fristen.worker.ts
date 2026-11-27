@@ -1,3 +1,4 @@
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, FristStatus, Role } from "@prisma/client";
 import cron from "node-cron";
 import { sendeFristenZusammenfassung } from "../lib/mailer.js";
@@ -21,7 +22,7 @@ export interface FristenWorkerErgebnis {
 }
 
 export class FristenWorker {
-  private readonly prisma = new PrismaClient();
+  private readonly prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 
   async run(): Promise<FristenWorkerErgebnis> {
     console.log(`[FristenWorker] Start: ${new Date().toISOString()}`);

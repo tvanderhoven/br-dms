@@ -1,8 +1,9 @@
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, DokumentStatus } from "@prisma/client";
 import cron from "node-cron";
 
 export class WiedervorlageWorker {
-  private readonly prisma = new PrismaClient();
+  private readonly prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 
   async run(): Promise<void> {
     const bisEndeHeute = new Date();
